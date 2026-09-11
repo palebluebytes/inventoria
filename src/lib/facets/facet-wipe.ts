@@ -22,6 +22,13 @@
  * it, so this reads that declaration instead of asking anyone to keep a prefix
  * in step with a name.
  *
+ * It asks `logs/channels.ts` rather than the facility itself, for the same
+ * reason the rest of that derivation is not authored: a channel is registered
+ * by its module being imported, so a list read straight out of the facility is
+ * a list of whatever some other module happened to reach (#221). A wipe that
+ * missed a channel would report success having left records behind — the
+ * failure mode this whole file is written against.
+ *
  * The ledger half is `db/db.core.ts`'s: `deleteDatomsByEntityPrefix` is the
  * third sanctioned destructive operation and lives with the other two. This
  * module decides *what* to hand it, and takes the `localStorage` side itself,
@@ -29,7 +36,8 @@
  */
 
 import type { EntityCensus, EntityCensusGroup } from "../db/db.core";
-import { channelsOfFacet, channelStorageKey } from "../logs/log-facility";
+import { channelsOfFacet } from "../logs/channels";
+import { channelKeys } from "../logs/log-keyspace";
 import {
   TRACKED_DOMAINS,
   domainsOf,
@@ -38,6 +46,7 @@ import {
   storagePrefixesOf,
   type FacetId,
 } from "./registry";
+import { appError } from "../logs/app-log";
 
 /**
  * The census groups the confirmation asks for: one per Tracked Domain.
@@ -69,8 +78,25 @@ export function domainCensusGroups(): EntityCensusGroup[] {
  */
 export function facetStorageKeys(facetId: FacetId): string[] {
   const prefixes = storagePrefixesOf(facetId);
-  const channelKeys = new Set(
-    channelsOfFacet(facetId).map((channel) => channelStorageKey(channel))
+  const logKeys = new Set(
+    channelsOfFacet(facetId)
+      // A **jar-wide** channel is in every Facet's card and every Facet's
+      // export, and in no Facet's wipe (ADR-0092 §13). Both halves are ADR-0080
+      // clause (b) applied to a channel every Facet writes: a Rations user's
+      // OPFS failure is written by Rations' running code, so Rations governs
+      // its disclosure — but this control is ADR-0079 §1's *delete all my food
+      // data*, and the app's own narration is not that. Deletion is
+      // irreversible, so it stays jar-wide while visibility follows the writer.
+      .filter((channel) => channel.domain !== null)
+      // Every key the channel claims, asked of the module that builds them
+      // (#220) rather than named here: its records, and the counters that
+      // outlive them (ADR-0092 §9). A permanent counter is the part of a
+      // Facet's data that most needs to go, and it is the one part no cap, no
+      // budget and no redaction would ever have taken. Asked rather than
+      // enumerated, because #311 already found once that a key nobody derived
+      // is a key the wipe reports success without taking — and a fifth key
+      // shape is then this wipe's the day it is added.
+      .flatMap((channel) => channelKeys(channel.name))
   );
   try {
     if (typeof localStorage === "undefined") return [];
@@ -78,7 +104,7 @@ export function facetStorageKeys(facetId: FacetId): string[] {
     for (let i = 0; i < localStorage.length; i++) {
       const key = localStorage.key(i);
       if (key === null) continue;
-      if (prefixes.some((p) => key.startsWith(p)) || channelKeys.has(key)) {
+      if (prefixes.some((p) => key.startsWith(p)) || logKeys.has(key)) {
         keys.push(key);
       }
     }
@@ -233,7 +259,7 @@ export async function runFacetWipe(
   try {
     await seams.reclaimSpace();
   } catch (error) {
-    console.error("The wipe could not reclaim the space it freed", error);
+    appError("The wipe could not reclaim the space it freed", error);
     reclaimed = false;
   }
 

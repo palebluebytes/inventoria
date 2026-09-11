@@ -1,6 +1,8 @@
+import type { ScanAttempt, ScanOutcome } from "../logs/scan-log";
 import {
   lookupBarcode,
   OffUnreachableError,
+  ProductNotFoundError,
   type OffPayload,
 } from "./open-food-facts";
 
@@ -49,15 +51,54 @@ const realSleep = (ms: number): Promise<void> =>
   new Promise((resolve) => setTimeout(resolve, ms));
 
 /**
- * The clock {@link lookupBarcodeWithRetry} runs on, injected rather than reached
- * for (`CODING_STANDARDS.md` §6) so a test reads back the wait that was asked
- * for instead of serving it.
+ * What {@link lookupBarcodeWithRetry} takes besides the barcode: the clock it
+ * runs on, injected rather than reached for (`CODING_STANDARDS.md` §6) so a test
+ * reads back the wait that was asked for instead of serving it, and the observer
+ * that hears how many times it asked.
+ *
+ * It was `RetryClock`, and it is renamed rather than left carrying a name that
+ * covers half of what it holds. Every field is still optional, so a caller that
+ * wants none of it passes nothing.
  */
-export interface RetryClock {
+export interface RetryOptions {
   /** Waits `ms` before resolving. Defaults to a real timer. */
   sleep?: (ms: number) => Promise<void>;
   /** Milliseconds since an arbitrary epoch. Defaults to `Date.now`. */
   now?: () => number;
+  /**
+   * Told how many times this lookup asked, **exactly once**, before the call
+   * returns or rethrows.
+   *
+   * An observer rather than a third member of the return type, because the
+   * policy either hands back a payload or throws and neither path can carry a
+   * fourth thing without changing what every existing caller reads. It exists
+   * because `gate_skipped` is otherwise invisible to everybody: the deadline
+   * declining a second ask looks exactly like a first ask that failed.
+   *
+   * Called from a `finally`, so a caller reading it can rely on having heard.
+   */
+  onAttempt?: (attempt: ScanAttempt) => void;
+}
+
+/**
+ * What a **failed** barcode lookup ended as, in the log's vocabulary
+ * (ADR-0071 §3). Named for the failure it reads: `found` is the fourth
+ * `ScanOutcome` and this can never return it, because a lookup that found the
+ * product threw nothing to classify.
+ *
+ * **Read off #204's error classes and never off a status.** `lookupBarcode`
+ * decides which class a response is, once, in `serviceDidNotAnswer`; a second
+ * list of statuses here would be free to disagree with it, and #204's whole
+ * point is that one function decides.
+ *
+ * The `else` is deliberately everything else, and it is the same `else` the
+ * Scan tab's own banner takes: a 400, a 403, and a transport-level rejection
+ * where nothing was asked at all. `ScanOutcome` documents what that costs.
+ */
+export function scanOutcomeOfFailure(failure: unknown): ScanOutcome {
+  if (failure instanceof ProductNotFoundError) return "absent";
+  if (failure instanceof OffUnreachableError) return "unreachable";
+  return "refused";
 }
 
 /**
@@ -89,15 +130,28 @@ export interface RetryClock {
  */
 export async function lookupBarcodeWithRetry(
   barcode: string,
-  { sleep = realSleep, now = () => Date.now() }: RetryClock = {}
+  { sleep = realSleep, now = () => Date.now(), onAttempt }: RetryOptions = {}
 ): Promise<OffPayload> {
   const startedAt = now();
+  // Held rather than returned, and reported from the `finally` below: the three
+  // states are reached on three different paths — two of which throw — and a
+  // variable is the only shape that reports on all of them exactly once without
+  // the same call appearing three times.
+  let attempt: ScanAttempt = "single";
   try {
-    return await lookupBarcode(barcode);
-  } catch (failure) {
-    if (!(failure instanceof OffUnreachableError)) throw failure;
-    if (now() - startedAt + RETRY_BACKOFF_MS > RETRY_DEADLINE_MS) throw failure;
-    await sleep(RETRY_BACKOFF_MS);
-    return await lookupBarcode(barcode);
+    try {
+      return await lookupBarcode(barcode);
+    } catch (failure) {
+      if (!(failure instanceof OffUnreachableError)) throw failure;
+      if (now() - startedAt + RETRY_BACKOFF_MS > RETRY_DEADLINE_MS) {
+        attempt = "gate_skipped";
+        throw failure;
+      }
+      attempt = "retried";
+      await sleep(RETRY_BACKOFF_MS);
+      return await lookupBarcode(barcode);
+    }
+  } finally {
+    onAttempt?.(attempt);
   }
 }

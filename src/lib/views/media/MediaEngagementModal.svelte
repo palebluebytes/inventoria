@@ -8,6 +8,7 @@
   import Select from "../../ui/Select.svelte";
   import Textarea from "../../ui/Textarea.svelte";
   import BottomSheet from "../../ui/BottomSheet.svelte";
+  import { appError } from "../../logs/app-log";
 
   let {
     media,
@@ -52,7 +53,7 @@
       isEnriching = true;
       enrichMediaTwin(media.id)
         .catch((err) => {
-          console.error("Failed to enrich book details:", err);
+          appError("Failed to enrich book details", err);
         })
         .finally(() => {
           isEnriching = false;

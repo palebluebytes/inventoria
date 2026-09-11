@@ -1,0 +1,21 @@
+{
+  // The second root the no-transport gate walks from: the log feature's screen
+  // half, where the one module that gets bytes out of the app lives.
+  //
+  // It exists because the closure runs the wrong way for the obvious root.
+  // `LogReviewSheet.svelte` imports the facility, not the reverse, so a walk
+  // that starts at `log-facility.ts` — however rigorous — walks AWAY from the
+  // export rather than towards it (#213 §2). Starting here reaches it, and
+  // reaches anything a future vehicle imports to help.
+  //
+  // A directory rather than `export-target.ts` by name, for the reason
+  // `worker-closure-check.mjs` gives about the relay: splitting a vehicle
+  // across a second module must not silently leave half of it ungated. Svelte
+  // components are not in it because `tsc` cannot read them — the gate scans
+  // those two directories as text as well, which is the arm that covers them.
+  "extends": "./tsconfig.app.json",
+  "compilerOptions": {
+    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.logs-views.tsbuildinfo"
+  },
+  "include": ["src/lib/views/logs/**/*.ts"]
+}

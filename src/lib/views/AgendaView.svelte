@@ -22,6 +22,7 @@
   import ScheduleSection from "./habits/ScheduleSection.svelte";
   import HabitsSection from "./habits/HabitsSection.svelte";
   import BottomSheet from "../ui/BottomSheet.svelte";
+  import { appError } from "../logs/app-log";
 
   let { dbReady }: { dbReady: boolean } = $props();
 
@@ -146,7 +147,7 @@
         eventTimestampForDay(selected_date_str)
       );
     } catch (e) {
-      console.error(e);
+      appError("logging a habit occurrence from the agenda failed", e);
     }
   }
 
@@ -155,7 +156,7 @@
     try {
       await calEventsStore.logOccurrence(calEventId, slotId);
     } catch (e) {
-      console.error(e);
+      appError("recording a calendar occurrence failed", e);
     }
   }
 

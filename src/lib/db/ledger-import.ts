@@ -19,6 +19,7 @@
  */
 
 import { isLedgerInteger, type LedgerRow } from "./db.core";
+import { describeMarker } from "./describe-value";
 import {
   LEDGER_EXPORT_ARTIFACT,
   LEDGER_EXPORT_SCHEMA_VERSION,
@@ -56,6 +57,37 @@ export class LedgerImportRefusedError extends Error {
     this.lineNumber = lineNumber;
     this.reason = reason;
   }
+}
+
+/**
+ * How much of a failure's own words the import screen will repeat (#227).
+ *
+ * Long enough that every refusal this module raises fits whole — they are
+ * written to be read, and a cut one would be worse than none.
+ */
+export const IMPORT_FAILURE_MAX_CHARS = 200;
+
+/**
+ * What the import screen says when the import **failed** rather than being
+ * refused, bounded (#227).
+ *
+ * A refusal is this module's own sentence and needs no bounding: every one is
+ * built here, from field names and line numbers, and none of them reaches for
+ * what a row said. A failure is the opposite — it arrives from SQLite, from the
+ * file picker, from the platform, or from a `throw` somewhere that has not been
+ * held to that rule — and the screen renders it. The two throws in `db.core.ts`
+ * that used to serialise a whole datom are fixed at the source, which is where
+ * a message is bounded properly; this is the backstop for the ones that are not
+ * ours to fix, and it bounds length rather than content, which is all a reader
+ * of an arbitrary message can honestly do.
+ */
+export function describeImportFailure(err: unknown): string {
+  const said = (err instanceof Error ? err.message : String(err)).trim();
+  if (said.length === 0)
+    return "The import failed, and the failure did not say why.";
+  return said.length <= IMPORT_FAILURE_MAX_CHARS
+    ? said
+    : `${said.slice(0, IMPORT_FAILURE_MAX_CHARS)}…`;
 }
 
 /**
@@ -126,7 +158,10 @@ export function readImportEnvelope(line: string): LedgerExportEnvelope {
 
   if (raw.artifact !== LEDGER_EXPORT_ARTIFACT) {
     throw new LedgerImportRefusedError(
-      `this is not an Inventoria ledger export. Line one says "artifact" is ${JSON.stringify(raw.artifact)}, and an export says ${JSON.stringify(LEDGER_EXPORT_ARTIFACT)}.`
+      // Quoted back only while it is marker-sized (#227). Naming it is what
+      // lets this refusal tell a meal payload from another program's file, and
+      // line one is whatever the user picked, so the text is unbounded.
+      `this is not an Inventoria ledger export. Line one says "artifact" is ${describeMarker(raw.artifact)}, and an export says ${JSON.stringify(LEDGER_EXPORT_ARTIFACT)}.`
     );
   }
 

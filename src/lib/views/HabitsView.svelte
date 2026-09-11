@@ -7,6 +7,7 @@
   import HabitStats from "./habits/HabitStats.svelte";
   import HabitItem from "./habits/HabitItem.svelte";
   import { localDateStrToDate, eventTimestampForDay } from "../habits/habits";
+  import { appError } from "../logs/app-log";
 
   let { dbReady }: { dbReady: boolean } = $props();
 
@@ -164,7 +165,7 @@
         clickTime
       );
     } catch (e: any) {
-      console.error(e);
+      appError("logging a habit occurrence failed", e);
     }
   }
 </script>

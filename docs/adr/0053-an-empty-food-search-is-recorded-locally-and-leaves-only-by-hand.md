@@ -6,6 +6,7 @@
 **Amended by:** [ADR-0054](0054-one-local-log-facility-and-no-channel-without-a-reader.md), which makes §3's record the first channel of a shared local log facility rather than a store of its own
 **Amended by:** the second Amendment below, which replaces §7's rate-over-a-window with two self-triggering counts, since the app is not yet in use and a window presumes a user
 **Amended by:** [ADR-0064](0064-the-ledger-leaves-as-raw-datoms-one-json-object-per-line.md) §4, which retires §6's clause on the ledger export: the log never became a ledger namespace, so the exclusion needed no code
+**Amended by:** [ADR-0092](0092-a-local-log-records-completely-at-a-level-and-the-export-is-the-protection.md) and the third Amendment below, which record every session rather than only the empty ones, put a level on the entry, and delete §6's sensitivity claim rather than softening it
 **Implemented:** #149 `f955c40` (the channel, the session and the bar), `c31b3df` (the rescue signal the outcome needs), `b990903` (the count, the recording switch and the clear), `b9460df` (§7 evaluated on the write, §4's re-read wired to a reader). [#303](https://github.com/palebluebytes/inventoria/issues/303) then withdrew that last clause under ADR-0080 §6: the readout it fed is gone, so nothing in the app evaluates the bar and §7's counts are read off an exported channel instead. The recording, the cap and the export are untouched.
 
 ## Context
@@ -402,3 +403,135 @@ other. A question that needs usage data is open until there is usage data.
 a corpus disappoints most, so a log that starts collecting on the first real day
 captures the best evidence there will be. An instrument added later starts blind to
 exactly that period.
+
+## Amendment (2026-09-03): every session is recorded, the entry carries a level, and the sensitivity claim is withdrawn
+
+[ADR-0092](0092-a-local-log-records-completely-at-a-level-and-the-export-is-the-protection.md)
+turns the Log facility from an instrument into a level-based log that records
+completely, with consent at the export as the whole of the protection, and this
+Amendment states what it amends in ADR-0053. Four
+of this record's seven sections stand exactly as written — §1's consent model, §2's _one
+entry per session_, §5, and §7's bar and its numbers. This amendment states the rest.
+
+### §2's trigger goes: every session is recorded
+
+§2 reads "one entry is appended per session, **and only if that session ever reached an
+empty result**". The second clause is struck.
+
+The unit does not change and neither does the argument for it: one entry per settled
+session, never one per search, for the reason §2 gives. What changes is which sessions
+leave an entry. A log that omits the successful searches cannot be debugged against, and
+it cannot report a rate: §7's counts have never had a denominator, because a search that
+found its food left no trace at all. This is the change that makes ADR-0049's fallback
+and #142's tier measurable as _proportions_ rather than as raw counts.
+
+`SearchOutcome` therefore gains a fourth member for a session that found its food.
+ADR-0092 §5.1 puts it at INFO, alongside `rescued_by_vocabulary` and an abandoned
+session, and leaves the two bar-eligible outcomes at WARN.
+
+### §3's entry shape moves, and the version moves with it
+
+The four fields stay. Three things join them:
+
+- **A level**, which rides on the record's envelope rather than inside the entry
+  (ADR-0092 §3.1), so that the facility can shed and filter a record its channel cannot
+  parse.
+- **The per-fire sequence**, captured only at the `Noisy` dial position: the debounced
+  searches on the way to the final query, as a sequence **inside the one session record**
+  rather than as one record each. One record stays one session, so this section's unit,
+  the entry count, redaction and the export all keep meaning what they mean. A fire
+  stores a **prefix length** and a result count, not the query text again (ADR-0092 §7),
+  and the sequence keeps its first three and last seven with a count of what was dropped.
+- **A truncation flag.** The query is bounded at 48 characters **at capture**, never on
+  the input: a user types whatever they like and the search answers it; what is bounded
+  is what gets recorded.
+
+The channel's `version` moves with the shape, which is the first real use of the envelope
+[#215](https://github.com/palebluebytes/inventoria/issues/215) specified. Records of the
+older shape are kept, unparseable, and leave the ring by age like every other record.
+They are never deleted by a reader that cannot read them.
+
+§4 is untouched: flags are still stored as captured and still recomputed at read against
+the current map, and that is exactly why the bar's numerator may not be a write-time
+counter.
+
+### The sensitivity claim is withdrawn
+
+The Context above rejects off-device query telemetry partly on this sentence:
+
+> a food search is a record of what someone was thinking about eating — for a
+> health-adjacent app that can imply a condition, a pregnancy or a disorder
+
+**That claim is withdrawn.** It is the sentence ADR-0054 §1's `sensitivity: "personal"`
+rested on, and ADR-0092 §11.1 deletes the concept rather than replacing it. Leaving the
+claim standing over a record that now ships the query text, the correction and the
+keystroke sequence with no field-level protection at all would be worse than not having
+made it.
+
+The text above is left in place, because this record is a historical document and
+`docs/adr/README.md` puts corrections at the bottom. What replaces the claim is
+ADR-0092 §11: no transport the user did not perform, the payload that leaves is the
+payload that was reviewed, and the review shows the byte-exact bytes. **The fields
+themselves stay.** `query` and `corrected_by` are what §4's flags are computed from and
+what [#123](https://github.com/palebluebytes/inventoria/issues/123) exists to read.
+
+The off-device rejection itself stands on its remaining ground, which is ADR-0047 §1: the
+corpus is bundled and the search runs offline so that nothing leaves the device.
+
+### §1 is corrected to default-on with a control
+
+§1 says empty searches are "recorded without a toggle", and then two paragraphs later
+gives Settings an off switch for recording. The shipped app has the switch
+(`setChannelRecording`, `inventoria_logs_paused`), rendered per channel. The rule is
+**default-on with a control**: "nothing is disclosed by recording" justifies the
+_default_, and never the absence of a control.
+
+### §7 keeps its numbers, and gains three notes
+
+**The numbers do not move.** Six mid-phrase sessions to build, forty settled empty
+sessions to close. §7's own sentence is that "a threshold chosen once the numbers are in
+is a rationalisation", and moving a threshold in the same act that first makes it
+measurable is that, even though the change would be an improvement.
+
+**A rate is measurable for the first time**, and #142 may **re-pre-register before
+reading it**. What it may not do is read the new proportion and then choose a bar for it.
+
+**The numerator is an allow-list, and this is a correction rather than a note.** §7's
+denominator was expressed in code as _settled and not `rescued_by_vocabulary`_, which was
+equivalent only because the outcome union had three members and no `found`. With every
+session recorded that filter counts every successful search into the settled-empty
+denominator, and #142 closes as a settled no on a population of successes — silently, and
+in the direction of closing a question. The rule is and always was **`nothing` or
+`resolved_after_correction`**, and it must be written that way round. The function that
+held the old form was deleted by ADR-0080 §6 along with the in-app readout, so this is a
+correction to the record before it is a correction to any code, and whatever expresses it
+next is pinned by a test that adds a fourth outcome member and asserts the denominator
+does not move.
+
+**The denominator is a lifetime counter, not the ring, and the numerator has nothing.**
+ADR-0092 §6 keeps the last 200 records and drops the oldest, so the ring is a recency
+window: a count taken over it is the count of the last 200 sessions wearing a lifetime
+label. The session count is therefore read from a counter that is never shed, which is
+ADR-0071 §5's existing rule applied here rather than a new one.
+
+The **numerator cannot be a counter**, because §4 above requires the vocabulary flags to
+be recomputed at read and a write-time tally would freeze them as of the write. So the
+mid-phrase count is read from entries the ring will eventually drop. A shed order that
+preserved empty sessions was designed and rejected in ADR-0092 §6.1, on the ground that
+it spoils the denominator in exchange, and because a log that keeps its errors while
+discarding the records around them is a log with no story in it. **What replaces it is
+timing:** the bar is folded by a person over an export, and taking that export while the
+sessions are still in the ring is part of the fold. ADR-0080 §6 handed them the fold;
+this hands them the deadline with it.
+
+### What this costs
+
+**`search` becomes a standing record of what somebody searches for.** It no longer ends
+when its question is answered, and it now keeps the successes too. ADR-0054's Amendment
+forbade exactly this and ADR-0092 knowingly gives that prohibition up; the mitigation is
+its §11 and nothing else.
+
+**The channel is bigger.** At `Noisy`, with a 48-character query and its fire sequence,
+200 sessions are about 153 KiB of the facility's 256 KiB budget, worst case. The default
+dial position is `Normal`, where no fire sequence is written at all, so that is a cost
+somebody switches on rather than one this record imposes.

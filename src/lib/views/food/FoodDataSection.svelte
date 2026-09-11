@@ -61,6 +61,7 @@
     runFacetWipe,
     type FacetWipePlan,
   } from "../../facets/facet-wipe";
+  import { appError } from "../../logs/app-log";
 
   // The Facet these controls belong to. Rations, from either entry point: the
   // root opens this same sheet from the Food tab's gear, and a wipe scoped to
@@ -98,7 +99,7 @@
         // shut and says why, rather than falling back to a sentence about
         // policy.
         unreadable = true;
-        console.error("Failed to census the ledger", err);
+        appError("Failed to census the ledger", err);
       });
   }
 
@@ -147,7 +148,8 @@
         deleteDatoms: (prefixes) => dbClient.facetWipe(prefixes),
         reclaimSpace: () => dbClient.vacuum(),
       });
-      if (ended.kind === "failed") console.error(ended.error);
+      if (ended.kind === "failed")
+        appError("the food data wipe failed", ended.error);
       outcome = { ok: ended.kind === "wiped", message: ended.message };
       confirming = false;
     } finally {

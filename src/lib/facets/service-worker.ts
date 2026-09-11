@@ -20,6 +20,7 @@
  */
 import type { Workbox } from "workbox-window";
 import type { Facet } from "./registry";
+import { appWarn } from "../logs/app-log";
 
 /** The handle a caller keeps: whether an update is waiting, and how to take it. */
 export interface FacetRegistration {
@@ -74,7 +75,7 @@ export function registerFacetServiceWorker(
   // it must never reject into the page: this runs during a component's setup,
   // and an unhandled throw here would take the shell down with it.
   void start().catch((error) => {
-    console.warn(`[${facet.name}] service worker registration failed`, error);
+    appWarn(`[${facet.name}] service worker registration failed`, error);
   });
 
   return {

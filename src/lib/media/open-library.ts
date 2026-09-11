@@ -79,6 +79,10 @@ export async function searchOpenLibrary(
   }
 }
 
+// The identifier is named back in the four refusals below, and stays there
+// (checked under #227). It is what the user asked to look up, echoed to the
+// person who typed or scanned it, and it is the whole content of "not found";
+// nothing here reads the ledger, so no datom and no entity id can reach it.
 export const openLibraryIsbnAdapter: IngestionAdapter<OpenLibraryBook> = {
   scheme: "isbn",
   map: mapOpenLibraryBookToPayload,

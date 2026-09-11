@@ -114,6 +114,21 @@ describe("the artifact this reader answers to", () => {
     ).toContain("something-else");
   });
 
+  // #227. Naming the marker is what makes the refusal above act-on-able, and
+  // this payload came off the relay from another device, so line one is text of
+  // any length and the receive door renders what this says.
+  it("describes an artifact too long to be a marker instead of quoting it", () => {
+    const said = refusal(
+      payloadOf(["event:consume_a"], oneFoodMeal(), {
+        artifact: "N".repeat(200_000),
+      })
+    ).message;
+
+    expect(said).toContain("text of 200000 characters");
+    expect(said).not.toContain("NNN");
+    expect(said.length).toBeLessThan(200);
+  });
+
   it("says nothing about the payload being newer, which it cannot know", () => {
     const message = refusal(
       payloadOf(["event:consume_a"], oneFoodMeal(), {

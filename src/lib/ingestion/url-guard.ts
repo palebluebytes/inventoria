@@ -197,6 +197,10 @@ export async function guardedFetch(
     }
     const guard = checkParsedUrl(next);
     if (!guard.ok) {
+      // Checked under #227 and kept as it is: a reason is this module's own
+      // sentence carrying a scheme or a hostname, both bounded by the URL
+      // grammar and both the thing actually being refused. Nothing the ledger
+      // holds reaches it.
       throw new Error(`Refused redirect target: ${guard.reason}`);
     }
     current = guard.url;

@@ -19,11 +19,13 @@
   import Alert from "../../ui/Alert.svelte";
   import { dbClient } from "../../db/db.client";
   import {
+    describeImportFailure,
     importLedger,
     LedgerImportRefusedError,
     type LedgerImportPhase,
   } from "../../db/ledger-import";
   import { fileChunks, LEDGER_IMPORT_ACCEPT } from "./import-source";
+  import { appError } from "../../logs/app-log";
 
   let {
     dbReady,
@@ -103,8 +105,12 @@
             ? ` ${rowsSeen.toLocaleString()} datoms had already been written and are in the ledger. Importing the same file again finishes it, and adds nothing that is already here.`
             : " Nothing was written.";
         outcome = "failed";
-        message = `${err instanceof Error ? err.message : String(err)}${written}`;
-        console.error("Ledger import failed", err);
+        // Bounded rather than rendered whole (#227). A refusal is this app's own
+        // sentence; a failure is whatever threw, and one of them used to be a
+        // serialised datom — a label photo, or a `gtin:` entity id — which is
+        // neither readable nor something to put on a screen.
+        message = `${describeImportFailure(err)}${written}`;
+        appError("Ledger import failed", err);
       }
     }
   }

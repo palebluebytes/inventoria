@@ -18,6 +18,7 @@
   import Alert from "../ui/Alert.svelte";
   import Badge from "../ui/Badge.svelte";
   import Checkbox from "../ui/Checkbox.svelte";
+  import { appError } from "../logs/app-log";
 
   let {
     dbReady,
@@ -52,7 +53,7 @@
     try {
       await dbClient.clear();
     } catch (err) {
-      console.error(err);
+      appError("clearing the ledger failed", err);
       alert("Failed to wipe database");
       return;
     }
@@ -67,7 +68,7 @@
     try {
       await dbClient.vacuum();
     } catch (err) {
-      console.error(err);
+      appError("compacting the ledger failed", err);
       reclaimed = false;
     }
     // Asked before the alert rather than after it: `alert` blocks, so either

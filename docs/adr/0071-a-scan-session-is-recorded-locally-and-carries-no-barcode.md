@@ -2,6 +2,8 @@
 
 **Status:** Accepted  
 **Date:** 2026-08-29  
+**Amended by:** [ADR-0092](0092-a-local-log-records-completely-at-a-level-and-the-export-is-the-protection.md) and the Amendment below, which delete §4's `technical` marking, restate the barcode's absence as a purpose argument, move §5's counters onto the new record, and retire §6's rule that the view is what makes the channel legal  
+**Implemented:** [#207](https://github.com/palebluebytes/inventoria/issues/207) — `src/lib/logs/scan-log.ts` (the channel, the session and its endings, the thirteen counters, the fold §6's view renders), the attempt observer and `scanOutcomeOf` in `src/lib/food/off-retry.ts`, the session wiring in `src/lib/views/food/FoodStager.svelte`, and §6's view as `src/lib/views/logs/ScanReport.svelte` on Rations settings. §4's prohibition is asserted over what lands in the store on every path, not by inspection; §6's rule that the view is what makes the channel legal was already retired by the Amendment below, so the view is here because the owner asked for it.  
 **Depends on:** [ADR-0054](0054-one-local-log-facility-and-no-channel-without-a-reader.md)'s Amendment of 2026-08-29, which admits a standing channel and adds the counters this record relies on
 
 ## Context
@@ -219,3 +221,126 @@ not its header says so.
 `unreachable` says the service did not answer this device; it does not say whether
 OFF was down, the network was, or a captive portal was in the way, and the channel
 records nothing that would tell them apart. The view should not imply otherwise.
+
+## Amendment (2026-09-03): the channel is not `technical`, the view is not what makes it legal, and the barcode's absence is a purpose argument
+
+[ADR-0092](0092-a-local-log-records-completely-at-a-level-and-the-export-is-the-protection.md)
+replaces the record this one is built on, and this Amendment states what it amends in
+ADR-0071. Nothing here changes what a scan session records. What changes is the
+vocabulary three of these sections are written in, and one of them is false as written
+whichever way the redraw had gone.
+
+### §4's `technical` marking is gone, and its argument survives intact
+
+§4's title says the barcode's absence "is what makes the channel technical", and its
+closing paragraph requires `technical` of a standing channel. **`ChannelSensitivity` is
+deleted** — ADR-0092 §11.1 removes the concept rather than replacing it, so both the
+title and that paragraph are false as written.
+
+**The rule §4 states survives untouched: not the barcode, not the product name, not the
+brand, not the `gtin:` entity id.** What changes is what it is argued from. §4's own
+stated argument was never privacy-at-capture — it was **redundancy**: with the outcome
+and the door already in one entry the linkage is made, and the identifier that would
+otherwise have made it is surplus. That argument is unaffected by anything ADR-0092
+decides, and ADR-0092 §5 would otherwise have put a barcode at DEBUG by the same clause
+that puts the search query sequence there.
+
+Restated in the vocabulary that is left: **the absence is a `purpose` argument.** The
+query survives in the `search` channel and the barcode does not, because `query` is what
+the vocabulary flags are computed from and what #123 exists to read, while the barcode
+feeds **no reader at all** — #208's reading is a counter reading. ADR-0092 §2 keeps
+`purpose` on the declaration precisely so that this argument stays available per channel.
+
+#264's research is worth citing here rather than paraphrasing: **no framework names this
+property.** Every analogue found is a switch over collection — Sentry's
+`sendDefaultPii` and its like — and a framework whose record carries an open attribute bag
+makes the property unavailable outright. Structural absence of an identifier and "no open
+bag" are separate properties, and this record rests on both.
+
+### §5's counters stand, under ADR-0092 §9
+
+The counters are unchanged: one per `outcome` value, one per `attempt` value, one per
+`door` value, one for settled sessions, and the `unreachable`-then-a-door pair. #208's
+bar keeps its numbers, 5 and 40.
+
+Three things about where they live have moved. Counters now sit under their **own
+storage key** rather than beside the entries, because the shed-last promise was false in
+code while they shared one. A **Facet-scoped wipe takes that key**. And §5's own
+sentence — _"the rate is computed from the counters and never from the entries"_ — turns
+out to be the general rule rather than this channel's local one: ADR-0092 §9 applies it
+to `search` for the same reason, and ADR-0092 §6 is why it generalises: the entry ring
+retains by age alone, in every channel, so it is a recency window and no rate may be
+taken over it.
+
+### §6's view is no longer what makes the channel legal
+
+§6 says a view is what makes the channel legal, and that if the view is removed the
+channel goes with it. That rule came from ADR-0054 §2's requirement that a standing
+channel name a surface, and it is superseded: a channel is no longer removed when it has
+nothing to name.
+
+**The view is not thereby cancelled — it is unblocked from being a design question.**
+[#207](https://github.com/palebluebytes/inventoria/issues/207) decides whether to build
+it, and its counters can now be folded by a person over an exported channel instead,
+which is what ADR-0080 §6 already made of ADR-0053 §7's bar. What is gone is the clause
+that would have deleted a working channel because somebody removed a screen.
+
+### The scan session's levels, and what `Noisy` buys this channel
+
+ADR-0092 §5.2 assigns them: `refused` is **ERROR**, `unreachable` and `absent` are
+**WARN**, `found` and an abandoned session are **INFO**. `absent` sits at WARN for
+consistency with an empty search — the reference data does not have what the user asked
+for and they now have manual work — and `refused` sits above `unreachable` because an
+outage is the network's and a 403 is ours.
+
+`attempt`, `door` and `settled` ride at the record's level.
+
+**This channel therefore has no DEBUG field at all**, so `Noisy` writes for it exactly
+what `Normal` writes. The natural candidates would be the raw HTTP status or the retry
+timing, and neither is added here: §3's field set is closed, and ADR-0092 assigns levels
+to it rather than widening it.
+
+### One hole in §4's shape argument, and who closes it
+
+§4's guarantee is a property of the record's shape, which is the only kind that survives
+somebody editing it later without reading this. It does not cover a barcode arriving
+inside a **string somebody else built**. `db.core.ts:388` interpolates an entity id that
+on the scan path is `gtin:<barcode>`, and ADR-0092 §5.3 captures `err.message`, so an
+`app` channel shipped before
+[#227](https://github.com/palebluebytes/inventoria/issues/227) lands would put a barcode
+into an exported log by the one path §4 cannot see. ADR-0092 §13 makes #227 a hard
+blocker on that channel for this reason. This channel is unaffected.
+
+**Closed on 2026-09-05 by [#227](https://github.com/palebluebytes/inventoria/issues/227).**
+No `throw` under `src/lib/db/` interpolates an entity id, a datom or a datom value any
+more: a refusal names the failing field, what that field had to be, and the _shape_ of
+what was there. `tests/unit/db-error-messages.test.ts` holds every interpolation a
+message in that directory carries to a per-file allowlist, so reopening the hole costs a
+reviewer writing down why it is safe. The hole was a property of one directory rather
+than of §4, and it is that directory the allowlist covers.
+
+## Amendment (2026-09-05): `refused` is the class the app cannot name, and that includes the offline scan
+
+[#207](https://github.com/palebluebytes/inventoria/issues/207) built §3, and one member is
+wider in code than §3 describes it. §3 glosses `refused` as "the 400/403 class #204
+deliberately kept out of failed-to-answer". The app reaches that class by one route — an
+error that is neither `ProductNotFoundError` nor `OffUnreachableError` — and a
+**transport-level rejection takes the same route**. An offline scan, where nothing was
+asked at all, is therefore recorded as `refused`.
+
+**The field set does not widen, and this records why.** Splitting the two would be the
+channel inventing a distinction the code it observes does not make: `lookupBarcode` wraps
+only 429 and 5xx, the Scan tab shows one banner for everything else, and #204's taxonomy
+is one function's answer rather than a list this channel may extend. A fifth outcome is a
+change to that taxonomy first and to §3 second.
+
+**What it costs, stated rather than absorbed.**
+[ADR-0092](0092-a-local-log-records-completely-at-a-level-and-the-export-is-the-protection.md)
+§5.2 puts `refused` at ERROR because "an outage is the network's and a 403 is ours", and
+that is the one clause which does not transfer: an offline scan is the network's, and it
+is recorded at ERROR beside a 403. The effect is bounded — the level decides capture and
+nothing else, and at every dial position ERROR is captured — so what is wrong is the
+severity a reader sees on a record, not which records exist or what any counter holds.
+
+Whoever next has a reason to tell the two apart owns both halves: a fifth error class in
+`open-food-facts.ts`, and a fifth `ScanOutcome` with its own row in ADR-0092 §5.2.

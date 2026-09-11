@@ -11,6 +11,7 @@
  * an event); ordering and the primary key are the HLC's job.
  */
 
+import { describeValue } from "./describe-value";
 import { compareHlcMark, type Hlc, type HlcKey, type HlcMark } from "./hlc";
 
 export interface Datom {
@@ -387,6 +388,110 @@ export interface LedgerImportOutcome {
   highWater: HlcMark | null;
 }
 
+// ---------------------------------------------------------------------------
+// Why a write shape was refused
+// ---------------------------------------------------------------------------
+
+/**
+ * The two write paths check the same kind of thing — every field present and
+ * the right sort of thing — and both used to report it by serialising the whole
+ * subject into the message. On this ledger that is a meal, a note or a base64
+ * label photo, and on the scan path an entity id is `gtin:<barcode>`, which
+ * ADR-0071 §4 forbids by name; the import screen puts a failure's message
+ * straight in front of the user, so the dump was rendered (#227).
+ *
+ * A rule carries the field's name and what it has to be, so the refusal can say
+ * both without reaching for the value. `describeValue` supplies the rest — the
+ * shape of what was actually there, never its content.
+ */
+interface FieldRule<T> {
+  /** The field, spelled the way the ledger's columns spell it. */
+  readonly field: keyof T & string;
+  /** What the field has to be, phrased to follow "must be". */
+  readonly requirement: string;
+  readonly holds: (subject: T) => boolean;
+}
+
+/** What `appendDatoms` requires of a datom handed to it. */
+const DATOM_RULES: readonly FieldRule<Datom>[] = [
+  {
+    field: "entity",
+    requirement: "a non-empty string",
+    holds: (d) => Boolean(d.entity),
+  },
+  {
+    field: "attribute",
+    requirement: "a non-empty string",
+    holds: (d) => Boolean(d.attribute),
+  },
+  {
+    field: "value",
+    requirement: "present",
+    holds: (d) => d.value !== undefined,
+  },
+  {
+    field: "time",
+    requirement: "a number other than zero",
+    holds: (d) => Boolean(d.time),
+  },
+];
+
+/** What `importLedgerRows` requires of a row that arrived with its own stamp. */
+const LEDGER_ROW_RULES: readonly FieldRule<LedgerRow>[] = [
+  {
+    field: "entity",
+    requirement: "a non-empty string",
+    holds: (r) => Boolean(r.entity),
+  },
+  {
+    field: "attribute",
+    requirement: "a non-empty string",
+    holds: (r) => Boolean(r.attribute),
+  },
+  {
+    field: "value",
+    requirement: "the JSON text the ledger stores",
+    holds: (r) => typeof r.value === "string",
+  },
+  {
+    field: "time",
+    requirement: "a whole number of at least zero",
+    holds: (r) => isLedgerInteger(r.time),
+  },
+  {
+    field: "hlc_ms",
+    requirement: "a whole number of at least zero",
+    holds: (r) => isLedgerInteger(r.hlc_ms),
+  },
+  {
+    field: "hlc_ctr",
+    requirement: "a whole number of at least zero",
+    holds: (r) => isLedgerInteger(r.hlc_ctr),
+  },
+  {
+    field: "device_id",
+    requirement: "a non-empty string",
+    holds: (r) => Boolean(r.device_id),
+  },
+];
+
+/**
+ * The first rule `subject` breaks, said in one clause, or `null` when it breaks
+ * none. First rather than all of them: a caller fixing a malformed row fixes it
+ * a field at a time, and a list of every complaint is a longer message that
+ * says no more.
+ */
+function describeBrokenRule<T>(
+  subject: T,
+  rules: readonly FieldRule<T>[]
+): string | null {
+  for (const rule of rules) {
+    if (rule.holds(subject)) continue;
+    return `"${rule.field}" must be ${rule.requirement}, and is ${describeValue(subject[rule.field])}`;
+  }
+  return null;
+}
+
 /**
  * Appends rows that arrived with their own HLC stamps, in a single transaction
  * (ADR-0067). This is the import's write path, and it differs from
@@ -423,17 +528,15 @@ export function importLedgerRows(
       `INSERT OR IGNORE INTO datoms (${LEDGER_COLUMNS}) VALUES (?, ?, ?, ?, ?, ?, ?);`
     );
     try {
-      for (const row of rows) {
-        if (
-          !row.entity ||
-          !row.attribute ||
-          typeof row.value !== "string" ||
-          !isLedgerInteger(row.time) ||
-          !isLedgerInteger(row.hlc_ms) ||
-          !isLedgerInteger(row.hlc_ctr) ||
-          !row.device_id
-        ) {
-          throw new Error(`Invalid ledger row: ${JSON.stringify(row.entity)}`);
+      for (const [index, row] of rows.entries()) {
+        const complaint = describeBrokenRule(row, LEDGER_ROW_RULES);
+        if (complaint !== null) {
+          // The place is within this batch, not within the file: an import
+          // sends the file a couple of megabytes at a time, so a line number
+          // is not something this function is in a position to know.
+          throw new Error(
+            `Invalid ledger row: row ${index + 1} of the ${rows.length} in this batch — ${complaint}.`
+          );
         }
         stmt.bind([
           row.entity,
@@ -497,11 +600,14 @@ export function appendDatoms(
       "INSERT INTO datoms (entity, attribute, value, time, hlc_ms, hlc_ctr, device_id) VALUES (?, ?, ?, ?, ?, ?, ?);"
     );
     try {
-      for (const datom of datoms) {
-        const { entity, attribute, value, time } = datom;
-        if (!entity || !attribute || value === undefined || !time) {
-          throw new Error(`Invalid datom structure: ${JSON.stringify(datom)}`);
+      for (const [index, datom] of datoms.entries()) {
+        const complaint = describeBrokenRule(datom, DATOM_RULES);
+        if (complaint !== null) {
+          throw new Error(
+            `Invalid datom structure: datom ${index + 1} of the ${datoms.length} in this append — ${complaint}.`
+          );
         }
+        const { entity, attribute, value, time } = datom;
         const stamp = clock.now();
         // Bind accepts arrays (1-based mapping inside the driver). `stamp`
         // already carries the ledger's column names, so it binds verbatim.

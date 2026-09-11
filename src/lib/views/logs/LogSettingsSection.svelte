@@ -1,8 +1,8 @@
 <script lang="ts">
   import Card from "../../ui/Card.svelte";
   import Button from "../../ui/Button.svelte";
-  import Badge from "../../ui/Badge.svelte";
   import Checkbox from "../../ui/Checkbox.svelte";
+  import Segmented from "../../ui/Segmented.svelte";
   import LogReviewSheet from "./LogReviewSheet.svelte";
   import {
     logExportEnabledFor,
@@ -10,22 +10,25 @@
   } from "../../stores/device-settings";
   import {
     channelEntryCount,
-    channelsOfFacet,
     clearChannel,
+    dialPosition,
+    DIAL_POSITIONS,
     isChannelRecording,
     setChannelRecording,
+    setDialPosition,
     type LogChannel,
   } from "../../logs/log-facility";
+  // From the roster rather than from the facility, because a registry filled by
+  // import side effect answers with whatever somebody imported — which used to
+  // be this screen's job, by way of a side-effect import of the one channel it
+  // knew about. `logs/channels.ts` carries the argument (ADR-0092's roster
+  // amendment); what changes here is which module is asked.
+  import { channelsOfFacet } from "../../logs/channels";
   import type { FacetId } from "../../facets/registry";
-  // Imported for its side effect: a channel is declared and registered in the
-  // same act, so reaching the search channel's module is what puts it in the
-  // registry this card lists. Nothing is read out of it here — ADR-0080 §6
-  // deleted the one readout that was.
-  import "../../logs/search-log";
 
   // The controls ADR-0053 §1 names — the entry count, a switch that stops the
-  // recording, and an action that clears the log — plus ADR-0054 §4's export
-  // switch. Control and discoverability come from these; they do not
+  // recording, and an action that clears the log — plus the export switch and
+  // ADR-0092 §4's dial. Control and discoverability come from these; they do not
   // come from making the instrument opt-in, because a recorder gated behind a
   // toggle that defaults to off measures nothing.
   //
@@ -87,6 +90,36 @@
 
   let reviewing = $state(false);
 
+  // The dial (ADR-0092 §4). **One dial, facility-wide, on a card that renders
+  // once per Facet** — so both cards move the same value, and that is deliberate
+  // twice over. It is the departure from every framework #264 surveyed, which
+  // resolve a dial per logger; none of those arbitrates a shared fixed ceiling,
+  // and asking a user to buy room in one channel by narrowing another is not
+  // something any view can present honestly. And a Rations-only install is a
+  // supported install with no way out (ADR-0078), so its user has to be able to
+  // reach the control that governs what their device records.
+  //
+  // Held as the threshold's decimal string, because that is what a single-choice
+  // control's values are; the facility stores the number.
+  // svelte-ignore state_referenced_locally
+  let dial = $state(String(dialPosition()));
+  const dialOptions = DIAL_POSITIONS.map((position) => ({
+    value: String(position.threshold),
+    label: position.label,
+  }));
+  // The position the control is showing, found rather than parsed back: the
+  // facility's own entry carries the threshold AND the words under the control,
+  // so nothing here turns a string into a `DialPosition` by assertion.
+  let chosen = $derived(
+    DIAL_POSITIONS.find((position) => String(position.threshold) === dial)
+  );
+  // Writes only a move. The guard is what keeps the first run — which fires with
+  // the position already in force — from creating the key nobody has touched.
+  $effect(() => {
+    if (chosen && chosen.threshold !== dialPosition())
+      setDialPosition(chosen.threshold);
+  });
+
   function toggleRecording(channel: LogChannel<unknown>, on: boolean) {
     setChannelRecording(channel, on);
     revision += 1;
@@ -127,17 +160,38 @@
     >
   </div>
 
+  <div class="form-group">
+    <Segmented
+      options={dialOptions}
+      bind:value={dial}
+      label="How much is recorded"
+    />
+    <span class="help-text"
+      >{chosen?.reads} It is not an off switch: each channel's Recording switch below
+      is that.</span
+    >
+  </div>
+
   {#each stored as { channel, entries, recording } (channel.name)}
     <section class="channel">
       <div class="channel-head">
         <span class="channel-name">{channel.name}</span>
-        <Badge
-          variant={channel.sensitivity === "personal" ? "warning" : "neutral"}
-          >{channel.sensitivity}</Badge
-        >
         <span class="count">{entries} entries of {channel.cap}</span>
       </div>
-      <p class="reader">{channel.reader}</p>
+      <p class="purpose">{channel.purpose}</p>
+      <!--
+        Derived from `domain`, never from a channel name. It is the same field
+        ADR-0092 §13's two filters read, so the sentence cannot drift from the
+        behaviour and a second jar-wide channel inherits it without an edit.
+        Without it, `Delete all my food data` takes two of the three rows on this
+        card and leaves the third standing with nothing saying why.
+      -->
+      {#if channel.domain === null}
+        <p class="jar-wide">
+          The app's own, not one domain's. A Facet-scoped wipe leaves this
+          standing; Clear takes it.
+        </p>
+      {/if}
       <div class="channel-actions">
         <Checkbox
           label="Recording"
@@ -181,16 +235,22 @@
     margin: 0;
   }
   .lead,
-  .reader,
+  .purpose,
+  .jar-wide,
   .help-text {
     font-size: var(--step-n1);
     color: var(--text-secondary);
     margin: var(--space-2xs) 0 0;
   }
-  .reader,
+  .purpose,
+  .jar-wide,
   .help-text {
     font-size: var(--step-n2);
     font-style: italic;
+  }
+  .jar-wide {
+    font-style: normal;
+    font-weight: 700;
   }
   .form-group {
     display: flex;

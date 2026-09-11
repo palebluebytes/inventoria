@@ -27,6 +27,7 @@
   import { describeBytes } from "../../storage/describe-bytes";
   import { canStreamToFile, chooseExportTarget } from "./export-target";
   import { runLedgerExport, type LedgerExportOutcome } from "./export-run";
+  import { appError } from "../../logs/app-log";
 
   let {
     /** Whether the worker is up, so the ledger can be read. */
@@ -81,7 +82,7 @@
         // A count nobody could read is a button that would be dead with no
         // explanation, so the state is kept and said rather than swallowed.
         unreadable = true;
-        console.error("Failed to read the ledger summary", err);
+        appError("Failed to read the ledger summary", err);
       });
   }
 
@@ -123,7 +124,7 @@
         onProgress: (written) => (rowsWritten = written),
       });
       if (ended.kind === "failed") {
-        console.error("Ledger export failed", ended.error);
+        appError("Ledger export failed", ended.error);
       }
       // Dismissing the save dialog is an answer, not an ending, so the screen
       // goes back to how it was rather than reporting the user to themselves.

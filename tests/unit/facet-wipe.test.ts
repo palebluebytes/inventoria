@@ -23,6 +23,11 @@ import {
   runFacetWipe,
   wipeFacetStorage,
 } from "../../src/lib/facets/facet-wipe";
+import {
+  freshModule,
+  stubLocalStorage,
+  type FakeLocalStorage,
+} from "./support/local-storage";
 
 // The real sqlite-wasm Node build, as `db-append-only.test.ts` uses it: the
 // claim under test is what one SQL predicate matches, so a fake would be
@@ -174,22 +179,6 @@ describe("the scoped wipe's ledger predicate", () => {
 // The `localStorage` half
 // ---------------------------------------------------------------------------
 
-/** A store with the two members key enumeration needs, which a Map alone lacks. */
-function makeFakeLocalStorage(seed: Record<string, string> = {}) {
-  const store = new Map<string, string>(Object.entries(seed));
-  return {
-    store,
-    get length() {
-      return store.size;
-    },
-    key: (i: number) => [...store.keys()][i] ?? null,
-    getItem: (k: string) => (store.has(k) ? store.get(k)! : null),
-    setItem: (k: string, v: string) => void store.set(k, String(v)),
-    removeItem: (k: string) => void store.delete(k),
-    clear: () => store.clear(),
-  };
-}
-
 /** What stays is the interesting half, so the fake jar holds one of each. */
 const OTHER_KEYS = {
   inventoria_pref_log_export: "true",
@@ -210,6 +199,11 @@ const FOOD_KEYS = {
   // food's `pref` namespace, which is why the derivation reads the facility
   // rather than the registry's prefixes alone.
   inventoria_log_search: "[]",
+  // And its counters, under a key of their own (ADR-0092 §9). A permanent
+  // counter is the part of a Facet's data that most needs to go: no cap, no
+  // shared budget and no redaction would ever have taken it, so this control is
+  // the only thing that does.
+  inventoria_log_search_counters: '{"counts":{},"since":1700000000000}',
 };
 
 afterEach(() => {
@@ -217,13 +211,14 @@ afterEach(() => {
 });
 
 describe("the scoped wipe's storage predicate", () => {
+  let jar: FakeLocalStorage;
+
   beforeEach(async () => {
-    vi.stubGlobal(
-      "localStorage",
-      makeFakeLocalStorage({ ...OTHER_KEYS, ...FOOD_KEYS })
-    );
-    // Registering the search channel is what puts its key in food's set.
-    await import("../../src/lib/logs/search-log");
+    jar = stubLocalStorage({ seed: { ...OTHER_KEYS, ...FOOD_KEYS } });
+    // The roster is what puts food's channel key in the set: a channel is
+    // registered by its module being imported, and `logs/channels.ts` is the
+    // module that imports every one (#221).
+    await import("../../src/lib/logs/channels");
   });
 
   it("names food's declared keys and its own log channel's", () => {
@@ -236,7 +231,7 @@ describe("the scoped wipe's storage predicate", () => {
     const removed = wipeFacetStorage("food");
 
     expect(removed).toBe(Object.keys(FOOD_KEYS).length);
-    expect([...(localStorage as any).store.keys()].sort()).toEqual(
+    expect([...jar.store.keys()].sort()).toEqual(
       Object.keys(OTHER_KEYS).sort()
     );
   });
@@ -247,9 +242,59 @@ describe("the scoped wipe's storage predicate", () => {
     const prefixes = storagePrefixesOf("food");
     for (const key of facetStorageKeys("food")) {
       const declared = prefixes.some((p) => key.startsWith(p));
-      const channel = key === "inventoria_log_search";
+      const channel =
+        key === "inventoria_log_search" ||
+        key === "inventoria_log_search_counters";
       expect(declared || channel).toBe(true);
     }
+  });
+});
+
+describe("a jar-wide channel is in no Facet's wipe (ADR-0092 §13)", () => {
+  it("leaves its key standing, and still shows it in every Facet's card", async () => {
+    // The two filters point opposite ways, deliberately. Visibility and export
+    // follow the writer — a Rations user's OPFS failure is written by Rations'
+    // running code — while deletion is irreversible, so "delete all my food
+    // data" never reaches the app's own narration.
+    const facility = await freshModule(
+      () => import("../../src/lib/logs/log-facility")
+    );
+    await import("../../src/lib/logs/channels");
+    const wipe = await import("../../src/lib/facets/facet-wipe");
+    facility.defineChannel({
+      name: "narration",
+      domain: null,
+      purpose: "this test; it decides whether a wipe takes a jar-wide channel.",
+      cap: 5,
+      version: 1,
+      parse: (raw: unknown) => raw ?? null,
+    });
+    stubLocalStorage({
+      seed: {
+        ...OTHER_KEYS,
+        ...FOOD_KEYS,
+        inventoria_log_narration: "[]",
+        inventoria_log_narration_counters: '{"counts":{},"since":1}',
+      },
+    });
+
+    for (const facet of ["food", "root"] as const) {
+      expect(wipe.facetStorageKeys(facet)).not.toContain(
+        "inventoria_log_narration"
+      );
+      expect(facility.channelsOfFacet(facet).map((c) => c.name)).toContain(
+        "narration"
+      );
+    }
+    // Food's own channel still goes, so the exclusion is the null domain and
+    // not a wipe that stopped taking log keys.
+    expect(wipe.facetStorageKeys("food")).toContain("inventoria_log_search");
+    // The jar-wide channel's counters stay with its records, for the same
+    // reason: the exclusion is the channel, not one of its two keys.
+    for (const facet of ["food", "root"] as const)
+      expect(wipe.facetStorageKeys(facet)).not.toContain(
+        "inventoria_log_narration_counters"
+      );
   });
 });
 
@@ -311,15 +356,14 @@ describe("the wipe's plan", () => {
 // ---------------------------------------------------------------------------
 
 describe("one run of the wipe", () => {
+  let jar: FakeLocalStorage;
+
   beforeEach(async () => {
-    vi.stubGlobal(
-      "localStorage",
-      makeFakeLocalStorage({ ...OTHER_KEYS, ...FOOD_KEYS })
-    );
-    // Registered here as well as above, so these cases hold when this describe
-    // is the only one that runs: `FOOD_KEYS` counts the channel's key, and the
-    // channel is in the registry only because some module imported it.
-    await import("../../src/lib/logs/search-log");
+    jar = stubLocalStorage({ seed: { ...OTHER_KEYS, ...FOOD_KEYS } });
+    // Taken here as well as above, so these cases hold when this describe is
+    // the only one that runs: `FOOD_KEYS` counts the search channel's key, and
+    // a channel is in the registry only because its module was imported.
+    await import("../../src/lib/logs/channels");
   });
 
   const seams = (over: Partial<Parameters<typeof runFacetWipe>[2]> = {}) => ({
@@ -373,7 +417,7 @@ describe("one run of the wipe", () => {
 
     expect(ended.kind).toBe("failed");
     expect(ended.message).toContain("Nothing was deleted");
-    expect([...(localStorage as any).store.keys()].sort()).toEqual(
+    expect([...jar.store.keys()].sort()).toEqual(
       [...Object.keys(OTHER_KEYS), ...Object.keys(FOOD_KEYS)].sort()
     );
   });

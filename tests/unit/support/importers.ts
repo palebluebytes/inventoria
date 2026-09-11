@@ -20,15 +20,25 @@ export function importersOf(module: string): string[] {
     `^\\s*import[\\s\\S]*?from\\s+["'][^"']*${module}["']`,
     "m"
   );
-  const walk = (dir: string): string[] =>
-    readdirSync(dir, { withFileTypes: true }).flatMap((entry) =>
-      entry.isDirectory()
-        ? walk(`${dir}/${entry.name}`)
-        : /\.(ts|svelte)$/.test(entry.name)
-          ? [`${dir}/${entry.name}`]
-          : []
-    );
-  return walk("src")
+  return sourceFilesUnder("src")
     .filter((path) => !path.endsWith(`/${module}.ts`))
     .filter((path) => pattern.test(readFileSync(path, "utf8")));
+}
+
+/**
+ * Every `.ts` and `.svelte` file under a directory, repo-relative and
+ * recursively.
+ *
+ * The walk {@link importersOf} does, given a name because a claim about the
+ * whole tree is not always a claim about one module: #221's roster asks which
+ * files reach a symbol rather than which reach a module.
+ */
+export function sourceFilesUnder(dir: string): string[] {
+  return readdirSync(dir, { withFileTypes: true }).flatMap((entry) =>
+    entry.isDirectory()
+      ? sourceFilesUnder(`${dir}/${entry.name}`)
+      : /\.(ts|svelte)$/.test(entry.name)
+        ? [`${dir}/${entry.name}`]
+        : []
+  );
 }

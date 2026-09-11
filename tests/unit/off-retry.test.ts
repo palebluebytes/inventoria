@@ -1,5 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { lookupBarcodeWithRetry } from "../../src/lib/food/off-retry";
+import {
+  lookupBarcodeWithRetry,
+  scanOutcomeOfFailure,
+} from "../../src/lib/food/off-retry";
 import {
   ProductNotFoundError,
   OffUnreachableError,
@@ -159,6 +162,105 @@ describe("lookupBarcodeWithRetry", () => {
 
     expect(fetchSpy).toHaveBeenCalledTimes(1);
     expect(clock.waited).toEqual([]);
+  });
+
+  // ── What the scan log hears (ADR-0071 §3, #207) ─────────────────────────
+  //
+  // The three attempt states are reached on three different paths, two of which
+  // throw, and `gate_skipped` is invisible to every other observer: the deadline
+  // declining a second ask looks exactly like a first ask that failed. So each
+  // is asserted on the path that produces it, and every case asserts the
+  // observer was told exactly once.
+
+  it("reports one ask when the first attempt answered", async () => {
+    const clock = fakeClock();
+    const onAttempt = vi.fn();
+    offAnswers(offHoldingTestFood());
+
+    await lookupBarcodeWithRetry(TEST_BARCODE, { ...clock, onAttempt });
+
+    expect(onAttempt.mock.calls).toEqual([["single"]]);
+  });
+
+  it("reports two asks when the retry landed, on the way to the payload", async () => {
+    // The case nothing else can see: the user was shown a working scan, and
+    // without this the absorbed 503 leaves no trace anywhere.
+    const clock = fakeClock();
+    const onAttempt = vi.fn();
+    offAnswers(offFailingWith(503), offHoldingTestFood());
+
+    await lookupBarcodeWithRetry(TEST_BARCODE, { ...clock, onAttempt });
+
+    expect(onAttempt.mock.calls).toEqual([["retried"]]);
+  });
+
+  it("still reports two asks when the second one failed as well", async () => {
+    const clock = fakeClock();
+    const onAttempt = vi.fn();
+    offAnswers(offFailingWith(503), offFailingWith(502));
+
+    await expect(
+      lookupBarcodeWithRetry(TEST_BARCODE, { ...clock, onAttempt })
+    ).rejects.toBeInstanceOf(OffUnreachableError);
+
+    expect(onAttempt.mock.calls).toEqual([["retried"]]);
+  });
+
+  it("reports the start gate when the deadline refused a second ask", async () => {
+    const clock = fakeClock();
+    const onAttempt = vi.fn();
+    const fetchSpy = vi
+      .spyOn(globalThis, "fetch")
+      .mockImplementationOnce(async () => {
+        clock.spend(60_000);
+        return offFailingWith(503);
+      });
+    fetchSpy.mockResolvedValueOnce(offHoldingTestFood());
+
+    await expect(
+      lookupBarcodeWithRetry(TEST_BARCODE, { ...clock, onAttempt })
+    ).rejects.toBeInstanceOf(OffUnreachableError);
+
+    expect(onAttempt.mock.calls).toEqual([["gate_skipped"]]);
+  });
+
+  it("reports one ask for a settled answer and for a fault it cannot name", async () => {
+    // Neither is retried, so neither is anything but `single` — including the
+    // offline rejection, where nothing was asked at all.
+    for (const answer of [
+      offFailingWith(404),
+      offFailingWith(403),
+      new TypeError("Failed to fetch"),
+    ]) {
+      vi.restoreAllMocks();
+      const clock = fakeClock();
+      const onAttempt = vi.fn();
+      offAnswers(answer);
+
+      await expect(
+        lookupBarcodeWithRetry(TEST_BARCODE, { ...clock, onAttempt })
+      ).rejects.toBeTruthy();
+
+      expect(onAttempt.mock.calls).toEqual([["single"]]);
+    }
+  });
+
+  it("names the outcome off #204's error classes, never off a status", async () => {
+    // One function decides which class a response is, and this reads that
+    // decision rather than re-listing the statuses behind it.
+    expect(scanOutcomeOfFailure(new ProductNotFoundError(TEST_BARCODE))).toBe(
+      "absent"
+    );
+    expect(scanOutcomeOfFailure(new OffUnreachableError(503))).toBe(
+      "unreachable"
+    );
+    expect(
+      scanOutcomeOfFailure(new Error("Open Food Facts returned HTTP 403"))
+    ).toBe("refused");
+    // The offline scan takes the same `else` the Scan tab's own banner takes.
+    expect(scanOutcomeOfFailure(new TypeError("Failed to fetch"))).toBe(
+      "refused"
+    );
   });
 
   it("does not start a second attempt once the first has eaten the deadline", async () => {

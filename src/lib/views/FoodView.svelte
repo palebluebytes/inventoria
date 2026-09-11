@@ -103,6 +103,7 @@
   import ReceivedMealPanel from "./food/ReceivedMealPanel.svelte";
   import type { SendCode } from "../p2p/send-code";
   import type { ReceiveOpening } from "../p2p/receive-link";
+  import { appError } from "../logs/app-log";
 
   let {
     dbReady,
@@ -794,7 +795,7 @@
     } catch (e) {
       // One append, so it is all of them or none — there is no half-applied run
       // to report, and nothing was written.
-      console.error("scaling the selection failed", e);
+      appError("scaling the selection failed", e);
       failed = changes.length;
     } finally {
       scaling = false;

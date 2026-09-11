@@ -8,12 +8,13 @@
     offPackQuantityFromTwin,
     packSizeUnit,
     contributionWithholdsNutriments,
-    ProductNotFoundError,
-    OffUnreachableError,
     type OffPayload,
     type OffSubmitResult,
   } from "../../food/open-food-facts";
-  import { lookupBarcodeWithRetry } from "../../food/off-retry";
+  import {
+    lookupBarcodeWithRetry,
+    scanOutcomeOfFailure,
+  } from "../../food/off-retry";
   import {
     searchUsdaFoods,
     mapPayloadToFoodResult,
@@ -70,7 +71,10 @@
     emptyAutofillResult,
     type AIAutofillResult,
   } from "../../food/ai-autofill";
-  import { completeStagedPanel } from "../../food/usda-corpus";
+  import {
+    completeStagedPanel,
+    loadSearchCorpus,
+  } from "../../food/usda-corpus";
   import {
     beginSearchSession,
     recordSearchSession,
@@ -79,6 +83,14 @@
     typedIntoSession,
     type SearchSession,
   } from "../../logs/search-log";
+  import {
+    beginScanSession,
+    recordScanSession,
+    scanAnswered,
+    scanAttempted,
+    scanOpenedDoor,
+    type ScanSession,
+  } from "../../logs/scan-log";
   import { readImageAsDataUrl } from "../../food/image-file";
   import type {
     FoodChoice,
@@ -655,6 +667,15 @@
     nudge = false;
     captureReason = reason;
     captureCompleteness = completeness;
+    // The scan's ending, and the half of the entry #208 reads: a form opened
+    // after `unreachable` is the poisoned twin that ticket is about, and one
+    // opened after `absent` is this door working as designed. `edit` is the
+    // fourth, non-scan door — it re-opens a twin that was already saved, so it
+    // belongs to no lookup and closes no session.
+    if (reason !== "edit" && scanSession) {
+      scanSession = scanOpenedDoor(scanSession, reason);
+      endScanSession();
+    }
     // A scan door owns the form it opens: whatever the chooser's panel tile left
     // behind, this is now a barcode capture with a banner and no tabs.
     panelDoor = false;
@@ -1044,21 +1065,51 @@
   // One entry per search session, never one per debounced search: the search effect
   // below fires roughly eleven times across `raw aubergine`, ten of them
   // keystroke states. The session opens when the field first goes non-empty and
-  // closes when the user clears it, stages a food, or leaves the sheet — and it
-  // only leaves an entry behind if it ever reached an empty result. A plain
-  // `let`, because nothing renders it and an `$state` would make the effect that
-  // updates it depend on itself.
+  // closes when the user clears it, stages a food, or leaves the sheet, and it
+  // leaves an entry behind for EVERY session in which a search settled — the
+  // successes included, which is what first gives ADR-0053 §7's counts a
+  // denominator (its Amendment of 2026-09-03). A plain `let`, because nothing
+  // renders it and an `$state` would make the effect that updates it depend on
+  // itself.
   let searchSession: SearchSession | null = null;
 
   function endSearchSession() {
     if (!searchSession) return;
     // Never awaited: a log that could not be written must cost the user nothing
     // (ADR-0054 §3).
-    void recordSearchSession(searchSession);
+    //
+    // The corpus loader is handed over from here rather than defaulted inside
+    // the log, so that `src/lib/logs/` reaches no `fetch` at all. This screen
+    // has already loaded the artifact to answer the search, so the read the log
+    // makes is a cache hit; passing the function rather than the corpus keeps it
+    // unread for a session that never searched.
+    void recordSearchSession(searchSession, loadSearchCorpus);
     searchSession = null;
   }
 
+  // ── The scan log's session (ADR-0071 §2, #207) ─────────────────────────────
+  // One entry per barcode lookup against Open Food Facts, never one per field:
+  // the fact #208 needs is a sequence — an outcome, and then what the user did
+  // about it — and a sequence split across two entries would have to be rejoined
+  // by the barcode, which ADR-0071 §4 forbids the channel to hold.
+  //
+  // It opens where the OFF lookup does, so a barcode the ledger already holds —
+  // which short-circuits before OFF is asked — leaves nothing behind. It closes
+  // at the three places a scan can be over: a capture door, a method change, and
+  // this component going away. A `let` for the reason the search session is one.
+  let scanSession: ScanSession | null = null;
+
+  function endScanSession() {
+    if (!scanSession) return;
+    // Synchronous, unlike the search's: there is no corpus to read. Whether the
+    // session settled is derived from what it holds, so nothing here has to be
+    // resolved before some other state is cleared.
+    recordScanSession(scanSession);
+    scanSession = null;
+  }
+
   onDestroy(endSearchSession);
+  onDestroy(endScanSession);
 
   $effect(() => {
     const trimmed = query.trim();
@@ -1535,11 +1586,10 @@
       lastQuery = query.trim();
       status = "idle";
       if (searchSession)
-        searchSession = searchFoundFood(
-          searchSession,
-          query,
-          search.rescued_by_vocabulary
-        );
+        searchSession = searchFoundFood(searchSession, query, {
+          rescued_by_vocabulary: search.rescued_by_vocabulary,
+          result_count: search.results.length,
+        });
     } catch (e: any) {
       // An empty result is an answer, not a fault (ADR-0047 §10). Cache the
       // query as if it had succeeded: the corpus did answer, and a settled
@@ -1549,10 +1599,12 @@
         emptySearch = { query: query.trim() };
         lastQuery = query.trim();
         status = "idle";
-        // The ONE thing the search log records, and only this: a plain `Error`
-        // is a broken artifact or a broken service worker, and folding one into
-        // "no food found" would count an offline fetch as a vocabulary miss
-        // (ADR-0053 §3).
+        // Only a genuine no-food reaches this call: a plain `Error` is a broken
+        // artifact or a broken service worker, and folding one into "no food
+        // found" would count an offline fetch as a vocabulary miss (ADR-0053
+        // §3). The distinction survives complete recording — a fault still
+        // leaves no fire and no outcome, so it is the one thing that records
+        // nothing at all.
         if (searchSession)
           searchSession = searchFoundNothing(searchSession, query);
         return;
@@ -1565,6 +1617,15 @@
   async function handleBarcodeLookup() {
     if (!barcode.trim()) return;
     const code = barcode.trim();
+    // A second lookup is a second session, "Try again" included, and that is a
+    // reading of ADR-0071 §2 worth stating because the other one is available.
+    // §2 opens a session when a lookup starts, and §3's `attempt` is a fact
+    // about ONE ask — single, retried, or the deadline declining a second — so
+    // a session spanning two lookups could not name its own attempt. What Try
+    // again therefore records is two entries, an abandoned outage and whatever
+    // followed, which is also the honest count for "how often does OFF answer":
+    // folding them into one would hide the outage behind the success.
+    endScanSession();
     status = "loading";
     error = "";
     nudge = false;
@@ -1585,7 +1646,25 @@
       // already "loading", so the second ask happens inside the wait the user is
       // already in rather than after an error they then have to dismiss. Only a
       // failure that survives it lands in the `unreachable` branch below.
-      const off = await lookupBarcodeWithRetry(code);
+      // The session opens HERE and not at the top, so a local twin is not a scan
+      // session: nothing was asked, so there is no outcome and no attempt to
+      // record. The observer is how `gate_skipped` becomes visible at all — a
+      // deadline declining a second ask looks exactly like a first ask failing.
+      scanSession = beginScanSession();
+      const off = await lookupBarcodeWithRetry(code, {
+        onAttempt: (attempt) => {
+          if (scanSession) scanSession = scanAttempted(scanSession, attempt);
+        },
+      });
+      // Before the staging below, which is the ending it settles on: an answer
+      // OFF gave is an answer whether or not the mapping that follows survives.
+      //
+      // Guarded like the catch below, and not because the compiler asks: TypeScript
+      // holds the narrowing from the line above straight through the `await`, so it
+      // does not. A method change during the lookup ends this session — correctly,
+      // as one that never answered — and the answer arriving afterwards must not
+      // resurrect it.
+      if (scanSession) scanSession = scanAnswered(scanSession, "found");
       staged = mapPayloadToFoodResult(off);
       amount = openingAmount(off);
       status = "idle";
@@ -1604,14 +1683,21 @@
         nudge = true;
       }
     } catch (e: any) {
+      // One taxonomy, read once (#204). The banner below used to branch on the
+      // error classes itself; it now branches on the outcome those classes name,
+      // so the log and the screen cannot come to disagree about what happened.
+      const outcome = scanOutcomeOfFailure(e);
+      if (scanSession) scanSession = scanAnswered(scanSession, outcome);
       // Missing door (§1): a 404 opens the Custom form keyed to this barcode with
       // reason copy, instead of the old dead-end "not found" message.
-      if (e instanceof ProductNotFoundError) {
+      if (outcome === "absent") {
         openCaptureForm("missing");
-      } else if (e instanceof OffUnreachableError) {
+      } else if (outcome === "unreachable") {
         // NOT the missing door (#204). A capture made here saves under this same
         // `gtin:` key and the local twin then short-circuits every later lookup,
         // so an outage would permanently redirect the barcode away from OFF.
+        // The session stays open: the user has not finished with this scan, and
+        // whether they wait or type the pack in anyway is the thing #208 reads.
         status = "unreachable";
       } else {
         status = "error";
@@ -1666,6 +1752,9 @@
   }
 
   function switchMethod(m: string) {
+    // Leaving the scan without staging a food or opening a door is ADR-0071 §2's
+    // third ending, and the one the entry has to be able to say happened.
+    endScanSession();
     staged = null;
     method = m;
     // Any method switch leaves the panel door: it is one of the Custom tab's two
