@@ -3,6 +3,7 @@ import {
   installVirtualKeyboard,
   setKeyboard,
 } from "./support/virtual-keyboard";
+import { settled } from "./support/sheet";
 
 // Keyboard invariants for a surface pinned to the visible band (ADR-0089 §9).
 //
@@ -91,18 +92,6 @@ async function boxOf(locator: Locator, what: string): Promise<Box> {
   const box = await locator.boundingBox();
   if (!box) throw new Error(`${what} has no box — is it visible?`);
   return box;
-}
-
-/**
- * Wait out the sheet's `slideUp`. Its box is mid-transform until the animation
- * finishes, and every assertion here is a box comparison. A cancelled animation
- * rejects `finished`, which is not a failure — it means the sheet is already
- * where it is going.
- */
-async function settled(sheet: Locator): Promise<void> {
-  await sheet.evaluate((el) =>
-    Promise.all(el.getAnimations().map((a) => a.finished.catch(() => {})))
-  );
 }
 
 test.describe("Keyboard invariants — a sheet stays inside the visible band", () => {

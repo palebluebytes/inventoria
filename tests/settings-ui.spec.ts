@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { settled } from "./support/sheet";
 
 async function waitForDbReady(page: import("@playwright/test").Page) {
   await page.waitForFunction(() => {
@@ -76,6 +77,14 @@ test.describe("Media settings — API key reveal toggle", () => {
     const wrapper = page.locator(".bottom-sheet-content .secret-field");
     const sheet = page.locator(".bottom-sheet-content").first();
 
+    // Above 768px this sheet is a centred card and its entry animation
+    // *scales* it, so the four boxes below — four separate protocol round
+    // trips, spread over 11-21ms — would otherwise each be measured against a
+    // differently sized card. That is the whole of #408: the toggle read
+    // 1.176px proud of the input because it was sampled two frames later, not
+    // because it sits proud of it. Settled, both edges agree exactly.
+    await settled(sheet);
+
     const inputBox = await input.boundingBox();
     const toggleBox = await page
       .getByRole("button", { name: /TMDB API key/ })
@@ -84,8 +93,12 @@ test.describe("Media settings — API key reveal toggle", () => {
     const sheetBox = await sheet.boundingBox();
     expect(inputBox && toggleBox && wrapperBox && sheetBox).toBeTruthy();
 
-    // The toggle is contained within the input's horizontal bounds (with a 1px
-    // tolerance for sub-pixel rounding).
+    // The toggle is contained within the input's horizontal bounds. The
+    // tolerance is 1px and is now measured rather than chosen: at rest the two
+    // right edges are the same number to three decimals — 900.422, over 20
+    // runs on this branch and 10 on main — so what is being allowed for is
+    // sub-pixel rounding on a platform that rounds differently, and not any
+    // inset this layout actually has (#408).
     expect(toggleBox!.x + toggleBox!.width).toBeLessThanOrEqual(
       inputBox!.x + inputBox!.width + 1
     );
