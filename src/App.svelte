@@ -82,7 +82,11 @@
    * — that is the browser's own signal, and this is only the teardown.
    */
   let wake: OpenWake | null = null;
-  onDestroy(() => wake?.close());
+  let unmounted = false;
+  onDestroy(() => {
+    unmounted = true;
+    wake?.close();
+  });
 
   onMount(async () => {
     // Every entry point's errands, in one list so a second one cannot miss one
@@ -111,6 +115,9 @@
       // import into it. Nothing is awaited: a wake is silent, and nothing on
       // the screen waits for one.
       wake = openAppWake();
+      // The shell can be torn down inside the awaits above, in which case
+      // `onDestroy` has already run and found nothing to close.
+      if (unmounted) wake.close();
     } catch (e: any) {
       dbError = e.message ?? String(e);
     }

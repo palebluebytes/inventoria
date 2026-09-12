@@ -262,6 +262,25 @@ const highestTaken = (device: PairedDevice): number | null =>
   device.collect.index > 0 ? device.collect.index - 1 : null;
 
 /**
+ * One sync's options with the three bounds filled in.
+ *
+ * Here rather than in each entry point's parameter list, because there are two
+ * of them now and a default that drifts between a collection and a deposit
+ * would size one object against a ceiling the other does not use.
+ */
+const asked = ({
+  keep,
+  ceilingBytes = DEPOSIT_CEILING_BYTES,
+  chunkBudgetBytes = DEPOSIT_CHUNK_BUDGET_BYTES,
+  draw = randomBytes,
+}: WakeOptions): Required<WakeOptions> => ({
+  keep,
+  ceilingBytes,
+  chunkBudgetBytes,
+  draw,
+});
+
+/**
  * Runs one wake against one pairing.
  *
  * It resolves to what happened and shows nothing: steady state shows nothing
@@ -275,19 +294,13 @@ export async function convergeWithPeer(
   paired: PairedDevice,
   store: Store,
   ledger: WakeLedger,
-  {
-    keep,
-    ceilingBytes = DEPOSIT_CEILING_BYTES,
-    chunkBudgetBytes = DEPOSIT_CHUNK_BUDGET_BYTES,
-    draw = randomBytes,
-  }: WakeOptions
+  options: WakeOptions
 ): Promise<WakeOutcome> {
+  const { keep, ...bounds } = asked(options);
   const taken = await takeFromPeer(paired, store, ledger, keep);
   const left = await depositLane(taken.device, store, keep, {
     ledger,
-    ceilingBytes,
-    chunkBudgetBytes,
-    draw,
+    ...bounds,
     acknowledges: taken.acknowledges,
   });
 
@@ -339,24 +352,14 @@ export async function depositToPeer(
   paired: PairedDevice,
   store: Store,
   ledger: WakeLedger,
-  {
-    keep,
-    ceilingBytes = DEPOSIT_CEILING_BYTES,
-    chunkBudgetBytes = DEPOSIT_CHUNK_BUDGET_BYTES,
-    draw = randomBytes,
-  }: WakeOptions
+  options: WakeOptions
 ): Promise<DepositOutcome> {
+  const { keep, ...bounds } = asked(options);
   const { deposited, recreated, jammed } = await depositLane(
     paired,
     store,
     keep,
-    {
-      ledger,
-      ceilingBytes,
-      chunkBudgetBytes,
-      draw,
-      acknowledges: highestTaken(paired),
-    }
+    { ledger, ...bounds, acknowledges: highestTaken(paired) }
   );
   return { deposited, recreated, jammed };
 }

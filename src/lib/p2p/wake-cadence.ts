@@ -73,7 +73,7 @@
  */
 
 /**
- * How long a burst of logging settles for before its deposit goes out.
+ * How long a burst of logging is waited out before its deposit goes out.
  *
  * Seconds, because the amendment says seconds: long enough that adding three
  * foods to a meal is one write rather than three, short enough that closing the
@@ -163,7 +163,7 @@ export function openWake(
   let changed = false;
   let owed = false;
   let closed = false;
-  let settling: ReturnType<typeof setTimeout> | null = null;
+  let waiting: ReturnType<typeof setTimeout> | null = null;
   let depositQueued = false;
   // One chain, because two syncs at once would race one lane's etag. A
   // rejection is swallowed here and nowhere else: `wake-errand.ts` already
@@ -195,26 +195,29 @@ export function openWake(
     });
   };
 
-  const settle = (): void => {
-    if (settling !== null) clearTimeout(settling);
-    settling = setTimeout(() => {
-      settling = null;
+  // Named for the wait and not for a settlement: CONTEXT.md's **Collection**
+  // owns _settled_ for the commit point, and two meanings of it in one
+  // subsystem is one too many.
+  const waitOut = (): void => {
+    if (waiting !== null) clearTimeout(waiting);
+    waiting = setTimeout(() => {
+      waiting = null;
       deposit();
     }, depositDebounceMs);
   };
 
   const stopWatchingLedger = work.onLedgerGrowth(() => {
     changed = true;
-    settle();
+    waitOut();
   });
 
-  // **Best-effort, and only with something pending.** A hide with no unsettled
-  // growth behind it would be a bare rewrite bought with a Class A operation
-  // and nothing to carry.
+  // **Best-effort, and only with something pending.** A hide with no growth
+  // still waiting behind it would be a bare rewrite bought with a Class A
+  // operation and nothing to carry.
   const stopWatchingHide = work.onHide(() => {
-    if (settling === null) return;
-    clearTimeout(settling);
-    settling = null;
+    if (waiting === null) return;
+    clearTimeout(waiting);
+    waiting = null;
     deposit();
   });
 
@@ -231,8 +234,8 @@ export function openWake(
     close(): void {
       if (closed) return;
       closed = true;
-      if (settling !== null) clearTimeout(settling);
-      settling = null;
+      if (waiting !== null) clearTimeout(waiting);
+      waiting = null;
       clearInterval(floor);
       stopWatchingLedger();
       stopWatchingHide();

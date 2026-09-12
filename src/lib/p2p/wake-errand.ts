@@ -61,6 +61,16 @@ export const appWakeLedger: WakeLedger = {
 };
 
 /**
+ * The one lane condition draining cannot reach, said by whichever sync met it.
+ *
+ * Both of them can: a deposit is a deposit whether a collection preceded it,
+ * and the trigger that fires most often is the one least worth being silent on.
+ */
+const JAMMED =
+  "[p2p] A datom is wider than one deposit, so this pairing's lane cannot " +
+  "drain. It will not converge until that row is smaller.";
+
+/**
  * Converge with every paired device, once.
  *
  * **Pairings run one after another rather than at once.** Each one's work is a
@@ -91,12 +101,7 @@ export async function convergeWithPeers(
       // A take that moved rows and settled nothing: the acknowledgement it owes
       // is not in the store, so the next sync repeats it whole from the `GET`.
       if (outcome.collected > 0 && !outcome.settled) owed = true;
-      if (outcome.jammed) {
-        appWarn(
-          "[p2p] A datom is wider than one deposit, so this pairing's lane " +
-            "cannot drain. It will not converge until that row is smaller."
-        );
-      }
+      if (outcome.jammed) appWarn(JAMMED);
     } catch (failure) {
       owed = true;
       // A sync that did not converge, which a later trigger retries. It is a
@@ -119,9 +124,10 @@ export async function convergeWithPeers(
 export async function depositToPeers(store: Store = appStore): Promise<void> {
   for (const paired of readPairedDevices()) {
     try {
-      await depositToPeer(paired, store, appWakeLedger, {
+      const outcome = await depositToPeer(paired, store, appWakeLedger, {
         keep: updatePairedDevice,
       });
+      if (outcome.jammed) appWarn(JAMMED);
     } catch (failure) {
       appWarn("[p2p] This deposit did not reach a paired device", failure);
     }
@@ -129,16 +135,23 @@ export async function depositToPeers(store: Store = appStore): Promise<void> {
 }
 
 /**
- * The ledger growing, as the app already announces it.
+ * The ledger changing, as the app already announces it.
  *
- * The worker broadcasts on an append and on the final batch of an import, and
- * **both are growth**: rows this device logged are what a peer lacks, and rows
- * it imported are what a *third* device lacks (#401). Nothing here tells the
- * two apart, which is deliberate — the cost of the broader reading is one
- * acknowledgement-only rewrite at an address the lane was going to use anyway.
+ * The worker broadcasts on four things, not two: an append, the final batch of
+ * an import, a Facet-scoped wipe and a `clear`. The first two are growth in the
+ * plain sense — rows this device logged are what a peer lacks, and rows it
+ * imported are what a *third* device lacks (#401) — and **nothing here tells
+ * any of them apart, which is deliberate**. Telling an append from an import
+ * was available (the worker sends an empty attribute list for everything but an
+ * append) and is refused, because under §10's fan-out an import is exactly what
+ * a third device is waiting for.
+ *
+ * The two deletions cost one rewrite each and nothing else: the delta read
+ * afterwards is smaller, so what goes out is what survived. A deposit carrying
+ * the deletion itself is #402's, and unpairing on a jar-wide wipe is #403's.
  */
 const onLedgerGrowth = (grew: () => void): (() => void) =>
-  dbClient.onInvalidate(() => grew());
+  dbClient.onInvalidate(grew);
 
 /**
  * The app going away, as far as a browser will say.
@@ -147,6 +160,16 @@ const onLedgerGrowth = (grew: () => void): (() => void) =>
  * fires when a tab is backgrounded or a phone is locked, and `pagehide` is the
  * one iOS gives before a tab is discarded. The flush behind them is
  * best-effort and idempotent, so being told twice costs nothing.
+ *
+ * **Best-effort is as good as this gets, and the reason is a number.** The two
+ * events differ in what survives them: a backgrounded tab keeps running, so its
+ * `PUT` completes normally, while a tab being discarded cancels it. The usual
+ * repair — `fetch` with `keepalive` — cannot be used here, because keepalive
+ * caps a request body at 64 KiB and a deposit's ceiling is 16 MiB, so it would
+ * carry the small deposits and silently refuse exactly the backlogs that most
+ * need carrying. ADR-0096 §3's amendment already names this residual: a device
+ * closed inside the debounce window defers to its next open, which is the
+ * promise rather than a regression.
  */
 function onHide(hidden: () => void): () => void {
   if (typeof document === "undefined") return () => {};

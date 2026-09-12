@@ -655,6 +655,27 @@ describe("a deposit follows the data rather than the open", () => {
     });
   });
 
+  it("answers a refusal with a recreate, on this trigger as on a wake's", async () => {
+    const [a, b] = await pair();
+    hold(a, [row()]);
+    await wake(a);
+    const address = await depositAddress(a);
+
+    // B takes the object and, having deposited the word for it, deletes it. A
+    // has not collected since, so it has not heard that word.
+    await wake(b);
+    expect(held.has(address)).toBe(false);
+
+    hold(a, [row({ entity: "event:two" })]);
+    const again = await deposit(a);
+
+    // The lane may not advance on a refusal — only a sealed acknowledgement
+    // does that — so the peer still sitting at this index gets an object back.
+    expect(again.recreated).toBe(true);
+    expect(a.record.deposit.index).toBe(0);
+    expect(held.has(address)).toBe(true);
+  });
+
   it("acknowledges nothing when it has collected nothing", async () => {
     const [a] = await pair();
     await deposit(a);
