@@ -51,82 +51,19 @@ import { readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import {
+  claim,
+  groupingKey,
+  residual,
+  segments,
+} from "./usda-collapse-roster.mjs";
+
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const INDEX_PATH = join(ROOT, "public", "usda", "search-index.json");
 const STORE_PATH = join(ROOT, "public", "usda", "nutrient-store.json");
 
 const index = JSON.parse(readFileSync(INDEX_PATH, "utf8"));
 const store = JSON.parse(readFileSync(STORE_PATH, "utf8"));
-
-/**
- * ADR-0100 §2's collapsing axes, as patterns over a whole comma-segment (§10).
- *
- * `preferred` is §5's second bullet made explicit: a record stating a
- * non-preferred value may not represent a group. The pilot's ruling is that
- * `preparation` and `separation` carry one — cooked beef is not the beef you
- * bought, and `separable lean only` is a dissected fraction rather than the
- * steak — while `trim` and `grade` carry none, because §2 collapsed those
- * precisely on the ground that they are the same food, and refusing them
- * re-imports the distinction the collapse just erased.
- */
-const ROSTER = [
-  // preparation — what you did to it after you bought it
-  { axis: "preparation", re: /^raw$/i, preferred: true },
-  { axis: "preparation", re: /^raw or unheated$/i, preferred: true },
-  {
-    axis: "preparation",
-    re: /^raw \(includes foods for usda's food distribution program\)$/i,
-    preferred: true,
-  },
-  {
-    axis: "preparation",
-    re: /^(cooked|grilled|braised|roasted|broiled|pan-broiled|pan-browned|pan-fried|fried|fast fried|fast roasted|slow roasted|baked|simmered|boiled|stewed|microwaved|patty cooked)$/i,
-    preferred: false,
-  },
-  // separation — the butcher's knife, not the counter
-  {
-    axis: "separation",
-    re: /^(boneless )?separable lean and fat$/i,
-    preferred: true,
-  },
-  {
-    axis: "separation",
-    re: /^((boneless )?separable lean only|lean only|separable fat)$/i,
-    preferred: false,
-  },
-  // trim — a trade specification, and no value of it refuses
-  { axis: "trim", re: /^trimmed to (0|1\/8|1\/4)" ?fat$/i, preferred: true },
-  // grade — likewise. `Grade A` is a different sense and is not matched:
-  // ADR-0100 §10's standing warning about `Eggs, Grade A, Large, egg white`.
-  { axis: "grade", re: /^(usda )?(choice|select|prime)$/i, preferred: true },
-  { axis: "grade", re: /^aust\. marble score /i, preferred: true },
-];
-
-const claim = (segment) =>
-  ROSTER.find((entry) => entry.re.test(segment)) ?? null;
-
-const segments = (description) => {
-  const parts = description.split(",").map((part) => part.trim());
-  return { head: parts[0], tail: parts.slice(1) };
-};
-
-/**
- * §3's residual description, with the pilot's normalisation clause applied:
- * punctuation and whitespace only. `Beef, round, top round, steak` and
- * `Beef, round, top round steak` are one food and USDA spells it both ways; the
- * key ignores the comma, and ignores nothing that carries meaning.
- */
-const residual = (description) => {
-  const { head, tail } = segments(description);
-  return [head, ...tail.filter((segment) => !claim(segment))].join(", ");
-};
-
-const groupingKey = (description) =>
-  residual(description)
-    .toLowerCase()
-    .replace(/[,\-/]/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
 
 /** §4.2, present-not-nonzero: a measured 0 g is a fuller panel than no figure. */
 const panel = (row) => Object.keys(store.foods[row.fdcId] ?? {}).length;
