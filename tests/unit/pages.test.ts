@@ -63,7 +63,14 @@ function ownRule(file: string, selector: string) {
   return found[0];
 }
 
-/** A `matchMedia` that answers `matches` and records what it was asked. */
+/**
+ * A `matchMedia` that answers `matches` and records what it was asked.
+ *
+ * `resize` moves `query.matches` **before** dispatching, which is what a real
+ * `MediaQueryList` does and what `watchAtLeast` now reads: since #409 it
+ * reports the width the window settled at rather than the one an event carried,
+ * so a fake whose `matches` never moved would be testing the event alone.
+ */
 function fakeMatchMedia(matches: boolean) {
   const listeners = new Set<(e: { matches: boolean }) => void>();
   const asked: string[] = [];
@@ -80,7 +87,10 @@ function fakeMatchMedia(matches: boolean) {
     get attached() {
       return listeners.size;
     },
-    resize: (to: boolean) => listeners.forEach((fn) => fn({ matches: to })),
+    resize: (to: boolean) => {
+      query.matches = to;
+      listeners.forEach((fn) => fn({ matches: to }));
+    },
     matchMedia: (q: string) => {
       asked.push(q);
       return query;
@@ -126,6 +136,63 @@ describe("a width is read from JavaScript only where it decides more than layout
     expect(media.attached).toBe(0);
     media.resize(true);
     expect(seen).toEqual([false, true, false]);
+  });
+
+  it("reports the width the window settled at, not the ones it passed through", () => {
+    // #409, and the transient is a measured one rather than a hypothetical:
+    // Chromium answers a full-page capture that does not fit the viewport by
+    // resizing the widget, and the page sees `innerWidth` go 1280 → 1 → 1280
+    // with a `change` at each end. Reported straight through, the narrow half
+    // unmounts Rations' page and `FoodView` discards the reader's `page` with
+    // it — a walk-back nothing walks forward again, so the screen stays on the
+    // day at a width that has pages. Six of fourteen captures of
+    // `rations-reports-page` photographed exactly that.
+    const media = fakeMatchMedia(true);
+    const frames: FrameRequestCallback[] = [];
+    vi.stubGlobal("window", {
+      matchMedia: media.matchMedia,
+      requestAnimationFrame: (fn: FrameRequestCallback) =>
+        frames.push(fn) && frames.length,
+      cancelAnimationFrame: () => {},
+    });
+    const seen: boolean[] = [];
+    watchAtLeast("shell", (m) => seen.push(m));
+    expect(seen).toEqual([true]);
+
+    // The blip: narrow, then wide again, both inside one frame.
+    media.resize(false);
+    media.resize(true);
+    expect(seen, "a report before the frame runs").toEqual([true]);
+    frames.forEach((fn) => fn(0));
+    expect(seen, "a width that lasted less than a frame").toEqual([true]);
+
+    // And a resize that actually settles is still reported, exactly once.
+    frames.length = 0;
+    media.resize(false);
+    frames.forEach((fn) => fn(0));
+    expect(seen).toEqual([true, false]);
+  });
+
+  it("coalesces a burst into one frame rather than one report each", () => {
+    const media = fakeMatchMedia(true);
+    const frames: FrameRequestCallback[] = [];
+    vi.stubGlobal("window", {
+      matchMedia: media.matchMedia,
+      requestAnimationFrame: (fn: FrameRequestCallback) =>
+        frames.push(fn) && frames.length,
+      cancelAnimationFrame: () => {},
+    });
+    const seen: boolean[] = [];
+    watchAtLeast("shell", (m) => seen.push(m));
+
+    media.resize(false);
+    media.resize(true);
+    media.resize(false);
+    // One frame asked for, however many changes arrived inside it: a caller
+    // that unmounts a surface must not be handed a flicker to render.
+    expect(frames).toHaveLength(1);
+    frames.forEach((fn) => fn(0));
+    expect(seen).toEqual([true, false]);
   });
 
   it("reports nothing at all where there is no `matchMedia` to ask", () => {

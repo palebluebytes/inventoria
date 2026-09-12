@@ -134,7 +134,9 @@ export function atLeast(bp: keyof typeof BREAKPOINTS): string {
  * full-page settings screen renders into a column that never split.
  *
  * `onChange` fires **immediately** with the current answer, so a caller has one
- * path rather than an initial read and a subscription that can disagree. Without
+ * path rather than an initial read and a subscription that can disagree. Every
+ * report after that one is coalesced to a frame and carries the width the
+ * window settled at, for the reason written on the coalescing itself. Without
  * a `window` (both shells are server-rendered in the unit tier) or without
  * `matchMedia` (the offline-boot driver stubs a bare one, and the shell harness
  * stubs none at all) it reports nothing and the caller keeps its initial value —
@@ -153,8 +155,55 @@ export function watchAtLeast(
     return () => {};
   }
   const query = window.matchMedia(atLeast(bp));
-  onChange(query.matches);
-  const report = (event: MediaQueryListEvent) => onChange(event.matches);
+  let reported = query.matches;
+  onChange(reported);
+
+  // **A change is reported at the width the window settled at, not at every
+  // width it passed through (#409).** A report here unmounts a whole surface
+  // and the caller discards the reader's page with it, which is a walk-back
+  // nothing walks forward again — so a width that existed for less than a
+  // frame must not spend it.
+  //
+  // The transient is real and this repo has measured one. Chromium answers
+  // `Page.captureScreenshot` with `captureBeyondViewport` — which Playwright
+  // asks for whenever a full-page shot does not fit the viewport
+  // (`crPage.js:222`) — by resizing the widget, and the page observes a
+  // **one-pixel** viewport on the way: `innerWidth` 1280 → 1 → 1280, with a
+  // `change` at each end 26-186ms apart. Reported straight through, all nine
+  // blips seen across a 20-run sweep unmounted the page and `FoodView`
+  // discarded the reader's `page` with it; with the coalescing, none of nine
+  // did.
+  //
+  // **The window is a frame boundary, not a stopwatch, which is why those
+  // wall-clock figures do not threaten it.** A callback asked for from inside a
+  // `change` handler does not run in the frame that dispatched it, and by the
+  // next frame's callback phase the query has been re-evaluated — so `settle`
+  // reads what is true now rather than what an event said then, and a pair that
+  // cancels out reports nothing. The gaps measure long only because the capture
+  // starves the renderer of frames; in frames, the blip is one. A genuine
+  // resize outlives the boundary and is reported once. Without
+  // `requestAnimationFrame` — the unit tier's stubbed windows — this reports
+  // synchronously, which is what it always did.
+  const frame =
+    typeof window.requestAnimationFrame === "function"
+      ? window.requestAnimationFrame.bind(window)
+      : null;
+  let pending: number | null = null;
+  const settle = () => {
+    pending = null;
+    if (query.matches === reported) return;
+    reported = query.matches;
+    onChange(reported);
+  };
+  const report = () => {
+    if (!frame) return settle();
+    if (pending === null) pending = frame(settle);
+  };
   query.addEventListener("change", report);
-  return () => query.removeEventListener("change", report);
+  return () => {
+    query.removeEventListener("change", report);
+    if (pending !== null && typeof window.cancelAnimationFrame === "function") {
+      window.cancelAnimationFrame(pending);
+    }
+  };
 }

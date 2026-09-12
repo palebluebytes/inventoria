@@ -208,13 +208,31 @@ const RATIONS_SHELL_FLAT = `
 async function takeFullPageScreenshot(
   page: import("@playwright/test").Page,
   name: string,
-  flatten: string
+  flatten: string,
+  stillShowing?: import("@playwright/test").Locator
 ) {
   const styleHandle = await page.addStyleTag({
     content: `${NO_MOTION}\n${flatten}`,
   });
   try {
     await expect(page).toHaveScreenshot(name, { fullPage: true });
+    // **`stillShowing` is asserted after the shot, and only after it (#409).**
+    // A capture is the one assertion in this file that cannot say what it
+    // photographed, and `rations-reports-page` spent three weeks holding the
+    // Rations day screen because of it: the test asserted the Reports heading
+    // was visible, and it was — before the picture was taken. What came
+    // between was `Page.captureScreenshot` with `captureBeyondViewport`, which
+    // Chromium answers by resizing the widget, and Rations unmounts a page
+    // below the shell breakpoint. `breakpoints.ts` no longer acts on a width
+    // that lasts one frame, so the flip cannot happen; this is what would have
+    // caught it, and what catches the next surface whose mount is decided by a
+    // measurement rather than by a class.
+    //
+    // A caller passes it when the shot has a subject that can stop being on
+    // screen. The root shell's captures do not — nothing there is mounted on a
+    // width — so the parameter is optional rather than a locator six callers
+    // would have to invent.
+    if (stillShowing) await expect(stillShowing).toBeVisible();
   } finally {
     await styleHandle.evaluate((el) => (el as Element).remove());
   }
@@ -1253,13 +1271,16 @@ test.describe("Visual Catalog — Rations' own shell", () => {
         if (p === "reports") await logBreakfast(page);
 
         await page.locator(`#${iconIdOf(p)}`).click();
-        await expect(
-          page.getByRole("heading", { name: pageLabel(p) })
-        ).toBeVisible();
+        const heading = page.getByRole("heading", { name: pageLabel(p) });
+        await expect(heading).toBeVisible();
+        // Passed as the subject so it is asserted on the far side of the
+        // capture as well: all three of these are mounted on a width, and a
+        // page that vanished during the shot is what #409 was.
         await takeFullPageScreenshot(
           page,
           `rations-${p}-page.png`,
-          RATIONS_SHELL_FLAT
+          RATIONS_SHELL_FLAT,
+          heading
         );
       });
     }
