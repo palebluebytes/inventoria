@@ -460,3 +460,132 @@ on granularity _and_ carries portions.
 with no survivor reopens §7. A second composition table gaining household portions
 reopens the Context's first alternative. A screen that needs to show what a row
 stands for reopens the last consequence above.
+
+## Amendment (2026-09-12, #191): §5 rewritten, §3 gains a normalisation clause, and the cut-depth lever is refused
+
+The `Beef` pilot this record commissioned has run —
+[#191](https://github.com/palebluebytes/inventoria/issues/191),
+[research note](../research/191-beef-pilot.md), reproducible by
+`pnpm usda:beef-pilot`. The roster was written out for all **202** of `Beef`'s
+distinct trailing segments and applied corpus-wide, taking the corpus to **2,837
+rows** and `beef` from 954 to **188**.
+
+§1, §2, §3's grouping, §4, §6, §7, §8 and §10 are ratified by it and move no
+inch. The as-bought line of §2 classified all 202 segments without producing a
+case it could not decide, which is the thing the pilot existed to find out. §5
+does not survive, and the two clauses below replace it.
+
+### §5's eligibility test was undefined, and the definition decided whether the head shipped
+
+"A row that positively states a non-preferred value on a collapsing axis is
+refused" never says which values are non-preferred. Over `Beef`'s 185 collapse
+groups the four available readings give **71, 34, 26 and 0** coverage holes — and
+since §5 made a hole block its head, the record as written said `Beef` needs
+between zero and seventy-one curated stand-ins before it may ship, and did not
+say which.
+
+**Two axes carry a non-preferred value and two do not.** Preparation does:
+cooked beef is not the beef you bought. Separation does: `separable lean only` is
+a dissected fraction rather than the steak. **Trim and grade carry none**, because
+§2 collapsed them on the express ground that they are the same food, and refusing
+a row for stating one re-imports the distinction the collapse has just erased.
+The Consequences already concede the survivor is an arbitrary point inside a
+measured spread — 12% across trim, 6% across grade — so refusing on trim buys
+accuracy the record has already declined to claim.
+
+### A coverage hole no longer blocks a head; it ships the group whole
+
+§5 settles this question for a group of one already: `Quinoa, cooked` is the only
+quinoa USDA publishes, nothing is stripped, and it ships — a true name over a true
+panel. A group of six cooked-only rib eye rows sat under the same paragraph and
+blocked 950 rows of beef. The two are identical in every respect that matters,
+and the asymmetry had no argument behind it.
+
+> **Where a group of more than one has no eligible row, it ships its
+> fullest-panel row under that row's whole, unstripped name**, exactly as a group
+> of one does. The strip is what §5 forbids, and not shipping.
+
+The 108 kcal of brine the original clause feared is prevented by the name keeping
+`with added solution`, which §5 already knows how to do. Blocking added nothing to
+that and cost a head. **ADR-0046 now improves a row rather than gating one**, which
+is also what makes the 24 hand-offs tractable: none of them can be blocked on a
+stand-in nobody has written. 88 groups corpus-wide took this path in the pilot.
+
+### §5's one confirmed coverage hole does not exist
+
+The record states, and `CONTEXT.md` repeated, that `chicken breast, meat only`
+has four candidates all cooked or brine-injected, so "USDA published no usable
+panel for plain skinless chicken breast". USDA published **fdc:171077**,
+`Chicken, broiler or fryers, breast, skinless, boneless, meat only, raw`, 120 kcal
+over a 129-nutrient panel.
+
+#189 read the group under `Chicken, **broilers** or fryers, breast, meat only` —
+plural, no `skinless, boneless` — which does hold only cooked rows. The plain raw
+record is one segment and one letter away under `broiler` singular, and §3's
+grouping saw two foods. Read the Consequences' "one is confirmed" as **none is
+confirmed**: the number of coverage holes across the 25 adjudicated heads is
+unknown and no instance has yet been demonstrated.
+
+### §3 gains a normalisation clause, and it is punctuation only
+
+The error above is not an anecdote about #189. It is what §3's key does: the
+residual description is a string, and USDA's spelling of one cut is not stable.
+`Beef, round, top round, steak`, `Beef, round, top round steak` and
+`Beef, round, top round steak, boneless` are three groups for one food;
+`97% lean meat / 3% fat` and `97% lean meat /3% fat` are two.
+
+> **Rows are grouped on the residual description with commas, hyphens, slashes
+> and repeated whitespace normalised away.** Nothing carrying meaning is
+> normalised.
+
+This merges only strings already identical modulo punctuation, so it costs no
+judgement and cannot merge two foods. It is worth **8 groups of 193** on `Beef` and
+is therefore **a correctness lever and not a size one** — it earns its clause
+because of what it would have caught, not what it collapses. A wider
+normalisation that also ignores `boneless`, `bone-in`, `lip-on` and `lip off`
+would merge 14 more, and is refused here: `bone-in` is a real distinction on rib
+eye and t-bone, where USDA publishes both, so that judgement belongs to an
+adjudicated head and not to §3's mechanical grouping.
+
+### §2 takes no cut-depth lever
+
+The pilot's commission asked whether the rule needs a way to ship
+`Beef, bottom round` and collapse steak-versus-roast into it. **No**, and the
+reason is measured rather than argued. Truncating the residual description to two
+segments leaves **73 rows** — still three times C2's cap — while merging every
+ground-beef fat ratio into one `Beef, ground`, the gold row's 80/20 among them,
+and flattening `Beef, grass-fed` and `Beef, cured` to a row each. It still leaves
+`Beef, rib eye`, `Beef, rib eye steak` and `Beef, ribeye` as three.
+
+Depth is not a coordinate in this corpus. USDA's second segment is variously a
+primal (`round`), a cut (`tenderloin`), a shape (`ground`), a husbandry claim
+(`Wagyu`), a preservation (`cured`) and an organ (`liver`). A rule counting commas
+reads a hierarchy that is not there.
+
+### §7 is ratified, with a negative result against it
+
+§7 says a pilot finding a row that must go with no survivor brings it back as the
+argument. `Beef` was read for one and does not contain one. The tempting case is
+24 groups of dissected fractions and organ meats — `separable fat`, `seam fat`,
+`suet`, `carcass`, `composite of trimmed retail cuts`, `mechanically separated
+beef`, and thirteen organ groups — and it is declined on its own numbers: removing
+all of them takes `beef` from 188 to about 164, the `designated` ranking key
+already sinks them, and the map ruled that residue out of scope at charting.
+
+### §11's table files `beef` on the wrong side of itself
+
+§11 lists `beef` among seven queries the collapse "does the work" on, at 954 to
+228, against eight it says the rule cannot help. Measured: of the **twenty-one**
+queries over the cap at registration, **exactly one crosses it** — `mushroom`,
+27 to 25 — plus `chicken thigh` among the watched multi-word queries. C1 moves by
+**zero**, from 24/44 to 24/44; C2 by one, 27/44 to 28/44. One gold row is rescued
+from past-the-cap to rank 20.
+
+Nothing in §11's conclusion changes and its honesty is intact — it declined to
+reinterpret C2 and said plainly that the bar would not be met. What changes is
+which side of its own line `beef` sits on. **`beef` belongs in the second table,
+beside `cheese`**: 188 butchery cuts is one row per ingredient, a bottom round
+steak and a bottom round roast being two foods, and the remaining distance is
+[#411](https://github.com/palebluebytes/inventoria/issues/411)'s and
+[#412](https://github.com/palebluebytes/inventoria/issues/412)'s — retrieval and
+paging — rather than membership's.

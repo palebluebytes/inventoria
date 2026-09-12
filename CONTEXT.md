@@ -93,7 +93,7 @@ A dimension the USDA records under one head vary along that names something true
 _Avoid_: Form, variant axis, real axis
 
 **Residual description**:
-What a USDA description reads as once every Collapsing axis segment is struck out of it. It is the key that decides which records are one food, and nothing displays it. See ADR-0100.
+What a USDA description reads as once every Collapsing axis segment is struck out of it. It is the key that decides which records are one food, and nothing displays it. Records are grouped on it with commas, hyphens, slashes and repeated whitespace normalised away, because USDA spells one cut several ways — `Beef, round, top round, steak` and `Beef, round, top round steak` are one food — and a difference of punctuation is not a difference of food. Nothing carrying meaning is normalised. See ADR-0100.
 _Avoid_: Stripped name, canonical name (which is the shipped name, a different thing), base description
 
 **Collapse group**:
@@ -101,11 +101,11 @@ The set of USDA records sharing one Residual description, which is to say the re
 _Avoid_: Duplicate set, permutation group, cluster
 
 **Representative**:
-The one record of a Collapse group whose panel the Search index ships, chosen by the fuller nutrient panel and then the lower `fdcId`. It is always a record USDA published, never an average of the group: an average is a number nobody measured and no `fdc:` entity can carry. A record is eligible to represent a group only where the name the group ships under stays true of it, so a record stating a preparation, or carrying a qualifier the roster could not read, stands for nothing. The spread the group loses is real and is not recorded anywhere on the row — on beef sirloin, 12% of the calories across trim and 6% across grade. See ADR-0100.
+The one record of a Collapse group whose panel the Search index ships, chosen by the fuller nutrient panel and then the lower `fdcId`. It is always a record USDA published, never an average of the group: an average is a number nobody measured and no `fdc:` entity can carry. A record is eligible to represent a group only where the name the group ships under stays true of it, so a record stating a preparation or a separation — `cooked`, `separable lean only` — stands for nothing. Trim and grade refuse nothing: the group exists because those are the same food, and refusing a record for stating one would re-import the distinction the collapse just erased. The spread the group loses is real and is not recorded anywhere on the row — on beef sirloin, 12% of the calories across trim and 6% across grade. See ADR-0100.
 _Avoid_: Winner, canonical record, survivor (which is ADR-0051's word for a twin merge), average row
 
 **Coverage hole**:
-A Collapse group of more than one record where no record is eligible to be its Representative, so USDA published no usable panel for a food that exists. Plain skinless chicken breast is the confirmed one: all four candidates are either cooked or brine-injected. A hole does not ship as a row with no number — a row that cannot answer "how many calories" is unloggable — so the food waits on a Curated stand-in, and the head it sits under does not ship until one exists. See ADR-0046 and ADR-0100.
+A Collapse group of more than one record where no record is eligible to be its Representative. It ships anyway: its fullest-panel record under that record's whole, unstripped name, which is the treatment a group of one already gets — `Quinoa, cooked` is the only quinoa USDA publishes and ships saying so. What a hole forbids is the strip, never the row, so it blocks no head and a Curated stand-in improves it rather than gating it. No instance has been demonstrated: plain skinless chicken breast was named as the confirmed one and is not, `fdc:171077` being a plain raw breast at 120 kcal. See ADR-0046 and ADR-0100.
 _Avoid_: Missing food, gap, null row
 
 **Nutrient store**:
