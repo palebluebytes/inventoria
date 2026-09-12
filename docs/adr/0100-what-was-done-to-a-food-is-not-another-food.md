@@ -362,7 +362,10 @@ Two bars apply and neither supersedes the other, because they test opposite
 things.
 
 **ADR-0055 §2**: no rule adopted here may break a lead already measured correct,
-checked against the 29 adjudicated cases in `docs/research/143-gold-set.json`. It
+checked against the 19 heads `docs/research/143-gold-set.json` adjudicates
+`correct` — of 50 cases in that file, the other 31 being misses and peers, which
+§2 does not protect because they were never right ([#192](https://github.com/palebluebytes/inventoria/issues/192)
+measured the count this paragraph originally gave as 29). It
 is a regression test, it was made binding on drops for the reason that a broken
 lead is recoverable by scrolling and a dropped row is gone, and it binds every
 clause above.
