@@ -76,12 +76,28 @@
  * only exactness. See `vectorWith` for why the inexact direction is the safe
  * one.
  *
+ * ### A deposit follows the data, and it is not a second collection
+ *
+ * §3's 2026-09-06 Amendment unwelds the wake from the sync, so this module has
+ * two entry points rather than one. {@link convergeWithPeer} is the whole
+ * round — collect, deposit, settle — and {@link depositToPeer} is the deposit
+ * alone, for the trigger that fires whenever the delta grows.
+ *
+ * **What makes the second one affordable is that the index advances on
+ * collection.** Every rewrite made before the peer takes one lands on the
+ * **same address**, so three meals logged in one open are three writes to one
+ * key: it merges no components of the address chain and spends nothing of §4.
+ * A deposit-only sync therefore touches one address on one lane and reads
+ * nothing, which is why it is not a collection with the `GET` left out.
+ *
+ * The word it says is the same word: **the highest index this device has
+ * taken**, re-asserted exactly as a wake's own deposit re-asserts it.
+ *
  * ### What this module is not
  *
- * It is one pairing and one wake. The cadence §3's amendment adds — a deposit
- * whenever the delta grows, a collection no more than hourly in a session that
- * stays open — is #397's, and the fan-out at three or more devices is #401's.
- * Both are callers of this, not changes to it.
+ * It is one pairing. When those two entry points run — the debounce, the
+ * hourly collection floor, the flush on hide — is `wake-cadence.ts`'s, and the
+ * fan-out at three or more devices is #401's.
  */
 
 import { cursorOf, type LedgerCursor, type LedgerRow } from "../db/db.core";
@@ -219,8 +235,31 @@ export interface WakeOutcome {
   jammed: boolean;
 }
 
+/** What one deposit inside an open did. A deposit reads nothing, so it
+ * reports nothing about the peer: it cannot collect, and it cannot be
+ * acknowledged until the peer's own object is read on a later collection. */
+export interface DepositOutcome {
+  /** Rows this deposit carries. */
+  deposited: number;
+  /** Whether a refused rewrite was answered by a recreate. See {@link WakeOutcome}. */
+  recreated: boolean;
+  /** Whether a datom is wider than a whole deposit. See {@link WakeOutcome}. */
+  jammed: boolean;
+}
+
 const utf8 = new TextEncoder();
 const fromUtf8 = new TextDecoder();
+
+/**
+ * The highest index this device has taken, which is what every deposit
+ * acknowledges.
+ *
+ * The collect lane sits at the index it will take **next**, because it advances
+ * on a settled collection — so the index behind it is the last one taken, and a
+ * lane that has taken nothing acknowledges nothing.
+ */
+const highestTaken = (device: PairedDevice): number | null =>
+  device.collect.index > 0 ? device.collect.index - 1 : null;
 
 /**
  * Runs one wake against one pairing.
@@ -281,6 +320,47 @@ export async function convergeWithPeer(
   };
 }
 
+/**
+ * Leaves one deposit without collecting, for the trigger that is the delta
+ * growing (§3's 2026-09-06 Amendment, as extended on 2026-09-12).
+ *
+ * **It touches one address and it is the address the last one touched**, until
+ * the peer collects. That is the whole of why depositing on every change is
+ * free rather than a cadence with a price: the index advances on collection, so
+ * the rewrites between two collections are rewrites of one object.
+ *
+ * It re-asserts {@link highestTaken}, which is what a wake with nothing to
+ * collect also says. Nothing here can settle a collection — only
+ * {@link convergeWithPeer} takes one — so a peer owed an acknowledgement is
+ * still owed it afterwards, which is why the collection floor does not skip
+ * while a debt is outstanding.
+ */
+export async function depositToPeer(
+  paired: PairedDevice,
+  store: Store,
+  ledger: WakeLedger,
+  {
+    keep,
+    ceilingBytes = DEPOSIT_CEILING_BYTES,
+    chunkBudgetBytes = DEPOSIT_CHUNK_BUDGET_BYTES,
+    draw = randomBytes,
+  }: WakeOptions
+): Promise<DepositOutcome> {
+  const { deposited, recreated, jammed } = await depositLane(
+    paired,
+    store,
+    keep,
+    {
+      ledger,
+      ceilingBytes,
+      chunkBudgetBytes,
+      draw,
+      acknowledges: highestTaken(paired),
+    }
+  );
+  return { deposited, recreated, jammed };
+}
+
 // ---------------------------------------------------------------------------
 // Collecting
 // ---------------------------------------------------------------------------
@@ -328,7 +408,7 @@ async function takeFromPeer(
   const lane = laneChainOf(device.collect);
   const address = await laneAddress(lane);
   const held = await store.collect(address);
-  const behind = device.collect.index > 0 ? device.collect.index - 1 : null;
+  const behind = highestTaken(device);
   // The normal outcome, said plainly: the peer has not deposited since this
   // device last collected, or has not woken at all.
   if (!held) {

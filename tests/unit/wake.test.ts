@@ -47,6 +47,8 @@ import {
 } from "../../src/lib/stores/paired-devices";
 import {
   convergeWithPeer,
+  depositToPeer,
+  type DepositOutcome,
   type WakeLedger,
   type WakeOutcome,
 } from "../../src/lib/p2p/wake";
@@ -135,6 +137,16 @@ const wake = (
   { store: over = store, ...rest }: WakeAdjustments = {}
 ): Promise<WakeOutcome> =>
   convergeWithPeer(who.record, over, who.ledger, {
+    keep: (next) => (who.record = next),
+    ...rest,
+  });
+
+/** One deposit inside an open, triggered by the delta growing (§3, amended). */
+const deposit = (
+  who: Device,
+  { store: over = store, ...rest }: WakeAdjustments = {}
+): Promise<DepositOutcome> =>
+  depositToPeer(who.record, over, who.ledger, {
     keep: (next) => (who.record = next),
     ...rest,
   });
@@ -586,3 +598,69 @@ async function leaveDeposit(
     etag: "planted",
   });
 }
+
+// ---------------------------------------------------------------------------
+// A deposit follows the data, and a rewrite before a collection is free
+// ---------------------------------------------------------------------------
+
+describe("a deposit follows the data rather than the open", () => {
+  it("lands every rewrite before a collection on the same address", async () => {
+    const [a] = await pair();
+    hold(a, [row({ entity: "event:one" })]);
+
+    const address = await depositAddress(a);
+    await deposit(a);
+    hold(a, [row({ entity: "event:two" })]);
+    await deposit(a);
+    hold(a, [row({ entity: "event:three" })]);
+    const third = await deposit(a);
+
+    // The whole affordability of depositing on every change: the index advances
+    // on **collection**, so three meals logged in one open are three writes to
+    // one key. It merges no components of the address chain and spends nothing
+    // of ADR-0096 §4.
+    expect(a.record.deposit.index).toBe(0);
+    expect(await depositAddress(a)).toBe(address);
+    expect([...held.keys()]).toEqual([address]);
+    expect(third.deposited).toBe(3);
+  });
+
+  it("carries the whole delta to a peer that opens once, afterwards", async () => {
+    const [a, b] = await pair();
+    hold(a, [row({ entity: "event:one" })]);
+    await deposit(a);
+    hold(a, [row({ entity: "event:two" })]);
+    await deposit(a);
+
+    expect((await wake(b)).collected).toBe(2);
+    expect(rowsOf(b).sort()).toEqual(rowsOf(a).sort());
+  });
+
+  it("re-asserts the acknowledgement for the highest index it has taken", async () => {
+    const [a, b] = await pair();
+    hold(a, [row()]);
+    await wake(a);
+    await wake(b);
+
+    // B deposits again inside the same open, with no collection between. The
+    // word it says is the one it said on the wake: an acknowledgement is
+    // re-asserted in every deposit, which is what heals a lost one.
+    hold(b, [row({ entity: "event:b", device_id: "dev_b" })]);
+    const again = await deposit(b);
+
+    expect(again.deposited).toBe(1);
+    expect(b.record.collect.index).toBe(1);
+    expect(await openEnvelope(b, await depositAddress(b), "deposit")).toEqual({
+      acknowledges: 0,
+    });
+  });
+
+  it("acknowledges nothing when it has collected nothing", async () => {
+    const [a] = await pair();
+    await deposit(a);
+
+    expect(await openEnvelope(a, await depositAddress(a), "deposit")).toEqual({
+      acknowledges: null,
+    });
+  });
+});
