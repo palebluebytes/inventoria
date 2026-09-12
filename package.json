@@ -28,6 +28,8 @@
     "usda:consolidation-bar": "node scripts/usda-consolidation-bar.mjs",
     "usda:beef-pilot": "node scripts/usda-beef-pilot.mjs",
     "usda:coverage": "node scripts/usda-coverage.mjs",
+    "usda:key-census": "node scripts/usda-key-census.mjs",
+    "usda:filter-census": "node scripts/usda-filter-census.mjs",
     "curated:check": "node scripts/curated-snapshot-check.mjs",
     "test:e2e": "playwright test",
     "test:e2e:offline": "playwright test --config playwright.offline.config.ts",

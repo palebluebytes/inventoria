@@ -1,0 +1,981 @@
+{
+  "artifact": "192-key-census",
+  "schema_version": 1,
+  "ticket": "https://github.com/palebluebytes/inventoria/issues/192",
+  "map": "https://github.com/palebluebytes/inventoria/issues/186",
+  "ruler": "sweepQueries over the shipped corpus — 3857 queries, pinned and used against both corpora",
+  "corpora": {
+    "shipped": "public/usda/search-index.json sha256:c6ec753af82a44b3",
+    "collapsed": "usda-beef-pilot --emit sha256:4d4dbdb0015036c0 (a roster read off one head; ADR-0100 delivers no corpus)"
+  },
+  "gold_sets": {
+    "143": "19 of 50 adjudicated heads carry verdict \"correct\" — the leads ADR-0055 §2 protects",
+    "188": "44 hand-judged one-word queries, C1 = gold row in the top 3"
+  },
+  "keys": [
+    "tier",
+    "raw",
+    "head",
+    "accounted",
+    "position",
+    "plainSibling",
+    "plain",
+    "wholeness",
+    "simplicity",
+    "designated"
+  ],
+  "couples": [
+    "raw+plain",
+    "plain+wholeness",
+    "head+accounted",
+    "plain+plainSibling"
+  ],
+  "runs": [
+    {
+      "label": "shipped",
+      "rows": 4238,
+      "names": 4317,
+      "queries": 3857,
+      "answered": 3857,
+      "empty": 0,
+      "plain_sibling": {
+        "carried": 134,
+        "derived": 134,
+        "stale": 0
+      },
+      "gold_leads_held": 19,
+      "ablations": [
+        {
+          "key": "tier",
+          "moved": 99,
+          "gold_leads_broken": 0,
+          "c1_lost": 1,
+          "examples": [
+            {
+              "query": "60 spread",
+              "shipped": "Margarine-like vegetable-oil spread, stick/tub/bottle, 60% fat",
+              "without": "Margarine-like, vegetable oil spread, 60% fat, stick, with salt"
+            },
+            {
+              "query": "almond",
+              "shipped": "Almond milk, unsweetened, plain, shelf stable",
+              "without": "Nuts, almonds, whole, raw"
+            },
+            {
+              "query": "almonds",
+              "shipped": "Almond milk, unsweetened, plain, shelf stable",
+              "without": "Nuts, almonds, whole, raw"
+            },
+            {
+              "query": "and",
+              "shipped": "Corned beef and potatoes in tortilla",
+              "without": "Fish, flatfish (flounder and sole species), raw"
+            },
+            {
+              "query": "approximately spread",
+              "shipped": "Margarine-like spread with yogurt, approximately 40% fat, tub, with salt",
+              "without": "Margarine-like, vegetable oil spread, approximately 37% fat, unspecified oils, with salt"
+            }
+          ]
+        },
+        {
+          "key": "raw",
+          "moved": 63,
+          "gold_leads_broken": 0,
+          "c1_lost": 0,
+          "examples": [
+            {
+              "query": "1 bison",
+              "shipped": "Game meat, bison, top round, separable lean only, 1\" steak, raw",
+              "without": "Game meat, bison, ribeye, separable lean only, 1\" steak, cooked, broiled"
+            },
+            {
+              "query": "american",
+              "shipped": "Fish, shad, american, raw",
+              "without": "Cheese, American, restaurant"
+            },
+            {
+              "query": "and pork",
+              "shipped": "Pork, fresh, spareribs, separable lean and fat, raw",
+              "without": "Pork, cured, ham and water product, slice, bone-in, separable lean only, heated, pan-broil"
+            },
+            {
+              "query": "beef composite",
+              "shipped": "Beef, composite of trimmed retail cuts, separable lean and fat, trimmed to 1/8\" fat, raw",
+              "without": "Beef composite, separable lean only, trimmed to 1/8\" fat, choice, cooked"
+            },
+            {
+              "query": "blackeye",
+              "shipped": "Cowpeas (blackeyes), immature seeds, raw",
+              "without": "Blackeye pea, dry"
+            }
+          ]
+        },
+        {
+          "key": "head",
+          "moved": 25,
+          "gold_leads_broken": 0,
+          "c1_lost": 0,
+          "examples": [
+            {
+              "query": "banana pepper",
+              "shipped": "Peppers, banana or Hungarian wax, seeded, raw",
+              "without": "Pepper, banana, raw"
+            },
+            {
+              "query": "bread flours",
+              "shipped": "Bread, gluten-free, white, made with rice flour, corn starch, and/or tapioca",
+              "without": "Flour, bread, white, enriched, unbleached"
+            },
+            {
+              "query": "cottage cheese",
+              "shipped": "Cottage cheese, full fat, large or small curd",
+              "without": "Cheese, cottage, with vegetables"
+            },
+            {
+              "query": "cream cheese",
+              "shipped": "Cream cheese, full fat, block",
+              "without": "Cheese, cream, low fat"
+            },
+            {
+              "query": "exposed mushroom",
+              "shipped": "Mushrooms, portabella, exposed to ultraviolet light, raw",
+              "without": "Mushroom, white, exposed to ultraviolet light, raw"
+            }
+          ]
+        },
+        {
+          "key": "accounted",
+          "moved": 4,
+          "gold_leads_broken": 0,
+          "c1_lost": 0,
+          "examples": [
+            {
+              "query": "caraway",
+              "shipped": "Cheese, caraway",
+              "without": "Spices, caraway seed"
+            },
+            {
+              "query": "corn oil",
+              "shipped": "Oil, corn",
+              "without": "Oil, corn and canola"
+            },
+            {
+              "query": "oat bread",
+              "shipped": "Bread, oatmeal",
+              "without": "Bread, oat bran"
+            },
+            {
+              "query": "whiskey sour",
+              "shipped": "Alcoholic beverage, whiskey sour",
+              "without": "Beverages, Whiskey sour mix, powder"
+            }
+          ]
+        },
+        {
+          "key": "position",
+          "moved": 336,
+          "gold_leads_broken": 0,
+          "c1_lost": 0,
+          "examples": [
+            {
+              "query": "40 spread",
+              "shipped": "Margarine Spread, 40-49% fat, tub",
+              "without": "Margarine-like spread with yogurt, approximately 40% fat, tub, with salt"
+            },
+            {
+              "query": "70 margarine",
+              "shipped": "Margarine, margarine-type vegetable oil spread, 70% fat, soybean and partially hydrogenated soybean, stick",
+              "without": "Margarine, margarine-like vegetable oil spread, 67-70% fat, tub"
+            },
+            {
+              "query": "80 distilled",
+              "shipped": "Alcoholic beverage, distilled, rum, 80 proof",
+              "without": "Alcoholic beverage, distilled, all (gin, rum, vodka, whiskey) 80 proof"
+            },
+            {
+              "query": "80 margarine",
+              "shipped": "Margarine, 80% fat, stick, includes regular and hydrogenated corn and soybean oils",
+              "without": "Margarine, regular, 80% fat, composite, stick, with salt"
+            },
+            {
+              "query": "85 beef",
+              "shipped": "Beef, ground, 85% lean meat / 15% fat, raw (Includes foods for USDA's Food Distribution Program)",
+              "without": "Beef, grass-fed, ground, 85% lean / 15% fat, raw"
+            }
+          ]
+        },
+        {
+          "key": "plainSibling",
+          "moved": 29,
+          "gold_leads_broken": 0,
+          "c1_lost": 0,
+          "examples": [
+            {
+              "query": "1 cottage",
+              "shipped": "Cheese, cottage, lowfat, 1% milkfat",
+              "without": "Cheese, cottage, lowfat, 1% milkfat, lactose reduced"
+            },
+            {
+              "query": "anjou pear",
+              "shipped": "Pear, Anjou, green, with skin, raw",
+              "without": "Pears, raw, red anjou"
+            },
+            {
+              "query": "cereal substitute",
+              "shipped": "Beverages, coffee substitute, cereal grain beverage, powder",
+              "without": "Beverages, coffee substitute, cereal grain beverage, powder, prepared with whole milk"
+            },
+            {
+              "query": "composite margarine",
+              "shipped": "Margarine, regular, 80% fat, composite, stick, with salt",
+              "without": "Margarine, regular, 80% fat, composite, stick, without salt, with added vitamin D"
+            },
+            {
+              "query": "cooked mushrooms",
+              "shipped": "Mushrooms, white, cooked, boiled, drained, with salt",
+              "without": "Mushrooms, shiitake, cooked, without salt"
+            }
+          ]
+        },
+        {
+          "key": "plain",
+          "moved": 48,
+          "gold_leads_broken": 0,
+          "c1_lost": 1,
+          "examples": [
+            {
+              "query": "american cheese",
+              "shipped": "Cheese, American, restaurant",
+              "without": "Cheese, american cheddar, imitation"
+            },
+            {
+              "query": "cheese",
+              "shipped": "Cheese, cottage, with vegetables",
+              "without": "Cheese, parmesan, low sodium"
+            },
+            {
+              "query": "commercially bread",
+              "shipped": "Bread, white, commercially prepared (includes soft bread crumbs)",
+              "without": "Bread, white, commercially prepared, low sodium, no salt"
+            },
+            {
+              "query": "cottonseed",
+              "shipped": "Seeds, cottonseed meal, partially defatted (glandless)",
+              "without": "Seeds, cottonseed flour, low fat (glandless)"
+            },
+            {
+              "query": "cucumber pickles",
+              "shipped": "Pickles, cucumber, sweet (includes bread and butter pickles)",
+              "without": "Pickles, cucumber, dill, reduced sodium"
+            }
+          ]
+        },
+        {
+          "key": "wholeness",
+          "moved": 9,
+          "gold_leads_broken": 0,
+          "c1_lost": 0,
+          "examples": [
+            {
+              "query": "beef",
+              "shipped": "Beef, composite of trimmed retail cuts, separable lean and fat, trimmed to 1/8\" fat, raw",
+              "without": "Beef, retail cuts, separable fat, raw"
+            },
+            {
+              "query": "bowhead whale",
+              "shipped": "Whale, bowhead, skin and subcutaneous fat (muktuk)",
+              "without": "Whale, bowhead, subcutaneous fat (blubber)"
+            },
+            {
+              "query": "fresh lamb",
+              "shipped": "Lamb, fresh, composite of trimmed retail cuts, separable lean and fat, trimmed to 1/8\" fat, raw",
+              "without": "Lamb, fresh, separable fat, raw"
+            },
+            {
+              "query": "frozen lamb",
+              "shipped": "Lamb, frozen, composite of trimmed retail cuts, separable lean and fat, raw",
+              "without": "Lamb, frozen, composite of trimmed retail cuts, separable fat, raw"
+            },
+            {
+              "query": "game",
+              "shipped": "Game meat, rabbit, domesticated, composite of cuts, raw",
+              "without": "Game meat, muskrat, raw"
+            }
+          ]
+        },
+        {
+          "key": "simplicity",
+          "moved": 24,
+          "gold_leads_broken": 2,
+          "c1_lost": 4,
+          "examples": [
+            {
+              "query": "apple",
+              "shipped": "Apples, red delicious, with skin, raw",
+              "without": "Apples, raw, golden delicious, with skin"
+            },
+            {
+              "query": "apples",
+              "shipped": "Apples, red delicious, with skin, raw",
+              "without": "Apples, raw, golden delicious, with skin"
+            },
+            {
+              "query": "bananas",
+              "shipped": "Bananas, ripe and slightly ripe, raw",
+              "without": "Bananas, overripe, raw"
+            },
+            {
+              "query": "broccoli",
+              "shipped": "Broccoli, raw",
+              "without": "Broccoli, leaves, raw"
+            },
+            {
+              "query": "brown rice",
+              "shipped": "Rice, brown, long grain, unenriched, raw",
+              "without": "Rice, brown, medium-grain, raw (Includes foods for USDA's Food Distribution Program)"
+            }
+          ]
+        },
+        {
+          "key": "designated",
+          "moved": 12,
+          "gold_leads_broken": 0,
+          "c1_lost": 0,
+          "examples": [
+            {
+              "query": "coho salmon",
+              "shipped": "Fish, salmon, coho, farmed, raw",
+              "without": "Fish, salmon, coho (silver), raw"
+            },
+            {
+              "query": "cornmeal",
+              "shipped": "Cornmeal, degermed, enriched, yellow",
+              "without": "Cornmeal, blue"
+            },
+            {
+              "query": "dried meat",
+              "shipped": "Nuts, coconut meat, dried (desiccated), creamed",
+              "without": "Walrus, meat, dried"
+            },
+            {
+              "query": "fireweed",
+              "shipped": "Fireweed, leaves, raw",
+              "without": "Fireweed, young leaves, raw"
+            },
+            {
+              "query": "fish",
+              "shipped": "Fish, bass, striped, raw",
+              "without": "Fish, salmon, coho (silver), raw"
+            }
+          ]
+        },
+        {
+          "key": "raw+plain",
+          "moved": 111,
+          "gold_leads_broken": 0,
+          "c1_lost": 1,
+          "examples": [
+            {
+              "query": "1 bison",
+              "shipped": "Game meat, bison, top round, separable lean only, 1\" steak, raw",
+              "without": "Game meat, bison, ribeye, separable lean only, 1\" steak, cooked, broiled"
+            },
+            {
+              "query": "american",
+              "shipped": "Fish, shad, american, raw",
+              "without": "Cheese, american cheddar, imitation"
+            },
+            {
+              "query": "american cheese",
+              "shipped": "Cheese, American, restaurant",
+              "without": "Cheese, american cheddar, imitation"
+            },
+            {
+              "query": "and pork",
+              "shipped": "Pork, fresh, spareribs, separable lean and fat, raw",
+              "without": "Pork, cured, ham and water product, slice, bone-in, separable lean only, heated, pan-broil"
+            },
+            {
+              "query": "beef composite",
+              "shipped": "Beef, composite of trimmed retail cuts, separable lean and fat, trimmed to 1/8\" fat, raw",
+              "without": "Beef composite, separable lean only, trimmed to 1/8\" fat, choice, cooked"
+            }
+          ]
+        },
+        {
+          "key": "plain+wholeness",
+          "moved": 57,
+          "gold_leads_broken": 0,
+          "c1_lost": 1,
+          "examples": [
+            {
+              "query": "american cheese",
+              "shipped": "Cheese, American, restaurant",
+              "without": "Cheese, american cheddar, imitation"
+            },
+            {
+              "query": "beef",
+              "shipped": "Beef, composite of trimmed retail cuts, separable lean and fat, trimmed to 1/8\" fat, raw",
+              "without": "Beef, retail cuts, separable fat, raw"
+            },
+            {
+              "query": "bowhead whale",
+              "shipped": "Whale, bowhead, skin and subcutaneous fat (muktuk)",
+              "without": "Whale, bowhead, subcutaneous fat (blubber)"
+            },
+            {
+              "query": "cheese",
+              "shipped": "Cheese, cottage, with vegetables",
+              "without": "Cheese, parmesan, low sodium"
+            },
+            {
+              "query": "commercially bread",
+              "shipped": "Bread, white, commercially prepared (includes soft bread crumbs)",
+              "without": "Bread, white, commercially prepared, low sodium, no salt"
+            }
+          ]
+        },
+        {
+          "key": "head+accounted",
+          "moved": 28,
+          "gold_leads_broken": 0,
+          "c1_lost": 0,
+          "examples": [
+            {
+              "query": "banana pepper",
+              "shipped": "Peppers, banana or Hungarian wax, seeded, raw",
+              "without": "Pepper, banana, raw"
+            },
+            {
+              "query": "bread flours",
+              "shipped": "Bread, gluten-free, white, made with rice flour, corn starch, and/or tapioca",
+              "without": "Flour, bread, white, enriched, unbleached"
+            },
+            {
+              "query": "caraway",
+              "shipped": "Cheese, caraway",
+              "without": "Spices, caraway seed"
+            },
+            {
+              "query": "corn oil",
+              "shipped": "Oil, corn",
+              "without": "Oil, corn and canola"
+            },
+            {
+              "query": "cottage cheese",
+              "shipped": "Cottage cheese, full fat, large or small curd",
+              "without": "Cheese, cottage, with vegetables"
+            }
+          ]
+        },
+        {
+          "key": "plain+plainSibling",
+          "moved": 81,
+          "gold_leads_broken": 0,
+          "c1_lost": 1,
+          "examples": [
+            {
+              "query": "1 cottage",
+              "shipped": "Cheese, cottage, lowfat, 1% milkfat",
+              "without": "Cheese, cottage, lowfat, 1% milkfat, lactose reduced"
+            },
+            {
+              "query": "american cheese",
+              "shipped": "Cheese, American, restaurant",
+              "without": "Cheese, american cheddar, imitation"
+            },
+            {
+              "query": "american process",
+              "shipped": "Cheese, pasteurized process, American",
+              "without": "Cheese, pasteurized process, American, low fat"
+            },
+            {
+              "query": "anjou pear",
+              "shipped": "Pear, Anjou, green, with skin, raw",
+              "without": "Pears, raw, red anjou"
+            },
+            {
+              "query": "cereal substitute",
+              "shipped": "Beverages, coffee substitute, cereal grain beverage, powder",
+              "without": "Beverages, coffee substitute, cereal grain beverage, powder, prepared with whole milk"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "label": "collapsed",
+      "rows": 2837,
+      "names": 4522,
+      "queries": 3857,
+      "answered": 3854,
+      "empty": 3,
+      "plain_sibling": {
+        "carried": 129,
+        "derived": 193,
+        "stale": 66
+      },
+      "gold_leads_held": 19,
+      "ablations": [
+        {
+          "key": "tier",
+          "moved": 99,
+          "gold_leads_broken": 0,
+          "c1_lost": 1,
+          "examples": [
+            {
+              "query": "60 spread",
+              "shipped": "Margarine-like vegetable-oil spread, stick/tub/bottle, 60% fat",
+              "without": "Margarine-like, vegetable oil spread, 60% fat, stick, with salt"
+            },
+            {
+              "query": "almond",
+              "shipped": "Almond milk, unsweetened, plain, shelf stable",
+              "without": "Nuts, almonds, whole, raw"
+            },
+            {
+              "query": "almonds",
+              "shipped": "Almond milk, unsweetened, plain, shelf stable",
+              "without": "Nuts, almonds, whole, raw"
+            },
+            {
+              "query": "and",
+              "shipped": "Corned beef and potatoes in tortilla",
+              "without": "Fish, flatfish (flounder and sole species), raw"
+            },
+            {
+              "query": "approximately spread",
+              "shipped": "Margarine-like spread with yogurt, approximately 40% fat, tub, with salt",
+              "without": "Margarine-like, vegetable oil spread, approximately 37% fat, unspecified oils, with salt"
+            }
+          ]
+        },
+        {
+          "key": "raw",
+          "moved": 67,
+          "gold_leads_broken": 0,
+          "c1_lost": 0,
+          "examples": [
+            {
+              "query": "american",
+              "shipped": "Fish, shad, american, raw",
+              "without": "Cheese, American, restaurant"
+            },
+            {
+              "query": "and pork",
+              "shipped": "Pork, fresh, spareribs",
+              "without": "Pork, cured, ham and water product, slice, bone-in, heated, pan-broil"
+            },
+            {
+              "query": "beef composite",
+              "shipped": "Beef, composite of trimmed retail cuts",
+              "without": "Beef composite, separable lean only, trimmed to 1/8\" fat, choice, cooked"
+            },
+            {
+              "query": "blackeye",
+              "shipped": "Cowpeas (blackeyes), immature seeds, raw",
+              "without": "Blackeye pea, dry"
+            },
+            {
+              "query": "blackeyes",
+              "shipped": "Cowpeas (blackeyes), immature seeds, raw",
+              "without": "Blackeye pea, dry"
+            }
+          ]
+        },
+        {
+          "key": "head",
+          "moved": 25,
+          "gold_leads_broken": 0,
+          "c1_lost": 0,
+          "examples": [
+            {
+              "query": "banana pepper",
+              "shipped": "Peppers, banana or Hungarian wax, seeded, raw",
+              "without": "Pepper, banana, raw"
+            },
+            {
+              "query": "bread flours",
+              "shipped": "Bread, gluten-free, white, made with rice flour, corn starch, and/or tapioca",
+              "without": "Flour, bread, white, enriched, unbleached"
+            },
+            {
+              "query": "cottage cheese",
+              "shipped": "Cottage cheese, full fat, large or small curd",
+              "without": "Cheese, cottage, with vegetables"
+            },
+            {
+              "query": "cream cheese",
+              "shipped": "Cream cheese, full fat, block",
+              "without": "Cheese, cream, low fat"
+            },
+            {
+              "query": "exposed mushroom",
+              "shipped": "Mushrooms, portabella, exposed to ultraviolet light",
+              "without": "Mushroom, white, exposed to ultraviolet light, raw"
+            }
+          ]
+        },
+        {
+          "key": "accounted",
+          "moved": 4,
+          "gold_leads_broken": 0,
+          "c1_lost": 0,
+          "examples": [
+            {
+              "query": "caraway",
+              "shipped": "Cheese, caraway",
+              "without": "Spices, caraway seed"
+            },
+            {
+              "query": "corn oil",
+              "shipped": "Oil, corn",
+              "without": "Oil, corn and canola"
+            },
+            {
+              "query": "oat bread",
+              "shipped": "Bread, oatmeal",
+              "without": "Bread, oat bran"
+            },
+            {
+              "query": "whiskey sour",
+              "shipped": "Alcoholic beverage, whiskey sour",
+              "without": "Beverages, Whiskey sour mix, powder"
+            }
+          ]
+        },
+        {
+          "key": "position",
+          "moved": 337,
+          "gold_leads_broken": 0,
+          "c1_lost": 0,
+          "examples": [
+            {
+              "query": "40 spread",
+              "shipped": "Margarine Spread, 40-49% fat, tub",
+              "without": "Margarine-like spread with yogurt, approximately 40% fat, tub, with salt"
+            },
+            {
+              "query": "70 margarine",
+              "shipped": "Margarine, margarine-type vegetable oil spread, 70% fat, soybean and partially hydrogenated soybean, stick",
+              "without": "Margarine, margarine-like vegetable oil spread, 67-70% fat, tub"
+            },
+            {
+              "query": "80 distilled",
+              "shipped": "Alcoholic beverage, distilled, rum, 80 proof",
+              "without": "Alcoholic beverage, distilled, all (gin, rum, vodka, whiskey) 80 proof"
+            },
+            {
+              "query": "80 margarine",
+              "shipped": "Margarine, 80% fat, stick, includes regular and hydrogenated corn and soybean oils",
+              "without": "Margarine, regular, 80% fat, composite, stick, with salt"
+            },
+            {
+              "query": "85 beef",
+              "shipped": "Beef, ground, 85% lean meat / 15% fat, raw (Includes foods for USDA's Food Distribution Program)",
+              "without": "Beef, grass-fed, ground, 85% lean / 15% fat, raw"
+            }
+          ]
+        },
+        {
+          "key": "plainSibling",
+          "moved": 57,
+          "gold_leads_broken": 0,
+          "c1_lost": 0,
+          "examples": [
+            {
+              "query": "1 cottage",
+              "shipped": "Cheese, cottage, lowfat, 1% milkfat",
+              "without": "Cheese, cottage, lowfat, 1% milkfat, lactose reduced"
+            },
+            {
+              "query": "anjou pear",
+              "shipped": "Pear, Anjou, green, with skin, raw",
+              "without": "Pears, raw, red anjou"
+            },
+            {
+              "query": "baked beef",
+              "shipped": "Beef, ground, 90% lean meat / 10% fat, loaf, cooked, baked",
+              "without": "Beef, ground, 70% lean meat / 30% fat, loaf, cooked, baked"
+            },
+            {
+              "query": "boiled bean",
+              "shipped": "Beans, snap, yellow, cooked, boiled, drained, without salt",
+              "without": "Beans, snap, green, cooked, boiled, drained, without salt"
+            },
+            {
+              "query": "boiled beans",
+              "shipped": "Beans, snap, yellow, cooked, boiled, drained, without salt",
+              "without": "Beans, snap, green, cooked, boiled, drained, without salt"
+            }
+          ]
+        },
+        {
+          "key": "plain",
+          "moved": 48,
+          "gold_leads_broken": 0,
+          "c1_lost": 1,
+          "examples": [
+            {
+              "query": "american cheese",
+              "shipped": "Cheese, American, restaurant",
+              "without": "Cheese, american cheddar, imitation"
+            },
+            {
+              "query": "cheese",
+              "shipped": "Cheese, cottage, with vegetables",
+              "without": "Cheese, parmesan, low sodium"
+            },
+            {
+              "query": "commercially bread",
+              "shipped": "Bread, white, commercially prepared (includes soft bread crumbs)",
+              "without": "Bread, white, commercially prepared, low sodium, no salt"
+            },
+            {
+              "query": "cottonseed",
+              "shipped": "Seeds, cottonseed meal, partially defatted (glandless)",
+              "without": "Seeds, cottonseed flour, low fat (glandless)"
+            },
+            {
+              "query": "cucumber pickles",
+              "shipped": "Pickles, cucumber, sweet (includes bread and butter pickles)",
+              "without": "Pickles, cucumber, dill, reduced sodium"
+            }
+          ]
+        },
+        {
+          "key": "wholeness",
+          "moved": 8,
+          "gold_leads_broken": 0,
+          "c1_lost": 0,
+          "examples": [
+            {
+              "query": "beef",
+              "shipped": "Beef, composite of trimmed retail cuts",
+              "without": "Beef, brisket, whole"
+            },
+            {
+              "query": "bowhead whale",
+              "shipped": "Whale, bowhead, skin and subcutaneous fat (muktuk)",
+              "without": "Whale, bowhead, subcutaneous fat (blubber)"
+            },
+            {
+              "query": "fresh lamb",
+              "shipped": "Lamb, fresh, composite of trimmed retail cuts",
+              "without": "Lamb, fresh, foreshank"
+            },
+            {
+              "query": "game",
+              "shipped": "Game meat, rabbit, domesticated, composite of cuts",
+              "without": "Game meat, muskrat"
+            },
+            {
+              "query": "game meat",
+              "shipped": "Game meat, rabbit, domesticated, composite of cuts",
+              "without": "Game meat, muskrat"
+            }
+          ]
+        },
+        {
+          "key": "simplicity",
+          "moved": 23,
+          "gold_leads_broken": 2,
+          "c1_lost": 4,
+          "examples": [
+            {
+              "query": "apple",
+              "shipped": "Apples, red delicious, with skin, raw",
+              "without": "Apples, raw, golden delicious, with skin"
+            },
+            {
+              "query": "apples",
+              "shipped": "Apples, red delicious, with skin, raw",
+              "without": "Apples, raw, golden delicious, with skin"
+            },
+            {
+              "query": "bananas",
+              "shipped": "Bananas, ripe and slightly ripe, raw",
+              "without": "Bananas, overripe, raw"
+            },
+            {
+              "query": "broccoli",
+              "shipped": "Broccoli, raw",
+              "without": "Broccoli, leaves, raw"
+            },
+            {
+              "query": "brown rice",
+              "shipped": "Rice, brown, long grain, unenriched, raw",
+              "without": "Rice, brown, medium-grain, raw (Includes foods for USDA's Food Distribution Program)"
+            }
+          ]
+        },
+        {
+          "key": "designated",
+          "moved": 12,
+          "gold_leads_broken": 0,
+          "c1_lost": 0,
+          "examples": [
+            {
+              "query": "coho salmon",
+              "shipped": "Fish, salmon, coho, farmed, raw",
+              "without": "Fish, salmon, coho (silver), raw"
+            },
+            {
+              "query": "cornmeal",
+              "shipped": "Cornmeal, degermed, enriched, yellow",
+              "without": "Cornmeal, blue"
+            },
+            {
+              "query": "dried meat",
+              "shipped": "Nuts, coconut meat, dried (desiccated), creamed",
+              "without": "Walrus, meat, dried"
+            },
+            {
+              "query": "fireweed",
+              "shipped": "Fireweed, leaves, raw",
+              "without": "Fireweed, young leaves, raw"
+            },
+            {
+              "query": "fish",
+              "shipped": "Fish, bass, striped, raw",
+              "without": "Fish, salmon, coho (silver), raw"
+            }
+          ]
+        },
+        {
+          "key": "raw+plain",
+          "moved": 115,
+          "gold_leads_broken": 0,
+          "c1_lost": 1,
+          "examples": [
+            {
+              "query": "american",
+              "shipped": "Fish, shad, american, raw",
+              "without": "Cheese, american cheddar, imitation"
+            },
+            {
+              "query": "american cheese",
+              "shipped": "Cheese, American, restaurant",
+              "without": "Cheese, american cheddar, imitation"
+            },
+            {
+              "query": "and pork",
+              "shipped": "Pork, fresh, spareribs",
+              "without": "Pork, cured, ham and water product, slice, bone-in, heated, pan-broil"
+            },
+            {
+              "query": "beef composite",
+              "shipped": "Beef, composite of trimmed retail cuts",
+              "without": "Beef composite, separable lean only, trimmed to 1/8\" fat, choice, cooked"
+            },
+            {
+              "query": "blackeye",
+              "shipped": "Cowpeas (blackeyes), immature seeds, raw",
+              "without": "Blackeye pea, dry"
+            }
+          ]
+        },
+        {
+          "key": "plain+wholeness",
+          "moved": 56,
+          "gold_leads_broken": 0,
+          "c1_lost": 1,
+          "examples": [
+            {
+              "query": "american cheese",
+              "shipped": "Cheese, American, restaurant",
+              "without": "Cheese, american cheddar, imitation"
+            },
+            {
+              "query": "beef",
+              "shipped": "Beef, composite of trimmed retail cuts",
+              "without": "Beef, brisket, whole"
+            },
+            {
+              "query": "bowhead whale",
+              "shipped": "Whale, bowhead, skin and subcutaneous fat (muktuk)",
+              "without": "Whale, bowhead, subcutaneous fat (blubber)"
+            },
+            {
+              "query": "cheese",
+              "shipped": "Cheese, cottage, with vegetables",
+              "without": "Cheese, parmesan, low sodium"
+            },
+            {
+              "query": "commercially bread",
+              "shipped": "Bread, white, commercially prepared (includes soft bread crumbs)",
+              "without": "Bread, white, commercially prepared, low sodium, no salt"
+            }
+          ]
+        },
+        {
+          "key": "head+accounted",
+          "moved": 28,
+          "gold_leads_broken": 0,
+          "c1_lost": 0,
+          "examples": [
+            {
+              "query": "banana pepper",
+              "shipped": "Peppers, banana or Hungarian wax, seeded, raw",
+              "without": "Pepper, banana, raw"
+            },
+            {
+              "query": "bread flours",
+              "shipped": "Bread, gluten-free, white, made with rice flour, corn starch, and/or tapioca",
+              "without": "Flour, bread, white, enriched, unbleached"
+            },
+            {
+              "query": "caraway",
+              "shipped": "Cheese, caraway",
+              "without": "Spices, caraway seed"
+            },
+            {
+              "query": "corn oil",
+              "shipped": "Oil, corn",
+              "without": "Oil, corn and canola"
+            },
+            {
+              "query": "cottage cheese",
+              "shipped": "Cottage cheese, full fat, large or small curd",
+              "without": "Cheese, cottage, with vegetables"
+            }
+          ]
+        },
+        {
+          "key": "plain+plainSibling",
+          "moved": 109,
+          "gold_leads_broken": 0,
+          "c1_lost": 1,
+          "examples": [
+            {
+              "query": "1 cottage",
+              "shipped": "Cheese, cottage, lowfat, 1% milkfat",
+              "without": "Cheese, cottage, lowfat, 1% milkfat, lactose reduced"
+            },
+            {
+              "query": "american cheese",
+              "shipped": "Cheese, American, restaurant",
+              "without": "Cheese, american cheddar, imitation"
+            },
+            {
+              "query": "american process",
+              "shipped": "Cheese, pasteurized process, American",
+              "without": "Cheese, pasteurized process, American, low fat"
+            },
+            {
+              "query": "anjou pear",
+              "shipped": "Pear, Anjou, green, with skin, raw",
+              "without": "Pears, raw, red anjou"
+            },
+            {
+              "query": "baked beef",
+              "shipped": "Beef, ground, 90% lean meat / 10% fat, loaf, cooked, baked",
+              "without": "Beef, ground, 70% lean meat / 30% fat, loaf, cooked, baked"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
