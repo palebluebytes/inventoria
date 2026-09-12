@@ -11,20 +11,50 @@
  * dials a relay and nothing here waits for anybody: a deposit is left at an
  * address, and it is still there when the other device wakes up a week later.
  *
- * ### The order is collect, then deposit, and it is load-bearing
+ * ### A collection commits on its acknowledgement
  *
- * **The collector advances on collecting; the depositor on receiving the
- * acknowledgement** (§5's amendment). Between those two moments the depositor
- * rewrites at the old index while the collector finds nothing at the new one,
- * and it self-heals only because the acknowledgement is **re-asserted in every
- * deposit**. **A collector finding nothing is normal** — it is not an error, it
- * is not a toast, and it must not be repaired with the scan window §4 boasts of
- * not needing.
+ * §5's 2026-09-12 amendment moves the commit point, and the whole of this
+ * module's shape follows from it. A collection is `GET`, verify, import,
+ * **deposit the acknowledgement**, advance, `DELETE` — so a lane's object is
+ * deleted only after the word for it is in the store, and a depositor meeting a
+ * refusal knows its peer has already said it.
  *
- * Collecting first is what makes the healthy path never see a refused rewrite:
- * the acknowledgement for the outstanding index arrives, the deposit lane
- * advances, and the wake's own deposit lands at a fresh index with no
+ * That is what makes the frozen pairing unreachable. The defect it repairs was
+ * not that a mute lane could not be written to but that a collector **advances
+ * alone**: from that moment the depositor's only writable address is one the
+ * peer has stopped reading, and the depositor may advance only on an
+ * acknowledgement it can deliver nowhere else. Both lanes reach that state from
+ * one failed `PUT`, and one lane reaches it from an expiry.
+ *
+ * **A collection that cannot acknowledge is retried whole, from the `GET`.** It
+ * does not record _I took index i_ and skip the read: the depositor keeps
+ * rewriting at that index until it is acknowledged, so a word sent against an
+ * older take credits the peer with rows that arrived after it and those rows
+ * are never sent again. What does survive a failed attempt is the imported rows
+ * — the ledger is append-only and a re-import is a no-op — and the `peer_vector`
+ * fold, because taking rows from a peer proves the peer holds them.
+ *
+ * **The depositor still advances only on receiving the acknowledgement**, so
+ * between the two moments it rewrites at the old index while the collector
+ * finds nothing at the new one. **A collector finding nothing is normal** — it
+ * is not an error, it is not a toast, and it must not be repaired with the scan
+ * window §4 boasts of not needing.
+ *
+ * Collecting first is also what makes the healthy path never see a refused
+ * rewrite: the acknowledgement for the outstanding index arrives, the deposit
+ * lane advances, and the wake's own deposit lands at a fresh index with no
  * precondition to fail.
+ *
+ * ### A refusal is answered by a recreate
+ *
+ * A refused conditional rewrite means the object is gone, and under the commit
+ * point above it is gone for one of two reasons that now want the **same**
+ * answer. If the peer collected it, the peer's acknowledgement is already in the
+ * store; if it expired unread or somebody deleted it, the peer is still sitting
+ * at that index with nothing coming. So the refusal is answered by an
+ * unconditional write at the same index, which may **not** advance the lane —
+ * only a sealed acknowledgement does that — and may **not** advance what that
+ * index will be taken to have brought.
  *
  * ### A deposit goes out even when there is nothing to send
  *
@@ -67,7 +97,11 @@ import {
   laneChainOf,
   type PairedDevice,
 } from "../stores/paired-devices";
-import { DEPOSIT_CEILING_BYTES, type Store } from "./deposit-store";
+import {
+  DEPOSIT_CEILING_BYTES,
+  StoreUnreachableError,
+  type Store,
+} from "./deposit-store";
 import { deriveLaneKey, type LaneChain } from "./pairing-chain";
 import { readDatomChunk, refusingChunk } from "./datom-chunk";
 import { base64url, randomBytes, type RandomBytes } from "./room-code";
@@ -158,8 +192,20 @@ export interface WakeOutcome {
   deposited: number;
   /** Whether the peer's acknowledgement advanced this device's deposit lane. */
   acknowledged: boolean;
-  /** Whether a rewrite was refused, which means the peer had collected it. */
-  refused: boolean;
+  /**
+   * Whether this wake's collection **settled**: took rows, deposited the
+   * acknowledgement for them, advanced the collect lane and deleted the object.
+   *
+   * A take that did not settle moved real rows and made no progress, and the
+   * next wake will repeat it identically — so it is what §11's counter must not
+   * read as productive, or a pairing getting nowhere never reaches K.
+   */
+  settled: boolean;
+  /**
+   * Whether a rewrite was refused and answered by an unconditional write at the
+   * same index. The object was gone: collected, expired, or deleted.
+   */
+  recreated: boolean;
   /**
    * Whether an outstanding delta exists that no deposit can carry.
    *
@@ -197,18 +243,40 @@ export async function convergeWithPeer(
     draw = randomBytes,
   }: WakeOptions
 ): Promise<WakeOutcome> {
-  const taken = await collectLane(paired, store, ledger, keep);
+  const taken = await takeFromPeer(paired, store, ledger, keep);
   const left = await depositLane(taken.device, store, keep, {
     ledger,
     ceilingBytes,
     chunkBudgetBytes,
     draw,
+    acknowledges: taken.acknowledges,
   });
+
+  // The collection settles here and nowhere earlier: the acknowledgement it
+  // owes is in the store, so the lane may advance and the object may go.
+  //
+  // **The recreate above cannot strand this word at a dead address.** A refusal
+  // with a take pending means the object vanished *uncollected* — had the peer
+  // taken it, the peer would have deposited its acknowledgement before deleting
+  // it, and this wake collects before it deposits, so that word would have
+  // advanced this lane past the index that was refused. What is left is an
+  // expiry or a delete, after which the peer is still reading the index the
+  // recreate just refilled.
+  let device = left.device;
+  let settled = false;
+  if (taken.pending !== null) {
+    device = { ...device, collect: await advancedLane(device.collect) };
+    keep(device);
+    await store.discard(taken.pending);
+    settled = true;
+  }
+
   return {
     collected: taken.collected,
     acknowledged: taken.acknowledged,
+    settled,
     deposited: left.deposited,
-    refused: left.refused,
+    recreated: left.recreated,
     jammed: left.jammed,
   };
 }
@@ -217,28 +285,61 @@ export async function convergeWithPeer(
 // Collecting
 // ---------------------------------------------------------------------------
 
+/** What the take handed the deposit, and what the deposit hands back to it. */
+interface TakenFromPeer {
+  device: PairedDevice;
+  collected: number;
+  acknowledged: boolean;
+  /**
+   * The address holding the object this wake took, or `null` when it took
+   * none. It is deleted once the acknowledgement for it is deposited, and not
+   * before — which is the whole of §5's 2026-09-12 commit point.
+   */
+  pending: string | null;
+  /**
+   * The index this deposit must acknowledge: **the highest index this device
+   * has taken**. With a take pending that is the collect lane's current index,
+   * because the advance has not happened yet; with none it is the index behind
+   * it, re-asserted exactly as §6 re-asserts the roster.
+   */
+  acknowledges: number | null;
+}
+
 /**
- * Takes the peer's deposit, if there is one: `GET`, verify, import, advance,
- * and only then `DELETE`.
+ * Takes the peer's deposit, if there is one: `GET`, verify, import, and apply
+ * the acknowledgement it carries.
  *
- * **The delete comes last and after the final chunk verifies**, which is what
- * makes a truncated collection re-collectable rather than destroyed. It comes
- * after the record is written back too: an advance this device forgot is an
- * address it would ask for again and find empty forever, where a delete that
- * did not land is one object the backstop expiry reaps.
+ * **It neither advances the collect lane nor deletes anything.** Both wait on
+ * the deposit that carries the acknowledgement for what was taken, back in
+ * {@link convergeWithPeer} — so a take whose acknowledgement does not land is
+ * retried whole from the `GET` on a later wake, re-importing rows the ledger
+ * ignores and re-reading an object the peer may have made fuller meanwhile.
+ *
+ * The record is written back here all the same. Nothing downstream depends on
+ * it being unwritten, and an acknowledgement applied but forgotten is a lane
+ * that stays at an index its peer has left.
  */
-async function collectLane(
+async function takeFromPeer(
   device: PairedDevice,
   store: Store,
   ledger: WakeLedger,
   keep: (device: PairedDevice) => void
-): Promise<{ device: PairedDevice; collected: number; acknowledged: boolean }> {
+): Promise<TakenFromPeer> {
   const lane = laneChainOf(device.collect);
   const address = await laneAddress(lane);
   const held = await store.collect(address);
+  const behind = device.collect.index > 0 ? device.collect.index - 1 : null;
   // The normal outcome, said plainly: the peer has not deposited since this
   // device last collected, or has not woken at all.
-  if (!held) return { device, collected: 0, acknowledged: false };
+  if (!held) {
+    return {
+      device,
+      collected: 0,
+      acknowledged: false,
+      pending: null,
+      acknowledges: behind,
+    };
+  }
 
   const chunks = await openDeposit(
     { key: await deriveLaneKey(lane, "seal") },
@@ -262,14 +363,15 @@ async function collectLane(
     collected += rows.length;
   }
 
-  const next: PairedDevice = {
-    ...acknowledged.device,
-    collect: await advancedLane(device.collect),
-    peer_vector,
-  };
+  const next: PairedDevice = { ...acknowledged.device, peer_vector };
   keep(next);
-  await store.discard(address);
-  return { device: next, collected, acknowledged: acknowledged.advanced };
+  return {
+    device: next,
+    collected,
+    acknowledged: acknowledged.advanced,
+    pending: address,
+    acknowledges: device.collect.index,
+  };
 }
 
 /**
@@ -319,59 +421,48 @@ interface DepositWork {
   ceilingBytes: number;
   chunkBudgetBytes: number;
   draw: RandomBytes;
+  /** The index this deposit acknowledges, from {@link takeFromPeer}. */
+  acknowledges: number | null;
 }
 
 /**
  * Leaves one sealed object on the outgoing lane, at the lane's current index.
  *
- * **The rewrite is conditional and is refused rather than recreating.** If the
- * peer has collected, the etag is gone and the write fails — and the object is
- * simply not recreated, which is what removes the permanently orphaned object
- * rather than tolerating it. An orphan is a leak rather than untidiness: one
- * listing returns the whole series of keys, exact lengths and write times at any
- * later moment.
+ * **The rewrite is conditional, and a refusal is answered by an unconditional
+ * write at the same index** (§5's 2026-09-12 amendment). A refusal means the
+ * object is gone, and under the commit point {@link takeFromPeer} implements
+ * both reasons it can be gone want the same answer: if the peer took it, the
+ * peer's acknowledgement is already in the store and this lane advances the
+ * moment it is read; if it expired unread or somebody deleted it, the peer is
+ * still at this index and the recreate is what it is waiting for.
+ *
+ * **The recreate may advance neither the index nor `brings`.** Only a sealed
+ * acknowledgement advances an index. And `brings` is what an acknowledgement
+ * for this index will *mean*, so crediting the peer with a fuller rewrite than
+ * the one it actually took would skip the rows only that rewrite carried,
+ * permanently — where understating costs a re-sent row an import ignores.
+ *
+ * **The orphan §5 refuses is narrowed rather than tolerated.** A recreate
+ * answering a refusal the peer's own collection caused is one, and it is rare
+ * (this wake collects first, so that acknowledgement has normally been read
+ * already) and bounded (§1's backstop reaps it).
  */
 async function depositLane(
   device: PairedDevice,
   store: Store,
   keep: (device: PairedDevice) => void,
-  { ledger, ceilingBytes, chunkBudgetBytes, draw }: DepositWork
+  { ledger, ceilingBytes, chunkBudgetBytes, draw, acknowledges }: DepositWork
 ): Promise<{
   device: PairedDevice;
   deposited: number;
-  refused: boolean;
+  recreated: boolean;
   jammed: boolean;
 }> {
   const standing = device.deposit_standing;
-  // A rewrite at this index was already refused, so the object is gone. It is
-  // not recreated, and nothing else is written here until an acknowledgement
-  // advances the lane — which is normally not an error at all: the peer took the
-  // object, and its acknowledgement is what comes next.
-  //
-  // **The hole this leaves is ADR-0096 §5's rather than this early return's**,
-  // and it is #410. A deposit carries this device's acknowledgement as well as
-  // its delta, so a lane that may not be written to is a lane that cannot
-  // acknowledge — and if **both** lanes of a pairing reach this state, neither
-  // can say the word the other is waiting for and both chains freeze. One failed
-  // `PUT` gets there: a peer that collects and then cannot deposit leaves this
-  // device rewriting into a refusal while the peer's own next rewrite is refused
-  // in turn. Retrying the conditional write instead of short-circuiting here
-  // changes nothing, because it is refused too; the only exits are to advance on
-  // absence, which §5 refuses outright, or to give the acknowledgement an object
-  // of its own, which §1 refuses. Both are the record's to decide. §11's K = 200
-  // reaps it meanwhile, and no data is lost — the ledger is intact and
-  // re-pairing recovers.
-  if (standing?.kind === "taken") {
-    return { device, deposited: 0, refused: true, jammed: false };
-  }
-
   const lane = laneChainOf(device.deposit);
-  const envelope: DepositEnvelope = {
-    // Re-asserted whole in every deposit, never accumulated: the highest index
-    // this device has collected, which is one behind the index it is now
-    // listening at. A lane that has collected nothing acknowledges nothing.
-    acknowledges: device.collect.index > 0 ? device.collect.index - 1 : null,
-  };
+  // Re-asserted whole in every deposit, never accumulated: the highest index
+  // this device has taken. A lane that has taken nothing acknowledges nothing.
+  const envelope: DepositEnvelope = { acknowledges };
   const head = utf8.encode(JSON.stringify(envelope));
   const delta = await outstandingDelta(device, ledger, {
     chunkBudgetBytes,
@@ -384,26 +475,40 @@ async function depositLane(
     [head, ...delta.chunks],
     draw
   );
-  const etag = await store.deposit(
-    await laneAddress(lane),
+  const address = await laneAddress(lane);
+  const conditional = await store.deposit(
+    address,
     sealed,
     standing?.etag ?? null
   );
+  const recreated = conditional === null;
+  // Unconditional, so it has no precondition left to refuse. A store that
+  // refuses it anyway is one this protocol cannot use, and it says so rather
+  // than writing an etag-less standing the next rewrite cannot match on.
+  const etag = recreated
+    ? await store.deposit(address, sealed, null)
+    : conditional;
+  if (etag === null) {
+    throw new StoreUnreachableError("an unconditional deposit was refused.");
+  }
 
   const next: PairedDevice = {
     ...device,
-    deposit_standing:
-      etag === null
-        ? // Refused: the object is gone, and what it carried is still what an
-          // acknowledgement for this index will mean.
-          { kind: "taken", brings: standing?.brings ?? device.peer_vector }
-        : { kind: "live", etag, brings: delta.brings },
+    deposit_standing: {
+      etag,
+      // The recreate carries this wake's delta, which may be fuller than the
+      // object the peer took. What an acknowledgement for this index means is
+      // still the older, smaller claim.
+      brings: recreated
+        ? (standing?.brings ?? device.peer_vector)
+        : delta.brings,
+    },
   };
   keep(next);
   return {
     device: next,
     deposited: delta.rows,
-    refused: etag === null,
+    recreated,
     jammed: delta.jammed,
   };
 }

@@ -83,27 +83,27 @@ export interface StoredLane {
  * What this device's own `PUT` last left on its deposit lane, at the lane's
  * current index (ADR-0096 §5).
  *
- * Three states, and the absent one is the third: `null` is **nothing written
- * at this index yet**, so the next deposit goes out unconditionally — the
- * first write at a fresh chain index has no etag to match on.
+ * Two states, and the absent one is the second: `null` is **nothing written at
+ * this index yet**, so the next deposit goes out unconditionally — the first
+ * write at a fresh chain index has no etag to match on.
  *
- *   - `live` — an object is there, and the rewrite carries `If-Match` against
- *     the etag that `PUT` returned. That precondition is the whole of the
- *     orphan design: if the peer has collected, the etag is gone and the write
- *     is refused rather than recreating an object nobody will ever collect.
- *   - `taken` — a rewrite **was** refused, so the object is gone. Nothing more
- *     is written at this index. A refusal is not an acknowledgement: it may
- *     not advance the lane, because absence-as-acknowledgement would hand the
- *     operator control of the chain.
+ * The rewrite carries `If-Match` against the etag that `PUT` returned, and a
+ * refusal means the object is gone — collected, expired, or deleted by
+ * somebody. **The refusal is answered by an unconditional write at the same
+ * index** (ADR-0096 §5's 2026-09-12 amendment), so there is no second arm here
+ * for a lane that has fallen silent: a lane holds a live object or none.
  *
- * `brings` survives the refusal because the acknowledgement has not arrived
- * yet, and it is what that acknowledgement means: the peer collected this
- * object, so it now holds everything this device knew it held **plus** what
- * the object carried.
+ * **`brings` may not advance on that recreate**, which is why it is carried
+ * rather than recomputed. It is what an acknowledgement for this index will
+ * *mean*: the peer collected the object that was here, so it holds everything
+ * this device knew it held **plus** what that object carried. If the peer took
+ * an earlier rewrite and the recreate is a fuller one, crediting the fuller
+ * one would skip the rows only it carried, permanently.
  */
-export type DepositStanding =
-  | { kind: "live"; etag: string; brings: VersionVector }
-  | { kind: "taken"; brings: VersionVector };
+export interface DepositStanding {
+  etag: string;
+  brings: VersionVector;
+}
 
 export interface PairedDevice {
   /** The peer's own id, and the key: pairing again replaces this row. */
@@ -204,7 +204,7 @@ export function laneChainOf(lane: StoredLane): LaneChain {
  * write filled in. The guard above admits its absence; this is where the
  * absence stops being a hole every reader has to remember.
  */
-const settled = (device: PairedDevice): PairedDevice => ({
+const filled = (device: PairedDevice): PairedDevice => ({
   ...device,
   deposit_standing: device.deposit_standing ?? null,
 });
@@ -229,7 +229,7 @@ export function readPairedDevices(): PairedDevice[] {
   try {
     const parsed: unknown = JSON.parse(held);
     return Array.isArray(parsed)
-      ? parsed.filter(isPairedDevice).map(settled)
+      ? parsed.filter(isPairedDevice).map(filled)
       : [];
   } catch {
     return [];
@@ -280,7 +280,7 @@ function isPairedDevice(row: unknown): row is PairedDevice {
  *
  * **Absent reads as `null`**, because a record written before there was
  * anything to deposit is a healthy record: the lane is at index zero with
- * nothing written at it, which is exactly what `null` says. {@link settled} is
+ * nothing written at it, which is exactly what `null` says. {@link filled} is
  * what turns the absence into the field.
  */
 function isDepositStanding(
@@ -294,10 +294,7 @@ function isDepositStanding(
   } catch {
     return false;
   }
-  if (!("kind" in standing)) return false;
-  if (standing.kind === "taken") return true;
   return (
-    standing.kind === "live" &&
     "etag" in standing &&
     typeof standing.etag === "string" &&
     standing.etag.length > 0
