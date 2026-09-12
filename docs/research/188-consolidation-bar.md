@@ -83,7 +83,7 @@ The four unreachable ones are the sharpest statement of the problem this map exi
 
 Mince is the most-logged beef there is and you cannot reach it by typing `beef`.
 
-`ham` is a different harm and is reported apart from the other three. Typing `ham` returns **one** row — `Ham, sliced, restaurant` — while `gammon` returns 50, because [ADR-0062](../adr/0062-a-foods-own-name-is-what-retrieves-it.md) §1's stray-mention rule drops rows the typed word reaches only past the food's own name, and USDA files every cured ham under `Pork, cured, ham, …`. The hams ship; they are unreachable by their own word. This is not duplication and #190's rule should not be expected to fix it.
+`ham` is a different harm and is reported apart from the other three. Typing `ham` returns **one** row — `Ham, sliced, restaurant` — while `gammon` returns 88 (**corrected 2026-09-12, see §8**; registered as 50, which was a page-capped reading), because [ADR-0062](../adr/0062-a-foods-own-name-is-what-retrieves-it.md) §1's stray-mention rule drops rows the typed word reaches only past the food's own name, and USDA files every cured ham under `Pork, cured, ham, …`. The hams ship; they are unreachable by their own word. This is not duplication and #190's rule should not be expected to fix it.
 
 `chicken` shows the duplication and the page cap in a single query: `Chicken, broiler or fryers, breast, skinless, boneless, meat only, raw` sits at rank **8**, while the Foundation row for the same food, `Chicken, breast, boneless, skinless, raw`, is past **50**. Two rows, one ingredient, one reachable.
 
@@ -99,7 +99,7 @@ They are carried as a **tripwire** rather than a condition, firing on one transi
 
 **Multi-word queries are watched, not gating** — [#151](https://github.com/palebluebytes/inventoria/issues/151) established that a head-phrase-only sweep cannot price a multi-word rule, so twelve are carried to catch a rule that fixes one-word queries by breaking two-word ones. At registration: **C1 10 of 12, C2 10 of 12**.
 
-**Corpus size is a sanity figure with no pass or fail attached.** The expected landing zone is **1,850-1,900 rows**: the crude three-rule cut gives 1,873, and #187 reproduced 1,851 while keeping 499 of 512 head phrases. A rule landing far outside it is asked to explain itself. A rule landing inside it and failing C1 or C2 still fails — hitting a size by deleting the wrong rows is not the destination.
+**Corpus size is a sanity figure with no pass or fail attached.** The expected landing zone is **2,850-2,950 rows** (**corrected 2026-09-12, see §8**; it was registered as 1,850-1,900). A rule landing far outside it is asked to explain itself. A rule landing inside it and failing C1 or C2 still fails — hitting a size by deleting the wrong rows is not the destination.
 
 ## 7. The harness
 
@@ -114,3 +114,50 @@ Three deliberate omissions, each with a scar behind it:
 - **It checks every gold id exists before ranking it.** A gold id missing from the corpus is a broken bar, not a failing search, and the two are never reported as the same thing.
 
 **Where this file lives is not settled.** Whether it stays a script of its own or folds into `usda-ranking-audit.mjs` is deferred until the rule it measures exists; `usda-ranking-audit.mjs` is at 956 lines against the ~1000-line wall `CODING_STANDARDS.md` §4 draws, so the fold is not free and the decision is better made with the pilot's needs known.
+
+## 8. Corrections (2026-09-12, #190)
+
+Two registered figures were wrong. Both are corrected in place above and recorded
+here, because a pre-registered document whose numbers change silently is worth
+less than one with no numbers at all. **C1 and C2 are untouched**, and so are the
+gold set and the roster: a sanity figure and a tripwire reading are not the
+conditions this document exists to fix in advance.
+
+### The landing zone was the size of a corpus that has deleted a thousand foods
+
+The registered zone of **1,850-1,900** came from the crude three-rule cut (4,238 to
+1,873) and from #187's independent 1,851. Both of those are **drop** figures: they
+delete every row naming a cooking method, then every row naming a trim or a grade.
+Nobody had asked what that deletes.
+
+Measured over the shipped corpus while writing
+[ADR-0100](../adr/0100-what-was-done-to-a-food-is-not-another-food.md):
+
+|                                                           |               |
+| --------------------------------------------------------- | ------------: |
+| Rows deleted                                              |         2,404 |
+| Residual groups losing **every** row, so the food is gone |     **1,089** |
+| Rows in those groups                                      |         2,181 |
+| Head phrases that disappear entirely                      | **18** of 512 |
+
+The eighteen include `quinoa`, `teff`, `spelt`, `buckwheat groats`, `mutton`,
+`turkey breast`, `escarole` and `apricots`, all because USDA publishes them only
+cooked or only trimmed. A rule that ships them, which is the only kind
+[ADR-0055](../adr/0055-who-eats-a-food-ranks-it-and-never-drops-it.md) §1 permits,
+**collapses** rather than drops and lands at **2,923** residual groups. Widening
+the collapsing-segment roster to 25 further near-misses reaches only 2,739, so the
+gap to the registered zone is not something a bigger roster closes.
+
+The corrected zone of **2,850-2,950** is the corpus before any head phrase is
+adjudicated. Hand-adjudicating the 25 largest heads moves it further down by an
+amount nobody has measured, so a rule landing below the zone explains itself with
+its per-head account rather than being marked wrong.
+
+### The `gammon` tripwire recorded a page cap, not an answer size
+
+The British tripwire column reads `searchIndexRows(...).hits.length`, which is
+truncated at the 50-row page cap, where C2's column reads the uncapped scorer.
+`gammon` is the **only** roster query where the two disagree: it answers with
+**88** rows and was registered as 50. The tripwire fires on a query falling to
+zero, so its verdict is unaffected — 16 of 17 answer, as registered — but the
+number beside it was not an answer size and is now stated as one.

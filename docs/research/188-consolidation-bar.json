@@ -24,8 +24,8 @@
     "corpus_size": {
       "applies_to": "whole corpus",
       "rule": "SANITY ONLY - no pass or fail attached.",
-      "expected_range": [1850, 1900],
-      "rule_note": "The crude three-rule cut gives 1,873 and research note 187 reproduced 1,851 keeping 499 of 512 head phrases. A rule landing far outside this range is asked to explain itself; a rule landing inside it and failing C1 or C2 still fails."
+      "expected_range": [2850, 2950],
+      "rule_note": "CORRECTED 2026-09-12 by issue 190, see section 8 of the note; registered as [1850, 1900]. The registered zone came from a crude DROP (delete every row naming a cooking method, then every row naming a trim or grade), which deletes 2,404 rows of which 2,181 leave a residual group with no survivor at all, taking 18 head phrases out entirely including quinoa, teff, spelt, mutton and apricots. A rule ADR-0055 section 1 permits COLLAPSES instead and lands at 2,923 residual groups before any head phrase is adjudicated. A rule landing far outside this range is asked to explain itself; a rule landing inside it and failing C1 or C2 still fails."
     }
   },
   "gold_set_note": "Keyed by fdcId, with the description carried alongside as a human label only. Descriptions are NOT the key: ADR-0056's shipped-name work renames rows, so a description-keyed gold set would silently report a renamed row as missing - which is exactly the failure that produced three false 'not in corpus' readings while this set was being written.",
@@ -56,7 +56,7 @@
       "query": "ham",
       "fdc_id": 167875,
       "description": "Pork, cured, ham, whole, separable lean and fat, unheated",
-      "note": "Typing `ham` returns ONE row (Ham, sliced, restaurant) while `gammon` returns 50, because ADR-0062's stray-mention rule drops rows the typed word reaches only past the food's own name. The cured hams ship and are unreachable by their own word."
+      "note": "Typing `ham` returns ONE row (Ham, sliced, restaurant) while `gammon` returns 88, because ADR-0062's stray-mention rule drops rows the typed word reaches only past the food's own name. The cured hams ship and are unreachable by their own word."
     },
     {
       "query": "turkey",
@@ -226,7 +226,11 @@
     { "query": "beetroot", "rows_at_registration": 6 },
     { "query": "chickpeas", "rows_at_registration": 5 },
     { "query": "prawns", "rows_at_registration": 6 },
-    { "query": "gammon", "rows_at_registration": 50 },
+    {
+      "query": "gammon",
+      "rows_at_registration": 88,
+      "correction": "CORRECTED 2026-09-12 by issue 190: registered as 50, which was a page-capped hits.length reading rather than an answer size. The tripwire fires on a fall to zero, so its verdict is unchanged."
+    },
     { "query": "mince", "rows_at_registration": 43 },
     {
       "query": "porridge oats",

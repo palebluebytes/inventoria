@@ -134,7 +134,16 @@ const multi = bar.multi_word.map((e) =>
   measure(app, searchCorpus, corpus, e, cap)
 );
 const british = bar.british_tripwire.map((entry) => {
-  const rows = app.searchIndexRows(searchCorpus, entry.query).hits.length;
+  // The uncapped scorer, the same number C2 reads, and not `hits.length` — that
+  // truncates at the 50-row page cap, which reported `gammon` as 50 rows when it
+  // answers with 88. The tripwire's verdict never depended on it (it fires only
+  // on a fall to zero), but the figure sat beside `at_registration` as though the
+  // two were the same kind of number. Corrected by #190; see §8 of the note.
+  const { phrases } = app.searchIndexRows(searchCorpus, entry.query);
+  const reached = new Set();
+  for (const phrase of phrases)
+    for (const row of scoreAll(corpus, phrase)) reached.add(row.description);
+  const rows = reached.size;
   return {
     query: entry.query,
     rows,
