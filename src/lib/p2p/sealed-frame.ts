@@ -30,10 +30,29 @@
  * on the store's path, where several distinct objects live at one address.
  */
 
-import { randomBytes, type RandomBytes, type RoomCode } from "./room-code";
+import { randomBytes, type RandomBytes } from "./room-code";
 
 /** The nonce's width: 96 bits, the size AES-GCM is specified for. */
 export const SEAL_NONCE_BYTES = 12;
+
+/**
+ * The tag's width: 128 bits, WebCrypto's default and the only one this app
+ * asks for. It is stated here because a caller sizing a payload against a
+ * ceiling has to know what a seal costs on top of its plaintext (ADR-0096 §1).
+ */
+export const SEAL_TAG_BYTES = 16;
+
+/**
+ * What a frame is sealed **under**: the raw AES-GCM key, and nothing about
+ * where it came from.
+ *
+ * A `RoomCode` satisfies it, which is every caller in a live room. So does a
+ * Lane's derived seal key (ADR-0096 §4), which is what a Deposit is sealed
+ * under — and the reason this is a property rather than the code itself.
+ */
+export interface SealedUnder {
+  readonly key: Uint8Array;
+}
 
 /**
  * A frame that would not open: tampered with, sealed under a different code, or
@@ -81,9 +100,9 @@ const aeadOf = (nonce: Uint8Array, label: string | undefined) => ({
   additionalData: label === undefined ? undefined : utf8.encode(label),
 });
 
-/** Seals one frame under a code, with a fresh nonce in front of it. */
+/** Seals one frame under a key, with a fresh nonce in front of it. */
 export async function sealFrame(
-  code: RoomCode,
+  code: SealedUnder,
   plaintext: Uint8Array,
   { label, draw = randomBytes }: SealOptions = {}
 ): Promise<Uint8Array> {
@@ -112,7 +131,7 @@ export async function sealFrame(
  * its parent's `ArrayBufferLike`, which `BufferSource` will not take.
  */
 export async function openSealedFrame(
-  code: RoomCode,
+  code: SealedUnder,
   frame: Uint8Array,
   label?: string
 ): Promise<Uint8Array> {

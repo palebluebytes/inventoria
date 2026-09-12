@@ -3,9 +3,8 @@ import {
   storeRequest,
   DEPOSIT_CEILING_BYTES,
   type StoreBucket,
-  type StoreObject,
-  type StoreObjectBody,
 } from "../../worker/src/store";
+import { fakeBucket } from "./support/store-bucket";
 
 /**
  * The route's decisions, against a bucket that behaves the way R2 documents
@@ -14,54 +13,6 @@ import {
  * has to be believed rather than assumed — this file is where the route's own
  * refusals live, and it can reach the ones a live bucket makes expensive.
  */
-
-/**
- * A bucket with `get`, `put` and `delete` and **no `list`**, because that is
- * what the route is handed. Its `put` honours `onlyIf.etagMatches` the way R2
- * does: the write is refused by returning `null`, and a refused write leaves
- * nothing behind.
- */
-function fakeBucket() {
-  const held = new Map<string, { bytes: Uint8Array; etag: string }>();
-  let minted = 0;
-
-  const bucket: StoreBucket = {
-    async get(key: string): Promise<StoreObjectBody | null> {
-      const object = held.get(key);
-      if (!object) return null;
-      return {
-        etag: object.etag,
-        arrayBuffer: async () => object.bytes.slice().buffer as ArrayBuffer,
-      };
-    },
-    async put(
-      key: string,
-      value: ArrayBuffer | ArrayBufferView,
-      options?: { onlyIf?: { etagMatches: string } }
-    ): Promise<StoreObject | null> {
-      const required = options?.onlyIf?.etagMatches;
-      if (required !== undefined && held.get(key)?.etag !== required) {
-        return null;
-      }
-      const bytes =
-        value instanceof ArrayBuffer
-          ? new Uint8Array(value)
-          : new Uint8Array(
-              value.buffer,
-              value.byteOffset,
-              value.byteLength
-            ).slice();
-      const etag = `etag-${++minted}`;
-      held.set(key, { bytes, etag });
-      return { etag };
-    },
-    async delete(key: string): Promise<void> {
-      held.delete(key);
-    },
-  };
-
-  return { bucket, held };
-}
 
 const ADDRESS = "a".repeat(64);
 
