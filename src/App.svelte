@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount } from "svelte";
+  import { onDestroy, onMount } from "svelte";
   import { dbClient } from "./lib/db/db.client";
   import Sidebar from "./lib/layout/Sidebar.svelte";
   import FoodView from "./lib/views/FoodView.svelte";
@@ -15,7 +15,8 @@
   // the ledger, food logging and habits from mounting at all (#125). The other
   // views stay static.
   import { runStartupErrands } from "./lib/facets/startup";
-  import { convergeOnWake } from "./lib/p2p/wake-errand";
+  import { openAppWake } from "./lib/p2p/wake-errand";
+  import type { OpenWake } from "./lib/p2p/wake-cadence";
   import { facetOf, type Facet } from "./lib/facets/registry";
 
   /**
@@ -73,6 +74,16 @@
   // instead of racing an unset worker and rejecting with "not initialized".
   const initPromise = dbClient.init("/inventoria.db");
 
+  /**
+   * This open's wake, kept so its triggers can be dropped with the app.
+   *
+   * A wake is one app-open, so there is exactly one of these and it lives as
+   * long as the shell does. Unmounting is not the hide the deposit flushes on
+   * — that is the browser's own signal, and this is only the teardown.
+   */
+  let wake: OpenWake | null = null;
+  onDestroy(() => wake?.close());
+
   onMount(async () => {
     // Every entry point's errands, in one list so a second one cannot miss one
     // (#301). Here rather than at module scope so they run on a real load of
@@ -92,12 +103,14 @@
       }
 
       // The Wake (ADR-0096 §3): every paired device is collected from and
-      // deposited to, once per open of the **root** Facet. Here rather than in
-      // `runStartupErrands` because both entry points run that list and a
-      // Rations-only user never converges (§7) — and after the ledger, because
-      // a wake is a read of it and an import into it. Not awaited: a wake is
-      // silent, and nothing on the screen waits for one.
-      void convergeOnWake();
+      // deposited to, on this open of the **root** Facet and then as often as
+      // there is reason to — a deposit whenever the ledger grows, a collection
+      // no more than hourly. Here rather than in `runStartupErrands` because
+      // both entry points run that list and a Rations-only user never converges
+      // (§7) — and after the ledger, because a wake is a read of it and an
+      // import into it. Nothing is awaited: a wake is silent, and nothing on
+      // the screen waits for one.
+      wake = openAppWake();
     } catch (e: any) {
       dbError = e.message ?? String(e);
     }
