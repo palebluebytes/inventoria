@@ -37,10 +37,17 @@ import {
 import { appStore, type Store } from "./deposit-store";
 import { convergeWithPeer, type WakeLedger } from "./wake";
 
-/** The ledger as a wake needs it: two operations, both already on the client. */
+/**
+ * The ledger as a wake needs it: two operations, both already on the client.
+ *
+ * `order: "stamp"` is the load-bearing half. A deposit may be cut short by the
+ * ceiling and a version vector can only summarise a walk that is downward-closed
+ * in stamp order, so a key-ordered page here would withhold rows permanently the
+ * first time a backlog drained.
+ */
 export const appWakeLedger: WakeLedger = {
-  page: (after, budgetBytes, above) =>
-    dbClient.ledgerPage(after, budgetBytes, { above }),
+  oldestAbove: (after, budgetBytes, above) =>
+    dbClient.ledgerPage(after, budgetBytes, { above, order: "stamp" }),
   write: (rows, final) => dbClient.ledgerImport(rows, final),
 };
 

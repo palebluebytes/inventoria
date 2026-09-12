@@ -102,7 +102,7 @@ const aeadOf = (nonce: Uint8Array, label: string | undefined) => ({
 
 /** Seals one frame under a key, with a fresh nonce in front of it. */
 export async function sealFrame(
-  code: SealedUnder,
+  under: SealedUnder,
   plaintext: Uint8Array,
   { label, draw = randomBytes }: SealOptions = {}
 ): Promise<Uint8Array> {
@@ -110,7 +110,7 @@ export async function sealFrame(
   const sealed = new Uint8Array(
     await crypto.subtle.encrypt(
       aeadOf(nonce, label),
-      await importKey(code.key),
+      await importKey(under.key),
       plaintext as BufferSource
     )
   );
@@ -131,7 +131,7 @@ export async function sealFrame(
  * its parent's `ArrayBufferLike`, which `BufferSource` will not take.
  */
 export async function openSealedFrame(
-  code: SealedUnder,
+  under: SealedUnder,
   frame: Uint8Array,
   label?: string
 ): Promise<Uint8Array> {
@@ -140,7 +140,7 @@ export async function openSealedFrame(
     return new Uint8Array(
       await crypto.subtle.decrypt(
         aeadOf(frame.slice(0, SEAL_NONCE_BYTES), label),
-        await importKey(code.key),
+        await importKey(under.key),
         frame.slice(SEAL_NONCE_BYTES)
       )
     );

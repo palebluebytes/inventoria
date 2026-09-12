@@ -39,7 +39,6 @@ describe("a deposit round-trips at the address the client derived", () => {
 
     const taken = await store.collect(ADDRESS);
     expect(taken?.bytes).toEqual(bytes("sealed"));
-    expect(taken?.etag).toBe(etag);
 
     await store.discard(ADDRESS);
     expect(held.size).toBe(0);
@@ -113,6 +112,19 @@ describe("everything else is a wake that did not converge", () => {
     const store = storeOverFetch(() => {
       throw new TypeError("Failed to fetch");
     }, ORIGIN);
+    await expect(store.deposit(ADDRESS, bytes("sealed"), null)).rejects.toThrow(
+      StoreUnreachableError
+    );
+  });
+
+  it("refuses a deposit the store answered without an etag", async () => {
+    // The etag is the only thing the next rewrite can be conditional on, and an
+    // empty one written into the Paired Device record would fail that record's
+    // own guard on the next read — losing a pairing to a missing header.
+    const store = storeOverFetch(
+      async () => new Response(null, { status: 204 }),
+      ORIGIN
+    );
     await expect(store.deposit(ADDRESS, bytes("sealed"), null)).rejects.toThrow(
       StoreUnreachableError
     );

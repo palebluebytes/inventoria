@@ -100,8 +100,8 @@ function device(
       deposit_standing: null,
     },
     ledger: {
-      page: async (after, budgetBytes, above) =>
-        readLedgerPage(db, after, budgetBytes, { above }),
+      oldestAbove: async (after, budgetBytes, above) =>
+        readLedgerPage(db, after, budgetBytes, { above, order: "stamp" }),
       write: async (rows) => {
         const outcome = importLedgerRows(db, rows);
         if (outcome.highWater) clock.update(outcome.highWater);
@@ -420,6 +420,27 @@ describe("the ceiling drains rather than refusing", () => {
     await wake(a, narrow);
     expect((await wake(a, narrow)).deposited).toBe(0);
     expect((await wake(b, narrow)).deposited).toBe(0);
+  });
+
+  it("sends the oldest rows first, so a truncated deposit withholds nothing", async () => {
+    const [a, b] = await pair();
+    // The primary key is entity-first, so `event:aaa` walks ahead of
+    // `event:bbb` while carrying the **later** stamp. A deposit truncated in
+    // key order would tell its peer it had been brought up to 900, and
+    // `event:bbb` — stamped 100 — would never be offered again.
+    hold(a, [
+      row({ entity: "event:aaa", hlc_ms: 900 }),
+      row({ entity: "event:bbb", hlc_ms: 100 }),
+    ]);
+
+    const narrow = { ceilingBytes: 340, chunkBudgetBytes: 1 };
+    const first = await wake(a, narrow);
+    expect(first.deposited).toBe(1);
+    await wake(b, narrow);
+    await wake(a, narrow);
+    await wake(b, narrow);
+
+    expect(rowsOf(b).sort()).toEqual(rowsOf(a).sort());
   });
 
   it("reports a datom wider than a whole deposit rather than stalling quietly", async () => {

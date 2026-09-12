@@ -85,13 +85,9 @@
 
 import { cursorOf, type LedgerCursor, type LedgerRow } from "../db/db.core";
 import { datomLine } from "../db/ledger-export";
-import {
-  meaningfulLines,
-  parseNdjsonObject,
-  readDatomLine,
-} from "../db/ledger-import";
+import { parseNdjsonObject } from "../db/ledger-import";
 import { readVersionVector, type VersionVector } from "../db/version-vector";
-import { PairingRefusedError } from "./pairing-act";
+import { refusingChunk, readDatomChunk } from "./datom-chunk";
 import type { LaneDirection, PairedChains } from "./pairing-chain";
 import type { PairingCode } from "./pairing-code";
 import { whyRoomEnded, type Room } from "./relay-room";
@@ -276,7 +272,7 @@ export async function runFirstSync(
       if (draining) {
         const body = await open(event.bytes, chunkLabel(theirs, seq));
         seq += 1;
-        const rows = readChunk(body);
+        const rows = readDatomChunk(body);
         if (rows.length === 0) {
           // The peer's lane is finished. One `final` write so every projection
           // re-reads once rather than once per chunk.
@@ -333,28 +329,8 @@ interface PeerOpening {
 /** Who the peer is, and what it held when it closed. The record's two facts. */
 type PeerClosing = Omit<FirstSyncResult, keyof FirstSyncProgress>;
 
-/**
- * ADR-0075 §13 keeps two of ADR-0073 §8's refusals here — a chunk whose seal
- * fails, and rows failing `importLedgerRows`' column validation — **not because
- * a paired device is untrusted**, since the seal is what makes it yours, but
- * because if the seal held and the rows are malformed that is a bug, and a bug
- * that writes to an append-only ledger is undeletable.
- *
- * The same standard covers the vectors, which are the other input deciding
- * which rows are withheld, and it covers them permanently.
- */
-function refusing<T>(read: () => T): T {
-  try {
-    return read();
-  } catch (broken) {
-    throw new PairingRefusedError(
-      broken instanceof Error ? broken.message : String(broken)
-    );
-  }
-}
-
 function readOpening(body: string): PeerOpening {
-  return refusing(() => {
+  return refusingChunk(() => {
     const raw = parseNdjsonObject(body, null);
     const device_id = raw.device_id;
     if (typeof device_id !== "string" || device_id.length === 0) {
@@ -368,17 +344,8 @@ function readOpening(body: string): PeerOpening {
  * who it was when it opened, and saying it twice would be a second place for
  * the two statements to disagree. */
 function readClosingVector(body: string): VersionVector {
-  return refusing(() =>
+  return refusingChunk(() =>
     readVersionVector(parseNdjsonObject(body, null).vector)
-  );
-}
-
-/** One chunk's datom lines, in the ledger's own grammar and nothing else. */
-function readChunk(body: string): LedgerRow[] {
-  return refusing(() =>
-    meaningfulLines(body).map((line) =>
-      readDatomLine(line.text, line.lineNumber)
-    )
   );
 }
 

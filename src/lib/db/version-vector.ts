@@ -101,15 +101,33 @@ export function vectorWith(
   vector: VersionVector,
   rows: readonly HlcKey[]
 ): VersionVector {
-  const held: Record<string, HlcMark> = { ...vector };
-  for (const row of rows) {
-    const mark = { hlc_ms: row.hlc_ms, hlc_ctr: row.hlc_ctr };
-    const standing = held[row.device_id];
+  return mergeVersionVectors(vector, foldVersionVector(rows));
+}
+
+/**
+ * The vector a device has once it holds everything either of these two
+ * describes: the greater mark per device, and every device either names.
+ *
+ * Merging rather than replacing is what keeps two sound statements about one
+ * peer from cancelling each other out. A deposit's acknowledgement says _the
+ * peer collected what that object carried_, and a collection says _the peer
+ * held what it sent me_; they are made at different moments about different
+ * rows, and taking the later one whole would throw the other away and re-send
+ * what it covered on the next wake.
+ */
+export function mergeVersionVectors(
+  held: VersionVector,
+  also: VersionVector
+): VersionVector {
+  const merged: Record<string, HlcMark> = { ...held };
+  for (const device_id of Object.keys(also)) {
+    const standing = merged[device_id];
+    const mark = also[device_id];
     if (!standing || compareHlcMark(standing, mark) < 0) {
-      held[row.device_id] = mark;
+      merged[device_id] = mark;
     }
   }
-  return held;
+  return merged;
 }
 
 /**

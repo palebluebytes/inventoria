@@ -153,6 +153,62 @@ describe("reading the ledger a page at a time", () => {
 // only the rows the Facet owns (ADR-0079 §6). It is the export's half of the
 // scoped wipe: the file has to be a copy of what the delete is about to take,
 // or the pairing that makes the delete defensible is a coincidence.
+describe("walking the ledger oldest-first", () => {
+  // The order a walk that may be **cut short** needs (ADR-0096 §1: a depositor
+  // over the ceiling deposits its *oldest* 16 MiB). A prefix in primary-key
+  // order is not downward-closed in stamp order, and the only thing that can
+  // summarise a cut-short walk is a version vector — which describes nothing
+  // else. A key-ordered prefix therefore claims a watermark the peer has not
+  // reached, and every row below it is withheld permanently.
+
+  /** Two rows whose key order and whose stamp order disagree. */
+  function crossed(): void {
+    // `event:aaa` sorts first by primary key and is stamped later.
+    wall = 900;
+    append([datom({ entity: "event:aaa", attribute: "event/kind" })]);
+    wall = 100;
+    clock = createHlc("device_b", { wallClock: () => wall });
+    append([datom({ entity: "event:bbb", attribute: "event/kind" })]);
+  }
+
+  const walk = (order: "key" | "stamp") => {
+    const rows: LedgerRow[] = [];
+    let after: LedgerCursor | null = null;
+    for (let guard = 0; guard < 100; guard++) {
+      const page = readLedgerPage(db, after, 1, { order });
+      if (page.length === 0) return rows.map((r) => `${r.entity}@${r.hlc_ms}`);
+      rows.push(...page);
+      after = cursorOf(page[page.length - 1]);
+    }
+    throw new Error("paged read did not terminate");
+  };
+
+  it("walks by primary key by default, which puts the later stamp first", () => {
+    crossed();
+    expect(walk("key")).toEqual(["event:aaa@900", "event:bbb@100"]);
+  });
+
+  it("walks by stamp when asked, so every prefix is downward-closed", () => {
+    crossed();
+    expect(walk("stamp")).toEqual(["event:bbb@100", "event:aaa@900"]);
+  });
+
+  it("reaches every row either way, and the same rows", () => {
+    crossed();
+    append([datom({ entity: "habit:9", attribute: "habit/name" })]);
+    expect(walk("stamp").sort()).toEqual(walk("key").sort());
+    expect(walk("stamp")).toHaveLength(countDatoms(db));
+  });
+
+  it("narrows by vector and orders by stamp together", () => {
+    crossed();
+    const above = { device_b: { hlc_ms: 100, hlc_ctr: 0 } };
+    const page = readLedgerPage(db, null, 1024, { above, order: "stamp" });
+    // `event:bbb` is device_b's own row at exactly that mark, so it is held.
+    expect(page.map((r) => r.entity)).toEqual(["event:aaa"]);
+  });
+});
+
 describe("reading one Facet's rows a page at a time", () => {
   const jar = () => {
     append([

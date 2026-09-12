@@ -257,6 +257,59 @@ const LEDGER_COLUMNS =
 // The primary key, in its declared order, which for a WITHOUT ROWID table is
 // also the physical order — so a keyset walk is a straight scan, not a sort.
 const LEDGER_KEY = "entity, attribute, hlc_ms, hlc_ctr, device_id";
+// The same five columns, led by the stamp. There is no index for it — one added
+// here would be paid on every append to speed a walk that runs once per open —
+// so a stamp-ordered page is a scan and a top-`LIMIT` sort over the rows the
+// narrowing already let through, which in steady state is a handful.
+const LEDGER_STAMP_KEY = "hlc_ms, hlc_ctr, device_id, entity, attribute";
+
+/**
+ * Which order a paged walk runs in, and it is a **correctness** choice rather
+ * than a preference.
+ *
+ * `key` is the primary key, which for a `WITHOUT ROWID` table is the physical
+ * order, so the walk is a straight scan. It is what an export wants and what a
+ * walk that runs to the end wants, because a walk that finishes has no order.
+ *
+ * `stamp` is what a walk that may be **cut short** needs (ADR-0096 §1: a
+ * depositor over the ceiling deposits its _oldest_ 16 MiB). A prefix in key
+ * order is not downward-closed in stamp order — `event:aaa` stamped 900 walks
+ * ahead of `event:bbb` stamped 100 — so a version vector summarising that
+ * prefix claims a watermark the peer has not really reached, and every row
+ * below it is withheld **permanently**. A prefix in stamp order is exactly the
+ * set a vector can describe.
+ */
+export type LedgerPageOrder = "key" | "stamp";
+
+/**
+ * How each order names its cursor, so the `ORDER BY` and the keyset comparison
+ * can never disagree about what "after" means.
+ */
+const WALK_ORDERS: Record<
+  LedgerPageOrder,
+  { columns: string; cursor: (after: LedgerCursor) => unknown[] }
+> = {
+  key: {
+    columns: LEDGER_KEY,
+    cursor: (after) => [
+      after.entity,
+      after.attribute,
+      after.hlc_ms,
+      after.hlc_ctr,
+      after.device_id,
+    ],
+  },
+  stamp: {
+    columns: LEDGER_STAMP_KEY,
+    cursor: (after) => [
+      after.hlc_ms,
+      after.hlc_ctr,
+      after.device_id,
+      after.entity,
+      after.attribute,
+    ],
+  },
+};
 
 /** Every row the ledger holds, superseded facts included. */
 export function countDatoms(db: LedgerDb): number {
@@ -318,14 +371,19 @@ export function cursorOf(row: LedgerRow): LedgerCursor {
 const LEDGER_PAGE_MAX_ROWS = 256;
 
 /**
- * Which rows a paged walk is allowed to see. Both narrowings are optional and
- * both apply together; absent, the walk is the whole ledger.
+ * How a paged walk runs: which rows it is allowed to see, and in what order.
+ *
+ * Both narrowings are optional and both apply together; absent, the walk is the
+ * whole ledger. The order defaults to the primary key's, which is every
+ * caller's but the one that may stop part way (see {@link LedgerPageOrder}).
  */
 export interface LedgerPageNarrowing {
   /** One Facet's rows, for a Facet-scoped export (ADR-0079 §6). */
   entityPrefixes?: readonly string[];
   /** Only what a holder of this vector lacks, for a sync (ADR-0075 §6). */
   above?: VersionVector;
+  /** Which order the walk runs in. Defaults to `key`. */
+  order?: LedgerPageOrder;
 }
 
 /**
@@ -351,17 +409,12 @@ export function readLedgerPage(
   // jar-wide one (ADR-0079 §6), and the sync's delta the same code as both
   // (ADR-0075 §7): the cursor, the budget and the byte probe are unchanged, and
   // only the rows the walk is allowed to see differ.
+  const walk = WALK_ORDERS[narrowing.order ?? "key"];
   const clauses: string[] = [];
   const bind: unknown[] = [];
   if (after) {
-    clauses.push(`(${LEDGER_KEY}) > (?, ?, ?, ?, ?)`);
-    bind.push(
-      after.entity,
-      after.attribute,
-      after.hlc_ms,
-      after.hlc_ctr,
-      after.device_id
-    );
+    clauses.push(`(${walk.columns}) > (?, ?, ?, ?, ?)`);
+    bind.push(...walk.cursor(after));
   }
   for (const match of [
     narrowing.entityPrefixes && entityPrefixMatch(narrowing.entityPrefixes),
@@ -375,7 +428,7 @@ export function readLedgerPage(
   // The probe and the fetch must walk the same rows in the same order, so they
   // share one query shape and differ only in what they select.
   const pageSql = (select: string) =>
-    `SELECT ${select} FROM datoms ${where}ORDER BY ${LEDGER_KEY} LIMIT ?;`;
+    `SELECT ${select} FROM datoms ${where}ORDER BY ${walk.columns} LIMIT ?;`;
 
   // `length()` over TEXT counts characters; the cast makes it count the UTF-8
   // bytes the file will actually carry.

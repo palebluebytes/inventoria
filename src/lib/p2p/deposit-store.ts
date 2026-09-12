@@ -47,10 +47,16 @@ export const STORE_KEY_PARAM = "key";
  */
 export const DEPOSIT_CEILING_BYTES = 16 * 1024 * 1024;
 
-/** One deposit as it was found: the sealed bytes, and what supersedes them. */
+/**
+ * One deposit as it was found, which is its bytes and nothing else.
+ *
+ * **Not its etag**, though the route returns one: a collector deletes
+ * unconditionally, because it has just read what was there and the address is
+ * one only its peer writes to. Carrying an etag nothing reads would be a field
+ * that has to be checked at the boundary to buy nothing.
+ */
 export interface HeldDeposit {
   readonly bytes: Uint8Array;
-  readonly etag: string;
 }
 
 /**
@@ -99,9 +105,25 @@ export interface Store {
 /** What this module needs of `fetch`, so a test can hand it the real route. */
 export type StoreFetch = (request: Request) => Promise<Response>;
 
-/** An etag as HTTP formats one, back as the bare value `If-Match` wants. */
-const bareEtag = (header: string | null): string =>
-  (header ?? "").replace(/^(?:W\/)?"(.*)"$/, "$1");
+/**
+ * An etag as HTTP formats one, back as the bare value `If-Match` wants.
+ *
+ * **An absent one is a store this protocol cannot use**, not an empty string.
+ * The etag a `PUT` returns is the only thing the next rewrite can be
+ * conditional on, so a response without one leaves this device unable to
+ * supersede its own object — and an empty string written into the record would
+ * be a Paired Device row that fails its own guard on the next read, losing the
+ * pairing to a missing header.
+ */
+function bareEtag(response: Response): string {
+  const header = response.headers.get("ETag");
+  if (header === null || header === "") {
+    throw new StoreUnreachableError(
+      "the store answered a deposit with no etag, so nothing can supersede it."
+    );
+  }
+  return header.replace(/^(?:W\/)?"(.*)"$/, "$1");
+}
 
 /**
  * The store over one `fetch`, at one origin.
@@ -139,10 +161,7 @@ export function storeOverFetch(call: StoreFetch, origin?: string): Store {
       // The collector finding nothing is the normal outcome, not an error.
       if (response.status === 404) return null;
       if (!response.ok) throw unread("collection", response);
-      return {
-        bytes: new Uint8Array(await response.arrayBuffer()),
-        etag: bareEtag(response.headers.get("ETag")),
-      };
+      return { bytes: new Uint8Array(await response.arrayBuffer()) };
     },
 
     async deposit(address, sealed, ifMatch) {
@@ -161,7 +180,7 @@ export function storeOverFetch(call: StoreFetch, origin?: string): Store {
       // this as an acknowledgement.
       if (response.status === 412) return null;
       if (!response.ok) throw unread("deposit", response);
-      return bareEtag(response.headers.get("ETag"));
+      return bareEtag(response);
     },
 
     async discard(address) {

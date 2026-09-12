@@ -56,12 +56,12 @@
 
 import { cursorOf, type LedgerCursor, type LedgerRow } from "../db/db.core";
 import { datomLine } from "../db/ledger-export";
+import { parseNdjsonObject } from "../db/ledger-import";
 import {
-  meaningfulLines,
-  parseNdjsonObject,
-  readDatomLine,
-} from "../db/ledger-import";
-import { vectorWith, type VersionVector } from "../db/version-vector";
+  mergeVersionVectors,
+  vectorWith,
+  type VersionVector,
+} from "../db/version-vector";
 import {
   advancedLane,
   laneChainOf,
@@ -69,7 +69,7 @@ import {
 } from "../stores/paired-devices";
 import { DEPOSIT_CEILING_BYTES, type Store } from "./deposit-store";
 import { deriveLaneKey, type LaneChain } from "./pairing-chain";
-import { PairingRefusedError } from "./pairing-act";
+import { readDatomChunk, refusingChunk } from "./datom-chunk";
 import { base64url, randomBytes, type RandomBytes } from "./room-code";
 import {
   chunkCost,
@@ -98,8 +98,20 @@ export const DEPOSIT_CHUNK_BUDGET_BYTES = 256 * 1024;
  * no deposit carries.
  */
 export interface WakeLedger {
-  /** The next rows a holder of `above` lacks; empty once the walk is done. */
-  page(
+  /**
+   * The **oldest** rows a holder of `above` lacks; empty once the walk is done.
+   *
+   * Oldest is in the name because it is the requirement rather than a
+   * preference. A deposit may be cut short by the ceiling, and the only thing
+   * that can summarise a cut-short walk is a version vector — which describes a
+   * set that is downward-closed in stamp order and nothing else. Walked by
+   * primary key, a prefix is not: `event:aaa` stamped 900 comes before
+   * `event:bbb` stamped 100, so the vector after the first chunk would claim a
+   * watermark of 900 and `event:bbb` would be withheld **permanently**. ADR-0096
+   * §1 says it in one word — a depositor over the ceiling deposits its _oldest_
+   * 16 MiB.
+   */
+  oldestAbove(
     after: LedgerCursor | null,
     budgetBytes: number,
     above: VersionVector
@@ -242,7 +254,7 @@ async function collectLane(
   let peer_vector = acknowledged.device.peer_vector;
   let collected = 0;
   for (const [seq, page] of pages.entries()) {
-    const rows = readChunk(fromUtf8.decode(page));
+    const rows = readDatomChunk(fromUtf8.decode(page));
     // `final` on the last, so every projection re-reads once rather than once
     // per chunk (ADR-0075 §8).
     await ledger.write(rows, seq === pages.length - 1);
@@ -282,12 +294,17 @@ async function acknowledging(
     device: {
       ...device,
       deposit: await advancedLane(device.deposit),
-      // The peer holds what that object carried. Where this device never
-      // recorded what it carried — a `PUT` whose answer was lost — the lane
-      // still advances and the next deposit re-sends rows an import ignores:
-      // understating what a peer holds is the safe direction, and a lane stuck
-      // at an index its peer has left is the unsafe one.
-      peer_vector: standing ? standing.brings : device.peer_vector,
+      // The peer holds what that object carried, **as well as** whatever this
+      // device has watched it hold since — a collection made between that `PUT`
+      // and this acknowledgement is a sound statement about the same peer, and
+      // taking one whole would discard the other. Where this device never
+      // recorded what the object carried — a `PUT` whose answer was lost — the
+      // lane still advances on nothing but its own view: understating what a
+      // peer holds costs a re-sent row an import ignores, and a lane stuck at an
+      // index its peer has left costs everything.
+      peer_vector: standing
+        ? mergeVersionVectors(device.peer_vector, standing.brings)
+        : device.peer_vector,
       deposit_standing: null,
     },
   };
@@ -328,8 +345,22 @@ async function depositLane(
   const standing = device.deposit_standing;
   // A rewrite at this index was already refused, so the object is gone. It is
   // not recreated, and nothing else is written here until an acknowledgement
-  // advances the lane — which is also why this state is not an error: the peer
-  // took the object, and its acknowledgement is what comes next.
+  // advances the lane — which is normally not an error at all: the peer took the
+  // object, and its acknowledgement is what comes next.
+  //
+  // **The hole this leaves is ADR-0096 §5's rather than this early return's**,
+  // and it is #410. A deposit carries this device's acknowledgement as well as
+  // its delta, so a lane that may not be written to is a lane that cannot
+  // acknowledge — and if **both** lanes of a pairing reach this state, neither
+  // can say the word the other is waiting for and both chains freeze. One failed
+  // `PUT` gets there: a peer that collects and then cannot deposit leaves this
+  // device rewriting into a refusal while the peer's own next rewrite is refused
+  // in turn. Retrying the conditional write instead of short-circuiting here
+  // changes nothing, because it is refused too; the only exits are to advance on
+  // absence, which §5 refuses outright, or to give the acknowledgement an object
+  // of its own, which §1 refuses. Both are the record's to decide. §11's K = 200
+  // reaps it meanwhile, and no data is lost — the ledger is intact and
+  // re-pairing recovers.
   if (standing?.kind === "taken") {
     return { device, deposited: 0, refused: true, jammed: false };
   }
@@ -407,7 +438,11 @@ async function outstandingDelta(
   let after: LedgerCursor | null = null;
 
   for (;;) {
-    const page = await ledger.page(after, chunkBudgetBytes, device.peer_vector);
+    const page = await ledger.oldestAbove(
+      after,
+      chunkBudgetBytes,
+      device.peer_vector
+    );
     if (page.length === 0) return { chunks, brings, rows, jammed: false };
     const body = utf8.encode(page.map(datomLine).join(""));
     if (chunkCost(body.length) > room) {
@@ -439,25 +474,8 @@ async function outstandingDelta(
 const laneAddress = async (lane: LaneChain): Promise<string> =>
   base64url(await deriveLaneKey(lane, "addr"));
 
-/**
- * ADR-0075 §13's standard, unchanged on this path: a seal that holds over a
- * body that is malformed is a **bug**, and a bug that writes to an append-only
- * ledger is undeletable. So what is inside a deposit is read to the same bar as
- * what crosses a live room, and for the same reason — not because a paired
- * device is untrusted, since the seal is what makes it yours.
- */
-function refusing<T>(read: () => T): T {
-  try {
-    return read();
-  } catch (broken) {
-    throw new PairingRefusedError(
-      broken instanceof Error ? broken.message : String(broken)
-    );
-  }
-}
-
 function readEnvelope(body: string): DepositEnvelope {
-  return refusing(() => {
+  return refusingChunk(() => {
     const raw = parseNdjsonObject(body, null);
     const acknowledges = raw.acknowledges;
     if (acknowledges === null || acknowledges === undefined) {
@@ -472,13 +490,4 @@ function readEnvelope(body: string): DepositEnvelope {
     }
     return { acknowledges };
   });
-}
-
-/** One chunk's datom lines, in the ledger's own grammar and nothing else. */
-function readChunk(body: string): LedgerRow[] {
-  return refusing(() =>
-    meaningfulLines(body).map((line) =>
-      readDatomLine(line.text, line.lineNumber)
-    )
-  );
 }
