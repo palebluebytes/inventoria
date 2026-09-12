@@ -15,6 +15,7 @@
   // the ledger, food logging and habits from mounting at all (#125). The other
   // views stay static.
   import { runStartupErrands } from "./lib/facets/startup";
+  import { convergeOnWake } from "./lib/p2p/wake-errand";
   import { facetOf, type Facet } from "./lib/facets/registry";
 
   /**
@@ -89,6 +90,14 @@
           activeTab = "items";
         }
       }
+
+      // The Wake (ADR-0096 §3): every paired device is collected from and
+      // deposited to, once per open of the **root** Facet. Here rather than in
+      // `runStartupErrands` because both entry points run that list and a
+      // Rations-only user never converges (§7) — and after the ledger, because
+      // a wake is a read of it and an import into it. Not awaited: a wake is
+      // silent, and nothing on the screen waits for one.
+      void convergeOnWake();
     } catch (e: any) {
       dbError = e.message ?? String(e);
     }

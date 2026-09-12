@@ -2,6 +2,7 @@ import { writable } from "svelte/store";
 import { readVersionVector, type VersionVector } from "../db/version-vector";
 import {
   CHAIN_STATE_BYTES,
+  ratchetLane,
   type LaneChain,
   type LaneDirection,
   type PairedChains,
@@ -78,6 +79,32 @@ export interface StoredLane {
   index: number;
 }
 
+/**
+ * What this device's own `PUT` last left on its deposit lane, at the lane's
+ * current index (ADR-0096 §5).
+ *
+ * Three states, and the absent one is the third: `null` is **nothing written
+ * at this index yet**, so the next deposit goes out unconditionally — the
+ * first write at a fresh chain index has no etag to match on.
+ *
+ *   - `live` — an object is there, and the rewrite carries `If-Match` against
+ *     the etag that `PUT` returned. That precondition is the whole of the
+ *     orphan design: if the peer has collected, the etag is gone and the write
+ *     is refused rather than recreating an object nobody will ever collect.
+ *   - `taken` — a rewrite **was** refused, so the object is gone. Nothing more
+ *     is written at this index. A refusal is not an acknowledgement: it may
+ *     not advance the lane, because absence-as-acknowledgement would hand the
+ *     operator control of the chain.
+ *
+ * `brings` survives the refusal because the acknowledgement has not arrived
+ * yet, and it is what that acknowledgement means: the peer collected this
+ * object, so it now holds everything this device knew it held **plus** what
+ * the object carried.
+ */
+export type DepositStanding =
+  | { kind: "live"; etag: string; brings: VersionVector }
+  | { kind: "taken"; brings: VersionVector };
+
 export interface PairedDevice {
   /** The peer's own id, and the key: pairing again replaces this row. */
   device_id: string;
@@ -99,6 +126,12 @@ export interface PairedDevice {
    * delivered. It is superseded by each later exchange, never merged.
    */
   peer_vector: VersionVector;
+  /**
+   * The one live object on the deposit lane, as this device's own `PUT` left
+   * it. `null` before the first deposit at an index, and again the moment an
+   * acknowledgement advances the lane past it.
+   */
+  deposit_standing: DepositStanding | null;
 }
 
 /**
@@ -132,9 +165,9 @@ const unb64 = (text: string) =>
  * A lane as it is kept, at the index a first sync leaves it: zero.
  *
  * It takes no index, because **the index advances on collections** (ADR-0096
- * §4) and nothing collects until #396. That ticket advances a stored lane; it
- * does not re-derive one from a pairing act, so a parameter here would be a
- * hook for a caller that will never exist.
+ * §4) and a pairing act has collected nothing. {@link advancedLane} is how a
+ * lane moves afterwards; nothing re-derives one from an act, so an index
+ * parameter here would be a hook for a caller that does not exist.
  */
 const storedLane = (lane: LaneChain): StoredLane => ({
   direction: lane.direction,
@@ -142,10 +175,39 @@ const storedLane = (lane: LaneChain): StoredLane => ({
   index: 0,
 });
 
+/**
+ * The lane at its next index, with the state it stepped from dropped.
+ *
+ * **Dropping the old state is what forward secrecy is** (ADR-0096 §4), and it
+ * is a property of what a device *stores* rather than of what `ratchetLane`
+ * did with an array — so it is this function, the one that writes the record,
+ * that has to be the only way a lane moves. There is no window to keep an old
+ * state for: both sides advance on the same acknowledged collection, so the
+ * scan window every event-indexed chain in the literature ships is zero here.
+ */
+export async function advancedLane(lane: StoredLane): Promise<StoredLane> {
+  const stepped = await ratchetLane(laneChainOf(lane));
+  return {
+    direction: stepped.direction,
+    state: b64(stepped.state),
+    index: lane.index + 1,
+  };
+}
+
 /** A stored lane back as the chain it is, for deriving an address or a key. */
 export function laneChainOf(lane: StoredLane): LaneChain {
   return { direction: lane.direction, state: unb64(lane.state) };
 }
+
+/**
+ * A row as this version uses it, with the one field an earlier one did not
+ * write filled in. The guard above admits its absence; this is where the
+ * absence stops being a hole every reader has to remember.
+ */
+const settled = (device: PairedDevice): PairedDevice => ({
+  ...device,
+  deposit_standing: device.deposit_standing ?? null,
+});
 
 /**
  * Every pairing this device holds.
@@ -166,7 +228,9 @@ export function readPairedDevices(): PairedDevice[] {
   if (!held) return [];
   try {
     const parsed: unknown = JSON.parse(held);
-    return Array.isArray(parsed) ? parsed.filter(isPairedDevice) : [];
+    return Array.isArray(parsed)
+      ? parsed.filter(isPairedDevice).map(settled)
+      : [];
   } catch {
     return [];
   }
@@ -196,7 +260,8 @@ function isPairedDevice(row: unknown): row is PairedDevice {
       isStoredLane(row.deposit) &&
       "collect" in row &&
       isStoredLane(row.collect) &&
-      "peer_vector" in row
+      "peer_vector" in row &&
+      isDepositStanding("deposit_standing" in row ? row.deposit_standing : null)
     )
   ) {
     return false;
@@ -207,6 +272,36 @@ function isPairedDevice(row: unknown): row is PairedDevice {
   } catch {
     return false;
   }
+}
+
+/**
+ * The deposit's standing, checked to the standard the two things it holds will
+ * be used at, which is `isPairedDevice`'s own argument one field along.
+ *
+ * **Absent reads as `null`**, because a record written before there was
+ * anything to deposit is a healthy record: the lane is at index zero with
+ * nothing written at it, which is exactly what `null` says. {@link settled} is
+ * what turns the absence into the field.
+ */
+function isDepositStanding(
+  standing: unknown
+): standing is DepositStanding | null {
+  if (standing === null || standing === undefined) return true;
+  if (typeof standing !== "object") return false;
+  if (!("brings" in standing)) return false;
+  try {
+    readVersionVector(standing.brings);
+  } catch {
+    return false;
+  }
+  if (!("kind" in standing)) return false;
+  if (standing.kind === "taken") return true;
+  return (
+    standing.kind === "live" &&
+    "etag" in standing &&
+    typeof standing.etag === "string" &&
+    standing.etag.length > 0
+  );
 }
 
 function isStoredLane(lane: unknown): lane is StoredLane {
@@ -282,12 +377,30 @@ export function rememberPairedDevice({
     deposit: storedLane(chains.deposit),
     collect: storedLane(chains.collect),
     peer_vector,
+    // Nothing has been deposited at index zero yet, so the first deposit of
+    // this pairing's life goes out unconditionally.
+    deposit_standing: null,
   };
   keep([
     ...held.filter((device) => device.device_id !== device_id),
     remembered,
   ]);
   return remembered;
+}
+
+/**
+ * Writes back one pairing a Wake moved on, **and only if it is still here**.
+ *
+ * The guard is the point rather than defensiveness. A Wake reads the list,
+ * then spends seconds on the network per lane, and unpairing is unilateral and
+ * immediate (ADR-0075 §4) — so a row severed while a collection was in flight
+ * must not come back because a deposit finished afterwards. Replacing only what
+ * is present is the whole of that, and it needs no coordination.
+ */
+export function updatePairedDevice(device: PairedDevice): void {
+  const held = readPairedDevices();
+  if (!held.some((row) => row.device_id === device.device_id)) return;
+  keep(held.map((row) => (row.device_id === device.device_id ? device : row)));
 }
 
 /** The name this device calls a peer, typed locally and never sent. */

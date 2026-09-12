@@ -29,7 +29,12 @@
  */
 
 import { describeMarker } from "./describe-value";
-import { HLC_ORDER_DESC, type HlcKey, type HlcMark } from "./hlc";
+import {
+  compareHlcMark,
+  HLC_ORDER_DESC,
+  type HlcKey,
+  type HlcMark,
+} from "./hlc";
 
 /**
  * The greatest stamp held from each originating device, keyed by that device.
@@ -74,6 +79,37 @@ export function foldVersionVector(rows: readonly HlcKey[]): VersionVector {
     vector[row.device_id] = { hlc_ms: row.hlc_ms, hlc_ctr: row.hlc_ctr };
   }
   return vector;
+}
+
+/**
+ * The vector a holder of `vector` has once it also holds `rows`.
+ *
+ * **A lower bound, and a sound one**, which is what a store-carried
+ * convergence needs and a live one never did. The peer's own vector crosses
+ * exactly once, at the first sync's closing exchange (ADR-0096 §8); after that
+ * each side keeps its view of the other current from what it has **observed**
+ * — rows it collected from the peer, which the peer necessarily held to send,
+ * and rows of its own the peer acknowledged collecting.
+ *
+ * That is why a Deposit carries an acknowledgement and a delta and no vector
+ * (ADR-0096 §3). Re-asserting one would state which *third* devices this
+ * ledger has heard from, which ADR-0096 §6 closes the door on, and it would buy
+ * only exactness: understating what a peer holds costs a re-sent row an import
+ * ignores, where overstating it would withhold a row permanently.
+ */
+export function vectorWith(
+  vector: VersionVector,
+  rows: readonly HlcKey[]
+): VersionVector {
+  const held: Record<string, HlcMark> = { ...vector };
+  for (const row of rows) {
+    const mark = { hlc_ms: row.hlc_ms, hlc_ctr: row.hlc_ctr };
+    const standing = held[row.device_id];
+    if (!standing || compareHlcMark(standing, mark) < 0) {
+      held[row.device_id] = mark;
+    }
+  }
+  return held;
 }
 
 /**

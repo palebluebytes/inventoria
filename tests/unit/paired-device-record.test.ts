@@ -209,6 +209,96 @@ describe("pairing is keyed by device, and pairing again replaces", () => {
   });
 });
 
+describe("a wake moves the record it was handed", () => {
+  beforeEach(async () => {
+    records.rememberPairedDevice({
+      device_id: "dev_b",
+      chains: await chainsFrom(1),
+      peer_vector: {},
+    });
+  });
+
+  it("leaves the first deposit of a pairing's life with nothing to match on", () => {
+    expect(records.readPairedDevices()[0].deposit_standing).toBeNull();
+  });
+
+  it("steps a lane's ratchet and drops the state it stepped from", async () => {
+    const [before] = records.readPairedDevices();
+    const stepped = await records.advancedLane(before.deposit);
+
+    expect(stepped.index).toBe(before.deposit.index + 1);
+    expect(stepped.direction).toBe(before.deposit.direction);
+    expect(stepped.state).not.toBe(before.deposit.state);
+    // The address and the key both come off the state, so a lane that moved
+    // reaches a different object under a different key (ADR-0096 §4).
+    expect(
+      hex(await deriveLaneKey(records.laneChainOf(stepped), "addr"))
+    ).not.toBe(
+      hex(await deriveLaneKey(records.laneChainOf(before.deposit), "addr"))
+    );
+  });
+
+  it("writes back a pairing that moved, keeping the others where they are", async () => {
+    records.rememberPairedDevice({
+      device_id: "dev_c",
+      chains: await chainsFrom(2),
+      peer_vector: {},
+    });
+    const [held] = records.readPairedDevices();
+
+    records.updatePairedDevice({
+      ...held,
+      deposit_standing: { kind: "live", etag: "etag-1", brings: A_VECTOR },
+    });
+
+    const [moved, untouched] = records.readPairedDevices();
+    expect(moved.deposit_standing).toEqual({
+      kind: "live",
+      etag: "etag-1",
+      brings: A_VECTOR,
+    });
+    expect(untouched.device_id).toBe("dev_c");
+    expect(untouched.deposit_standing).toBeNull();
+  });
+
+  it("does not bring back a pairing severed while a wake was in flight", () => {
+    const [held] = records.readPairedDevices();
+    records.forgetPairedDevice("dev_b");
+
+    records.updatePairedDevice({
+      ...held,
+      deposit_standing: { kind: "taken", brings: A_VECTOR },
+    });
+
+    expect(records.readPairedDevices()).toEqual([]);
+  });
+
+  it("reads a record written before there was anything to deposit", async () => {
+    const [sound] = records.readPairedDevices();
+    const { deposit_standing: _gone, ...older } = sound;
+    stubLocalStorage({
+      seed: { inventoria_paired_devices: JSON.stringify([older]) },
+    });
+
+    // The absence is a healthy record rather than a broken one: index zero,
+    // nothing written at it. It reads as the `null` this version writes.
+    expect(records.readPairedDevices()[0].deposit_standing).toBeNull();
+  });
+
+  it("drops a row whose standing is not one", async () => {
+    const [sound] = records.readPairedDevices();
+    stubLocalStorage({
+      seed: {
+        inventoria_paired_devices: JSON.stringify([
+          { ...sound, deposit_standing: { kind: "live", brings: {} } },
+        ]),
+      },
+    });
+
+    expect(records.readPairedDevices()).toEqual([]);
+  });
+});
+
 describe("a name is typed locally, about the peer, after the act", () => {
   beforeEach(async () => {
     records.rememberPairedDevice({
