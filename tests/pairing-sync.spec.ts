@@ -1,5 +1,13 @@
 /// <reference types="node" />
-import { test, expect, type Page } from "@playwright/test";
+import { test, expect } from "@playwright/test";
+import {
+  addHabit,
+  habitShows,
+  openSettings,
+  pairDevices,
+  projectContextOptions,
+  waitForDbReady,
+} from "./support/two-devices";
 
 // **Two devices, one real room, and one ledger afterwards** (#395).
 //
@@ -17,80 +25,12 @@ import { test, expect, type Page } from "@playwright/test";
 // in-memory database, and the relay under it is the one that ships rather than
 // a second room stood up in the dev server.
 //
-// **Every run mints its own room**, because `mintRoomCode` draws from the
-// CSPRNG when "Show a code" is tapped. ADR-0072 §11.1 holds at most two sockets
-// per room, so a shared id would make a parallel run fail on a bound rather
-// than on a defect.
-//
-// **The paste carrier is the one under test, deliberately.** ADR-0096 §8 gives
-// the code two carriers and says capability decides only what is *offered*; a
-// headless browser has no camera and no `BarcodeDetector`, so the QR half is
-// `code-camera.test.ts`'s and the half a person can always reach is this one.
+// The act itself is `support/two-devices.ts`'s, because #396's demo needs the
+// same pairing before it can begin; what is here is what is particular to a
+// **live** convergence.
 //
 // What it does not buy: an emulated handset is not a handset, and a dev server
 // is `http:`, so `openRelaySocket`'s `wss:` arm is still uncovered.
-
-async function waitForDbReady(page: Page) {
-  await page.waitForFunction(
-    () =>
-      document.querySelector(".db-badge")?.textContent?.includes("DB Ready") ===
-      true,
-    { timeout: 15_000 }
-  );
-}
-
-/**
- * The options the two contexts are built with.
- *
- * `browser.newContext()` inherits nothing from the config, so the project's own
- * device and clock are passed through by hand — without them the `Mobile
- * Chrome` run would be a desktop browser wearing the project's name.
- */
-function projectContextOptions() {
-  const use = test.info().project.use;
-  if (!use.baseURL) throw new Error("the project sets no baseURL");
-  return {
-    baseURL: use.baseURL,
-    locale: use.locale,
-    timezoneId: use.timezoneId,
-    viewport: use.viewport,
-    userAgent: use.userAgent,
-    isMobile: use.isMobile,
-    hasTouch: use.hasTouch,
-    deviceScaleFactor: use.deviceScaleFactor,
-  };
-}
-
-/** Opens the root Facet's Settings, where pairing lives (ADR-0084 §6). */
-async function openSettings(page: Page) {
-  await page.locator(".nav-item", { hasText: "Settings" }).click();
-  await expect(
-    page.getByRole("heading", { name: "Paired devices" })
-  ).toBeVisible();
-}
-
-/**
- * Writes one habit, which is the fact this test watches cross.
- *
- * A habit rather than a meal: pairing carries the **whole jar** rather than one
- * Facet's rows (ADR-0075 §7), so the thing that crosses should be something
- * Rations does not own, and a habit is three datoms rather than a food's
- * closure.
- */
-async function addHabit(page: Page, name: string) {
-  await page.locator(".nav-item", { hasText: "Agenda" }).click();
-  await page
-    .locator("section:has-text('HABITS')")
-    .locator("button", { hasText: "+ ADD HABIT" })
-    .click();
-  await page.locator("#habit-name-input").fill(name);
-  await page.locator(".category-chip", { hasText: "MIND" }).click();
-  await page.locator(".segment-btn", { hasText: "DAILY" }).click();
-  await page.locator("button", { hasText: "SAVE BLUEPRINT" }).click();
-  await expect(page.locator(".habit-item", { hasText: name })).toBeVisible({
-    timeout: 10_000,
-  });
-}
 
 test.describe("a first sync across two devices", () => {
   // Two app boots, two ledgers, a live handshake and a whole transfer. The
@@ -114,55 +54,27 @@ test.describe("a first sync across two devices", () => {
       const habit = `Meditate_${Date.now()}`;
       await addHabit(first, habit);
 
-      // ── It shows a code ──────────────────────────────────────────────────
-      await openSettings(first);
-      await expect(first.getByText("No devices are paired.")).toBeVisible();
-      await first.locator("#pair-show-btn").click();
-
-      const shown = first.getByTestId("pairing-code");
-      await expect(shown).toBeVisible();
-      const code = await shown.locator("code.written").innerText();
-
-      // ADR-0096 §8: the code is a labelled token that must not parse as a URL,
-      // read off the carrier the other device is about to be handed.
-      expect(code.startsWith("inventoria-pair ")).toBe(true);
-      expect(() => new URL(code)).toThrow();
-
-      // ── The second device, empty, reads it ───────────────────────────────
+      // ── The second device, empty, reads its code ─────────────────────────
       const second = await secondContext.newPage();
       await second.goto("/?mem=1");
       await waitForDbReady(second);
 
       // Its ledger really is empty of this fact before the act.
       await second.locator(".nav-item", { hasText: "Agenda" }).click();
-      await expect(
-        second.locator(".habit-item", { hasText: habit })
-      ).toHaveCount(0);
+      await expect(habitShows(second, habit)).toHaveCount(0);
 
-      await openSettings(second);
-      await second.locator("#pair-read-btn").click();
-      const reader = second.getByTestId("pairing-reader");
-      await expect(reader).toBeVisible();
-      await reader.locator("input").fill(code);
-      await reader.locator("button", { hasText: "Use this code" }).click();
-
-      // ── Both sides land on the paired ending ─────────────────────────────
-      //
-      // "Paired" is said once in the whole app and only from the far side of a
-      // first sync (`pairing-words.ts`), so this line is the guard-1 assertion:
-      // it cannot be reached by a pairing that did not converge.
-      await expect(
-        second.getByText("These two devices are paired.")
-      ).toBeVisible({ timeout: 60_000 });
-      await expect(
-        first.getByText("These two devices are paired.")
-      ).toBeVisible({ timeout: 60_000 });
+      await pairDevices(first, second, {
+        onCode: (code) => {
+          // ADR-0096 §8: the code is a labelled token that must not parse as a
+          // URL, read off the carrier the other device is about to be handed.
+          expect(code.startsWith("inventoria-pair ")).toBe(true);
+          expect(() => new URL(code)).toThrow();
+        },
+      });
 
       // ── The ledger crossed ───────────────────────────────────────────────
       await second.locator(".nav-item", { hasText: "Agenda" }).click();
-      await expect(
-        second.locator(".habit-item", { hasText: habit })
-      ).toBeVisible({ timeout: 30_000 });
+      await expect(habitShows(second, habit)).toBeVisible({ timeout: 30_000 });
 
       // ── And a row exists on both, which is what completing writes ────────
       //
