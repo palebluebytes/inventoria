@@ -35,7 +35,18 @@ import {
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
-export const INDEX_PATH = join(ROOT, "public", "usda", "search-index.json");
+/**
+ * The shipped corpus, unless `USDA_INDEX_PATH` names another one.
+ *
+ * The override exists for one job: measuring an instrument against a corpus that
+ * does not exist yet. The `Beef` pilot (#191) has to run the consolidation bar
+ * over a collapsed index to find out what ADR-0100 does to C1 and C2, and the
+ * alternative — overwriting `public/usda/search-index.json` and putting it back —
+ * leaves a 3 MB file half-written in the working tree if anything throws.
+ */
+export const INDEX_PATH =
+  process.env.USDA_INDEX_PATH ??
+  join(ROOT, "public", "usda", "search-index.json");
 
 /** How many results a search shows, so "buried" and "absent" mean something. */
 export const RESULT_LIMIT = 50;
