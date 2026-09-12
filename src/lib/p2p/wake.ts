@@ -66,15 +66,19 @@
  *
  * ### No version vector crosses, and that is a decision
  *
- * A deposit carries **an acknowledgement and a delta, either of which may be
- * empty**, and that list is the whole of §3's. The peer's own vector crosses
- * exactly once, at the first sync's closing exchange; from then on each side
- * keeps its view of the other current from what it has **observed** — rows it
- * collected, which the peer necessarily held to send, and rows of its own the
- * peer acknowledged collecting. Re-asserting a vector would state which *third*
- * devices this ledger has heard from, which §6 shuts the door on, and would buy
- * only exactness. See `vectorWith` for why the inexact direction is the safe
- * one.
+ * A deposit carries **a delta, an acknowledgement and a device roster, any of
+ * which may be empty**, and that list is closed: §6 admits the roster and
+ * refuses the chain index and push material by name, so a fourth passenger
+ * costs an ADR amendment rather than an edit to
+ * {@link DepositEnvelope}. The peer's own vector crosses exactly once, at the
+ * first sync's closing exchange; from then on each side keeps its view of the
+ * other current from what it has **observed** — rows it collected, which the
+ * peer necessarily held to send, and rows of its own the peer acknowledged
+ * collecting. Re-asserting a vector would state which *third* devices this
+ * ledger has heard from, and the roster is exactly the narrower thing §6 admits
+ * in its place: which third devices this one is **paired** with, said about
+ * itself, rather than which ones its ledger has heard of. See `vectorWith` for
+ * why the inexact direction is the safe one.
  *
  * ### A deposit follows the data, and it is not a second collection
  *
@@ -171,18 +175,68 @@ export interface WakeLedger {
 }
 
 /**
- * What a deposit says beside its datoms, and the list is closed (§3, §6).
+ * What a deposit says beside its datoms, and **the list is closed** (§3, §6).
  *
- * One field, because an acknowledgement is **for an index**: a bare flag would
- * be an advance signal an operator could trigger by replaying bytes it holds,
- * and under a ratchet with old state dropped an advance past an uncollected
- * index is permanent, unrecoverable desynchronisation rather than a lost delta.
- * `null` is a device that has collected nothing yet.
+ * > **A deposit carries datoms, and beside them only what a device states about
+ * > _itself_: the least that answers a question its peer cannot otherwise
+ * > answer, re-asserted whole in every deposit, never a statement about a third
+ * > device and never an instruction to any device.**
  *
- * The device roster §6 admits is #398's, and adding it is an edit here.
+ * Two fields, and **a third costs an ADR amendment** rather than a judgement
+ * call (§6): a closed list with a dead member is a door left ajar with a sign
+ * on it. The chain index and push subscription material are both refused by
+ * name, because they are about this device and answer nothing.
  */
 export interface DepositEnvelope {
+  /**
+   * The highest index this device has taken from its peer.
+   *
+   * It is an index rather than a flag, because a bare flag would be an advance
+   * signal an operator could trigger by replaying bytes it holds, and under a
+   * ratchet with old state dropped an advance past an uncollected index is
+   * permanent, unrecoverable desynchronisation rather than a lost delta. `null`
+   * is a device that has collected nothing yet.
+   */
   acknowledges: number | null;
+  /**
+   * The other `device_id`s this device is paired with (§6).
+   *
+   * **The ledger cannot answer this and that is why it crosses.** `datoms`
+   * carries `device_id` in its primary key, so `SELECT DISTINCT device_id`
+   * looks like a free roster — but that set only ever grows, and an
+   * append-only ledger names a phone sold two years ago forever. Only a device
+   * can say it is **still** paired.
+   *
+   * Four rules ride with it, and they matter more than the content:
+   *
+   * - **One hop.** A device states its own pairings and never relays a peer's,
+   *   which is what stops the roster becoming an authority: nobody holds a view
+   *   they did not each separately receive.
+   * - **Every deposit, superseding.** Once-at-pairing fails *silently* as
+   *   pairings change, and a design whose failure mode is silence is the one
+   *   nobody catches.
+   * - **Never merged.** Two devices' rosters disagreeing is legitimate under
+   *   pairwise pairing, so there is nothing to reconcile.
+   * - **No typed names.** An id resolves to a name locally exactly where a name
+   *   is wanted; nothing about a name crosses.
+   *
+   * **The peer of this very lane is not in it**, because it already knows: the
+   * rule is the *least* that answers a question its peer cannot otherwise
+   * answer, and that is what refuses the chain index one row above. An empty
+   * list is therefore a household of two, and it is a statement rather than a
+   * silence. **This is a narrowing of §6's table row**, which names the member
+   * as _the set of `device_id`s it is paired with_ without qualifying it; it
+   * follows §6's own necessity clause rather than its enumeration, and it is
+   * written into `CONTEXT.md`'s **Device roster** so the glossary does not say
+   * one thing while the wire says another.
+   *
+   * **`null` is a deposit that stated nothing**, which only a build predating
+   * #398 can leave: every deposit this version writes carries the list. It is
+   * kept apart from the empty list all the way to the screen, because
+   * *nothing stated* and *nobody else* are different news and collapsing them
+   * puts a claim in a peer's mouth that it never made.
+   */
+  roster: string[] | null;
 }
 
 export interface WakeOptions {
@@ -195,6 +249,22 @@ export interface WakeOptions {
    * object nobody will ever collect again.
    */
   keep: (device: PairedDevice) => void;
+  /**
+   * Every `device_id` this device is paired with, **this lane's peer
+   * included** — {@link DepositEnvelope.roster} is what trims it.
+   *
+   * It is required rather than defaulted, because the honest default is
+   * unreachable from here: this module holds one pairing and the roster is a
+   * fact about the whole list. A default of `[]` would state _paired with
+   * nobody else_ on every lane the day a caller forgot it, and that is a wrong
+   * sentence rather than a missing one.
+   *
+   * **It is handed over unfiltered.** A pairing whose peer has stopped
+   * collecting is still a pairing, and §11's counter running out is exactly
+   * when its peer most wants to see it named: the roster is the hunt list for a
+   * revocation that stranded mail at a lane nobody reads (§10).
+   */
+  roster: readonly string[];
   ceilingBytes?: number;
   chunkBudgetBytes?: number;
   draw?: RandomBytes;
@@ -270,11 +340,13 @@ const highestTaken = (device: PairedDevice): number | null =>
  */
 const asked = ({
   keep,
+  roster,
   ceilingBytes = DEPOSIT_CEILING_BYTES,
   chunkBudgetBytes = DEPOSIT_CHUNK_BUDGET_BYTES,
   draw = randomBytes,
 }: WakeOptions): Required<WakeOptions> => ({
   keep,
+  roster,
   ceilingBytes,
   chunkBudgetBytes,
   draw,
@@ -446,7 +518,13 @@ async function takeFromPeer(
     collected += rows.length;
   }
 
-  const next: PairedDevice = { ...acknowledged.device, peer_vector };
+  // Superseded rather than merged, and never relayed onward: what is kept is
+  // exactly what this peer said about **itself** (§6).
+  const next: PairedDevice = {
+    ...acknowledged.device,
+    peer_vector,
+    peer_roster: envelope.roster,
+  };
   keep(next);
   return {
     device: next,
@@ -504,6 +582,7 @@ interface DepositWork {
   ceilingBytes: number;
   chunkBudgetBytes: number;
   draw: RandomBytes;
+  roster: readonly string[];
   /** The index this deposit acknowledges, from {@link takeFromPeer}. */
   acknowledges: number | null;
 }
@@ -534,7 +613,14 @@ async function depositLane(
   device: PairedDevice,
   store: Store,
   keep: (device: PairedDevice) => void,
-  { ledger, ceilingBytes, chunkBudgetBytes, draw, acknowledges }: DepositWork
+  {
+    ledger,
+    ceilingBytes,
+    chunkBudgetBytes,
+    draw,
+    roster,
+    acknowledges,
+  }: DepositWork
 ): Promise<{
   device: PairedDevice;
   deposited: number;
@@ -543,9 +629,13 @@ async function depositLane(
 }> {
   const standing = device.deposit_standing;
   const lane = laneChainOf(device.deposit);
-  // Re-asserted whole in every deposit, never accumulated: the highest index
-  // this device has taken. A lane that has taken nothing acknowledges nothing.
-  const envelope: DepositEnvelope = { acknowledges };
+  // Both re-asserted whole in every deposit and never accumulated: the highest
+  // index this device has taken, and what this device is paired with. A lane
+  // that has taken nothing acknowledges nothing.
+  const envelope: DepositEnvelope = {
+    acknowledges,
+    roster: statedRoster(roster, device.device_id),
+  };
   const head = utf8.encode(JSON.stringify(envelope));
   const delta = await outstandingDelta(device, ledger, {
     chunkBudgetBytes,
@@ -662,20 +752,64 @@ async function outstandingDelta(
 const laneAddress = async (lane: LaneChain): Promise<string> =>
   base64url(await deriveLaneKey(lane, "addr"));
 
+/**
+ * What this device says it is paired with, down this one lane.
+ *
+ * **The peer of the lane is trimmed and nothing else is.** It knows already,
+ * and §6's rule is the *least* that answers a question its peer cannot
+ * otherwise answer — the same clause that refuses the chain index. Nothing
+ * about a pairing's health is looked at: a pairing frozen at §11's counter is
+ * still a pairing, and naming it is the point.
+ *
+ * **It is what keeps the far end's sentence honest, as well.** A collector
+ * resolves every stated id against the devices it is paired with, and the one
+ * id it could never resolve that way is its own — so an untrimmed roster would
+ * have the screen call the reader _a device you are not paired with_. The trim
+ * is why that id cannot arrive, rather than a filter the surface has to
+ * remember.
+ */
+const statedRoster = (roster: readonly string[], peer: string): string[] =>
+  roster.filter((device_id) => device_id !== peer);
+
 function readEnvelope(body: string): DepositEnvelope {
   return refusingChunk(() => {
     const raw = parseNdjsonObject(body, null);
-    const acknowledges = raw.acknowledges;
-    if (acknowledges === null || acknowledges === undefined) {
-      return { acknowledges: null };
-    }
-    if (
-      typeof acknowledges !== "number" ||
-      !Number.isSafeInteger(acknowledges) ||
-      acknowledges < 0
-    ) {
-      throw new Error("an acknowledgement is the index it is for.");
-    }
-    return { acknowledges };
+    return {
+      acknowledges: readAcknowledgement(raw.acknowledges),
+      roster: readRoster(raw.roster),
+    };
   });
+}
+
+function readAcknowledgement(acknowledges: unknown): number | null {
+  if (acknowledges === null || acknowledges === undefined) return null;
+  if (
+    typeof acknowledges !== "number" ||
+    !Number.isSafeInteger(acknowledges) ||
+    acknowledges < 0
+  ) {
+    throw new Error("an acknowledgement is the index it is for.");
+  }
+  return acknowledges;
+}
+
+/**
+ * The roster the peer stated, read to the same standard as everything else off
+ * a wire (`datom-chunk.ts`): **a seal that held and a field that is malformed
+ * is a bug, and a bug is refused anyway**.
+ *
+ * **Absent reads as `null` and not as empty.** A build predating #398 states no
+ * roster at all, and the empty list is the positive claim _I am paired with
+ * nobody but you_ — reading the first as the second puts words in that peer's
+ * mouth, and the screen would repeat them.
+ */
+function readRoster(roster: unknown): string[] | null {
+  if (roster === null || roster === undefined) return null;
+  if (
+    !Array.isArray(roster) ||
+    !roster.every((device_id) => typeof device_id === "string" && device_id)
+  ) {
+    throw new Error("a roster is the device ids its depositor is paired with.");
+  }
+  return roster;
 }

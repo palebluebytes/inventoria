@@ -132,6 +132,27 @@ export interface PairedDevice {
    * acknowledgement advances the lane past it.
    */
   deposit_standing: DepositStanding | null;
+  /**
+   * The `device_id`s the peer last said **it** is paired with, beside this
+   * device (ADR-0096 §6).
+   *
+   * **It is never merged with the local roster and never relayed onward.** Two
+   * devices' rosters disagreeing is legitimate under pairwise pairing, so there
+   * is nothing to reconcile, and a merge would invent the authority ADR-0075 §4
+   * declined. Each deposit re-asserts it whole, so this field is **replaced**
+   * and never accumulated.
+   *
+   * **`null` is a peer that has stated nothing yet**, which a first sync leaves
+   * because a first sync crosses no deposit. An empty list is the different,
+   * louder statement that the peer is paired with nobody but this device — the
+   * two must not collapse, or a fresh pairing would read as a peer that had
+   * unpaired from everything else.
+   *
+   * The ledger cannot stand in for it: `datoms` carries `device_id` in its
+   * primary key, but that set only ever grows, so it names a phone sold two
+   * years ago forever. Only a device can say it is **still** paired.
+   */
+  peer_roster: string[] | null;
 }
 
 /**
@@ -207,6 +228,7 @@ export function laneChainOf(lane: StoredLane): LaneChain {
 const filled = (device: PairedDevice): PairedDevice => ({
   ...device,
   deposit_standing: device.deposit_standing ?? null,
+  peer_roster: device.peer_roster ?? null,
 });
 
 /**
@@ -261,7 +283,10 @@ function isPairedDevice(row: unknown): row is PairedDevice {
       "collect" in row &&
       isStoredLane(row.collect) &&
       "peer_vector" in row &&
-      isDepositStanding("deposit_standing" in row ? row.deposit_standing : null)
+      isDepositStanding(
+        "deposit_standing" in row ? row.deposit_standing : null
+      ) &&
+      isPeerRoster("peer_roster" in row ? row.peer_roster : null)
     )
   ) {
     return false;
@@ -298,6 +323,22 @@ function isDepositStanding(
     "etag" in standing &&
     typeof standing.etag === "string" &&
     standing.etag.length > 0
+  );
+}
+
+/**
+ * The peer's last-stated roster, checked to the standard it is used at: a list
+ * of ids, each of which a row is looked up by.
+ *
+ * **Absent reads as `null`**, because a record written before a deposit ever
+ * crossed is a healthy record — the peer has simply not spoken yet — and
+ * {@link filled} is what turns that absence into the field.
+ */
+function isPeerRoster(roster: unknown): roster is string[] | null {
+  if (roster === null || roster === undefined) return true;
+  return (
+    Array.isArray(roster) &&
+    roster.every((id) => typeof id === "string" && id.length > 0)
   );
 }
 
@@ -377,6 +418,11 @@ export function rememberPairedDevice({
     // Nothing has been deposited at index zero yet, so the first deposit of
     // this pairing's life goes out unconditionally.
     deposit_standing: null,
+    // Unlike the name, a roster this device held is **not** carried across a
+    // re-pairing. The name is this device's own and asking for it twice is a
+    // nuisance; the roster is the peer's statement, and the peer has not made
+    // one down this pairing. Its first deposit restates it whole.
+    peer_roster: null,
   };
   keep([
     ...held.filter((device) => device.device_id !== device_id),

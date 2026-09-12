@@ -298,6 +298,76 @@ describe("a wake moves the record it was handed", () => {
   });
 });
 
+describe("the record holds the peer's last-stated roster (ADR-0096 §6)", () => {
+  beforeEach(async () => {
+    records.rememberPairedDevice({
+      device_id: "dev_b",
+      chains: await chainsFrom(1),
+      peer_vector: {},
+    });
+  });
+
+  it("holds none at all until a deposit states one", () => {
+    // A first sync crosses no deposit, so a fresh pairing has heard nothing.
+    // `null` is *nothing stated*, which is not the same news as a peer that
+    // stated it is paired with nobody else.
+    expect(records.readPairedDevices()[0].peer_roster).toBeNull();
+  });
+
+  it("supersedes rather than accumulating, because two rosters are never merged", () => {
+    const [held] = records.readPairedDevices();
+    records.updatePairedDevice({ ...held, peer_roster: ["dev_c", "dev_d"] });
+    records.updatePairedDevice({ ...held, peer_roster: ["dev_e"] });
+
+    expect(records.readPairedDevices()[0].peer_roster).toEqual(["dev_e"]);
+  });
+
+  it("keeps a peer's statement that it is paired with nobody else", () => {
+    const [held] = records.readPairedDevices();
+    records.updatePairedDevice({ ...held, peer_roster: [] });
+
+    expect(records.readPairedDevices()[0].peer_roster).toEqual([]);
+  });
+
+  it("forgets the roster when the pairing is made again", async () => {
+    const [held] = records.readPairedDevices();
+    records.updatePairedDevice({ ...held, peer_roster: ["dev_c"] });
+
+    records.rememberPairedDevice({
+      device_id: "dev_b",
+      chains: await chainsFrom(3),
+      peer_vector: {},
+    });
+
+    // Unlike the name, which is this device's own and is kept: the roster is
+    // the peer's statement, and the peer has not made one down this pairing.
+    expect(records.readPairedDevices()[0].peer_roster).toBeNull();
+  });
+
+  it("reads a record written before a roster crossed", () => {
+    const [sound] = records.readPairedDevices();
+    const { peer_roster: _gone, ...older } = sound;
+    stubLocalStorage({
+      seed: { inventoria_paired_devices: JSON.stringify([older]) },
+    });
+
+    expect(records.readPairedDevices()[0].peer_roster).toBeNull();
+  });
+
+  it("drops a row whose roster is not a list of device ids", () => {
+    const [sound] = records.readPairedDevices();
+    stubLocalStorage({
+      seed: {
+        inventoria_paired_devices: JSON.stringify([
+          { ...sound, peer_roster: ["dev_c", 7] },
+        ]),
+      },
+    });
+
+    expect(records.readPairedDevices()).toEqual([]);
+  });
+});
+
 describe("a name is typed locally, about the peer, after the act", () => {
   beforeEach(async () => {
     records.rememberPairedDevice({

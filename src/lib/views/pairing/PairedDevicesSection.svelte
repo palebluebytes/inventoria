@@ -4,6 +4,7 @@
   import Card from "../../ui/Card.svelte";
   import Input from "../../ui/Input.svelte";
   import Row from "../../ui/Row.svelte";
+  import { listOf } from "../../ui/words";
   import EndingLine from "../EndingLine.svelte";
   import ReadPairingCode from "./ReadPairingCode.svelte";
   import ShowPairingCode from "./ShowPairingCode.svelte";
@@ -153,6 +154,49 @@
   /** A row reads by short `device_id` until somebody names it (§9). */
   const callSign = (device: PairedDevice) => device.name ?? shortId(device);
 
+  /**
+   * What a device last said **it** is paired with, beside this one (§6).
+   *
+   * **It is a list you go and look at, and never an event.** ADR-0075 §14.6
+   * refuses a revocation *message* because an instruction may be missed while
+   * the surface reports success; a roster claims no success, so that refusal
+   * does not transfer to it — **but only while it sits here**. A notification
+   * or a badge would deliver by observation the very thing the design refuses
+   * to deliver by message, so there is neither.
+   *
+   * **Typed names do not cross.** What arrives is ids, and each one resolves
+   * against the rows on this screen, which are the only devices this one has a
+   * name for. Where it does not resolve, the device is one you are not paired
+   * with and the honest sentence **names nobody** — a raw id in prose would be
+   * the closest thing to a name that never crossed.
+   *
+   * `null` is a peer that has not deposited yet, and it says nothing at all:
+   * *nothing stated* is not *paired with nobody*.
+   */
+  function rosterLine(device: PairedDevice, held: PairedDevice[]): string {
+    const stated = device.peer_roster;
+    if (stated === null) return "";
+
+    const named: string[] = [];
+    let strangers = 0;
+    for (const device_id of stated) {
+      const known = held.find((row) => row.device_id === device_id);
+      if (known) named.push(callSign(known));
+      else strangers += 1;
+    }
+    if (named.length === 0 && strangers === 0) {
+      return "Paired with no other device.";
+    }
+    if (strangers > 0) {
+      named.push(
+        strangers === 1
+          ? "one device you are not paired with"
+          : `${strangers} devices you are not paired with`
+      );
+    }
+    return `Also paired with ${listOf(named)}.`;
+  }
+
   function saveName() {
     if (!naming) return;
     namePairedDevice(naming.device_id, naming.name);
@@ -248,6 +292,13 @@
                   </span>
                 {/snippet}
               </Row>
+              <!-- Two devices' rosters disagreeing is legitimate under pairwise
+                   pairing, so this is what *that* device said and is never
+                   merged with the list it sits in (§6). -->
+              {@const stated = rosterLine(device, $pairedDevices)}
+              {#if stated}
+                <p class="roster">{stated}</p>
+              {/if}
             {/if}
           </li>
         {/each}
@@ -368,6 +419,12 @@
   .row-actions {
     display: flex;
     gap: var(--space-2xs);
+  }
+  .roster {
+    margin: var(--space-3xs) 0 0;
+    padding-inline: var(--space-xs);
+    color: var(--text-secondary);
+    font-size: var(--step-n1);
   }
   .rename {
     display: flex;

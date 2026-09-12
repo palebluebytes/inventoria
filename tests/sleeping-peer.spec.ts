@@ -109,6 +109,16 @@ test.describe("a sleeping peer converges", () => {
       await expect(
         second.locator("button", { hasText: "Unpair" })
       ).toBeVisible();
+
+      // ── And the deposit said what the first device is paired with ────────
+      //
+      // #398: the roster rides every deposit, and this is the only place it
+      // crosses a real store and lands on a real screen. A household of two
+      // states an empty one, which is a sentence rather than a silence — and
+      // it is a list you go and look at, so it is here and nowhere else.
+      await expect(
+        second.getByText("Paired with no other device.")
+      ).toBeVisible();
     } finally {
       await firstContext.close();
       await secondContext.close();

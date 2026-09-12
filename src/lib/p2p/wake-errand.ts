@@ -36,6 +36,7 @@ import { appWarn } from "../logs/app-log";
 import {
   readPairedDevices,
   updatePairedDevice,
+  type PairedDevice,
 } from "../stores/paired-devices";
 import { appStore, type Store } from "./deposit-store";
 import {
@@ -71,6 +72,24 @@ const JAMMED =
   "drain. It will not converge until that row is smaller.";
 
 /**
+ * What this device is paired with, as every deposit of this round states it
+ * (ADR-0096 §6).
+ *
+ * **It is the whole list and it is read once.** Every row counts, whatever
+ * state its lanes are in: a pairing whose peer has stopped collecting is still
+ * a pairing, and §11's counter running out is exactly when the other end most
+ * wants to see it named — the roster is the hunt list for mail stranded at a
+ * lane nobody reads (§10). Reading it once rather than per lane is what makes
+ * every deposit in one round say the same sentence.
+ *
+ * **No name goes with it.** A name is typed locally, about the peer, after the
+ * act, and it never leaves this device; an id resolves to one at the far end
+ * exactly where a name is wanted (§6, §9).
+ */
+const localRoster = (held: PairedDevice[]): string[] =>
+  held.map((paired) => paired.device_id);
+
+/**
  * Converge with every paired device, once.
  *
  * **Pairings run one after another rather than at once.** Each one's work is a
@@ -86,14 +105,18 @@ const JAMMED =
  * taken rows it never said the word for.
  */
 export async function convergeWithPeers(
-  store: Store = appStore
+  store: Store = appStore,
+  ledger: WakeLedger = appWakeLedger
 ): Promise<WakeRound> {
   const productive: string[] = [];
   let owed = false;
-  for (const paired of readPairedDevices()) {
+  const held = readPairedDevices();
+  const roster = localRoster(held);
+  for (const paired of held) {
     try {
-      const outcome = await convergeWithPeer(paired, store, appWakeLedger, {
+      const outcome = await convergeWithPeer(paired, store, ledger, {
         keep: updatePairedDevice,
+        roster,
       });
       if (outcome.acknowledged || outcome.settled) {
         productive.push(paired.device_id);
@@ -121,11 +144,17 @@ export async function convergeWithPeers(
  * collection nor learn of an acknowledgement — which is why it reports nothing
  * and why the collection floor does not skip while a peer is owed a word.
  */
-export async function depositToPeers(store: Store = appStore): Promise<void> {
-  for (const paired of readPairedDevices()) {
+export async function depositToPeers(
+  store: Store = appStore,
+  ledger: WakeLedger = appWakeLedger
+): Promise<void> {
+  const held = readPairedDevices();
+  const roster = localRoster(held);
+  for (const paired of held) {
     try {
-      const outcome = await depositToPeer(paired, store, appWakeLedger, {
+      const outcome = await depositToPeer(paired, store, ledger, {
         keep: updatePairedDevice,
+        roster,
       });
       if (outcome.jammed) appWarn(JAMMED);
     } catch (failure) {

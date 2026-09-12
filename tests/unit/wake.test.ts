@@ -104,6 +104,7 @@ function device(
       collect: storedLane(chains.collect),
       peer_vector: {},
       deposit_standing: null,
+      peer_roster: null,
     },
     ledger: {
       oldestAbove: async (after, budgetBytes, above) =>
@@ -129,25 +130,41 @@ interface WakeAdjustments {
   store?: Store;
   ceilingBytes?: number;
   chunkBudgetBytes?: number;
+  /**
+   * Everything this device is paired with, as `wake-errand.ts` hands it over:
+   * the peer of this very lane included, because trimming it is the deposit's
+   * own job (§6). The default is a household of two.
+   */
+  roster?: readonly string[];
 }
 
 /** One open of the app on one device. */
 const wake = (
   who: Device,
-  { store: over = store, ...rest }: WakeAdjustments = {}
+  {
+    store: over = store,
+    roster = [who.record.device_id],
+    ...rest
+  }: WakeAdjustments = {}
 ): Promise<WakeOutcome> =>
   convergeWithPeer(who.record, over, who.ledger, {
     keep: (next) => (who.record = next),
+    roster,
     ...rest,
   });
 
 /** One deposit inside an open, triggered by the delta growing (§3, amended). */
 const deposit = (
   who: Device,
-  { store: over = store, ...rest }: WakeAdjustments = {}
+  {
+    store: over = store,
+    roster = [who.record.device_id],
+    ...rest
+  }: WakeAdjustments = {}
 ): Promise<DepositOutcome> =>
   depositToPeer(who.record, over, who.ledger, {
     keep: (next) => (who.record = next),
+    roster,
     ...rest,
   });
 
@@ -249,7 +266,7 @@ describe("a deposit carries an acknowledgement and a delta, either of which may 
     await wake(a);
 
     const envelope = await openEnvelope(a, await depositAddress(a), "deposit");
-    expect(envelope).toEqual({ acknowledges: null });
+    expect(envelope).toEqual({ acknowledges: null, roster: [] });
   });
 
   it("acknowledges the index it collected, re-asserted in every deposit", async () => {
@@ -260,6 +277,7 @@ describe("a deposit carries an acknowledgement and a delta, either of which may 
     await wake(b);
     expect(await openEnvelope(b, await depositAddress(b), "deposit")).toEqual({
       acknowledges: 0,
+      roster: [],
     });
 
     // B opens again with A still shut, so it collects nothing — and says the
@@ -269,6 +287,7 @@ describe("a deposit carries an acknowledgement and a delta, either of which may 
     expect(nothing.collected).toBe(0);
     expect(await openEnvelope(b, await depositAddress(b), "deposit")).toEqual({
       acknowledges: 0,
+      roster: [],
     });
   });
 });
@@ -585,7 +604,7 @@ async function openEnvelope(
  */
 async function leaveDeposit(
   who: Device,
-  envelope: { acknowledges: number | null }
+  envelope: { acknowledges: number | null; roster?: string[] }
 ): Promise<void> {
   const lane = laneChainOf(who.record.deposit);
   const sealed = await sealDeposit(
@@ -652,6 +671,7 @@ describe("a deposit follows the data rather than the open", () => {
     expect(b.record.collect.index).toBe(1);
     expect(await openEnvelope(b, await depositAddress(b), "deposit")).toEqual({
       acknowledges: 0,
+      roster: [],
     });
   });
 
@@ -682,6 +702,121 @@ describe("a deposit follows the data rather than the open", () => {
 
     expect(await openEnvelope(a, await depositAddress(a), "deposit")).toEqual({
       acknowledges: null,
+      roster: [],
     });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// A deposit carries the device roster, and the list is closed
+// ---------------------------------------------------------------------------
+
+describe("a deposit states what its depositor is paired with", () => {
+  it("names the depositor's other pairings, and not the peer it is telling", async () => {
+    const [a, b] = await pair();
+    await wake(a, { roster: ["dev_b", "dev_c", "dev_d"] });
+
+    await wake(b);
+
+    // The peer of this lane is trimmed and nothing else is: it already knows
+    // it is paired with the depositor, and a deposit carries the *least* that
+    // answers a question its peer cannot otherwise answer (§6).
+    expect(b.record.peer_roster).toEqual(["dev_c", "dev_d"]);
+  });
+
+  it("says it on every deposit, superseding rather than accumulating", async () => {
+    const [a, b] = await pair();
+    await wake(a, { roster: ["dev_b", "dev_c", "dev_d"] });
+    await wake(b);
+
+    // A unpairs from D and opens again. Once-at-pairing fails *silently* as
+    // pairings change, which is why it rides every deposit.
+    await wake(a, { roster: ["dev_b", "dev_c"] });
+    await wake(b);
+
+    expect(b.record.peer_roster).toEqual(["dev_c"]);
+  });
+
+  it("states an empty roster as a household of two, which is not silence", async () => {
+    const [a, b] = await pair();
+    await wake(a);
+
+    expect(b.record.peer_roster).toBeNull();
+    await wake(b);
+    // Collecting is what turns *nothing stated* into *nobody else*, and the
+    // two are different news on the screen.
+    expect(b.record.peer_roster).toEqual([]);
+  });
+
+  it("is never merged with the collector's own roster", async () => {
+    const [a, b] = await pair();
+    await wake(a, { roster: ["dev_b", "dev_c"] });
+
+    await wake(b, { roster: ["dev_a", "dev_d"] });
+
+    // Two devices' rosters disagreeing is legitimate under pairwise pairing,
+    // so there is nothing to reconcile: what is kept is exactly what A said.
+    expect(b.record.peer_roster).toEqual(["dev_c"]);
+    expect(b.record.peer_roster).not.toContain("dev_d");
+  });
+
+  it("travels one hop, so a peer's roster is never relayed onward", async () => {
+    const [a, b] = await pair();
+    await wake(a, { roster: ["dev_b", "dev_c"] });
+    await wake(b, { roster: ["dev_a", "dev_d"] });
+
+    // A now hears from B. What B says is B's own pairings and nothing A told
+    // it — nobody holds a view they did not each separately receive.
+    await wake(a, { roster: ["dev_b", "dev_c"] });
+
+    expect(a.record.peer_roster).toEqual(["dev_d"]);
+    expect(a.record.peer_roster).not.toContain("dev_c");
+  });
+
+  it("rides a deposit that carries no datoms and no acknowledgement", async () => {
+    const [a] = await pair();
+    await deposit(a, { roster: ["dev_b", "dev_c"] });
+
+    expect(await openEnvelope(a, await depositAddress(a), "deposit")).toEqual({
+      acknowledges: null,
+      roster: ["dev_c"],
+    });
+  });
+
+  it("reads a deposit that stated nothing as silence, not as nobody else", async () => {
+    const [a, b] = await pair();
+    // What a build predating #398 leaves: an envelope with no roster in it.
+    await leaveDeposit(a, { acknowledges: null });
+
+    await wake(b);
+
+    // Not `[]`. The empty list is the positive claim *I am paired with nobody
+    // but you*, and reading an absence as that claim puts words in the peer's
+    // mouth which the screen then repeats.
+    expect(b.record.peer_roster).toBeNull();
+  });
+
+  it("refuses a roster that is not a list of device ids", async () => {
+    const [a, b] = await pair();
+    const lane = laneChainOf(a.record.deposit);
+    const sealed = await sealDeposit(
+      { key: await deriveLaneKey(lane, "seal") },
+      a.record.deposit.index,
+      [
+        new TextEncoder().encode(
+          JSON.stringify({ acknowledges: null, roster: "dev_c" })
+        ),
+      ]
+    );
+    held.set(base64url(await deriveLaneKey(lane, "addr")), {
+      bytes: sealed,
+      etag: "planted",
+    });
+
+    // The seal held, so this is a bug rather than an attack — and a bug is
+    // still refused, because the object stays where it is and a later version
+    // can take it.
+    await expect(wake(b)).rejects.toThrow();
+    expect(b.record.peer_roster).toBeNull();
   });
 });

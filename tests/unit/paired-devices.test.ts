@@ -22,23 +22,23 @@ import { mintRoomCode } from "../../src/lib/p2p/room-code";
  * The lane states are a real 32 bytes each, because the record's guard decodes
  * them: a row whose state is not a chain state is not a pairing.
  */
-const A_PAIRING = JSON.stringify([
-  {
-    device_id: "dev_b0c1d2e3f4",
-    name: null,
-    deposit: {
-      direction: "a2b",
-      state: "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
-      index: 0,
-    },
-    collect: {
-      direction: "b2a",
-      state: "AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE=",
-      index: 0,
-    },
-    peer_vector: {},
+const PAIRING = {
+  device_id: "dev_b0c1d2e3f4",
+  name: null as string | null,
+  deposit: {
+    direction: "a2b",
+    state: "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+    index: 0,
   },
-]);
+  collect: {
+    direction: "b2a",
+    state: "AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE=",
+    index: 0,
+  },
+  peer_vector: {},
+};
+
+const A_PAIRING = JSON.stringify([PAIRING]);
 
 describe("the section expands in place, and offers both ways in", () => {
   it("offers showing and reading, and neither opens a second surface", () => {
@@ -103,6 +103,83 @@ describe("a completed pairing has a row, and an incomplete one has none", () => 
   it("draws nothing for a record that is not a pairing", async () => {
     const body = await withJar(JSON.stringify([{ device_id: "dev_b" }]));
     expect(body).toContain("No devices are paired.");
+  });
+});
+
+describe("what a device says it is paired with is a list you go and look at", () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  const withJar = async (seed: string) => {
+    stubLocalStorage({ seed: { inventoria_paired_devices: seed } });
+    vi.resetModules();
+    const [{ render: renderFresh }, Section] = await Promise.all([
+      import("svelte/server"),
+      import("../../src/lib/views/pairing/PairedDevicesSection.svelte"),
+    ]);
+    return renderFresh(Section.default, { props: {} }).body;
+  };
+
+  /** The two rows of a three-device household, as their jar holds them. */
+  const household = (peer_roster: unknown, name: string | null = null) =>
+    JSON.stringify([
+      { ...PAIRING, name, peer_roster },
+      { ...PAIRING, device_id: "dev_c9f8e7d6", name: "The laptop" },
+    ]);
+
+  it("says nothing at all about a peer that has not deposited yet", async () => {
+    const body = await withJar(household(null));
+
+    // A first sync crosses no deposit, so there is nothing to report — and
+    // *nothing stated* must not read as *paired with nobody*.
+    expect(body).not.toContain("Also paired with");
+    expect(body).not.toContain("Paired with no other device");
+  });
+
+  it("names a stated device by what this device calls it", async () => {
+    const body = await withJar(household(["dev_c9f8e7d6"]));
+
+    // The typed name never crossed: the id did, and it resolved here.
+    expect(body).toContain("Also paired with The laptop.");
+  });
+
+  it("names nobody for an id it cannot place, and shows no raw id", async () => {
+    const body = await withJar(household(["dev_stranger01"]));
+
+    expect(body).toContain(
+      "Also paired with one device you are not paired with."
+    );
+    expect(body).not.toContain("dev_stranger01");
+    expect(body).not.toContain("dev_stra");
+  });
+
+  it("counts the ones it cannot place beside the ones it can", async () => {
+    const body = await withJar(
+      household(["dev_c9f8e7d6", "dev_stranger01", "dev_stranger02"])
+    );
+
+    expect(body).toContain(
+      "Also paired with The laptop and 2 devices you are not paired with."
+    );
+  });
+
+  it("says a household of two out loud, because it is a statement", async () => {
+    const body = await withJar(household([]));
+
+    expect(body).toContain("Paired with no other device.");
+  });
+
+  it("is a list and never an event, so nothing here announces itself", async () => {
+    const body = await withJar(household(["dev_c9f8e7d6"]));
+
+    // Surfacing the roster as a notification would deliver by observation the
+    // very thing ADR-0075 §14.6 refuses to deliver by message.
+    expect(body).not.toContain('role="alert"');
+    expect(body).not.toContain('role="status"');
+    // And it is automatic: the peer is you, so a switch would be asking your
+    // own permission to tell yourself something (§6). The two controls a
+    // consent would be drawn with are both absent.
+    expect(body).not.toContain('role="switch"');
+    expect(body).not.toContain('type="checkbox"');
   });
 });
 
