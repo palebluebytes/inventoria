@@ -1437,3 +1437,154 @@ metadata around it is. **Two is still the final count.**
 **And this strengthens §19's refusal of live-first rather than softening it.** Hashing bounds a
 leak of the dataset; live-first's problem was the **volume** of rows and the **undocumented**
 window, and a hash touches neither.
+
+## Amendment (2026-09-12, #410): a collection commits on its acknowledgement, and a refused rewrite is answered by a recreate
+
+§5 as written freezes a pairing permanently, from one dropped `PUT` on a healthy lane or from
+one object reaching §1's backstop. The defect was found while building #396, is named at its
+site in `src/lib/p2p/wake.ts`, and is repaired here rather than by the implementer, because
+both exits an implementer can reach from §5's text are ones §5 forbids.
+
+### The defect is reachability, not writability
+
+[#410](https://github.com/palebluebytes/inventoria/issues/410) states it as _a lane that may
+not be written to is a lane that cannot acknowledge_. That is the symptom. The mechanism is
+one step further back:
+
+> **A collector advances alone. From that moment the depositor's only writable address is one
+> the peer has stopped reading, and the depositor may advance only on an acknowledgement it
+> can deliver nowhere else.**
+
+The distinction is load-bearing, because it disqualifies the repair that looks obvious. Letting
+the refused rewrite recreate its object does **not** fix this: the object comes back at an index
+the collector left, and nobody reads it. Writability was never the thing that was lost.
+
+Both lanes reach the state from one failed `PUT` — #410 walks it — and one lane reaches it alone
+from an expiry, after which the other follows within a round trip. §11's K = 200 reaps the result
+into the one-sided state, so nothing is lost and re-pairing recovers; but the exit is a live act
+by the user in a room, which is the act this whole record exists to make unnecessary.
+
+### The fifth exit: a collection commits on its acknowledgement
+
+#410 lists four exits and refuses all four correctly. All four accept that a collection is
+complete the moment its rows are imported, and that unilateral advance is what creates a debt
+the other lane may be unable to pay. The fifth moves the commit point instead:
+
+> **A collection is `GET`, verify, import, **deposit the acknowledgement**, advance, `DELETE`.
+> A collection whose acknowledgement does not land does not advance and does not delete, and is
+> retried whole on a later wake.**
+
+So **a lane's object is deleted only after the acknowledgement for it is in the store**. A
+depositor meeting a refusal therefore knows its peer has already said the word, and since a wake
+collects before it deposits, it will have read that word before it can be refused at all.
+
+The doubly-mute state becomes **unreachable rather than rare**. It needs `A` taken at _i_ and `B`
+taken at _j_ at once; `A` taken at _i_ means `B` deleted `A@i`, which means `B` had deposited
+`ack(i)` at _j_ and `A` then collected that object — which is what made `B` taken at _j_, and
+which carried the acknowledgement that advances `A` past _i_. The state contradicts itself.
+
+**This spends nothing.** §1 still holds one object per lane; §3's _a wake touches exactly one
+address per lane_ is untouched, because the `GET` and the `DELETE` are the same address; §5's
+_absence is never an acknowledgement_ is not weakened by a word. What it costs is a re-`GET` and
+a re-import of the same object on each wake until the acknowledgement lands.
+
+**That re-read is a requirement, not an inefficiency.** A device must not record _I took index i,
+I owe `ack(i)`_ and skip the read next time. The depositor keeps rewriting at _i_ until it is
+acknowledged, and it merges the `brings` of whatever it last wrote there — so an acknowledgement
+sent against a take from three wakes ago credits the peer with rows that arrived after it, and
+those rows are never sent again. The alternative is binding the generation into the
+acknowledgement as well as into the seal, which is machinery bought to avoid a read. **Nothing
+persists between wakes**: the imported rows stay, because the ledger is append-only and a
+re-import is a no-op, and the `peer_vector` fold stays, because collecting rows from a peer
+proves the peer holds them whether or not it was ever told so.
+
+**The index the acknowledgement names is the one just taken.** Written down because the
+deposit now precedes the advance: a wake with a collection pending acknowledges its collect
+lane's **current** index, and a wake with none re-asserts the index behind it. Both are _the
+highest index this device has taken_, which is the sentence that stays true through the change.
+
+### §5's orphan clause is amended: a refusal is answered by a recreate
+
+The commit point alone leaves the other half open. An object that vanished **uncollected** —
+§1's backstop firing, or a delete by the operator — is refused identically, and its peer is
+still sitting at that index with nothing coming.
+
+> **A refused rewrite is answered by an unconditional write at the same index. It still may not
+> advance the lane: only a sealed acknowledgement does that.**
+
+`DepositStanding` loses its `taken` arm: a lane holds a live object or none.
+
+**One rider, and it is the whole correctness of the thing. A recreate may not advance `brings`.**
+If the peer took rewrite #3 and the recreate is a fuller #4, acknowledging that index would merge
+#4's `brings` and permanently skip the rows only #4 carried. The recreate keeps the refused
+object's. Understating what a peer holds costs a re-sent row an import ignores; overstating it
+costs the row — the same asymmetry the #396 trailer records for the version vector, arriving by
+a second route.
+
+**§5's orphan argument is narrowed rather than dropped.** _An orphan is a leak rather than
+untidiness_ stands. What goes is the claim that none is ever created: a recreate answering a
+refusal the peer's acknowledgement caused **is** an orphan. It is rare, because the collect-first
+order means that acknowledgement has normally already been read; and it is bounded, because §1's
+backstop reaps it. The clause becomes **the depositor never creates an orphan it can avoid, and
+the ones it cannot are bounded by the backstop that caused them.**
+
+### §1's expiry sentence is restored, and #396's correction to it is reversed
+
+§1 says _an expiry costs one wake of latency and never data ... its next wake rewrites the full
+outstanding delta at the same key_. The `**Implemented:** #396` trailer corrects that sentence,
+withdrawing _one wake of latency_ on the ground that **the depositor cannot tell an object that
+expired unread from one that was collected**, so any rule that recreated after the first would
+recreate after the second and manufacture the permanent orphan §5 exists to remove.
+
+**That argument was sound and is no longer.** It prices the recreate against §5's old commit
+point, where a collected object's acknowledgement might never arrive and the orphan would be
+permanent. Under the fifth exit a collected object's acknowledgement is already in the store, so
+the orphan is transient and backstopped, and the two cases no longer need to be told apart —
+**the same answer is correct for both**. §1's sentence is reinstated word for word, and the
+trailer's correction is superseded by this amendment rather than left to be read as current.
+
+### §11 gains a clause, and its counter counts completed collections
+
+**Revocation is the one deliberate breach of the new invariant.** §11 step 2 deletes both lane
+objects and acknowledges nothing, and it must keep doing so. It is safe only because of the
+recreate: the peer's rewrite is refused, it puts its object back, and it never falls mute.
+**The two decisions in this amendment hold each other up — remove either and the frozen pairing
+returns by the other road** — and that is why they are recorded together rather than as two
+independent repairs.
+
+The cost lands on a surface sentence. _Unpairing removes anything that has not yet been picked
+up_ now holds only until the peer's next wake, so it gains its qualifier: **a peer that has not
+yet learned of the unpairing may leave one more sealed object, under a chain the revoker has
+destroyed, which nothing can open and which the backstop reaps.** The residual window §11 names
+is unchanged; what changes is that the emptiness is not permanent, and the record says so rather
+than letting the surface claim more than the delete achieves.
+
+**And K counts completed collections.** §11 makes a wake productive when an acknowledgement was
+received **or** something was collected. A wake that takes rows and fails to acknowledge them now
+has a name — it is a take that did not settle — and it will repeat identically on the next wake.
+Counting it as productive would let a pairing getting nowhere never reach K, which is the
+infinite case §11 exists to bound, wearing productive clothes. So: _no acknowledgement received
+and no collection **settled**_.
+
+### §3's amendment gains a third deposit trigger
+
+The 2026-09-06 Amendment lists two: the delta growing, debounced by seconds, and a best-effort
+flush on hide. A settled collection is now a third, and it is not a cadence but a consequence —
+the deposit is part of the collection rather than a thing scheduled after it.
+
+It costs nothing of §4, for that amendment's own reason: the index advances on the
+acknowledgement, so every deposit before the peer takes one lands on the same address. Its
+collection floor needs one narrowing, though — _skipped when nothing has changed locally either_
+was written when a collection cost a `GET` and nothing else, and a skipped wake can now leave a
+peer unacknowledged. It reads **skipped when nothing has changed locally and nothing is owed**.
+
+### What this claims, and the condition on it
+
+> **A pairing cannot freeze while both devices can reach the store.**
+
+Stated with its condition rather than absolutely, because a device that cannot reach the store
+converges on no wake at all and that is not this defect. And stated as a claim resting on two
+coupled decisions and one named exception, in the voice §2 uses for guard 1: the commit point
+fixes reachability, the recreate fixes writability, revocation breaches the first and is carried
+by the second, and a later reader who deletes one of them because the other "already handles it"
+reopens this hole.
