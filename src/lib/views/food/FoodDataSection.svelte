@@ -62,6 +62,7 @@
     type FacetWipePlan,
   } from "../../facets/facet-wipe";
   import { appError } from "../../logs/app-log";
+  import { listOf } from "../../ui/words";
 
   // The Facet these controls belong to. Rations, from either entry point: the
   // root opens this same sheet from the Food tab's gear, and a wipe scoped to
@@ -129,12 +130,6 @@
     const rows = `${plan.datomsStaying.toLocaleString()} datoms stay`;
     return named.length === 0 ? `${rows}.` : `${rows}: ${listOf(named)}.`;
   });
-
-  /** `a`, `a and b`, `a, b and c` — the app's own voice, not `Intl`'s. */
-  function listOf(names: string[]): string {
-    if (names.length <= 1) return names.join("");
-    return `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`;
-  }
 
   // The run itself is `facets/facet-wipe.ts`'s, not this screen's — the ordering
   // of the three effects and the sentence that reports them are the parts worth
