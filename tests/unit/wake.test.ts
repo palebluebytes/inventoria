@@ -27,7 +27,11 @@ import {
 } from "../../src/lib/db/db.core";
 import { createHlc, type Hlc } from "../../src/lib/db/hlc";
 import type { VersionVector } from "../../src/lib/db/version-vector";
-import { storeOverFetch, type Store } from "../../src/lib/p2p/deposit-store";
+import {
+  storeOverFetch,
+  StoreUnreachableError,
+  type Store,
+} from "../../src/lib/p2p/deposit-store";
 import {
   derivePairingChains,
   deriveLaneKey,
@@ -257,29 +261,26 @@ describe("a deposit carries an acknowledgement and a delta, either of which may 
   });
 });
 
-describe("the rewrite is refused rather than recreating a collected object", () => {
-  it("leaves the address empty when the peer has already collected", async () => {
+describe("a refused rewrite is answered by a recreate", () => {
+  it("puts the object back at the same index when the peer had collected", async () => {
     const [a, b] = await pair();
     hold(a, [row()]);
 
     await wake(a);
     const address = await depositAddress(a);
-    // B collects but its acknowledgement never reaches A — a lost collection
-    // on A's side, which is the only way the healthy path meets a refusal.
+    // B collects and acknowledges, but the word never reaches A — a lost
+    // collection on A's side, which is the only way the healthy path meets a
+    // refusal at all.
     await wake(b);
     const blinded: Store = { ...store, collect: async () => null };
 
     const refused = await wake(a, { store: blinded });
 
-    expect(refused.refused).toBe(true);
-    expect(held.has(address)).toBe(false);
-    expect(a.record.deposit_standing).toEqual({
-      kind: "taken",
-      brings: expect.anything(),
-    });
+    expect(refused.recreated).toBe(true);
+    expect(held.has(address)).toBe(true);
   });
 
-  it("does not advance the index, and writes nothing more at it", async () => {
+  it("does not advance the index, however often it is refused", async () => {
     const [a, b] = await pair();
     hold(a, [row()]);
     await wake(a);
@@ -287,12 +288,10 @@ describe("the rewrite is refused rather than recreating a collected object", () 
     const blinded: Store = { ...store, collect: async () => null };
     await wake(a, { store: blinded });
 
-    const again = await wake(a, { store: blinded });
+    await wake(a, { store: blinded });
 
     // Absence is not an acknowledgement: only a sealed one advances a chain.
     expect(a.record.deposit.index).toBe(0);
-    expect(again.deposited).toBe(0);
-    expect(held.has(await depositAddress(a))).toBe(false);
   });
 
   it("recovers on the next open, when the acknowledgement does arrive", async () => {
@@ -306,8 +305,104 @@ describe("the rewrite is refused rather than recreating a collected object", () 
 
     expect(healed.acknowledged).toBe(true);
     expect(a.record.deposit.index).toBe(1);
-    expect(a.record.deposit_standing).toMatchObject({ kind: "live" });
     expect(held.has(await depositAddress(a))).toBe(true);
+  });
+
+  it("puts back an object that expired unread, for a peer still waiting at it", async () => {
+    const [a, b] = await pair();
+    hold(a, [row()]);
+    await wake(a);
+    // The backstop fires on an object nobody collected. ADR-0096 §1 says this
+    // costs one wake of latency and never data, and the recreate is what makes
+    // that true: B has not moved, so the address it reads is the one refilled.
+    held.delete(await depositAddress(a));
+
+    const put_back = await wake(a);
+    await wake(b);
+
+    expect(put_back.recreated).toBe(true);
+    expect(rowsOf(b)).toEqual(rowsOf(a));
+  });
+});
+
+describe("an acknowledgement credits the rewrite the peer took", () => {
+  it("does not credit a fuller recreate, or the rows only it carried are lost", async () => {
+    const [a, b] = await pair();
+    const first = row({ entity: "event:1" });
+    const second = row({ entity: "event:2", hlc_ms: 2_000 });
+    hold(a, [first]);
+
+    // A deposits `first` and B takes it, but the acknowledgement does not reach
+    // A. A meanwhile logs `second`, so its recreate at the same index is
+    // **fuller than the object B actually collected**.
+    await wake(a);
+    await wake(b);
+    hold(a, [second]);
+    await wake(a, { store: { ...store, collect: async () => null } });
+
+    // Now the word arrives. It is for that index, and what it means is the
+    // smaller claim: B holds `first`. Crediting the recreate would mark
+    // `second` as delivered to a device that will never read that address
+    // again, and no later deposit would carry it.
+    await wake(a);
+    await wake(b);
+
+    expect(rowsOf(b)).toEqual(rowsOf(a));
+  });
+});
+
+describe("a pairing cannot freeze while both devices can reach the store", () => {
+  it("survives a deposit that fails after the peer's object was taken", async () => {
+    const [a, b] = await pair();
+    hold(a, [row({ entity: "event:a" })]);
+    hold(b, [row({ entity: "event:b", device_id: "dev_b", hlc_ms: 2_000 })]);
+    const sulking: Store = {
+      ...store,
+      deposit: async () => {
+        throw new StoreUnreachableError("the network went away mid-wake.");
+      },
+    };
+
+    await wake(a);
+    // #410's step 1: B takes A's object and then cannot deposit. Under §5 as
+    // first written it would delete what it took and owe a word it could never
+    // say; the collection commits on the acknowledgement instead, so it keeps
+    // the object where it is.
+    const stalled = wake(b, { store: sulking });
+    await expect(stalled).rejects.toThrow(StoreUnreachableError);
+    expect(b.record.collect.index).toBe(0);
+    expect(held.has(await collectAddress(b))).toBe(true);
+
+    // Three ordinary opens, and the pairing is converged rather than frozen.
+    await wake(b);
+    await wake(a);
+    await wake(b);
+
+    expect(rowsOf(a)).toEqual(rowsOf(b));
+    expect(vectorOf(a)).toEqual(vectorOf(b));
+  });
+
+  it("reports a take that moved rows without settling", async () => {
+    const [a, b] = await pair();
+    hold(a, [row()]);
+    await wake(a);
+
+    await expect(
+      wake(b, {
+        store: {
+          ...store,
+          deposit: async () => {
+            throw new StoreUnreachableError("the network went away mid-wake.");
+          },
+        },
+      })
+    ).rejects.toThrow(StoreUnreachableError);
+    const retried = await wake(b);
+
+    // The first take imported the rows and settled nothing; the second is the
+    // one §11 counts, because the first would have repeated identically.
+    expect(retried.settled).toBe(true);
+    expect(retried.collected).toBe(1);
   });
 });
 

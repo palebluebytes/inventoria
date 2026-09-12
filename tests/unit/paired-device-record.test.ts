@@ -248,12 +248,11 @@ describe("a wake moves the record it was handed", () => {
 
     records.updatePairedDevice({
       ...held,
-      deposit_standing: { kind: "live", etag: "etag-1", brings: A_VECTOR },
+      deposit_standing: { etag: "etag-1", brings: A_VECTOR },
     });
 
     const [moved, untouched] = records.readPairedDevices();
     expect(moved.deposit_standing).toEqual({
-      kind: "live",
       etag: "etag-1",
       brings: A_VECTOR,
     });
@@ -267,7 +266,7 @@ describe("a wake moves the record it was handed", () => {
 
     records.updatePairedDevice({
       ...held,
-      deposit_standing: { kind: "taken", brings: A_VECTOR },
+      deposit_standing: { etag: "etag-1", brings: A_VECTOR },
     });
 
     expect(records.readPairedDevices()).toEqual([]);
@@ -290,7 +289,7 @@ describe("a wake moves the record it was handed", () => {
     stubLocalStorage({
       seed: {
         inventoria_paired_devices: JSON.stringify([
-          { ...sound, deposit_standing: { kind: "live", brings: {} } },
+          { ...sound, deposit_standing: { brings: {} } },
         ]),
       },
     });
