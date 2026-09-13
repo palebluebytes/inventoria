@@ -81,7 +81,11 @@ describe("the notice itself", () => {
 
   it("records a completed act and survives the page it was written on", async () => {
     const [first, store] = await opened();
-    first.noteCarriedDeletion({ prefixes: ["fdc:"], datomsDeleted: 412 });
+    first.noteCarriedDeletion({
+      prefixes: ["fdc:"],
+      datomsDeleted: 412,
+      refused: 0,
+    });
 
     expect(get(first.carriedDeletionNotice)).toEqual({
       names: ["Food"],
@@ -101,8 +105,16 @@ describe("the notice itself", () => {
   // of banners about one absence is not what the person needs.
   it("adds a second act to the first rather than replacing or queuing it", async () => {
     const [notice] = await opened();
-    notice.noteCarriedDeletion({ prefixes: ["fdc:"], datomsDeleted: 400 });
-    notice.noteCarriedDeletion({ prefixes: ["habit:"], datomsDeleted: 12 });
+    notice.noteCarriedDeletion({
+      prefixes: ["fdc:"],
+      datomsDeleted: 400,
+      refused: 0,
+    });
+    notice.noteCarriedDeletion({
+      prefixes: ["habit:"],
+      datomsDeleted: 12,
+      refused: 0,
+    });
 
     expect(get(notice.carriedDeletionNotice)).toEqual({
       names: ["Food", "Habits"],
@@ -112,13 +124,21 @@ describe("the notice itself", () => {
 
   it("stays quiet about a deletion that took nothing here", async () => {
     const [notice] = await opened();
-    notice.noteCarriedDeletion({ prefixes: ["fdc:"], datomsDeleted: 0 });
+    notice.noteCarriedDeletion({
+      prefixes: ["fdc:"],
+      datomsDeleted: 0,
+      refused: 0,
+    });
     expect(get(notice.carriedDeletionNotice)).toBeNull();
   });
 
   it("is one-shot: nothing brings it back once it is read", async () => {
     const [notice, store] = await opened();
-    notice.noteCarriedDeletion({ prefixes: ["fdc:"], datomsDeleted: 412 });
+    notice.noteCarriedDeletion({
+      prefixes: ["fdc:"],
+      datomsDeleted: 412,
+      refused: 0,
+    });
     notice.dismissCarriedDeletion();
 
     expect(get(notice.carriedDeletionNotice)).toBeNull();
@@ -142,7 +162,11 @@ describe("the notice itself", () => {
     const notice = await freshModule<Notice>(
       () => import("../../src/lib/stores/carried-deletion-notice")
     );
-    notice.noteCarriedDeletion({ prefixes: ["fdc:"], datomsDeleted: 7 });
+    notice.noteCarriedDeletion({
+      prefixes: ["fdc:"],
+      datomsDeleted: 7,
+      refused: 0,
+    });
     expect(get(notice.carriedDeletionNotice)).toEqual({
       names: ["Food"],
       datoms: 7,
@@ -191,7 +215,7 @@ describe("what makes one", () => {
     const stop = notice.watchCarriedDeletions();
     expect(listeners).toHaveLength(1);
 
-    listeners[0]({ prefixes: ["fdc:"], datomsDeleted: 5 });
+    listeners[0]({ prefixes: ["fdc:"], datomsDeleted: 5, refused: 0 });
     expect(get(notice.carriedDeletionNotice)).toEqual({
       names: ["Food"],
       datoms: 5,

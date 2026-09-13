@@ -18,8 +18,8 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import sqlite3InitModule from "@sqlite.org/sqlite-wasm";
 import {
-  applyCarriedDeletions,
   createLedgerSchema,
+  importConvergedRows,
   importLedgerRows,
   readLedgerPage,
   readLedgerVersionVector,
@@ -121,12 +121,13 @@ function device(
       oldestAbove: async (after, budgetBytes, above) =>
         readLedgerPage(db, after, budgetBytes, { above, order: "stamp" }),
       write: async (rows) => {
-        const outcome = importLedgerRows(db, rows);
-        if (outcome.highWater) clock.update(outcome.highWater);
-        // Exactly what `db.worker.ts` does on every batch a convergence
-        // writes, and on no batch a user-chosen import writes (ADR-0096 §12).
-        swept.push(applyCarriedDeletions(db, rows));
-        return outcome.rowsAdded;
+        // The converging write path, which is the one `db.worker.ts` takes for
+        // a batch that *arrived*: every carried deletion this ledger holds is
+        // applied to it, and a user-chosen file takes the other door (§12).
+        const written = importConvergedRows(db, rows);
+        if (written.outcome.highWater) clock.update(written.outcome.highWater);
+        swept.push(written.swept);
+        return written.outcome.rowsAdded;
       },
     },
   };
@@ -886,9 +887,13 @@ describe("a wipe on one device deletes on the other (ADR-0096 §12)", () => {
     expect(kept.find((entity) => entity.startsWith("deletion:"))).toMatch(
       /^deletion:\d+_\d+_dev_a$/
     );
-    // What B deleted, for the notice B will show. The prefixes are the ones A
-    // froze, carried verbatim.
-    expect(b.swept.at(-1)).toEqual({ prefixes: FOOD, datomsDeleted: 1 });
+    // What B deleted, for the notice B will show: the one prefix rows actually
+    // went under, as A froze it.
+    expect(b.swept.at(-1)).toEqual({
+      prefixes: ["event:consume_"],
+      datomsDeleted: 1,
+      refused: 0,
+    });
   });
 
   it("keeps what the wipe did not take, on both devices", async () => {
@@ -928,7 +933,11 @@ describe("a wipe on one device deletes on the other (ADR-0096 §12)", () => {
     const resupplied = [row({ entity: "event:consume_1", hlc_ms: 1_000 })];
     await b.ledger.write(resupplied, true);
 
-    expect(b.swept.at(-1)).toEqual({ prefixes: FOOD, datomsDeleted: 1 });
+    expect(b.swept.at(-1)).toEqual({
+      prefixes: [],
+      datomsDeleted: 0,
+      refused: 1,
+    });
     expect(rowsOf(b).some((line) => line.startsWith("event:consume_"))).toBe(
       false
     );

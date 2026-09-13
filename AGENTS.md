@@ -107,10 +107,12 @@ context and that one is not. If you change one, change both.
   clock stamp (ADR-0020), not because of its `time` value. Four sanctioned
   destructive operations exist, all in `src/lib/db/db.core.ts` —
   `resetLedgerSchema` (the user-initiated `clear`), the one-shot ADR-0020
-  migration, `deleteDatomsByEntityPrefix`, the **ledger half** of the
+  migration, `wipeFacetFromLedger`, the **ledger half** of the
   Facet-scoped wipe behind "Delete all my food data" (ADR-0079 §1), and
-  `applyCarriedDeletions`, which is that wipe arriving from one of your own
-  devices (ADR-0096 §12). The wipe's other
+  `importConvergedRows`, which is that wipe arriving from one of your own
+  devices (ADR-0096 §12) — the last two sharing one predicate,
+  `deleteDatomsByEntityPrefix`, which is where the `DELETE` is written and is
+  not a fifth. The wipe's other
   half is `localStorage` and is `src/lib/facets/facet-wipe.ts`'s, because
   ownership is the rule and the storage medium is incidental (§2). Do not add others. The third came
   with a condition the first two did not need, and the fourth is held to it: the
@@ -119,8 +121,9 @@ context and that one is not. If you change one, change both.
   refused. The fourth meets it by **inheriting the third's proof**: a **Carried
   deletion** hands the prefix list the wiping device froze, and the stamp it
   acted at, straight to `deleteDatomsByEntityPrefix`, so it is the same act
-  rather than a re-enactment of it. It applies to every batch a convergence
-  writes and to no batch a user-chosen import writes.
+  rather than a re-enactment of it. A deletion new to this device takes what it
+  covers here, once; one already held refuses what arrives and never re-sweeps,
+  which is what keeps a user-chosen import exempt rather than deferred.
   **A `VACUUM` is not one of the four**: `vacuumLedger` lives in that
   same module and rewrites the whole file, but it only hands back pages a
   sanctioned deletion already freed, and it can lose nothing (ADR-0079 §4).

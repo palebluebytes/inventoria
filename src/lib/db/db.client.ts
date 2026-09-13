@@ -5,6 +5,7 @@ import {
   type StorageMode,
 } from "./storage-mode";
 import { appDebug, appWarn } from "../logs/app-log";
+import type { CarriedDeletionSweep } from "./carried-deletion";
 import type {
   Datom,
   EntityCensus,
@@ -16,6 +17,8 @@ import type {
   StoredDatom,
 } from "./db.core";
 import type { VersionVector } from "./version-vector";
+
+export type { CarriedDeletionSweep };
 
 export type {
   Datom,
@@ -42,20 +45,7 @@ export type InvalidationListener = (attributes: string[]) => void;
  */
 export type LedgerWriteSource = "convergence" | "import";
 
-/**
- * What a peer's carried deletion took from this ledger, as the worker announces
- * it (ADR-0096 §12).
- *
- * `prefixes` are the ones the wiping device froze, carried verbatim. Naming
- * them is the reader's job: a prefix this build does not recognise is one it
- * deleted nothing under.
- */
-export interface CarriedDeletionSwept {
-  prefixes: string[];
-  datomsDeleted: number;
-}
-
-export type CarriedDeletionListener = (swept: CarriedDeletionSwept) => void;
+export type CarriedDeletionListener = (swept: CarriedDeletionSweep) => void;
 
 export class DBClient {
   private worker: Worker | null = null;
@@ -103,9 +93,10 @@ export class DBClient {
       // which every store already does, and this says "rows went, and here is
       // what to tell the person holding the phone".
       if (type === "broadcast_carried_deletion") {
-        const swept: CarriedDeletionSwept = {
+        const swept: CarriedDeletionSweep = {
           prefixes: payload?.prefixes ?? [],
           datomsDeleted: payload?.datomsDeleted ?? 0,
+          refused: payload?.refused ?? 0,
         };
         this.carriedDeletionListeners.forEach((listener) => listener(swept));
         return;

@@ -14,8 +14,8 @@
 import {
   CARRIED_DELETION_ATTRIBUTE,
   carriedDeletionRow,
-  carriedDeletionWarrant,
   readCarriedDeletion,
+  siftArrivingRows,
   SWEPT_NOTHING,
   type CarriedDeletion,
   type CarriedDeletionSweep,
@@ -613,51 +613,71 @@ export function importLedgerRows(
     throw new Error("Payload 'rows' must be an array");
   }
   if (rows.length === 0) return { rowsAdded: 0, highWater: null };
+  return inTransaction(db, () => writeStampedRows(db, rows));
+}
 
+/**
+ * The write itself, **without a transaction of its own**, so a caller that has
+ * more to do under the same "both or neither" can reach it.
+ *
+ * There is one such caller, {@link importConvergedRows}: a batch and the
+ * deletions it brings have to land together, or a deletion whose sweep failed
+ * would be held here and never applied to the rows already in the table.
+ */
+function writeStampedRows(
+  db: LedgerDb,
+  rows: LedgerRow[]
+): LedgerImportOutcome {
   const before = totalChanges(db);
   let highWater: HlcMark | null = null;
 
+  const stmt = db.prepare(
+    `INSERT OR IGNORE INTO datoms (${LEDGER_COLUMNS}) VALUES (?, ?, ?, ?, ?, ?, ?);`
+  );
+  try {
+    for (const [index, row] of rows.entries()) {
+      const complaint = describeBrokenRule(row, LEDGER_ROW_RULES);
+      if (complaint !== null) {
+        // The place is within this batch, not within the file: an import
+        // sends the file a couple of megabytes at a time, so a line number
+        // is not something this function is in a position to know.
+        throw new Error(
+          `Invalid ledger row: row ${index + 1} of the ${rows.length} in this batch — ${complaint}.`
+        );
+      }
+      stmt.bind([
+        row.entity,
+        row.attribute,
+        row.value,
+        row.time,
+        row.hlc_ms,
+        row.hlc_ctr,
+        row.device_id,
+      ]);
+      stmt.step();
+      stmt.reset();
+      if (highWater === null || compareHlcMark(row, highWater) > 0) {
+        highWater = { hlc_ms: row.hlc_ms, hlc_ctr: row.hlc_ctr };
+      }
+    }
+  } finally {
+    stmt.finalize();
+  }
+
+  return { rowsAdded: totalChanges(db) - before, highWater };
+}
+
+/** Runs `work` under one transaction, rolling the whole of it back on a throw. */
+function inTransaction<T>(db: LedgerDb, work: () => T): T {
   db.exec("BEGIN TRANSACTION;");
   try {
-    const stmt = db.prepare(
-      `INSERT OR IGNORE INTO datoms (${LEDGER_COLUMNS}) VALUES (?, ?, ?, ?, ?, ?, ?);`
-    );
-    try {
-      for (const [index, row] of rows.entries()) {
-        const complaint = describeBrokenRule(row, LEDGER_ROW_RULES);
-        if (complaint !== null) {
-          // The place is within this batch, not within the file: an import
-          // sends the file a couple of megabytes at a time, so a line number
-          // is not something this function is in a position to know.
-          throw new Error(
-            `Invalid ledger row: row ${index + 1} of the ${rows.length} in this batch — ${complaint}.`
-          );
-        }
-        stmt.bind([
-          row.entity,
-          row.attribute,
-          row.value,
-          row.time,
-          row.hlc_ms,
-          row.hlc_ctr,
-          row.device_id,
-        ]);
-        stmt.step();
-        stmt.reset();
-        if (highWater === null || compareHlcMark(row, highWater) > 0) {
-          highWater = { hlc_ms: row.hlc_ms, hlc_ctr: row.hlc_ctr };
-        }
-      }
-    } finally {
-      stmt.finalize();
-    }
+    const answer = work();
     db.exec("COMMIT;");
+    return answer;
   } catch (err) {
     db.exec("ROLLBACK;");
     throw err;
   }
-
-  return { rowsAdded: totalChanges(db) - before, highWater };
 }
 
 /**
@@ -847,11 +867,16 @@ export function censusByEntityPrefix(
  * with that act's frozen prefix list and that act's stamp — the same predicate,
  * not a re-enactment of it — which is how it inherits the closure proof above
  * rather than asking for an exemption of its own.
+ *
+ * **It has no default**, for the reason the write seam one layer up has none: a
+ * caller that forgot it would silently widen a `DELETE` into the future, and
+ * every act that reaches here knows the stamp it acted at. The count beside it
+ * keeps its default, because a census legitimately has no ceiling.
  */
 export function deleteDatomsByEntityPrefix(
   db: LedgerDb,
   prefixes: readonly string[],
-  takenAtOrBefore: HlcMark | null = null
+  takenAtOrBefore: HlcMark
 ): number {
   const going = countDatomsByEntityPrefix(db, prefixes, takenAtOrBefore);
   if (going === 0) return 0;
@@ -880,6 +905,12 @@ export function deleteDatomsByEntityPrefix(
  * absent from every Facet's derived prefix set as arithmetic rather than as a
  * rule anybody has to remember (ADR-0096 §13). The stamp bound would refuse it
  * a second time over.
+ *
+ * **A plain `INSERT`, for `appendDatoms`' reason and not `importLedgerRows`'**
+ * (`CODING_STANDARDS` §5). The entity is the stamp, so a collision means the
+ * clock issued one twice, which has to be heard about — and `OR IGNORE` here
+ * would drop the record while the `DELETE` in the same transaction still ran,
+ * leaving a wipe no peer could ever learn about.
  */
 export function wipeFacetFromLedger(
   db: LedgerDb,
@@ -887,11 +918,10 @@ export function wipeFacetFromLedger(
   stamp: HlcKey
 ): number {
   const row = carriedDeletionRow(stamp, prefixes);
-  db.exec("BEGIN TRANSACTION;");
-  try {
+  return inTransaction(db, () => {
     execWrite(
       db,
-      `INSERT OR IGNORE INTO datoms (${LEDGER_COLUMNS}) VALUES (?, ?, ?, ?, ?, ?, ?);`,
+      `INSERT INTO datoms (${LEDGER_COLUMNS}) VALUES (?, ?, ?, ?, ?, ?, ?);`,
       [
         row.entity,
         row.attribute,
@@ -902,13 +932,8 @@ export function wipeFacetFromLedger(
         row.device_id,
       ]
     );
-    const taken = deleteDatomsByEntityPrefix(db, prefixes, stamp);
-    db.exec("COMMIT;");
-    return taken;
-  } catch (err) {
-    db.exec("ROLLBACK;");
-    throw err;
-  }
+    return deleteDatomsByEntityPrefix(db, prefixes, stamp);
+  });
 }
 
 /**
@@ -935,34 +960,79 @@ export function heldCarriedDeletions(db: LedgerDb): CarriedDeletion[] {
 }
 
 /**
- * Applies every carried deletion this batch obliges, and says what went — **the
- * fourth sanctioned destructive operation** (ADR-0096 §12).
+ * One batch of rows a **convergence** brought: written, and held to every
+ * carried deletion this ledger has (ADR-0096 §12).
  *
- * It is called on every batch a convergence writes and on no batch a
- * user-chosen import writes: a peer's payload *arrives* and a file is *chosen*,
- * and _wipe, then import_ is already the sanctioned way to make a file the only
- * truth. `db.worker.ts` is where that distinction is made, because it is the
- * one place that knows which of the two a message is.
+ * This is the fourth sanctioned destructive operation, and the exemption is the
+ * choice between this function and {@link importLedgerRows} rather than a flag
+ * inside one of them — a user-chosen file takes the other door, because a
+ * peer's payload *arrives* and a file is *chosen*.
  *
- * **Per deletion rather than in one predicate**, so a deletion that took
- * nothing contributes no prefix to the notice: the peer's sentence names what
- * *this* device actually deleted, and a union taken across all of them would
- * claim rows that were never here.
+ * **Two halves, and only the first deletes.** A deletion **new to this device**
+ * takes everything it covers that is already here, once. Every deletion this
+ * ledger already held instead **refuses** the rows this batch carries, which
+ * never reach the table at all. Nothing re-evaluates a held deletion against
+ * rows that are already here, and that is what keeps _wipe, then import_ a
+ * composition the user can rely on rather than one an unrelated later batch
+ * silently undoes.
+ *
+ * **One transaction over both halves**, so a sweep that failed cannot leave its
+ * deletion held and unapplied — the batch rolls back with it, and the peer's
+ * retry brings the deletion round again as a new one.
  */
-export function applyCarriedDeletions(
+export function importConvergedRows(
   db: LedgerDb,
-  arrived: readonly LedgerRow[]
-): CarriedDeletionSweep {
-  const owed = carriedDeletionWarrant(heldCarriedDeletions(db), arrived);
-  if (owed.length === 0) return SWEPT_NOTHING;
-
-  const prefixes = new Set<string>();
-  let datomsDeleted = 0;
-  for (const deletion of owed) {
-    const went = deleteDatomsByEntityPrefix(db, deletion.prefixes, deletion);
-    if (went === 0) continue;
-    datomsDeleted += went;
-    for (const prefix of deletion.prefixes) prefixes.add(prefix);
+  rows: LedgerRow[]
+): { outcome: LedgerImportOutcome; swept: CarriedDeletionSweep } {
+  if (!Array.isArray(rows)) {
+    throw new Error("Payload 'rows' must be an array");
   }
-  return { prefixes: [...prefixes], datomsDeleted };
+  if (rows.length === 0) {
+    return { outcome: { rowsAdded: 0, highWater: null }, swept: SWEPT_NOTHING };
+  }
+
+  return inTransaction(db, () => {
+    // Read before the write, because "new to this device" is exactly what this
+    // ledger did not hold a moment ago. A deletion the peer re-sends after a
+    // collection that could not settle is already here, and must not sweep the
+    // table a second time.
+    const held = heldCarriedDeletions(db);
+    const sifted = siftArrivingRows(held, rows);
+    const outcome = writeStampedRows(db, sifted.keep);
+    const arrived = applyArrivedDeletions(db, held);
+    return {
+      outcome,
+      swept: { ...arrived, refused: sifted.refused },
+    };
+  });
+}
+
+/**
+ * Each deletion this batch brought that the ledger did not already hold, applied
+ * to the whole of it, and what each one took.
+ *
+ * **Per prefix rather than per deletion**, and one `DELETE` each, so the notice
+ * names only the prefixes rows actually went under: a wipe carries a Facet's
+ * whole prefix set, and a peer holding meals but no recipes deleted meals.
+ * Running them in sequence is also what keeps the total honest where one prefix
+ * nests inside another of the same owner, since the first takes the rows and
+ * the second then finds none.
+ */
+function applyArrivedDeletions(
+  db: LedgerDb,
+  heldBefore: readonly CarriedDeletion[]
+): { prefixes: string[]; datomsDeleted: number } {
+  const known = new Set(heldBefore.map((deletion) => deletion.entity));
+  const prefixes: string[] = [];
+  let datomsDeleted = 0;
+  for (const deletion of heldCarriedDeletions(db)) {
+    if (known.has(deletion.entity)) continue;
+    for (const prefix of deletion.prefixes) {
+      const went = deleteDatomsByEntityPrefix(db, [prefix], deletion);
+      if (went === 0) continue;
+      datomsDeleted += went;
+      if (!prefixes.includes(prefix)) prefixes.push(prefix);
+    }
+  }
+  return { prefixes, datomsDeleted };
 }

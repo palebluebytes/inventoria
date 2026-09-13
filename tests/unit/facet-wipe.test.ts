@@ -75,7 +75,11 @@ describe("the scoped wipe's ledger predicate", () => {
   it("takes food's rows and nothing else, in a jar holding every domain", () => {
     const seeded = seedOnePerPrefix();
 
-    const taken = deleteDatomsByEntityPrefix(db, entityPrefixesOf("food"));
+    const taken = deleteDatomsByEntityPrefix(
+      db,
+      entityPrefixesOf("food"),
+      clock.now()
+    );
 
     const food = seeded.filter((s) => s.domain === "food");
     expect(taken).toBe(food.length);
@@ -102,7 +106,7 @@ describe("the scoped wipe's ledger predicate", () => {
       clock
     );
 
-    deleteDatomsByEntityPrefix(db, entityPrefixesOf("food"));
+    deleteDatomsByEntityPrefix(db, entityPrefixesOf("food"), clock.now());
 
     expect(entities()).toContain("settings/legacy");
   });
@@ -136,7 +140,11 @@ describe("the scoped wipe's ledger predicate", () => {
       clock
     );
 
-    const taken = deleteDatomsByEntityPrefix(db, entityPrefixesOf("food"));
+    const taken = deleteDatomsByEntityPrefix(
+      db,
+      entityPrefixesOf("food"),
+      clock.now()
+    );
 
     expect(taken).toBe(1);
     expect(entities()).toEqual(["event:consumed_1", "food:customer_1"]);
@@ -147,7 +155,7 @@ describe("the scoped wipe's ledger predicate", () => {
     const prefixes = entityPrefixesOf("food");
 
     const counted = countDatomsByEntityPrefix(db, prefixes);
-    const taken = deleteDatomsByEntityPrefix(db, prefixes);
+    const taken = deleteDatomsByEntityPrefix(db, prefixes, clock.now());
 
     expect(counted).toBe(taken);
     expect(countDatomsByEntityPrefix(db, prefixes)).toBe(0);
@@ -157,7 +165,7 @@ describe("the scoped wipe's ledger predicate", () => {
     seedOnePerPrefix();
     const before = countDatoms(db);
 
-    expect(deleteDatomsByEntityPrefix(db, [])).toBe(0);
+    expect(deleteDatomsByEntityPrefix(db, [], clock.now())).toBe(0);
     expect(countDatoms(db)).toBe(before);
   });
 

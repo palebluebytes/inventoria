@@ -37,21 +37,25 @@ violates one does not merge.
   `src/lib/habits/habits.ts`), never by removing the original.
 - The only sanctioned table-level destructive operations are `resetLedgerSchema`
   (the user-initiated `clear`), the one-shot ADR-0020 migration,
-  `deleteDatomsByEntityPrefix` — the **ledger half** of the Facet-scoped wipe
-  behind "Delete all my food data" — and `applyCarriedDeletions`, which is that
-  same wipe arriving from one of your own devices (ADR-0096 §12). All four live
-  in `src/lib/db/db.core.ts`; do not add others. That wipe's other half takes the
-  Facet's `localStorage` records and is `src/lib/facets/facet-wipe.ts`'s, which
-  is where its predicate is derived from the registry rather than authored
-  (ADR-0079 §2, §3).
+  `wipeFacetFromLedger` — the **ledger half** of the Facet-scoped wipe behind
+  "Delete all my food data" — and `importConvergedRows`, which is that same wipe
+  arriving from one of your own devices (ADR-0096 §12). All four live in
+  `src/lib/db/db.core.ts`; do not add others. The last two share one predicate,
+  `deleteDatomsByEntityPrefix`, and it is not a fifth: it is where the `DELETE`
+  is written, and it deletes nothing nobody asked it to. That wipe's other half
+  takes the Facet's `localStorage` records and is
+  `src/lib/facets/facet-wipe.ts`'s, which is where its predicate is derived from
+  the registry rather than authored (ADR-0079 §2, §3).
 - **The fourth is the third arriving, and that is why it is allowed.** A
   **Carried deletion** is a datom naming the prefix list the wiping device froze
-  and the stamp it acted at, and `applyCarriedDeletions` hands both straight to
+  and the stamp it acted at, and the arriving path hands both straight to
   `deleteDatomsByEntityPrefix` — the same function under the same predicate, so
   it is the same act rather than a re-enactment of it, and it inherits the
-  closure proof below instead of asking for an exemption of its own. It runs on
-  **every** batch a convergence writes and on **no** batch a user-chosen import
-  writes, because a peer's payload arrives and a file is chosen (ADR-0067 §1).
+  closure proof below instead of asking for an exemption of its own. A deletion
+  **new to this device** takes what it covers here, once; one this ledger
+  already held **refuses** what arrives and never re-sweeps the table, which is
+  what keeps a user-chosen import exempt rather than merely deferred (ADR-0067
+  §1).
 - **A partial deletion is sanctioned only where its rows are closed under
   reference** (ADR-0079 §1). The first two exceptions are safe because they are
   total: afterwards no fold can produce a wrong answer, because there is nothing

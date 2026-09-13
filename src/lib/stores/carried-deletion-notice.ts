@@ -39,8 +39,8 @@
  * no act is counted twice.
  */
 
-import { writable, type Readable } from "svelte/store";
-import { dbClient, type CarriedDeletionSwept } from "../db/db.client";
+import { get, writable, type Readable } from "svelte/store";
+import { dbClient, type CarriedDeletionSweep } from "../db/db.client";
 import { ownerOfEntity } from "../facets/registry";
 import { listOf } from "../ui/words";
 
@@ -147,9 +147,12 @@ export function namesOfCarriedPrefixes(prefixes: readonly string[]): string[] {
  * nothing here changed nothing here, and announcing it would be news about
  * another device's ledger rather than about this one.
  */
-export function noteCarriedDeletion(swept: CarriedDeletionSwept): void {
+export function noteCarriedDeletion(swept: CarriedDeletionSweep): void {
   if (swept.datomsDeleted <= 0) return;
-  const before = readNotice();
+  // The store and not the jar: a privacy-locked or absent `localStorage` keeps
+  // no record between the two acts, and reading it back would make the second
+  // act *replace* the first instead of adding to it.
+  const before = get(standing);
   const names = [...(before?.names ?? [])];
   for (const name of namesOfCarriedPrefixes(swept.prefixes)) {
     if (!names.includes(name)) names.push(name);

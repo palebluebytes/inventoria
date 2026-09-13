@@ -26,7 +26,11 @@ const { FakeWorker, getWorker, resetWorker } = vi.hoisted(() => {
         data: { type: "broadcast_invalidation", payload: { attributes } },
       });
     }
-    sweep(payload: { prefixes: string[]; datomsDeleted: number }) {
+    sweep(payload: {
+      prefixes: string[];
+      datomsDeleted: number;
+      refused: number;
+    }) {
       this.onmessage?.({
         data: { type: "broadcast_carried_deletion", payload },
       });
@@ -232,17 +236,23 @@ describe("DBClient RPC layer", () => {
 
   it("delivers a carried deletion to its own listeners and not to invalidation", async () => {
     const c = await makeInitialized();
-    const swept: { prefixes: string[]; datomsDeleted: number }[] = [];
+    const swept: {
+      prefixes: readonly string[];
+      datomsDeleted: number;
+      refused: number;
+    }[] = [];
     const invalidated: string[][] = [];
     const stop = c.onCarriedDeletion((s) => swept.push(s));
     c.onInvalidate((attributes) => invalidated.push(attributes));
 
-    getWorker().sweep({ prefixes: ["fdc:"], datomsDeleted: 12 });
-    expect(swept).toEqual([{ prefixes: ["fdc:"], datomsDeleted: 12 }]);
+    getWorker().sweep({ prefixes: ["fdc:"], datomsDeleted: 12, refused: 0 });
+    expect(swept).toEqual([
+      { prefixes: ["fdc:"], datomsDeleted: 12, refused: 0 },
+    ]);
     expect(invalidated).toEqual([]);
 
     stop();
-    getWorker().sweep({ prefixes: ["fdc:"], datomsDeleted: 3 });
+    getWorker().sweep({ prefixes: ["fdc:"], datomsDeleted: 3, refused: 0 });
     expect(swept).toHaveLength(1);
   });
 

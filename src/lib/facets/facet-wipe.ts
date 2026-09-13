@@ -29,10 +29,13 @@
  * missed a channel would report success having left records behind — the
  * failure mode this whole file is written against.
  *
- * The ledger half is `db/db.core.ts`'s: `deleteDatomsByEntityPrefix` is the
- * third sanctioned destructive operation and lives with the other two. This
- * module decides *what* to hand it, and takes the `localStorage` side itself,
- * because the worker has no `localStorage` to take.
+ * The ledger half is `db/db.core.ts`'s: `wipeFacetFromLedger` writes the act
+ * down as a **Carried deletion** and then takes the rows under
+ * `deleteDatomsByEntityPrefix`, in one transaction, and both live with the
+ * other sanctioned deletions (ADR-0096 §12). This module decides *what* to hand
+ * it, and takes the `localStorage` side itself, because the worker has no
+ * `localStorage` to take — and no carried deletion either, since a peer applies
+ * this act to its ledger and never to its settings.
  */
 
 import type { EntityCensus, EntityCensusGroup } from "../db/db.core";

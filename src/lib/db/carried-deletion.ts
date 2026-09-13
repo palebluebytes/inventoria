@@ -38,21 +38,37 @@
  *
  * Firing once leaves a hole at three devices or more: one that slept through
  * the wipe wakes later, syncs with the peer that already deleted, and
- * re-supplies the rows one hop out. So {@link carriedDeletionWarrant} is asked
- * of **every** batch a convergence writes, for as long as the deletion is in
- * the ledger — which is forever, because the ledger is append-only.
+ * re-supplies the rows one hop out. So a carried deletion is a **standing**
+ * predicate rather than an event, and it does two things:
  *
- * The rows go from the table rather than being filtered at fold time, so
- * ADR-0079's _a wipe that grows the file is a lie_ is untouched and the freed
- * pages are reusable on both devices.
+ * - **When it becomes known to this device it takes everything it covers that
+ *   is here**, once, physically — so ADR-0079's _a wipe that grows the file is
+ *   a lie_ is untouched and the freed pages are reusable on both devices.
+ * - **Ever after it refuses what arrives.** {@link siftArrivingRows} runs over
+ *   every batch a convergence writes, in memory, and the rows a held deletion
+ *   covers are never written at all — which is strictly stronger than deleting
+ *   them and is nothing like a fold-time filter, where the rows stay in the
+ *   file and the reader hides them.
+ *
+ * **Nothing re-evaluates a deletion against rows that are already here**, and
+ * that is what makes the import exemption an exemption rather than a deferral.
+ * _Wipe, then import_ is the sanctioned way to make a file the only truth, so
+ * the wipe's own deletion is in the ledger when the chosen file lands beneath
+ * it; a standing predicate that swept the table again would silently undo the
+ * restore on whatever unrelated batch a peer sent next. ADR-0096's Consequences
+ * say what is built: _the import exemption keeps the food locally._
+ *
+ * It is also why refusing is the right half rather than deleting the arrived
+ * rows by key: a peer re-supplying a row the user has since restored would
+ * otherwise take the restored copy with it.
  *
  * ### What is not here
  *
  * The SQL is `db.core.ts`'s, beside the other sanctioned deletions — this
- * module is the shape of the fact, the predicate over one row, and the question
- * "need this batch be swept at all?". Which batches are convergence and which
- * are a user-chosen import is `db.worker.ts`'s, and the notice the peer shows
- * afterwards is `stores/carried-deletion-notice.ts`'s.
+ * module is the shape of the fact and the predicate over one row. Which write
+ * path a batch takes, and so which batches are exempt, is `db.worker.ts`'s, and
+ * the notice the peer shows afterwards is
+ * `stores/carried-deletion-notice.ts`'s.
  */
 
 import { mintEntity } from "../facets/entity-id";
@@ -159,8 +175,7 @@ export function readCarriedDeletion(row: LedgerRow): CarriedDeletion | null {
  * before its own.
  *
  * The same predicate the `DELETE` runs, evaluated in memory over rows that have
- * not been written yet. It exists so a sweep can be **skipped** rather than
- * repeated — see {@link carriedDeletionWarrant}.
+ * not been written yet.
  */
 export function carriedDeletionTakes(
   deletion: CarriedDeletion,
@@ -172,56 +187,58 @@ export function carriedDeletionTakes(
   );
 }
 
-/**
- * Which of the held deletions this arriving batch obliges the ledger to sweep.
- *
- * **The sweep is over the whole table and the batch decides whether it runs.**
- * Every batch before this one was swept against every deletion held at the
- * time, so the only two things that can leave a row a deletion takes are:
- *
- * - a **new deletion** in this batch, which may take rows that arrived at any
- *   point in the past — including earlier batches of this same import — so
- *   everything held is swept; and
- * - a **row this batch carries** that a deletion already held takes, which is
- *   the peer re-supplying what a wipe removed.
- *
- * Anything else leaves the ledger exactly as the last sweep left it, and a
- * scan of it would find nothing. That matters because a deletion is permanent:
- * without this, every convergence batch for the rest of a jar's life would pay
- * a full table scan for a wipe somebody performed once, years ago.
- *
- * An empty answer means no sweep, not "sweep nothing".
- */
-export function carriedDeletionWarrant(
-  held: readonly CarriedDeletion[],
-  arrived: readonly LedgerRow[]
-): CarriedDeletion[] {
-  if (held.length === 0) return [];
-  const carriesADeletion = arrived.some(
-    (row) => row.attribute === CARRIED_DELETION_ATTRIBUTE
-  );
-  if (carriesADeletion) return [...held];
-  return held.filter((deletion) =>
-    arrived.some((row) => carriedDeletionTakes(deletion, row))
-  );
+/** An arriving batch, split by what this ledger's carried deletions refuse. */
+export interface SiftedRows {
+  /** The rows to write: everything no held deletion covers. */
+  keep: LedgerRow[];
+  /** How many were refused, which is the peer re-supplying what a wipe took. */
+  refused: number;
 }
 
-/** What a sweep took, which is what the peer's one-shot notice is built from. */
+/**
+ * One arriving batch held to every carried deletion this ledger already has.
+ *
+ * **In memory, over the batch, and never a query.** The whole cost of this
+ * mechanism on a jar that has been wiped is one pass over the rows already in
+ * hand — where a table scan per batch would charge every convergence for the
+ * rest of the jar's life, because a carried deletion is in an append-only table
+ * forever.
+ *
+ * **Refusing is silent.** A peer re-supplying what a wipe took is the normal
+ * steady state at three devices or more, and the person was told when the act
+ * arrived; saying it again on every batch would be a notice about nothing
+ * leaving.
+ */
+export function siftArrivingRows(
+  held: readonly CarriedDeletion[],
+  arrived: readonly LedgerRow[]
+): SiftedRows {
+  if (held.length === 0) return { keep: [...arrived], refused: 0 };
+  const keep = arrived.filter(
+    (row) => !held.some((deletion) => carriedDeletionTakes(deletion, row))
+  );
+  return { keep, refused: arrived.length - keep.length };
+}
+
+/** What one batch's carried deletions took, and what they refused. */
 export interface CarriedDeletionSweep {
   /**
-   * The prefixes of every deletion that took at least one row.
+   * The prefixes that actually took rows, as they were **carried**.
    *
-   * The prefixes as they were **carried**, unfiltered: what this build calls
-   * them is the notice's business, and a prefix it cannot name is one it
+   * Per prefix and not per deletion, so a wipe whose Facet held five prefixes
+   * and whose peer had rows under one of them names the one. What this build
+   * calls them is the notice's business, and a prefix it cannot name is one it
    * deleted nothing under.
    */
   prefixes: readonly string[];
-  /** Rows physically removed by this sweep. */
+  /** Rows physically removed, which is what the peer's notice counts. */
   datomsDeleted: number;
+  /** Rows this batch carried that a deletion already held refused. */
+  refused: number;
 }
 
 /**
- * A sweep that took nothing, which is every batch in a jar nobody has wiped.
+ * A batch that took nothing, which is every batch in a jar nobody has wiped.
  *
  * One shared value rather than a fresh object per batch, and frozen because it
  * is shared: a reader that pushed a prefix onto it would be editing every
@@ -230,4 +247,5 @@ export interface CarriedDeletionSweep {
 export const SWEPT_NOTHING: CarriedDeletionSweep = Object.freeze({
   prefixes: Object.freeze([]),
   datomsDeleted: 0,
+  refused: 0,
 });

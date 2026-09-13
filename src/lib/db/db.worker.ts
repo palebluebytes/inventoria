@@ -3,10 +3,10 @@ import { projections } from "./projections";
 import { SWEPT_NOTHING } from "./carried-deletion";
 import {
   appendDatoms,
-  applyCarriedDeletions,
   censusByEntityPrefix,
   ensureLedgerSchema,
   getOrCreateDeviceId,
+  importConvergedRows,
   importLedgerRows,
   readHlcHighWater,
   readLedgerPage,
@@ -234,23 +234,22 @@ self.onmessage = async (event: MessageEvent) => {
       // with their stamps intact, so the same file imported twice is the same
       // ledger (ADR-0067).
       const { rows, final, source } = payload;
-      const outcome = importLedgerRows(db, rows);
+      // **Two write paths, and the exemption is the choice between them**
+      // (ADR-0096 §12). This is the one place that knows which of the two a
+      // batch is: a peer's payload *arrives* and is held to every carried
+      // deletion this ledger has, and a file is *chosen*, where _wipe, then
+      // import_ is already the sanctioned way to make it the only truth.
+      // `source` is required rather than defaulted, because both defaults are
+      // wrong in silence — one re-supplies the rows a wipe took, the other
+      // deletes the file the user picked.
+      const { outcome, swept } =
+        source === "convergence"
+          ? importConvergedRows(db, rows)
+          : { outcome: importLedgerRows(db, rows), swept: SWEPT_NOTHING };
       // A stamp issued elsewhere has to move this device's clock, or a write
       // made straight after an import could order before the facts it brought
       // in. This is exactly what ADR-0020 gave `update` to do.
       if (outcome.highWater) hlc.update(outcome.highWater);
-
-      // **Every arriving batch, and only a converging one** (ADR-0096 §12).
-      // This is the one place that knows which of the two a batch is, so it is
-      // the place the exemption lives: a peer's payload *arrives* and a file is
-      // *chosen*, and _wipe, then import_ is already the sanctioned way to make
-      // a file the only truth. `source` is required rather than defaulted,
-      // because both defaults are wrong in silence — one re-supplies the rows a
-      // wipe took, the other deletes the file the user picked.
-      const swept =
-        source === "convergence"
-          ? applyCarriedDeletions(db, rows)
-          : SWEPT_NOTHING;
 
       self.postMessage({ id, status: "ok", data: outcome.rowsAdded });
 

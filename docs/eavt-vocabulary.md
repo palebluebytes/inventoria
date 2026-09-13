@@ -143,13 +143,6 @@ The only prefix belonging to a **Tracked Domain** that has no screen and joins n
 a datom, and a datom inside a Facet's prefix set would be deleted by the very wipe it
 records, so the **Jar domain** owns this one prefix and nothing else
 ([ADR-0096](adr/0096-devices-converge-without-both-being-awake-through-a-store-of-sealed-deltas.md) §13).
-
-The id is the act's own datom key, `deletion:<hlc_ms>_<hlc_ctr>_<device_id>`. It is
-unique across devices by construction, legible in the raw database, and needs neither
-a clock read nor a random of its own. One entity per act rather than a singleton:
-two wipes are two facts with two stamps, and one entity under a later fact wins would
-keep only the newer prefix list, stranding rows under any prefix that retired between
-builds.
 It is therefore in no Facet-scoped wipe and in every jar-wide `clear`.
 
 The local part is the act's own datom key, `<hlc_ms>_<hlc_ctr>_<device_id>`, which is

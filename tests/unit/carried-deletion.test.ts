@@ -20,11 +20,11 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import sqlite3InitModule from "@sqlite.org/sqlite-wasm";
 import {
-  applyCarriedDeletions,
   countDatoms,
   createLedgerSchema,
   execRows,
   heldCarriedDeletions,
+  importConvergedRows,
   importLedgerRows,
   wipeFacetFromLedger,
   type LedgerDb,
@@ -32,9 +32,9 @@ import {
 } from "../../src/lib/db/db.core";
 import {
   carriedDeletionRow,
-  carriedDeletionWarrant,
   CARRIED_DELETION_ATTRIBUTE,
   readCarriedDeletion,
+  siftArrivingRows,
 } from "../../src/lib/db/carried-deletion";
 import { entityPrefixesOf } from "../../src/lib/facets/registry";
 import { readCode } from "./support/source";
@@ -59,7 +59,11 @@ const row = (over: Partial<LedgerRow> = {}): LedgerRow => ({
   ...over,
 });
 
+/** Rows already here, by the exempt path: this is what a chosen file does. */
 const hold = (rows: LedgerRow[]) => importLedgerRows(db, rows);
+
+/** One batch a convergence brought, by the path a peer's payload takes. */
+const arrive = (rows: LedgerRow[]) => importConvergedRows(db, rows).swept;
 
 const entities = (): string[] =>
   execRows<{ entity: string }>(
@@ -201,31 +205,43 @@ describe("it takes rows stamped at or before it, and nothing after", () => {
 });
 
 describe("a peer applies it, and the outcome does not depend on order", () => {
-  /** A peer's ledger holding everything, and the wipe arriving as one batch. */
+  /** The wipe as it crosses: one datom in a batch a convergence brought. */
   const deletion = (hlc_ms: number, prefixes: readonly string[] = FOOD) =>
     carriedDeletionRow({ hlc_ms, hlc_ctr: 0, device_id: "dev_a" }, prefixes);
 
-  it("takes the rows the wiping device took, on arrival", () => {
+  it("takes what it covers that is already here, the moment it arrives", () => {
     hold([row({ entity: "fdc:1" }), row({ entity: "habit:1" })]);
 
-    const swept = applyCarriedDeletions(db, [deletion(5_000)]);
-    hold([deletion(5_000)]);
-    const settled = applyCarriedDeletions(db, [deletion(5_000)]);
+    const swept = arrive([deletion(5_000)]);
 
-    // The first call ran before the row was in the table, so nothing was held
-    // to sweep yet; the batch is written first in the worker, which is what the
-    // second pair reproduces.
-    expect(swept.datomsDeleted).toBe(0);
-    expect(settled).toEqual({ prefixes: FOOD, datomsDeleted: 1 });
+    expect(swept).toEqual({ prefixes: ["fdc:"], datomsDeleted: 1, refused: 0 });
     expect(entities()).toEqual(["deletion:5000_0_dev_a", "habit:1"]);
   });
 
-  it("gives the same ledger applied twice", () => {
-    hold([row(), deletion(5_000)]);
+  // A wipe carries its Facet's whole prefix set, and this peer had meals under
+  // one of them. Naming the other four would claim rows that were never here.
+  it("names only the prefixes rows actually went under", () => {
+    hold([
+      row({ entity: "fdc:1" }),
+      row({ entity: "event:consume_1" }),
+      row({ entity: "recipe:1" }),
+    ]);
 
-    applyCarriedDeletions(db, [deletion(5_000)]);
+    expect(arrive([deletion(5_000, ["fdc:", "recipe:", "gtin:"])])).toEqual({
+      prefixes: ["fdc:", "recipe:"],
+      datomsDeleted: 2,
+      refused: 0,
+    });
+  });
+
+  it("gives the same ledger when the same deletion arrives again", () => {
+    hold([row()]);
+    arrive([deletion(5_000)]);
     const after = entities();
-    const again = applyCarriedDeletions(db, [deletion(5_000)]);
+
+    // A collection that could not settle is retried whole, so the peer sends
+    // the deletion a second time. It is held by then, so it sweeps nothing.
+    const again = arrive([deletion(5_000)]);
 
     expect(again.datomsDeleted).toBe(0);
     expect(entities()).toEqual(after);
@@ -241,18 +257,12 @@ describe("a peer applies it, and the outcome does not depend on order", () => {
         row({ entity: "habit:1", hlc_ms: 1_000 }),
         row({ entity: "habit:late", hlc_ms: 9_000 }),
       ]);
-      for (const arriving of order) {
-        hold([arriving]);
-        applyCarriedDeletions(db, [arriving]);
-      }
+      for (const arriving of order) arrive([arriving]);
       return entities();
     };
 
-    const forwards = outcome([older, newer]);
-    const backwards = outcome([newer, older]);
-
-    expect(forwards).toEqual(backwards);
-    expect(forwards).toEqual([
+    expect(outcome([older, newer])).toEqual(outcome([newer, older]));
+    expect(outcome([older, newer])).toEqual([
       "deletion:5000_0_dev_a",
       "deletion:7000_0_dev_a",
       "habit:late",
@@ -262,27 +272,31 @@ describe("a peer applies it, and the outcome does not depend on order", () => {
   // The hole this closes is at three devices: one that slept through the wipe
   // wakes later, syncs with the peer that already deleted, and re-supplies the
   // rows one hop out.
-  it("applies to every arriving batch, not once", () => {
-    hold([deletion(5_000)]);
-    applyCarriedDeletions(db, [deletion(5_000)]);
+  it("refuses rows a device that slept through the wipe re-supplies", () => {
+    arrive([deletion(5_000)]);
     expect(entities()).toEqual(["deletion:5000_0_dev_a"]);
 
     // A third device, months later, hands back what the wipe took.
-    const resupplied = [row({ entity: "fdc:1" }), row({ entity: "fdc:2" })];
-    hold(resupplied);
-    const swept = applyCarriedDeletions(db, resupplied);
+    const swept = arrive([row({ entity: "fdc:1" }), row({ entity: "fdc:2" })]);
 
-    expect(swept.datomsDeleted).toBe(2);
+    expect(swept).toEqual({ prefixes: [], datomsDeleted: 0, refused: 2 });
     expect(entities()).toEqual(["deletion:5000_0_dev_a"]);
+  });
+
+  // "Refused" is silent: the person was told when the act arrived, and nothing
+  // left the ledger this time.
+  it("says nothing further about a batch that only re-supplied", () => {
+    arrive([deletion(5_000)]);
+    expect(arrive([row()]).datomsDeleted).toBe(0);
   });
 
   // "Physical delete, never a fold-time filter", so ADR-0079's "a wipe that
   // grows the file is a lie" survives on the peer as well as on the wiper.
   it("removes the rows from the table rather than hiding them", () => {
-    hold([row(), deletion(5_000)]);
-    expect(countDatoms(db)).toBe(2);
+    hold([row()]);
+    expect(countDatoms(db)).toBe(1);
 
-    applyCarriedDeletions(db, [deletion(5_000)]);
+    arrive([deletion(5_000)]);
 
     expect(countDatoms(db)).toBe(1);
     expect(
@@ -291,67 +305,148 @@ describe("a peer applies it, and the outcome does not depend on order", () => {
   });
 
   it("carries a prefix this build never minted, and deletes nothing under it", () => {
-    const unknown = deletion(5_000, ["telepathy:", "fdc:"]);
-    hold([row({ entity: "fdc:1" }), row({ entity: "habit:1" }), unknown]);
+    hold([row({ entity: "fdc:1" }), row({ entity: "habit:1" })]);
 
-    const swept = applyCarriedDeletions(db, [unknown]);
+    const swept = arrive([deletion(5_000, ["telepathy:", "fdc:"])]);
 
     expect(swept.datomsDeleted).toBe(1);
     expect(entities()).toEqual(["deletion:5000_0_dev_a", "habit:1"]);
-    // Carried verbatim: naming it is the notice's job, and a prefix it cannot
-    // name is one nothing was deleted under.
-    expect(swept.prefixes).toEqual(["telepathy:", "fdc:"]);
+    // Named only where rows went, so the prefix nothing was deleted under is
+    // carried into the ledger and out of the sentence.
+    expect(swept.prefixes).toEqual(["fdc:"]);
+  });
+
+  it("rolls the batch back with the sweep, so no deletion is held unapplied", () => {
+    hold([row()]);
+    // The write lands and the sweep's `DELETE` does not, which is the one
+    // ordering that could leave a deletion here that nothing will ever apply.
+    let statements = 0;
+    const brittle: LedgerDb = {
+      exec: (arg: any) => (db.exec as any)(arg),
+      prepare: (sql: string) => {
+        if (++statements > 1) throw new Error("disk went away");
+        return db.prepare(sql);
+      },
+    };
+
+    expect(() => importConvergedRows(brittle, [deletion(5_000)])).toThrow(
+      "disk went away"
+    );
+    // Neither half landed, so the peer's retry brings the deletion round again
+    // as one this ledger has never held.
+    expect(heldCarriedDeletions(db)).toEqual([]);
+    expect(entities()).toEqual(["fdc:1"]);
   });
 });
 
-describe("what a batch obliges, so a wipe is not a scan on every batch forever", () => {
+describe("a user-chosen file is exempt, and stays exempt", () => {
+  const deletion = (hlc_ms: number) =>
+    carriedDeletionRow({ hlc_ms, hlc_ctr: 0, device_id: "dev_a" }, FOOD);
+
+  // "Wipe, then import is already the sanctioned way to make a file the only
+  // truth" (ADR-0096 §12), so the wipe's own deletion is in the ledger when the
+  // chosen file lands beneath it.
+  it("keeps a restored backup that a held deletion covers", () => {
+    wipeFacetFromLedger(db, FOOD, {
+      hlc_ms: 5_000,
+      hlc_ctr: 0,
+      device_id: "dev_a",
+    });
+
+    hold([row({ entity: "fdc:1", hlc_ms: 1_000 })]);
+
+    expect(entities()).toContain("fdc:1");
+  });
+
+  // The half the first draft of this got wrong: a whole-table sweep on a later
+  // batch would have undone the restore on whatever a peer happened to send
+  // next. ADR-0096's Consequences say the import exemption keeps the food
+  // *locally*, permanently.
+  it("still keeps it however many later batches arrive from a peer", () => {
+    wipeFacetFromLedger(db, FOOD, {
+      hlc_ms: 5_000,
+      hlc_ctr: 0,
+      device_id: "dev_a",
+    });
+    hold([row({ entity: "fdc:1", hlc_ms: 1_000 })]);
+
+    arrive([row({ entity: "habit:1", hlc_ms: 2_000 })]);
+    // The wipe's own deletion coming back round the loop from the peer that
+    // collected it. Held already, so it sweeps nothing.
+    arrive([deletion(5_000)]);
+    arrive([row({ entity: "habit:2", hlc_ms: 3_000 })]);
+
+    expect(entities()).toContain("fdc:1");
+  });
+
+  // The exemption is not a shield against the future. A *second* wipe, made
+  // after the restore in stamp order, takes it — which is "it takes rows
+  // stamped at or before it" doing exactly what it says, and is the same answer
+  // the wiping device gave itself.
+  it("does not shield it from a later wipe on another device", () => {
+    hold([row({ entity: "fdc:1", hlc_ms: 1_000 })]);
+
+    arrive([deletion(6_000)]);
+
+    expect(entities()).not.toContain("fdc:1");
+  });
+
+  it("keeps it even where a peer re-supplies the very same row", () => {
+    wipeFacetFromLedger(db, FOOD, {
+      hlc_ms: 5_000,
+      hlc_ctr: 0,
+      device_id: "dev_a",
+    });
+    hold([row({ entity: "fdc:1", hlc_ms: 1_000 })]);
+
+    // Refused rather than deleted by key, which is the whole reason the
+    // arriving half refuses: the copy already here is the user's restore.
+    expect(arrive([row({ entity: "fdc:1", hlc_ms: 1_000 })]).refused).toBe(1);
+    expect(entities()).toContain("fdc:1");
+  });
+});
+
+describe("what an arriving batch is held to", () => {
   const deletion = readCarriedDeletion(
     carriedDeletionRow({ hlc_ms: 5_000, hlc_ctr: 0, device_id: "dev_a" }, FOOD)
   )!;
 
-  it("obliges nothing when nothing is held", () => {
-    expect(carriedDeletionWarrant([], [row()])).toEqual([]);
+  it("keeps everything when nothing is held", () => {
+    expect(siftArrivingRows([], [row()])).toEqual({
+      keep: [row()],
+      refused: 0,
+    });
   });
 
-  it("obliges nothing for a batch carrying nothing a deletion takes", () => {
+  it("keeps a row no held deletion covers", () => {
     expect(
-      carriedDeletionWarrant([deletion], [row({ entity: "habit:1" })])
-    ).toEqual([]);
+      siftArrivingRows([deletion], [row({ entity: "habit:1" })]).refused
+    ).toBe(0);
   });
 
-  it("obliges a sweep for a row a held deletion takes", () => {
-    expect(
-      carriedDeletionWarrant([deletion], [row({ hlc_ms: 1_000 })])
-    ).toEqual([deletion]);
+  it("refuses a row a held deletion covers", () => {
+    expect(siftArrivingRows([deletion], [row({ hlc_ms: 1_000 })])).toEqual({
+      keep: [],
+      refused: 1,
+    });
   });
 
   // A row stamped after the act is not the peer re-supplying anything: it is
   // the future, which a wipe never takes.
-  it("obliges nothing for a row stamped after the act", () => {
-    expect(
-      carriedDeletionWarrant([deletion], [row({ hlc_ms: 9_000 })])
-    ).toEqual([]);
+  it("keeps a row stamped after the act", () => {
+    expect(siftArrivingRows([deletion], [row({ hlc_ms: 9_000 })]).refused).toBe(
+      0
+    );
   });
 
-  // A deletion arriving now may take rows that arrived in any earlier batch —
-  // including earlier batches of this same import — so everything held is swept.
-  it("obliges every held deletion when the batch carries one", () => {
-    const second = readCarriedDeletion(
-      carriedDeletionRow({ hlc_ms: 7_000, hlc_ctr: 0, device_id: "dev_b" }, [
-        "habit:",
-      ])
-    )!;
-    expect(
-      carriedDeletionWarrant(
-        [deletion, second],
-        [
-          carriedDeletionRow(
-            { hlc_ms: 7_000, hlc_ctr: 0, device_id: "dev_b" },
-            ["habit:"]
-          ),
-        ]
-      )
-    ).toEqual([deletion, second]);
+  // The deletion in the batch is not yet held, so it is written and then takes
+  // the table; refusing it here would be the wipe deleting its own record.
+  it("keeps the deletion the batch itself carries", () => {
+    const arriving = carriedDeletionRow(
+      { hlc_ms: 7_000, hlc_ctr: 0, device_id: "dev_b" },
+      ["habit:"]
+    );
+    expect(siftArrivingRows([deletion], [arriving]).keep).toEqual([arriving]);
   });
 });
 
@@ -373,7 +468,7 @@ describe("a malformed record is ignored rather than thrown on", () => {
     ]);
 
     expect(heldCarriedDeletions(db)).toEqual([]);
-    expect(applyCarriedDeletions(db, [row()]).datomsDeleted).toBe(0);
+    expect(arrive([row()]).datomsDeleted).toBe(0);
   });
 });
 
@@ -383,14 +478,14 @@ describe("a user-chosen import is exempt (ADR-0096 §12)", () => {
   // `db-client.test.ts`'s, and the two callers are named there.
   const WORKER = readCode("src/lib/db/db.worker.ts");
 
-  it("applies carried deletions only where the batch is a convergence", () => {
+  it("takes the converging write path only where the batch is a convergence", () => {
     expect(WORKER).toMatch(
-      /source === "convergence"\s*\?\s*applyCarriedDeletions\(db, rows\)\s*:\s*SWEPT_NOTHING/
+      /source === "convergence"\s*\?\s*importConvergedRows\(db, rows\)\s*:\s*\{ outcome: importLedgerRows\(db, rows\), swept: SWEPT_NOTHING \}/
     );
   });
 
-  it("is the only caller, so nothing else can sweep a chosen file", () => {
-    expect(WORKER.match(/applyCarriedDeletions\(/g)).toHaveLength(1);
+  it("is the only caller, so nothing else can hold a chosen file to one", () => {
+    expect(WORKER.match(/importConvergedRows\(/g)).toHaveLength(1);
   });
 
   it("names a convergence at both p2p write seams and an import at the file", () => {
