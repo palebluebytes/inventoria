@@ -301,7 +301,7 @@ describe("the bundled search index", () => {
     // pasteurized process, American` and its `food` sibling stop naming a
     // fortification and become the plain form of the `low fat` and
     // `vitamin D fortified` rows filed beneath them.
-    expect(index.foods.filter((row) => row.plain_sibling).length).toBe(434);
+    expect(index.foods.filter((row) => row.plain_sibling).length).toBe(433);
     // Omitted rather than emitted false, like every other absent field.
     expect(index.foods.filter((row) => row.plain_sibling === false)).toEqual(
       []
@@ -836,7 +836,7 @@ describe("the bundled search index", () => {
       index.foods.filter((row) => isDryBasisRecord(row.description))
     ).toEqual([]);
     expect(
-      index.foods.filter((row) => /mature seeds$/.test(row.description)).length
+      index.foods.filter((row) => /, dried$/.test(row.description)).length
     ).toBeGreaterThan(30);
   });
 });
@@ -915,9 +915,7 @@ describe("searchIndexRows", () => {
     // bracket made a token no name word could equal, and the search collapsed.
     // These are the rows the corpus actually ships under those names.
     expect(descriptionsFor("mahi-mahi")[0]).toBe("Fish, mahimahi");
-    expect(descriptionsFor("hyacinth-beans")[0]).toBe(
-      "Hyacinth-beans, immature seeds"
-    );
+    expect(descriptionsFor("hyacinth-beans")[0]).toBe("Hyacinth-beans");
     expect(descriptionsFor("yambean (jicama)")[0]).toBe("Yambean (jicama)");
     expect(descriptionsFor("pak-choi")).not.toEqual([]);
     expect(descriptionsFor("freeze-dried chives")).toContain(
@@ -2047,7 +2045,7 @@ describe("searchIndexRows", () => {
     // here at once.
     expect({ notFirst, gained, lost }).toEqual({
       notFirst: 21,
-      gained: 219,
+      gained: 215,
       lost: 0,
     });
   }, 30_000);

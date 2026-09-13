@@ -3,9 +3,9 @@
   "schema_version": 1,
   "ticket": "https://github.com/palebluebytes/inventoria/issues/192",
   "map": "https://github.com/palebluebytes/inventoria/issues/186",
-  "ruler": "sweepQueries over the shipped corpus — 2679 queries, pinned and used against both corpora",
+  "ruler": "sweepQueries over the shipped corpus — 2675 queries, pinned and used against both corpora",
   "corpora": {
-    "shipped": "public/usda/search-index.json sha256:5c6c034c4a5b5329"
+    "shipped": "public/usda/search-index.json sha256:9b9e53b609e22176"
   },
   "gold_sets": {
     "143": "19 of 50 adjudicated heads carry verdict \"correct\" — the leads ADR-0055 §2 protects",
@@ -35,21 +35,21 @@
       "label": "shipped",
       "rows": 2484,
       "names": 2553,
-      "queries": 2679,
-      "answered": 2679,
+      "queries": 2675,
+      "answered": 2675,
       "empty": 0,
       "plain_sibling": {
-        "carried": 434,
-        "derived": 434,
+        "carried": 433,
+        "derived": 433,
         "stale": 0
       },
       "gold_leads_held": 19,
       "ablations": [
         {
           "key": "tier",
-          "moved": 56,
+          "moved": 79,
           "gold_leads_broken": 0,
-          "c1_lost": 0,
+          "c1_lost": 1,
           "examples": [
             {
               "query": "60 spread",
@@ -94,48 +94,43 @@
         },
         {
           "key": "raw",
-          "moved": 18,
+          "moved": 78,
           "gold_leads_broken": 0,
-          "c1_lost": 0,
+          "c1_lost": 1,
           "examples": [
             {
-              "query": "coconut",
-              "shipped": "Nuts, coconut milk, raw (liquid expressed from grated meat and water)",
-              "without": "Nuts, coconut meat"
+              "query": "american",
+              "shipped": "Fish, shad, american",
+              "without": "Cheese, American, restaurant"
             },
             {
-              "query": "coconuts",
-              "shipped": "Nuts, coconut milk, raw (liquid expressed from grated meat and water)",
-              "without": "Nuts, coconut meat"
+              "query": "and pork",
+              "shipped": "Pork, fresh, spareribs, separable lean and fat",
+              "without": "Pork, cured, ham and water product, whole, boneless, separable lean only"
             },
             {
-              "query": "cod",
-              "shipped": "Fish, cod, Pacific, raw (may have been previously frozen)",
-              "without": "Fish, cod, Atlantic"
+              "query": "barley",
+              "shipped": "Barley, pearled",
+              "without": "Barley, hulled"
             },
             {
-              "query": "crustaceans",
-              "shipped": "Crustaceans, shrimp, mixed species, raw (may contain additives to retain moisture)",
-              "without": "Crustaceans, crab, dungeness"
+              "query": "bear",
+              "shipped": "Bear, polar, meat",
+              "without": "Bear, black, meat"
             },
             {
-              "query": "fish",
-              "shipped": "Fish, cod, Pacific, raw (may have been previously frozen)",
-              "without": "Fish, mackerel, salted"
+              "query": "blackeye",
+              "shipped": "Cowpeas (blackeyes)",
+              "without": "Blackeye pea, dry"
             }
           ]
         },
         {
           "key": "head",
-          "moved": 29,
+          "moved": 21,
           "gold_leads_broken": 0,
           "c1_lost": 0,
           "examples": [
-            {
-              "query": "apricot",
-              "shipped": "Apricot, with skin",
-              "without": "Apricots, dried, sulfured"
-            },
             {
               "query": "avocado",
               "shipped": "Avocado, Hass, peeled",
@@ -155,20 +150,20 @@
               "query": "cottage cheese",
               "shipped": "Cottage cheese, full fat, large or small curd",
               "without": "Cheese, cottage, with vegetables"
+            },
+            {
+              "query": "cream cheese",
+              "shipped": "Cream cheese, full fat, block",
+              "without": "Cheese, cream, low fat"
             }
           ]
         },
         {
           "key": "accounted",
-          "moved": 12,
+          "moved": 9,
           "gold_leads_broken": 0,
           "c1_lost": 1,
           "examples": [
-            {
-              "query": "apricots",
-              "shipped": "Apricot, with skin",
-              "without": "Apricots, dried, sulfured"
-            },
             {
               "query": "bananas",
               "shipped": "Bananas, ripe and slightly ripe",
@@ -188,12 +183,17 @@
               "query": "corn oil",
               "shipped": "Oil, corn",
               "without": "Oil, corn and canola"
+            },
+            {
+              "query": "oat bread",
+              "shipped": "Bread, oatmeal",
+              "without": "Bread, oat bran"
             }
           ]
         },
         {
           "key": "position",
-          "moved": 208,
+          "moved": 197,
           "gold_leads_broken": 0,
           "c1_lost": 0,
           "examples": [
@@ -226,7 +226,7 @@
         },
         {
           "key": "plainSibling",
-          "moved": 73,
+          "moved": 61,
           "gold_leads_broken": 0,
           "c1_lost": 0,
           "examples": [
@@ -259,15 +259,10 @@
         },
         {
           "key": "plain",
-          "moved": 34,
-          "gold_leads_broken": 1,
+          "moved": 29,
+          "gold_leads_broken": 0,
           "c1_lost": 1,
           "examples": [
-            {
-              "query": "american",
-              "shipped": "Cheese, American, restaurant",
-              "without": "Cheese, american cheddar, imitation"
-            },
             {
               "query": "american cheese",
               "shipped": "Cheese, American, restaurant",
@@ -279,20 +274,25 @@
               "without": "Cheese, parmesan, low sodium"
             },
             {
-              "query": "chicken",
-              "shipped": "Chicken, broilers or fryers, meat and skin and giblets and neck",
-              "without": "Chicken, meatless"
-            },
-            {
               "query": "commercially bread",
               "shipped": "Bread, white, commercially prepared (includes soft bread crumbs)",
               "without": "Bread, white, commercially prepared, low sodium, no salt"
+            },
+            {
+              "query": "cottonseed",
+              "shipped": "Seeds, cottonseed meal, partially defatted (glandless)",
+              "without": "Seeds, cottonseed flour, low fat (glandless)"
+            },
+            {
+              "query": "cucumber pickles",
+              "shipped": "Pickles, cucumber, sweet (includes bread and butter pickles)",
+              "without": "Pickles, cucumber, dill, reduced sodium"
             }
           ]
         },
         {
           "key": "wholeness",
-          "moved": 10,
+          "moved": 9,
           "gold_leads_broken": 0,
           "c1_lost": 0,
           "examples": [
@@ -325,7 +325,7 @@
         },
         {
           "key": "designated",
-          "moved": 13,
+          "moved": 10,
           "gold_leads_broken": 0,
           "c1_lost": 0,
           "examples": [
@@ -333,11 +333,6 @@
               "query": "coho salmon",
               "shipped": "Fish, salmon, coho, farmed",
               "without": "Fish, salmon, coho (silver)"
-            },
-            {
-              "query": "corn",
-              "shipped": "Corn, sweet, white",
-              "without": "Corn, dried"
             },
             {
               "query": "cornmeal",
@@ -350,21 +345,26 @@
               "without": "Walrus, meat, dried"
             },
             {
-              "query": "duck",
-              "shipped": "Duck, domesticated, meat and skin",
-              "without": "Duck, scoter, white-winged, meat"
+              "query": "fireweed",
+              "shipped": "Fireweed, leaves",
+              "without": "Fireweed, young leaves"
+            },
+            {
+              "query": "fish",
+              "shipped": "Fish, bass, striped",
+              "without": "Fish, halibut, with skin"
             }
           ]
         },
         {
           "key": "raw+plain",
-          "moved": 53,
+          "moved": 109,
           "gold_leads_broken": 1,
-          "c1_lost": 1,
+          "c1_lost": 2,
           "examples": [
             {
               "query": "american",
-              "shipped": "Cheese, American, restaurant",
+              "shipped": "Fish, shad, american",
               "without": "Cheese, american cheddar, imitation"
             },
             {
@@ -373,33 +373,28 @@
               "without": "Cheese, american cheddar, imitation"
             },
             {
-              "query": "cheese",
-              "shipped": "Cheese, cottage, with vegetables",
-              "without": "Cheese, parmesan, low sodium"
+              "query": "and pork",
+              "shipped": "Pork, fresh, spareribs, separable lean and fat",
+              "without": "Pork, cured, ham and water product, whole, boneless, separable lean only"
             },
             {
-              "query": "chicken",
-              "shipped": "Chicken, broilers or fryers, meat and skin and giblets and neck",
-              "without": "Chicken, meatless"
+              "query": "barley",
+              "shipped": "Barley, pearled",
+              "without": "Barley, hulled"
             },
             {
-              "query": "coconut",
-              "shipped": "Nuts, coconut milk, raw (liquid expressed from grated meat and water)",
-              "without": "Nuts, coconut meat"
+              "query": "bear",
+              "shipped": "Bear, polar, meat",
+              "without": "Bear, black, meat"
             }
           ]
         },
         {
           "key": "plain+wholeness",
-          "moved": 44,
-          "gold_leads_broken": 1,
+          "moved": 38,
+          "gold_leads_broken": 0,
           "c1_lost": 1,
           "examples": [
-            {
-              "query": "american",
-              "shipped": "Cheese, American, restaurant",
-              "without": "Cheese, american cheddar, imitation"
-            },
             {
               "query": "american cheese",
               "shipped": "Cheese, American, restaurant",
@@ -419,25 +414,20 @@
               "query": "cheese",
               "shipped": "Cheese, cottage, with vegetables",
               "without": "Cheese, parmesan, low sodium"
+            },
+            {
+              "query": "commercially bread",
+              "shipped": "Bread, white, commercially prepared (includes soft bread crumbs)",
+              "without": "Bread, white, commercially prepared, low sodium, no salt"
             }
           ]
         },
         {
           "key": "head+accounted",
-          "moved": 41,
+          "moved": 30,
           "gold_leads_broken": 0,
           "c1_lost": 1,
           "examples": [
-            {
-              "query": "apricot",
-              "shipped": "Apricot, with skin",
-              "without": "Apricots, dried, sulfured"
-            },
-            {
-              "query": "apricots",
-              "shipped": "Apricot, with skin",
-              "without": "Apricots, dried, sulfured"
-            },
             {
               "query": "avocado",
               "shipped": "Avocado, Hass, peeled",
@@ -452,13 +442,23 @@
               "query": "bananas",
               "shipped": "Bananas, ripe and slightly ripe",
               "without": "Bananas, overripe"
+            },
+            {
+              "query": "bread flours",
+              "shipped": "Bread, gluten-free, white, made with rice flour, corn starch, and/or tapioca",
+              "without": "Flour, bread, white, unbleached"
+            },
+            {
+              "query": "cabbage",
+              "shipped": "Cabbage, green",
+              "without": "Cabbage, common (danish, domestic, and pointed types), freshly harvest"
             }
           ]
         },
         {
           "key": "plain+plainSibling",
-          "moved": 114,
-          "gold_leads_broken": 1,
+          "moved": 93,
+          "gold_leads_broken": 0,
           "c1_lost": 1,
           "examples": [
             {
@@ -472,19 +472,19 @@
               "without": "Margarine, 80% fat, composite, stick, without salt, with added vitamin D"
             },
             {
-              "query": "alaska crab",
-              "shipped": "Crustaceans, crab, alaska king",
-              "without": "Crustaceans, crab, alaska king, imitation, made from surimi"
-            },
-            {
               "query": "alaska pollock",
               "shipped": "Fish, pollock",
               "without": "Fish, pollock, Alaska"
             },
             {
-              "query": "american",
+              "query": "american cheese",
               "shipped": "Cheese, American, restaurant",
               "without": "Cheese, american cheddar, imitation"
+            },
+            {
+              "query": "american process",
+              "shipped": "Cheese, pasteurized process, American",
+              "without": "Cheese, pasteurized process, American, low fat"
             }
           ]
         }

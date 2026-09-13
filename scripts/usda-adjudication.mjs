@@ -205,6 +205,18 @@ export function applyShippedNames(survivors, app) {
     });
   }
 
+  // USDA's seed-maturity jargon becomes English first, so the two rules below
+  // compute their contests over the names that will actually ship.
+  const maturity = app.renameSeedMaturity(
+    kept.map((s) => ({ fdcId: s.food.fdcId, description: s.food.description }))
+  );
+  const inEnglish = kept.map((survivor) => {
+    const description = maturity.get(survivor.food.fdcId);
+    return description
+      ? { ...survivor, food: { ...survivor.food, description } }
+      : survivor;
+  });
+
   // The comparative rule FIRST, and the order is load-bearing. It takes
   // `regular` off `Rice, white, long-grain, regular, enriched`, which is what
   // lets the enrichment rule below see that row and `Rice, white, long grain,
@@ -212,9 +224,12 @@ export function applyShippedNames(survivors, app) {
   // the way when enrichment looks, the two rows never meet, and the corpus ships
   // the same rice twice under USDA's two spellings of long-grain.
   const uncontested = app.dropUncontestedQualifiers(
-    kept.map((s) => ({ fdcId: s.food.fdcId, description: s.food.description }))
+    inEnglish.map((s) => ({
+      fdcId: s.food.fdcId,
+      description: s.food.description,
+    }))
   );
-  const trimmed = kept.map((survivor) => {
+  const trimmed = inEnglish.map((survivor) => {
     const description = uncontested.get(survivor.food.fdcId);
     return description
       ? { ...survivor, food: { ...survivor.food, description } }
@@ -245,6 +260,7 @@ export function applyShippedNames(survivors, app) {
   return {
     survivors: shipped,
     renamed: renamed.size,
+    maturity: maturity.size,
     uncontested: uncontested.size,
     enrichment_duplicate: enrichment.dropped.size,
     adjudicated,

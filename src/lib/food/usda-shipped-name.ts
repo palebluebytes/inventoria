@@ -1025,3 +1025,71 @@ export function stripEnrichment(
   }
   return { renamed, dropped };
 }
+
+// ---------------------------------------------------------------------------
+// USDA's seed-maturity vocabulary, in English
+// ---------------------------------------------------------------------------
+
+/**
+ * `mature seeds` and `immature seeds`, replaced with the words a cook uses.
+ *
+ * USDA draws a real three-way contrast on a legume and the corpus ships all of
+ * it: `Beans, kidney, all types, mature seeds` at 333 kcal is the dried seed,
+ * `Lima beans, immature seeds` at 113 is the same plant picked young, and
+ * `Beans, snap, green` at 40 is the pod eaten whole. The distinction is worth
+ * keeping. The WORDS are not: nobody shopping for beans calls them mature seeds,
+ * and a reader who meets the phrase has to work out that it means the dry bag.
+ *
+ * So the axis survives and the jargon does not. `mature seeds` becomes **dried**;
+ * `immature seeds` is simply removed, because picked-young is the unmarked state
+ * of a fresh vegetable and the marked one is the bag in the cupboard. It is the
+ * same shape as {@link ENRICHMENT}: name the exception, not the default.
+ *
+ * **This knowingly overloads `dried`.** USDA uses it for a food somebody
+ * dehydrated — `Apricots, dried`, `Plums, dried (prunes)` — and a bean matures
+ * dry in the field rather than in a dehydrator, so to USDA the two are different
+ * operations. To a person cooking they are one thing: the food with its water
+ * gone. The corpus already says `Corn, dried` at 386 kcal about a field-dried
+ * grain, so this is the existing usage rather than a new one.
+ *
+ * **A sprouted seed is not dried, and that is what the exception is for.** Six
+ * rows say `mature seeds, sprouted`, where `mature seeds` names the seed the
+ * sprout came FROM rather than the state it is in. `Beans, navy, mature seeds,
+ * sprouted` is 67 kcal, not 337, because it has taken the water back on — so it
+ * loses the qualifier rather than gaining `dried`, and ships as
+ * `Beans, navy, sprouted`.
+ *
+ * Whole segments only, like every other roster here, and measured before it
+ * shipped: 44 rows renamed, **zero collisions**.
+ */
+const SEED_MATURITY: ReadonlyMap<string, string | null> = new Map([
+  ["mature seeds", "dried"],
+  ["immature seeds", null],
+]);
+
+export function renameSeedMaturity(
+  rows: readonly { fdcId: number; description: string }[]
+): ReadonlyMap<number, string> {
+  const renamed = new Map<number, string>();
+  for (const row of rows) {
+    const parts = namedParts(row.description);
+    if (!parts.some(({ lookup }, at) => at > 0 && SEED_MATURITY.has(lookup)))
+      continue;
+    // A sprout has taken its water back on, so the seed it came from names its
+    // origin and not its state. The word goes rather than becoming `dried`.
+    const sprouted = parts.some(
+      ({ lookup }, at) => at > 0 && lookup === "sprouted"
+    );
+    const kept: string[] = [];
+    parts.forEach(({ lookup, text }, at) => {
+      if (at === 0 || !SEED_MATURITY.has(lookup)) {
+        kept.push(text);
+        return;
+      }
+      const replacement = sprouted ? null : SEED_MATURITY.get(lookup);
+      if (replacement) kept.push(replacement);
+    });
+    renamed.set(row.fdcId, kept.join(", "));
+  }
+  return renamed;
+}

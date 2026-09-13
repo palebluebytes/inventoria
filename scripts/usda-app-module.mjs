@@ -176,6 +176,7 @@ export const SHIPPED_NAME_EXPORTS = [
   "stripNonNamingQualifiers",
   "dropUncontestedQualifiers",
   "stripEnrichment",
+  "renameSeedMaturity",
   "ADJUDICATED_NAMES",
 ];
 

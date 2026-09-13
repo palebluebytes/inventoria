@@ -265,3 +265,38 @@ alternative. A user who wants a cooked figure has no row to log against, and
 cooking-yield table keyed to identifiers we already join on — but it covers meat
 and poultry only, 170 rows, and says nothing about the rice and pulses where the
 gap is widest.
+
+## Amendment (2026-09-13): USDA's seed-maturity vocabulary is replaced with English
+
+§4 takes off the words that denied an alternative. This takes off two that name a
+real distinction in language nobody shopping uses.
+
+USDA writes `mature seeds` for the dried legume and `immature seeds` for the same
+plant picked young, and the corpus ships both sides of it plus the pod:
+`Beans, kidney, all types` at **333 kcal**, `Lima beans, immature seeds` at
+**113**, `Beans, snap, green` at **40**. One plant, three foods, an eightfold
+spread. The axis is worth keeping and the words are not — a reader who meets
+`mature seeds` has to work out that it means the bag in the cupboard.
+
+> **`mature seeds` becomes `dried`. `immature seeds` is removed.**
+
+Picked-young is the unmarked state of a fresh vegetable and the bag is the marked
+one, which is §4's enrichment shape again: name the exception, not the default.
+`Lima beans` is the fresh one at 113 and `Lima beans, large, dried` is 338.
+
+**This knowingly overloads `dried` against USDA's own usage**, and the departure
+is the point rather than an oversight. USDA reserves the word for a food somebody
+dehydrated — `Apricots, dried`, `Plums, dried (prunes)` — where a bean matures dry
+in the field, so to USDA they are two operations. To a person cooking they are one
+thing: the food with its water gone. The corpus already says `Corn, dried` about a
+field-dried grain, so this is the existing usage extended rather than a new one.
+
+**A sprouted seed is not dried.** Six rows say `mature seeds, sprouted`, where the
+phrase names the seed the sprout came FROM rather than the state it is in.
+`Beans, navy, mature seeds, sprouted` is 67 kcal and not 337, because it has taken
+the water back on, so those rows lose the qualifier instead of gaining `dried` and
+ship as `Beans, navy, sprouted`. Writing `dried, sprouted` would have been the
+only outright false name any of these rules produced, and it is the reason the
+rule is a map with an exception rather than a substitution.
+
+Measured before it shipped: **44 rows renamed, zero collisions.**

@@ -12,6 +12,7 @@ import type { AppModule, Survivor } from "../../scripts/usda-bundle.mjs";
 import {
   ADJUDICATED_NAMES,
   dropUncontestedQualifiers,
+  renameSeedMaturity,
   resolveShippedNames,
   stripEnrichment,
   stripNonNamingQualifiers,
@@ -29,7 +30,7 @@ import {
 /**
  * The app's own rosters, in the shape the passes read them through.
  *
- * Partial on purpose — the two adjudication passes read these seven and nothing
+ * Partial on purpose — the two adjudication passes read these eight and nothing
  * else. `satisfies` keeps each one checked against the real export, so a
  * renamed roster or a changed signature still fails here.
  */
@@ -40,6 +41,7 @@ const app = {
   stripNonNamingQualifiers,
   dropUncontestedQualifiers,
   stripEnrichment,
+  renameSeedMaturity,
   ADJUDICATED_NAMES,
 } satisfies Partial<AppModule> as unknown as AppModule;
 
