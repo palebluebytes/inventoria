@@ -8,6 +8,7 @@
   import Checkbox from "../../ui/Checkbox.svelte";
   import FieldCaption from "../../ui/FieldCaption.svelte";
   import Input from "../../ui/Input.svelte";
+  import SecretField from "../../ui/SecretField.svelte";
   import NutritionTargetEditor from "./NutritionTargetEditor.svelte";
   import FoodDataSection from "./FoodDataSection.svelte";
   import LogSettingsSection from "../logs/LogSettingsSection.svelte";
@@ -67,8 +68,6 @@
   // seeds the per-capture checkbox in the capture form, and never submits.
   let offContribute = $state(false);
 
-  let showOffPassword = $state(false);
-
   // Seed the form once. Both stores are `localStorage`-backed and therefore
   // right in the first frame — the guard that waited on a ledger read is gone
   // with the datom (ADR-0086 §2), and the seed runs once so typing into a field
@@ -103,46 +102,6 @@
   }
 </script>
 
-{#snippet revealToggle(revealed: boolean, toggle: () => void, label: string)}
-  <button
-    type="button"
-    class="reveal-toggle"
-    aria-label={label}
-    aria-pressed={revealed}
-    onclick={toggle}
-  >
-    {#if revealed}
-      <svg
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        stroke-width="2"
-        stroke-linecap="round"
-        stroke-linejoin="round"
-        aria-hidden="true"
-        ><path
-          d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"
-        ></path><line x1="1" y1="1" x2="23" y2="23"></line></svg
-      >
-    {:else}
-      <svg
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        stroke-width="2"
-        stroke-linecap="round"
-        stroke-linejoin="round"
-        aria-hidden="true"
-        ><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle
-          cx="12"
-          cy="12"
-          r="3"
-        ></circle></svg
-      >
-    {/if}
-  </button>
-{/snippet}
-
 <BottomSheet isOpen {title} fillHeight {onClose} {inline}>
   <!-- Nutrition Display leads the sheet, borderless and full-bleed: the negative
        inline margins cancel the sheet body's padding so the editor spans the
@@ -176,23 +135,14 @@
         <FieldCaption for="food-off-password"
           >Open Food Facts Password</FieldCaption
         >
-        <div class="secret-field">
-          <Input
-            id="food-off-password"
-            type={showOffPassword ? "text" : "password"}
-            autocomplete="current-password"
-            bind:value={offPassword}
-            onblur={persistOffPassword}
-            placeholder="Your Open Food Facts password..."
-          />
-          {@render revealToggle(
-            showOffPassword,
-            () => (showOffPassword = !showOffPassword),
-            showOffPassword
-              ? "Hide Open Food Facts password"
-              : "Show Open Food Facts password"
-          )}
-        </div>
+        <SecretField
+          id="food-off-password"
+          reveals="Open Food Facts password"
+          autocomplete="current-password"
+          bind:value={offPassword}
+          onblur={persistOffPassword}
+          placeholder="Your Open Food Facts password..."
+        />
         <span class="help-text"
           >Stored on this device only, never in the synced database.</span
         >
@@ -285,55 +235,6 @@
     display: flex;
     flex-direction: column;
     gap: var(--space-3xs);
-  }
-  /* Both fields are `ui/Input` (#375). Rations wore a skin invented in the media
-     views and copied here, which is the crossing that ticket was written for;
-     nothing on this sheet says what a field looks like now. This wrapper exists
-     for the reveal toggle alone — it is the box that button is positioned
-     against, and the padding below is the one thing a caller drawing an
-     adornment over a field has to say, reached through `:global` because the
-     field is another component's element. */
-  .secret-field {
-    position: relative;
-    display: flex;
-  }
-  /* Leave room for the reveal toggle so masked text never runs under it. One
-     token for both, so the gap cannot drift from the button's width. */
-  .secret-field :global(input) {
-    padding-right: var(--tap-min);
-  }
-  .reveal-toggle {
-    position: absolute;
-    top: 0;
-    right: 0;
-    height: 100%;
-    /* Was 2.75rem — Apple's 44pt (ADR-0089 §3). The field it sits in carries
-       the floor, so `height: 100%` clears it; the width is this rule's own. */
-    min-height: var(--tap-min);
-    width: var(--tap-min);
-    /* Above the field, which is `ui/Input` and carries `z-index: 1` of its own.
-       Without this the button paints and, worse, *takes its clicks* under a
-       transparent field: same document order as before, different stacking. */
-    z-index: 2;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 0;
-    border: none;
-    background: transparent;
-    color: var(--ink);
-    cursor: pointer;
-  }
-  .reveal-toggle svg {
-    width: 1.25rem;
-    height: 1.25rem;
-  }
-  .reveal-toggle:hover {
-    color: var(--text-secondary);
-  }
-  .reveal-toggle:focus-visible {
-    outline: 2px solid var(--ink);
-    outline-offset: -2px;
   }
   .help-text {
     font-size: var(--step-n2);

@@ -660,6 +660,23 @@ not move, where you are does. Decoupled from bits-ui's automatic first-candidate
 highlight, which used to supply both and meant neither. See ADR-0090 §3.
 _Avoid_: Selected, active, focused row, best match
 
+**SecretField**:
+The one masked field with a way to reveal it (`ui/SecretField.svelte`): `ui/Input` in a
+box, with an eye button pinned over the field's right edge that flips `type` between
+`password` and `text`. It owns the mask state, the toggle, and the toggle's accessible
+name — built here from one `reveals` word, so "Show …" and "Hide …" cannot be worded
+two ways or half-shipped. The toggle sits **over** the field rather than beside it, and
+that is measured: a flex sibling let the field's intrinsic monospace width overflow its
+sheet. The `padding-right` it costs and the button's width are one token, so the gap
+cannot drift from the thing it leaves room for, and `z-index: 2` keeps the button above
+`ui/Input`'s own `z-index: 1` — without it the button takes no clicks. No bits-ui: the
+platform has `type="password"` (ADR-0068 §1). The two copies it replaced had each been
+fixed twice for one cause — `z-index: 2` at #375, `2.75rem → var(--tap-min)` at #361 —
+which is the bill ADR-0100 §1's trigger was paid in.
+See ADR-0100, ADR-0093 and ADR-0095 §3.
+_Avoid_: Password field, PasswordInput, a second reveal toggle, `.reveal-toggle` as a
+caller's class
+
 **Segmented**:
 A single-choice control whose selection must persist once made: mode switches, sex
 and goal pickers (`ui/Segmented.svelte`). See ADR-0036.

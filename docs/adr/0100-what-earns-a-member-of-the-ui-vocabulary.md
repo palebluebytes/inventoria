@@ -4,7 +4,7 @@
 **Date:** 2026-09-13  
 **Amends:** [ADR-0040](0040-no-monolithic-chip-vocabulary.md) — its deletion test is generalised out of the chip space, and its bespoke remainder is re-derived rather than carried  
 **Amends:** [ADR-0098](0098-a-tap-floor-binds-every-control-not-every-field.md) — the prediction in its Consequences that the mark/target duplication needs a new primitive is withdrawn; §3 stands  
-**Implemented:** `src/lib/ui/FieldCaption.svelte` and `.field-caption` in `src/app.css` (#383); the roster a gate reads is `tests/unit/support/ui-roster.ts`. The four tickets this record decides are #383 (filed as required — see the Amendment below, which downgrades it to earned), #384 (earned), #316 (earned) and #390 (refused, and becomes an adoption)
+**Implemented:** `src/lib/ui/FieldCaption.svelte` and `.field-caption` in `src/app.css` (#383), `src/lib/ui/SecretField.svelte` (#384); the roster a gate reads is `tests/unit/support/ui-roster.ts`. The four tickets this record decides are #383 (filed as required — see the Amendment below, which downgrades it to earned), #384 (earned), #316 (earned) and #390 (refused, and becomes an adoption)
 
 ## Context
 

@@ -910,6 +910,15 @@ describe("the floor, swept", () => {
    * sweep reads directly, `declared` on `min-height: var(--tap-min)` like every
    * other library-rendered cell in the list. The ticket's second box was the
    * prototype's own variant switcher, which does not ship.
+   *
+   * It fell 134 → 133 at #384, and the direction is the point. Two
+   * `.reveal-toggle` rules — one in `FoodSettingsSheet`, one in
+   * `MediaSettingsSheet`, byte-identical down to the comment explaining the
+   * floor — became `ui/SecretField`'s one. Both were already `declared` on the
+   * same token, so nothing about the floor itself moved; what moved is how many
+   * boxes have to be kept level. That is ADR-0093's Consequences read forwards
+   * rather than backwards: a count falling here is a copy that can no longer
+   * miss a fix.
    */
   it("carries most of them on a declared floor, not on arithmetic", () => {
     const how = { declared: 0, drawn: 0, sanctioned: 0 };
@@ -920,7 +929,7 @@ describe("the floor, swept", () => {
       else if (b.kind === "drawn") how.drawn++;
     }
 
-    expect(how).toEqual({ declared: 134, drawn: 26, sanctioned: 6 });
+    expect(how).toEqual({ declared: 133, drawn: 26, sanctioned: 6 });
     // Every box lands in exactly one column. Without this the two figures above
     // could both be right while a box fell out of the sweep between them.
     expect(how.declared + how.drawn + how.sanctioned).toBe(SWEEP.groups.size);

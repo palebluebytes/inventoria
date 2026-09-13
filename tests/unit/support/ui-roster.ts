@@ -36,6 +36,7 @@ export const MEMBERS = [
   "src/lib/ui/Modal.svelte",
   "src/lib/ui/ReloadPrompt.svelte",
   "src/lib/ui/Row.svelte",
+  "src/lib/ui/SecretField.svelte",
   "src/lib/ui/Segmented.svelte",
   "src/lib/ui/Select.svelte",
   "src/lib/ui/Skeleton.svelte",
