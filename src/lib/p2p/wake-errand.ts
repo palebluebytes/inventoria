@@ -48,6 +48,7 @@ import {
 } from "./wake-cadence";
 import { convergeWithPeer, depositToPeer, type WakeLedger } from "./wake";
 import { withdrawRevoked } from "./unpair";
+import { underWakeLock } from "./wake-lock";
 
 /**
  * The ledger as a wake needs it: two operations, both already on the client.
@@ -310,6 +311,14 @@ function onHide(hidden: () => void): () => void {
  * folded here rather than inside {@link convergeWithPeers}, which cannot see
  * how many times it has been called, and not at {@link OpenWake.close}, which a
  * discarded tab never reaches.
+ *
+ * **And this is where an errand is one at a time across the origin** (#418).
+ * `wake-cadence.ts` queues every trigger of *this* open, which leaves the open
+ * beside it — a browser tab next to the installed app — sharing one jar and one
+ * ledger with nothing between them. {@link underWakeLock} is what both opens
+ * queue on, and it goes around the whole of an errand rather than around a
+ * deposit: two errands that interleaved their **reads** of `deposit_standing`
+ * would disagree before either wrote.
  */
 export function openAppWake(
   store: Store = appStore,
@@ -318,17 +327,18 @@ export function openAppWake(
   const counted = wakeCounter(readPairedDevices, updatePairedDevice);
   return openWake(
     {
-      converge: async () => {
-        // A pending revocation is retried on any later open, and this is that
-        // retry (§11). It runs before the lanes are served rather than after,
-        // because a withdrawal that lands takes its row with it and the loop
-        // below then has one fewer pairing to skip. It never throws.
-        await withdrawRevoked(store);
-        const round = await convergeWithPeers(store);
-        counted(round.productive);
-        return round;
-      },
-      deposit: () => depositToPeers(store),
+      converge: () =>
+        underWakeLock(async () => {
+          // A pending revocation is retried on any later open, and this is that
+          // retry (§11). It runs before the lanes are served rather than after,
+          // because a withdrawal that lands takes its row with it and the loop
+          // below then has one fewer pairing to skip. It never throws.
+          await withdrawRevoked(store);
+          const round = await convergeWithPeers(store);
+          counted(round.productive);
+          return round;
+        }),
+      deposit: () => underWakeLock(() => depositToPeers(store)),
       onLedgerGrowth,
       onHide,
     },
