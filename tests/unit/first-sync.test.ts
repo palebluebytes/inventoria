@@ -539,23 +539,35 @@ describe("an attempt that does not finish", () => {
     const relay = localRelay();
     // A peer whose opening frame is a shape this version does not understand,
     // under a seal that opens: the room is right and the protocol is not.
-    const mangling: typeof relay.dial = async (roomId, handlers) => {
-      const link = await relay.dial(roomId, handlers);
-      let first = true;
-      return {
-        ...link,
-        send: async (frame) => {
-          if (!first) return link.send(frame);
-          first = false;
-          const { sealFrame } = await import("../../src/lib/p2p/sealed-frame");
-          link.send(
-            await sealFrame(code, new TextEncoder().encode("{}"), {
-              label: "inventoria/v1/sync/a2b/open",
-            })
-          );
-        },
+    //
+    // **Only the first link's opening is replaced.** The label names a lane, so
+    // mangling both would send the `a2b` label down `b2a` as well, and the
+    // device reading that frame refuses the *seal* rather than the shape —
+    // a different ending, arriving in a race with this one. One side mangled
+    // makes the failure the one this test is about, every time.
+    let mangling: typeof relay.dial;
+    {
+      let links = 0;
+      mangling = async (roomId, handlers) => {
+        const link = await relay.dial(roomId, handlers);
+        const mangles = links++ === 0;
+        let first = true;
+        return {
+          ...link,
+          send: async (frame) => {
+            if (!mangles || !first) return link.send(frame);
+            first = false;
+            const { sealFrame } =
+              await import("../../src/lib/p2p/sealed-frame");
+            link.send(
+              await sealFrame(code, new TextEncoder().encode("{}"), {
+                label: "inventoria/v1/sync/a2b/open",
+              })
+            );
+          },
+        };
       };
-    };
+    }
     const code = mintRoomCode();
 
     await expect(
