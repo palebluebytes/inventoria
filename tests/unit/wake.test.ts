@@ -18,13 +18,17 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import sqlite3InitModule from "@sqlite.org/sqlite-wasm";
 import {
+  applyCarriedDeletions,
   createLedgerSchema,
   importLedgerRows,
   readLedgerPage,
   readLedgerVersionVector,
+  wipeFacetFromLedger,
   type LedgerDb,
   type LedgerRow,
 } from "../../src/lib/db/db.core";
+import type { CarriedDeletionSweep } from "../../src/lib/db/carried-deletion";
+import { entityPrefixesOf } from "../../src/lib/facets/registry";
 import { createHlc, type Hlc } from "../../src/lib/db/hlc";
 import type { VersionVector } from "../../src/lib/db/version-vector";
 import {
@@ -84,6 +88,8 @@ interface Device {
   clock: Hlc;
   ledger: WakeLedger;
   record: PairedDevice;
+  /** What a carried deletion took, per batch this device wrote (ADR-0096 §12). */
+  swept: CarriedDeletionSweep[];
 }
 
 function device(
@@ -94,6 +100,7 @@ function device(
   const db: LedgerDb = new sqlite3.oo1.DB();
   createLedgerSchema(db);
   const clock = createHlc(device_id, { wallClock: () => 1_000 });
+  const swept: CarriedDeletionSweep[] = [];
   return {
     db,
     clock,
@@ -109,12 +116,16 @@ function device(
       last_met: "2026-09-13",
       revoked: false,
     },
+    swept,
     ledger: {
       oldestAbove: async (after, budgetBytes, above) =>
         readLedgerPage(db, after, budgetBytes, { above, order: "stamp" }),
       write: async (rows) => {
         const outcome = importLedgerRows(db, rows);
         if (outcome.highWater) clock.update(outcome.highWater);
+        // Exactly what `db.worker.ts` does on every batch a convergence
+        // writes, and on no batch a user-chosen import writes (ADR-0096 §12).
+        swept.push(applyCarriedDeletions(db, rows));
         return outcome.rowsAdded;
       },
     },
@@ -183,7 +194,19 @@ const row = (over: Partial<LedgerRow> = {}): LedgerRow => ({
   ...over,
 });
 
-const hold = (who: Device, rows: LedgerRow[]) => importLedgerRows(who.db, rows);
+/**
+ * Rows straight into a device's ledger, as if it had always held them.
+ *
+ * It moves that device's clock the way `db.worker.ts` moves it on every import,
+ * because a stamp issued after rows arrive has to order after them (ADR-0020) —
+ * and a local act stamped *below* what the peer already has would never be
+ * offered to it at all.
+ */
+const hold = (who: Device, rows: LedgerRow[]) => {
+  const outcome = importLedgerRows(who.db, rows);
+  if (outcome.highWater) who.clock.update(outcome.highWater);
+  return outcome;
+};
 
 const rowsOf = (who: Device) =>
   readLedgerPage(who.db, null, 8 * 1024 * 1024).map(
@@ -821,5 +844,115 @@ describe("a deposit states what its depositor is paired with", () => {
     // can take it.
     await expect(wake(b)).rejects.toThrow();
     expect(b.record.peer_roster).toBeNull();
+  });
+});
+
+describe("a wipe on one device deletes on the other (ADR-0096 §12)", () => {
+  const FOOD = entityPrefixesOf("food");
+
+  /** The wipe itself, on whichever device the person is holding. */
+  const wipeFood = (who: Device) =>
+    wipeFacetFromLedger(who.db, FOOD, who.clock.now());
+
+  /** Two converged devices, each holding one food row and one habit row. */
+  async function converged(): Promise<[Device, Device]> {
+    const [a, b] = await pair();
+    hold(a, [
+      row({ entity: "event:consume_1", hlc_ms: 1_000 }),
+      row({ entity: "habit:1", hlc_ms: 1_001 }),
+    ]);
+    await wake(a);
+    await wake(b);
+    await wake(a);
+    return [a, b];
+  }
+
+  it("crosses as a fact and takes the peer's rows on its own open", async () => {
+    const [a, b] = await converged();
+    expect(rowsOf(b)).toHaveLength(2);
+
+    // The person wipes their food data on A, and closes it.
+    expect(wipeFood(a)).toBe(1);
+    await wake(a);
+
+    // B opens a week later with A shut.
+    const taken = await wake(b);
+
+    expect(taken.collected).toBe(1);
+    const kept = rowsOf(b).map((line) => line.split("|")[0]);
+    expect(kept).toHaveLength(2);
+    expect(kept).toContain("habit:1");
+    // The act's own datom key, minted on the device that performed it.
+    expect(kept.find((entity) => entity.startsWith("deletion:"))).toMatch(
+      /^deletion:\d+_\d+_dev_a$/
+    );
+    // What B deleted, for the notice B will show. The prefixes are the ones A
+    // froze, carried verbatim.
+    expect(b.swept.at(-1)).toEqual({ prefixes: FOOD, datomsDeleted: 1 });
+  });
+
+  it("keeps what the wipe did not take, on both devices", async () => {
+    const [a, b] = await converged();
+    wipeFood(a);
+    await wake(a);
+    await wake(b);
+
+    expect(rowsOf(a).map((line) => line.split("|")[0])).toContain("habit:1");
+    expect(rowsOf(b).map((line) => line.split("|")[0])).toContain("habit:1");
+  });
+
+  it("never offers the wiped rows back, however many times the two meet", async () => {
+    const [a, b] = await converged();
+    wipeFood(a);
+    await wake(a);
+    await wake(b);
+    await wake(a);
+    await wake(b);
+
+    expect(rowsOf(a).sort()).toEqual(rowsOf(b).sort());
+    expect(rowsOf(b).some((line) => line.startsWith("event:consume_"))).toBe(
+      false
+    );
+  });
+
+  // The hop this closes: a third device asleep through the wipe wakes later and
+  // hands the rows back one hop out. It is per-batch application that takes
+  // them, and nothing about the object they arrived in.
+  it("takes rows a device that slept through the wipe re-supplies", async () => {
+    const [a, b] = await converged();
+    wipeFood(a);
+    await wake(a);
+    await wake(b);
+
+    // A third device's deposit, arriving at B months later.
+    const resupplied = [row({ entity: "event:consume_1", hlc_ms: 1_000 })];
+    await b.ledger.write(resupplied, true);
+
+    expect(b.swept.at(-1)).toEqual({ prefixes: FOOD, datomsDeleted: 1 });
+    expect(rowsOf(b).some((line) => line.startsWith("event:consume_"))).toBe(
+      false
+    );
+  });
+
+  // The stale object at the outgoing lane is not deleted and does not need to
+  // be: the index advances on collection, so the rewrite that carries the
+  // deletion lands at the address the stale one is at and replaces it.
+  it("replaces the object it had already left, rather than leaving two", async () => {
+    const [a, b] = await pair();
+    hold(a, [row({ entity: "event:consume_1" })]);
+    await wake(a);
+    const address = await depositAddress(a);
+    expect(held.size).toBe(1);
+
+    wipeFood(a);
+    await deposit(a);
+
+    expect(held.size).toBe(1);
+    expect(held.has(address)).toBe(true);
+    // B collects once and gets the wipe, never the rows it took.
+    await wake(b);
+    expect(rowsOf(b).some((line) => line.startsWith("event:consume_"))).toBe(
+      false
+    );
   });
 });

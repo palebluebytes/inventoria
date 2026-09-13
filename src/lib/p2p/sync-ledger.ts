@@ -32,6 +32,10 @@ export async function appSyncLedger(): Promise<FirstSyncLedger> {
     vector: () => dbClient.versionVector(),
     page: (after, budgetBytes, above) =>
       dbClient.ledgerPage(after, budgetBytes, { above }),
-    write: (rows, final) => dbClient.ledgerImport(rows, final),
+    // A first sync is convergence like any other, so its batches are held to
+    // the carried deletions this ledger holds (ADR-0096 §12). It is the case
+    // most in need of it: a first sync is the empty-vector case, so a peer
+    // that never saw the wipe offers everything it has.
+    write: (rows, final) => dbClient.ledgerImport(rows, final, "convergence"),
   };
 }

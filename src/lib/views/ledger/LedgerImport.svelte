@@ -70,7 +70,11 @@
     try {
       const result = await importLedger(
         fileChunks(file),
-        (rows, final) => dbClient.ledgerImport(rows, final),
+        // `"import"`: a user-chosen file is exempt from every carried
+        // deletion this ledger holds (ADR-0096 §12). A peer's payload
+        // *arrives* and a file is *chosen*, and "wipe, then import" is
+        // already the sanctioned way to make a file the only truth.
+        (rows, final) => dbClient.ledgerImport(rows, final, "import"),
         {
           onProgress: (phase: LedgerImportPhase, seen: number) => {
             outcome = phase;

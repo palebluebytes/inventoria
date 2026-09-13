@@ -60,7 +60,10 @@ import { withdrawRevoked } from "./unpair";
 export const appWakeLedger: WakeLedger = {
   oldestAbove: (after, budgetBytes, above) =>
     dbClient.ledgerPage(after, budgetBytes, { above, order: "stamp" }),
-  write: (rows, final) => dbClient.ledgerImport(rows, final),
+  // `"convergence"`: rows that *arrive* are held to every carried deletion
+  // this ledger holds, on every batch (ADR-0096 §12). The user-chosen import
+  // is the exemption, and it is the other caller.
+  write: (rows, final) => dbClient.ledgerImport(rows, final, "convergence"),
 };
 
 /**
@@ -255,8 +258,13 @@ export async function depositToPeers(
  * a third device is waiting for.
  *
  * The two deletions cost one rewrite each and nothing else: the delta read
- * afterwards is smaller, so what goes out is what survived. A deposit carrying
- * the deletion itself is #402's, and unpairing on a jar-wide wipe is #403's.
+ * afterwards is smaller, so what goes out is what survived — and since #402 one
+ * of them leaves a **Carried deletion** behind, which is a datom like any other
+ * and rides out in that same rewrite. That is the whole of ADR-0096 §12's _the
+ * wipe deletes its outgoing lane object and re-deposits in the same wake_: the
+ * index advances on collection, so the rewrite lands at the address the stale
+ * object is at and replaces it. Nothing deletes an object here, and nothing
+ * needs to. Unpairing on a jar-wide wipe is #403's.
  */
 const onLedgerGrowth = (grew: () => void): (() => void) =>
   dbClient.onInvalidate(grew);

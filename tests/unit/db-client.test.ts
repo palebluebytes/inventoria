@@ -26,6 +26,11 @@ const { FakeWorker, getWorker, resetWorker } = vi.hoisted(() => {
         data: { type: "broadcast_invalidation", payload: { attributes } },
       });
     }
+    sweep(payload: { prefixes: string[]; datomsDeleted: number }) {
+      this.onmessage?.({
+        data: { type: "broadcast_carried_deletion", payload },
+      });
+    }
     get lastId(): string {
       return this.posted[this.posted.length - 1].id;
     }
@@ -203,13 +208,42 @@ describe("DBClient RPC layer", () => {
         device_id: "device_a",
       },
     ];
-    const p = c.ledgerImport(rows, true);
+    const p = c.ledgerImport(rows, true, "convergence");
     expect(getWorker().posted[1]).toMatchObject({
       type: "ledger_import",
-      payload: { rows, final: true },
+      payload: { rows, final: true, source: "convergence" },
     });
     getWorker().respond(getWorker().lastId, { status: "ok", data: 1 });
     await expect(p).resolves.toBe(1);
+  });
+
+  // ADR-0096 §12's exemption crosses the boundary as a field on the message,
+  // because the worker is the one place that knows which of the two a batch is.
+  it("says which kind of batch it is, and a chosen file is the other one", async () => {
+    const c = await makeInitialized();
+    const p = c.ledgerImport([], false, "import");
+    expect(getWorker().posted[1]).toMatchObject({
+      type: "ledger_import",
+      payload: { final: false, source: "import" },
+    });
+    getWorker().respond(getWorker().lastId, { status: "ok", data: 0 });
+    await expect(p).resolves.toBe(0);
+  });
+
+  it("delivers a carried deletion to its own listeners and not to invalidation", async () => {
+    const c = await makeInitialized();
+    const swept: { prefixes: string[]; datomsDeleted: number }[] = [];
+    const invalidated: string[][] = [];
+    const stop = c.onCarriedDeletion((s) => swept.push(s));
+    c.onInvalidate((attributes) => invalidated.push(attributes));
+
+    getWorker().sweep({ prefixes: ["fdc:"], datomsDeleted: 12 });
+    expect(swept).toEqual([{ prefixes: ["fdc:"], datomsDeleted: 12 }]);
+    expect(invalidated).toEqual([]);
+
+    stop();
+    getWorker().sweep({ prefixes: ["fdc:"], datomsDeleted: 3 });
+    expect(swept).toHaveLength(1);
   });
 
   it("censuses the ledger by group in one message", async () => {

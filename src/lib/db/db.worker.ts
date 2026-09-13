@@ -1,9 +1,10 @@
 import sqlite3InitModule from "@sqlite.org/sqlite-wasm";
 import { projections } from "./projections";
+import { SWEPT_NOTHING } from "./carried-deletion";
 import {
   appendDatoms,
+  applyCarriedDeletions,
   censusByEntityPrefix,
-  deleteDatomsByEntityPrefix,
   ensureLedgerSchema,
   getOrCreateDeviceId,
   importLedgerRows,
@@ -13,6 +14,7 @@ import {
   readLedgerSummary,
   resetLedgerSchema,
   vacuumLedger,
+  wipeFacetFromLedger,
   execRows,
   type LedgerDb,
 } from "./db.core";
@@ -178,15 +180,21 @@ self.onmessage = async (event: MessageEvent) => {
         data: censusByEntityPrefix(db, groups),
       });
     } else if (type === "facet_wipe") {
-      if (!db) {
+      if (!db || !hlc) {
         throw new Error("Database not initialized. Please call 'init' first.");
       }
       // The third sanctioned deletion (ADR-0079 §1). The prefixes arrive
       // derived from the registry and are never assembled here — the worker is
       // thin orchestration, and a predicate built in two places is the drift
       // ADR-0079 §3 forbids.
+      //
+      // The act's stamp is issued here and nowhere else: it is the deletion's
+      // entity id, the ceiling on what the wipe takes, and the thing a peer
+      // evaluates the same predicate against (ADR-0096 §12). Issuing it on the
+      // main thread would mean a second clock beside the one ADR-0020 gave the
+      // ledger.
       const { entityPrefixes } = payload ?? {};
-      const rowsDeleted = deleteDatomsByEntityPrefix(db, entityPrefixes);
+      const rowsDeleted = wipeFacetFromLedger(db, entityPrefixes, hlc.now());
       self.postMessage({ id, status: "ok", data: rowsDeleted });
       // Every projection re-reads: a scoped wipe changes the answer for the
       // Facet's own screens, and an empty attribute list is how `clear` already
@@ -225,13 +233,37 @@ self.onmessage = async (event: MessageEvent) => {
       // The import's write seam. Rows arrive already stamped and are appended
       // with their stamps intact, so the same file imported twice is the same
       // ledger (ADR-0067).
-      const { rows, final } = payload;
+      const { rows, final, source } = payload;
       const outcome = importLedgerRows(db, rows);
       // A stamp issued elsewhere has to move this device's clock, or a write
       // made straight after an import could order before the facts it brought
       // in. This is exactly what ADR-0020 gave `update` to do.
       if (outcome.highWater) hlc.update(outcome.highWater);
+
+      // **Every arriving batch, and only a converging one** (ADR-0096 §12).
+      // This is the one place that knows which of the two a batch is, so it is
+      // the place the exemption lives: a peer's payload *arrives* and a file is
+      // *chosen*, and _wipe, then import_ is already the sanctioned way to make
+      // a file the only truth. `source` is required rather than defaulted,
+      // because both defaults are wrong in silence — one re-supplies the rows a
+      // wipe took, the other deletes the file the user picked.
+      const swept =
+        source === "convergence"
+          ? applyCarriedDeletions(db, rows)
+          : SWEPT_NOTHING;
+
       self.postMessage({ id, status: "ok", data: outcome.rowsAdded });
+
+      // News, not a reply. The rows went from the ledger during somebody else's
+      // batch, and the device that has to say so is this one — so it travels
+      // the way an invalidation does rather than up through a sync's return
+      // value, whose shape is about lanes and says nothing about the jar.
+      if (swept.datomsDeleted > 0) {
+        self.postMessage({
+          type: "broadcast_carried_deletion",
+          payload: swept,
+        });
+      }
 
       // Once, at the end. Every ledger-backed store re-reads on a broadcast,
       // and an import is many batches, so announcing each one would re-run

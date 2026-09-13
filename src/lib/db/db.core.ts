@@ -11,6 +11,15 @@
  * an event); ordering and the primary key are the HLC's job.
  */
 
+import {
+  CARRIED_DELETION_ATTRIBUTE,
+  carriedDeletionRow,
+  carriedDeletionWarrant,
+  readCarriedDeletion,
+  SWEPT_NOTHING,
+  type CarriedDeletion,
+  type CarriedDeletionSweep,
+} from "./carried-deletion";
 import { describeValue } from "./describe-value";
 import { compareHlcMark, type Hlc, type HlcKey, type HlcMark } from "./hlc";
 import {
@@ -738,24 +747,43 @@ export function appendDatoms(
  * An empty prefix list matches nothing rather than everything. The one caller
  * that can pass one is a Facet holding no domains, and "wipe a Facet nobody has
  * heard of" must not mean "wipe the jar".
+ *
+ * `takenAtOrBefore` is the wiping act's own stamp (ADR-0096 §12). It bounds the
+ * match to rows stamped **at or before** the act and nothing after, so a wipe
+ * deletes history and never the future and two of them compose in either order.
+ * It is inclusive on the counter, because a row stamped in the same tick as the
+ * act is one the act saw. Absent, the predicate is the whole prefix set with no
+ * ceiling, which is what a local wipe meant before there was anything to carry.
  */
-function entityPrefixMatch(prefixes: readonly string[]): {
+function entityPrefixMatch(
+  prefixes: readonly string[],
+  takenAtOrBefore: HlcMark | null = null
+): {
   where: string;
   bind: unknown[];
 } {
   if (prefixes.length === 0) return { where: "0", bind: [] };
+  const under = prefixes.map(() => "substr(entity, 1, ?) = ?").join(" OR ");
+  const bind = prefixes.flatMap((p) => [p.length, p]);
+  if (takenAtOrBefore === null) return { where: under, bind };
   return {
-    where: prefixes.map(() => "substr(entity, 1, ?) = ?").join(" OR "),
-    bind: prefixes.flatMap((p) => [p.length, p]),
+    where: `(${under}) AND (hlc_ms < ? OR (hlc_ms = ? AND hlc_ctr <= ?))`,
+    bind: [
+      ...bind,
+      takenAtOrBefore.hlc_ms,
+      takenAtOrBefore.hlc_ms,
+      takenAtOrBefore.hlc_ctr,
+    ],
   };
 }
 
-/** How many rows carry one of these entity prefixes. */
+/** How many rows carry one of these entity prefixes, under the same bound. */
 export function countDatomsByEntityPrefix(
   db: LedgerDb,
-  prefixes: readonly string[]
+  prefixes: readonly string[],
+  takenAtOrBefore: HlcMark | null = null
 ): number {
-  const { where, bind } = entityPrefixMatch(prefixes);
+  const { where, bind } = entityPrefixMatch(prefixes, takenAtOrBefore);
   return execRows<{ row_count: number }>(
     db,
     `SELECT count(*) AS row_count FROM datoms WHERE ${where};`,
@@ -813,14 +841,128 @@ export function censusByEntityPrefix(
  * The count is taken under the same predicate rather than read off `changes()`,
  * so the number the user was shown and the number of rows that went are the
  * same expression evaluated twice.
+ *
+ * **`takenAtOrBefore` is what makes the fourth deletion the same act as this
+ * one** (ADR-0096 §12). A peer applying a carried deletion calls this function,
+ * with that act's frozen prefix list and that act's stamp — the same predicate,
+ * not a re-enactment of it — which is how it inherits the closure proof above
+ * rather than asking for an exemption of its own.
  */
 export function deleteDatomsByEntityPrefix(
   db: LedgerDb,
-  prefixes: readonly string[]
+  prefixes: readonly string[],
+  takenAtOrBefore: HlcMark | null = null
 ): number {
-  const going = countDatomsByEntityPrefix(db, prefixes);
+  const going = countDatomsByEntityPrefix(db, prefixes, takenAtOrBefore);
   if (going === 0) return 0;
-  const { where, bind } = entityPrefixMatch(prefixes);
+  const { where, bind } = entityPrefixMatch(prefixes, takenAtOrBefore);
   execWrite(db, `DELETE FROM datoms WHERE ${where};`, bind);
   return going;
+}
+
+// ---------------------------------------------------------------------------
+// The deletion the wipe carries, and what a peer does with it
+// ---------------------------------------------------------------------------
+
+/**
+ * The ledger half of one Facet-scoped wipe: the rows go, and the act is written
+ * down in the same transaction (ADR-0096 §12).
+ *
+ * **Both or neither.** A delete whose record failed leaves a device whose peer
+ * hands the rows straight back, and a record whose delete failed claims an act
+ * that did not happen — to a peer, which would then perform it. SQLite gives
+ * "both or neither" for two statements, which is exactly what this needs, and
+ * unlike the `VACUUM` beside it there is nothing here that cannot run inside a
+ * transaction.
+ *
+ * **The record is written first and is not taken by the delete it records.** It
+ * is `deletion:`, owned by the Jar domain, which no Facet declares — so it is
+ * absent from every Facet's derived prefix set as arithmetic rather than as a
+ * rule anybody has to remember (ADR-0096 §13). The stamp bound would refuse it
+ * a second time over.
+ */
+export function wipeFacetFromLedger(
+  db: LedgerDb,
+  prefixes: readonly string[],
+  stamp: HlcKey
+): number {
+  const row = carriedDeletionRow(stamp, prefixes);
+  db.exec("BEGIN TRANSACTION;");
+  try {
+    execWrite(
+      db,
+      `INSERT OR IGNORE INTO datoms (${LEDGER_COLUMNS}) VALUES (?, ?, ?, ?, ?, ?, ?);`,
+      [
+        row.entity,
+        row.attribute,
+        row.value,
+        row.time,
+        row.hlc_ms,
+        row.hlc_ctr,
+        row.device_id,
+      ]
+    );
+    const taken = deleteDatomsByEntityPrefix(db, prefixes, stamp);
+    db.exec("COMMIT;");
+    return taken;
+  } catch (err) {
+    db.exec("ROLLBACK;");
+    throw err;
+  }
+}
+
+/**
+ * Every carried deletion this ledger holds.
+ *
+ * Read by attribute, which is `idx_ave`'s leading column, so the question "has
+ * anything ever been wiped?" costs an index seek rather than a scan — and in a
+ * jar nobody has wiped it is the whole cost of this mechanism, once per
+ * arriving batch.
+ *
+ * A row whose value will not parse is dropped rather than thrown on. A carried
+ * deletion is in an append-only table forever, so a throw would wedge every
+ * convergence this device ever attempts; `readCarriedDeletion` carries that
+ * argument.
+ */
+export function heldCarriedDeletions(db: LedgerDb): CarriedDeletion[] {
+  return execRows<LedgerRow>(
+    db,
+    `SELECT ${LEDGER_COLUMNS} FROM datoms WHERE attribute = ?;`,
+    [CARRIED_DELETION_ATTRIBUTE]
+  )
+    .map(readCarriedDeletion)
+    .filter((deletion): deletion is CarriedDeletion => deletion !== null);
+}
+
+/**
+ * Applies every carried deletion this batch obliges, and says what went — **the
+ * fourth sanctioned destructive operation** (ADR-0096 §12).
+ *
+ * It is called on every batch a convergence writes and on no batch a
+ * user-chosen import writes: a peer's payload *arrives* and a file is *chosen*,
+ * and _wipe, then import_ is already the sanctioned way to make a file the only
+ * truth. `db.worker.ts` is where that distinction is made, because it is the
+ * one place that knows which of the two a message is.
+ *
+ * **Per deletion rather than in one predicate**, so a deletion that took
+ * nothing contributes no prefix to the notice: the peer's sentence names what
+ * *this* device actually deleted, and a union taken across all of them would
+ * claim rows that were never here.
+ */
+export function applyCarriedDeletions(
+  db: LedgerDb,
+  arrived: readonly LedgerRow[]
+): CarriedDeletionSweep {
+  const owed = carriedDeletionWarrant(heldCarriedDeletions(db), arrived);
+  if (owed.length === 0) return SWEPT_NOTHING;
+
+  const prefixes = new Set<string>();
+  let datomsDeleted = 0;
+  for (const deletion of owed) {
+    const went = deleteDatomsByEntityPrefix(db, deletion.prefixes, deletion);
+    if (went === 0) continue;
+    datomsDeleted += went;
+    for (const prefix of deletion.prefixes) prefixes.add(prefix);
+  }
+  return { prefixes: [...prefixes], datomsDeleted };
 }

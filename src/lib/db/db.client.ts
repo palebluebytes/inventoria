@@ -30,6 +30,33 @@ export type {
 
 export type InvalidationListener = (attributes: string[]) => void;
 
+/**
+ * Which of the two kinds of batch this is, which is the whole of ADR-0096
+ * §12's import exemption.
+ *
+ * A peer's payload **arrives** and is held to every carried deletion this
+ * ledger holds, because convergence has to converge. A file is **chosen**, and
+ * _wipe, then import_ is already the sanctioned way to make one the only truth
+ * (ADR-0067 §1) — so an import applies none, and the divergence is deliberate
+ * rather than an oversight a later reader should tidy away.
+ */
+export type LedgerWriteSource = "convergence" | "import";
+
+/**
+ * What a peer's carried deletion took from this ledger, as the worker announces
+ * it (ADR-0096 §12).
+ *
+ * `prefixes` are the ones the wiping device froze, carried verbatim. Naming
+ * them is the reader's job: a prefix this build does not recognise is one it
+ * deleted nothing under.
+ */
+export interface CarriedDeletionSwept {
+  prefixes: string[];
+  datomsDeleted: number;
+}
+
+export type CarriedDeletionListener = (swept: CarriedDeletionSwept) => void;
+
 export class DBClient {
   private worker: Worker | null = null;
   private pendingRequests = new Map<
@@ -38,6 +65,7 @@ export class DBClient {
   >();
   private messageCounter = 0;
   private invalidationListeners = new Set<InvalidationListener>();
+  private carriedDeletionListeners = new Set<CarriedDeletionListener>();
   private initialized = false;
 
   /**
@@ -67,6 +95,19 @@ export class DBClient {
       if (type === "broadcast_invalidation") {
         const attributes = payload?.attributes || [];
         this.invalidationListeners.forEach((listener) => listener(attributes));
+        return;
+      }
+
+      // A peer's carried deletion, applied (ADR-0096 §12). A second broadcast
+      // rather than a field on the one above: an invalidation says "re-read",
+      // which every store already does, and this says "rows went, and here is
+      // what to tell the person holding the phone".
+      if (type === "broadcast_carried_deletion") {
+        const swept: CarriedDeletionSwept = {
+          prefixes: payload?.prefixes ?? [],
+          datomsDeleted: payload?.datomsDeleted ?? 0,
+        };
+        this.carriedDeletionListeners.forEach((listener) => listener(swept));
         return;
       }
 
@@ -150,6 +191,20 @@ export class DBClient {
   }
 
   /**
+   * Register a listener for a carried deletion this device has **applied**
+   * (ADR-0096 §12). It fires once per batch that took rows, and never for a
+   * batch that took none.
+   *
+   * Returns a cleanup function to unsubscribe.
+   */
+  onCarriedDeletion(listener: CarriedDeletionListener): () => void {
+    this.carriedDeletionListeners.add(listener);
+    return () => {
+      this.carriedDeletionListeners.delete(listener);
+    };
+  }
+
+  /**
    * What the ledger says about itself: how many rows it holds and which device
    * it belongs to. The two facts an export envelope carries.
    */
@@ -226,9 +281,18 @@ export class DBClient {
    * message. `final` marks the batch that finishes the import, which is what
    * makes the worker tell every projection to re-read once rather than once per
    * batch.
+   *
+   * `source` is what decides whether the batch is held to the carried deletions
+   * this ledger already has (ADR-0096 §12). It has no default: a convergence
+   * that forgot it would hand a wiped peer its rows straight back, and an
+   * import that forgot it would delete the file the user deliberately chose.
    */
-  async ledgerImport(rows: LedgerRow[], final: boolean): Promise<number> {
-    return this.send<number>("ledger_import", { rows, final });
+  async ledgerImport(
+    rows: LedgerRow[],
+    final: boolean,
+    source: LedgerWriteSource
+  ): Promise<number> {
+    return this.send<number>("ledger_import", { rows, final, source });
   }
 
   /**
