@@ -92,13 +92,24 @@ export interface SealOptions {
 const utf8 = new TextEncoder();
 
 // WebCrypto takes the additional data as a `BufferSource` or not at all, and
-// `undefined` is how "not at all" is spelled — an empty array is a different
-// seal from no additional data, so the two must not be confused here.
-const aeadOf = (nonce: Uint8Array, label: string | undefined) => ({
-  name: "AES-GCM" as const,
-  iv: nonce as BufferSource,
-  additionalData: label === undefined ? undefined : utf8.encode(label),
-});
+// an empty array is a different seal from no additional data, so the two must
+// not be confused here.
+//
+// **"Not at all" is spelled by leaving the key off, and never by `undefined`.**
+// WebIDL says an optional dictionary member set to `undefined` is absent, and
+// Node's WebCrypto reads it that way — but Blink converts the value it finds
+// and answers `TypeError: AeadParams: additionalData: Not a BufferSource`, so
+// every unlabelled seal throws in a browser while every unit test passes. That
+// is the whole of #417: one property, present with nothing in it, on the one
+// path no Node test can reach.
+const aeadOf = (nonce: Uint8Array, label: string | undefined): AesGcmParams =>
+  label === undefined
+    ? { name: "AES-GCM", iv: nonce as BufferSource }
+    : {
+        name: "AES-GCM",
+        iv: nonce as BufferSource,
+        additionalData: utf8.encode(label) as BufferSource,
+      };
 
 /** Seals one frame under a key, with a fresh nonce in front of it. */
 export async function sealFrame(

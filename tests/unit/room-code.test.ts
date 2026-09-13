@@ -11,7 +11,7 @@
  * property under test is that a frame cannot be opened or forged without the
  * key, and a fake AEAD would only prove that a fake behaves.
  */
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import {
   ROOM_ID_BYTES,
   ROOM_KEY_BYTES,
@@ -125,6 +125,37 @@ describe("the seal is the whole binding", () => {
     await expect(openSealedFrame(mintRoomCode(), frame)).rejects.toThrow(
       SealRefusedError
     );
+  });
+
+  it("hands WebCrypto no additionalData at all when there is no label", async () => {
+    // **The property is the key's absence, not its value** (#417). WebIDL says
+    // an optional dictionary member set to `undefined` is absent and Node's
+    // WebCrypto reads it that way, so a seal that spells "no additional data"
+    // as `additionalData: undefined` passes every assertion in this file and
+    // throws `AeadParams: additionalData: Not a BufferSource` in Blink — which
+    // is every unlabelled seal in the app: a Meal send's payload, its word, and
+    // the pairing secret. No round-trip through Node can catch that, so what is
+    // asserted is the shape handed over.
+    const code = mintRoomCode();
+    const encrypt = crypto.subtle.encrypt.bind(crypto.subtle);
+    const seen: AesGcmParams[] = [];
+    const spy = vi
+      .spyOn(crypto.subtle, "encrypt")
+      .mockImplementation((params, key, data) => {
+        seen.push(params as AesGcmParams);
+        return encrypt(params, key, data);
+      });
+
+    try {
+      await sealFrame(code, utf8.encode("a meal"));
+      await sealFrame(code, utf8.encode("a chunk"), { label: "chunk/0" });
+    } finally {
+      spy.mockRestore();
+    }
+
+    expect("additionalData" in seen[0]).toBe(false);
+    // A label still binds, so the two are not collapsed into never sending any.
+    expect(seen[1].additionalData).toEqual(utf8.encode("chunk/0"));
   });
 
   it("refuses bytes that were never a frame", async () => {
