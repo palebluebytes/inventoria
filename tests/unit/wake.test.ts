@@ -39,7 +39,6 @@ import {
 import {
   derivePairingChains,
   deriveLaneKey,
-  type LaneChain,
   type PairedChains,
 } from "../../src/lib/p2p/pairing-chain";
 import { base64url } from "../../src/lib/p2p/room-code";
@@ -47,7 +46,6 @@ import { openDeposit, sealDeposit } from "../../src/lib/p2p/sealed-deposit";
 import {
   laneChainOf,
   type PairedDevice,
-  type StoredLane,
 } from "../../src/lib/stores/paired-devices";
 import {
   convergeWithPeer,
@@ -57,6 +55,7 @@ import {
   type WakeOutcome,
 } from "../../src/lib/p2p/wake";
 import { fakeBucket, routeOver } from "./support/store-bucket";
+import { pairedWith } from "./support/paired-device";
 
 const ORIGIN = "https://app.example";
 
@@ -74,14 +73,6 @@ beforeEach(async () => {
 // ---------------------------------------------------------------------------
 // Two devices, each with a real ledger and one side of one pairing
 // ---------------------------------------------------------------------------
-
-const b64 = (bytes: Uint8Array) => btoa(String.fromCharCode(...bytes));
-
-const storedLane = (lane: LaneChain): StoredLane => ({
-  direction: lane.direction,
-  state: b64(lane.state),
-  index: 0,
-});
 
 interface Device {
   db: LedgerDb;
@@ -104,18 +95,7 @@ function device(
   return {
     db,
     clock,
-    record: {
-      device_id: peer_id,
-      name: null,
-      deposit: storedLane(chains.deposit),
-      collect: storedLane(chains.collect),
-      peer_vector: {},
-      deposit_standing: null,
-      peer_roster: null,
-      unproductive_wakes: 0,
-      last_met: "2026-09-13",
-      revoked: false,
-    },
+    record: pairedWith(peer_id, chains),
     swept,
     ledger: {
       oldestAbove: async (after, budgetBytes, above) =>
