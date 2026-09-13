@@ -18,10 +18,13 @@
  *     implementer will otherwise read it as a bug and repair it with the scan
  *     window §4 boasts of not needing.
  *   - **412 on a deposit is the orphan design.** The rewrite is conditional on
- *     the etag this device's own `PUT` returned; if the peer has collected, the
- *     etag is gone, the write is refused and **the object is not recreated**.
- *     It is a refusal, not an error, and it may never advance the index —
- *     absence is not an acknowledgement.
+ *     the etag this device's own `PUT` returned; if the object is gone —
+ *     collected, expired, or deleted by an unpairing peer — the etag is gone
+ *     with it and the write is refused. It is a refusal, not an error, and
+ *     **it may never advance the index**: absence is not an acknowledgement.
+ *     What the caller does with it is `wake.ts`'s and is an unconditional
+ *     write at the same index (ADR-0096 §5's 2026-09-12 amendment), which is
+ *     what stops a lane whose object vanished uncollected falling mute.
  *
  * Everything else is a failure this device cannot act on, and it arrives as a
  * {@link StoreUnreachableError}. A wake that cannot reach the store simply did
@@ -91,14 +94,18 @@ export interface Store {
    * at an index this device has already written at.
    *
    * Returns the etag the next rewrite matches on, or `null` when the write was
-   * **refused** — the object had been collected, and it is not recreated.
+   * **refused** — whatever was at that address is gone, so there was no etag
+   * to match. Answering that refusal is the caller's.
    */
   deposit(
     address: string,
     sealed: Uint8Array,
     ifMatch: string | null
   ): Promise<string | null>;
-  /** A `DELETE`, which the collector sends only after the final chunk verifies. */
+  /**
+   * A `DELETE`. A collector sends one only after the final chunk verifies; an
+   * unpairing sends two, and neither is conditional (ADR-0096 §11).
+   */
   discard(address: string): Promise<void>;
 }
 
@@ -175,9 +182,9 @@ export function storeOverFetch(call: StoreFetch, origin?: string): Store {
             ifMatch === null ? undefined : { "If-Match": `"${ifMatch}"` },
         })
       );
-      // §5: the etag is gone because the peer collected, so the write is
-      // refused and the object is **not** recreated. The caller may not read
-      // this as an acknowledgement.
+      // §5: the object this rewrite would supersede is gone, so there is no
+      // etag to match and the write is refused. The caller may not read this
+      // as an acknowledgement; answering it is `wake.ts`'s.
       if (response.status === 412) return null;
       if (!response.ok) throw unread("deposit", response);
       return bareEtag(response);
