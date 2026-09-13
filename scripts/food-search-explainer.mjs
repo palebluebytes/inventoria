@@ -32,7 +32,9 @@
  * while a regeneration stays a deliberate act.
  */
 
-import { readFileSync, writeFileSync } from "node:fs";
+import { spawnSync } from "node:child_process";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
@@ -551,6 +553,79 @@ const movedLeads = (key) => {
   return ablation.moved;
 };
 
+/**
+ * The app's real search, bundled for the browser.
+ *
+ * The page lets a reader type a query and see what the ranking answers, and the
+ * only honest way to do that is to run the SHIPPED code. A page that described
+ * a ranking it had reimplemented would be describing the reimplementation, and
+ * `usda-corpus.ts` is where `rankAgainst`, the stray-mention filter and the
+ * vocabulary fallback actually live (ADR-0047 §4's import-don't-copy rule,
+ * applied to a document instead of a generator).
+ *
+ * Twenty kilobytes, tree-shaken, and it pulls in no browser API that would need
+ * stubbing. Reached through esbuild from the PATH or through `nix shell`, the
+ * same two attempts `usda-app-module.mjs` makes.
+ */
+const bundleSearch = () => {
+  const scratch = mkdtempSync(join(tmpdir(), "food-search-page-"));
+  const entry = join(scratch, "search-entry.ts");
+  const out = join(scratch, "search.js");
+  writeFileSync(
+    entry,
+    "export { buildSearchCorpus, searchIndexRows, SEARCH_RESULT_LIMIT } from " +
+      JSON.stringify(join(ROOT, "src/lib/food/usda-corpus")) +
+      ";\nexport { compileReferenceFoodQuery, readReferenceFoodName, readRowRank } from " +
+      JSON.stringify(join(ROOT, "src/lib/food/reference-food-ranking")) +
+      ";\n"
+  );
+  const argv = [
+    entry,
+    "--bundle",
+    "--format=iife",
+    "--global-name=FoodSearch",
+    "--platform=browser",
+    "--minify",
+    `--outfile=${out}`,
+  ];
+  for (const [command, args] of [
+    ["esbuild", argv],
+    ["nix", ["shell", "nixpkgs#esbuild", "-c", "esbuild", ...argv]],
+  ]) {
+    const run = spawnSync(command, args, { cwd: ROOT, encoding: "utf8" });
+    if (run.status === 0) {
+      const code = readFileSync(out, "utf8");
+      rmSync(scratch, { recursive: true, force: true });
+      return code;
+    }
+  }
+  rmSync(scratch, { recursive: true, force: true });
+  throw new Error(
+    "could not bundle the search for the page. esbuild is reached from the " +
+      "PATH or through `nix shell nixpkgs#esbuild`."
+  );
+};
+
+/**
+ * The corpus the page searches: every field the ranking reads, and the macros a
+ * result row renders. `portions` is the one thing left out, and it is 433 KiB of
+ * the 980 - nothing here stages a food.
+ */
+const searchCorpus = {
+  schema_version: index.schema_version,
+  vocabulary_off: index.vocabulary_off,
+  vocabulary_local: index.vocabulary_local,
+  foods: index.foods.map((row) => ({
+    fdcId: row.fdcId,
+    description: row.description,
+    ...(row.foodCategory ? { foodCategory: row.foodCategory } : {}),
+    ...(row.also ? { also: row.also } : {}),
+    ...(row.plain_sibling ? { plain_sibling: true } : {}),
+    ...(row.raw ? { raw: true } : {}),
+    ...(row.macros ? { macros: row.macros } : {}),
+  })),
+};
+
 const esc = (s) =>
   String(s)
     .replace(/&/g, "&amp;")
@@ -680,6 +755,7 @@ ${CSS}
   <nav class="rail" aria-label="Sections">
     <ol>
       <li><a href="#answer">The short answer</a></li>
+      <li><a href="#try"><b>Try it</b></a></li>
       <li><a href="#sources">Four sources</a></li>
       <li><a href="#twice">Narrowing happens twice</a></li>
       <li><a href="#discarded"><b>What was discarded</b></a></li>
@@ -722,8 +798,37 @@ ${funnelRow("Rows that are the beef you meant", "80/20 mince, past the cap", 0, 
       </div>
     </section>
 
+
+    <section id="try">
+      <p class="kicker">02 &middot; Try it</p>
+      <h2>Search the real corpus</h2>
+
+      <p>This is not a demo. The ${n(ROWS)}-row corpus below and the code ranking it are the ones the app ships &mdash; <code>usda-corpus.ts</code> bundled for the browser, the same <code>searchIndexRows</code> a keystroke calls. Type and you get exactly what the app would answer, cap and all.</p>
+
+      <div class="tryit">
+        <label class="ctl grow">
+          <span>Search the corpus</span>
+          <input type="search" id="q2" placeholder="beef, potato, milk, olive oil&hellip;" autocomplete="off" value="potato">
+        </label>
+        <div class="presets" id="presets">
+          <span>Queries this page argues about:</span>
+          <button type="button" data-q="beef">beef</button>
+          <button type="button" data-q="potato">potato</button>
+          <button type="button" data-q="cheese">cheese</button>
+          <button type="button" data-q="milk">milk</button>
+          <button type="button" data-q="grape">grape</button>
+          <button type="button" data-q="olive oil">olive oil</button>
+          <button type="button" data-q="aubergine">aubergine</button>
+          <button type="button" data-q="gammon">gammon</button>
+        </div>
+        <p class="resultline" id="count2" role="status">&nbsp;</p>
+        <div class="hits" id="hits"></div>
+        <p class="caption" id="keyhelp">Each row shows the key vector that placed it, read left to right exactly as <code>compareRelevance</code> reads it &mdash; the first column where two rows differ is the one that decided them. <span class="rec">tier</span> is the six rungs; <span class="rec">pos</span> is how far into the name your words landed; <span class="rec">sib</span>, <span class="rec">raw</span> and <span class="rec">desig</span> are read off the row rather than the name.</p>
+      </div>
+    </section>
+
     <section id="sources">
-      <p class="kicker">02 &middot; Sources</p>
+      <p class="kicker">03 &middot; Sources</p>
       <h2>Four places a food can come from</h2>
 
       <p>Only one of them is a text search. Knowing which is which explains most of what looks inconsistent about the screen.</p>
@@ -749,7 +854,7 @@ ${funnelRow("Rows that are the beef you meant", "80/20 mince, past the cap", 0, 
     </section>
 
     <section id="twice">
-      <p class="kicker">03 &middot; The spine</p>
+      <p class="kicker">04 &middot; The spine</p>
       <h2>Membership is decided once; retrieval is decided every keystroke</h2>
 
       <p>This split is the single most useful thing to hold onto. Two completely different sets of rules run at two completely different times, and confusing them is how almost every question about search goes wrong.</p>
@@ -773,7 +878,7 @@ ${funnelRow("Rows that are the beef you meant", "80/20 mince, past the cap", 0, 
     <!-- ══ the review half ═══════════════════════════════════════════════ -->
 
     <section id="discarded">
-      <p class="kicker">04 &middot; The review surface</p>
+      <p class="kicker">05 &middot; The review surface</p>
       <h2>What was discarded</h2>
 
       <p class="lede">${n(DROPPED)} of USDA's ${n(IDENTITIES)} records never reach the app &mdash; ${pc(DROPPED, IDENTITIES)} of everything published. A dropped record is simply <em>absent</em> from the shipped index, with nothing anywhere saying which rule took it. This section is the reconstruction: every one of them, the rule that removed it, and the terms that rule fired on.</p>
@@ -804,7 +909,7 @@ ${funnelRow("Corpus ships", `${n(index.foods.filter((r) => r.dataType === "SR Le
     </section>
 
     <section id="rules">
-      <p class="kicker">05 &middot; By rule</p>
+      <p class="kicker">06 &middot; By rule</p>
       <h2>The ${RULE_ORDER.length} rules, and the words they are made of</h2>
 
       <p>Each card is one rule: what it claims, how many foods it took, and the terms that did the most removing. Those terms are not the rule's source &mdash; they are what the ablation found actually load-bearing across the family.</p>
@@ -815,7 +920,7 @@ ${RULE_ORDER.map(ruleCard).join("")}
     </section>
 
     <section id="cliff">
-      <p class="kicker">06 &middot; By category</p>
+      <p class="kicker">07 &middot; By category</p>
       <h2>The filters cut on a cliff, not a gradient</h2>
 
       <p>Sorted by how many records USDA published in each of its own categories. The striking thing is the shape: <strong>${wipedOut.length} categories lost every single record</strong> (${n(wipedRows)} rows between them) while <strong>${nearlyKept.length} kept over 90%</strong>. Very few sit in between.</p>
@@ -835,7 +940,7 @@ ${RULE_ORDER.map(ruleCard).join("")}
     </section>
 
     <section id="review">
-      <p class="kicker">07 &middot; Every one of them</p>
+      <p class="kicker">08 &middot; Every one of them</p>
       <h2>Review all ${n(DROPPED)} discarded foods</h2>
 
       <p>Filter by rule, by USDA category, or by typing. Each row shows the food as USDA named it, the rule that removed it, and &mdash; where there is one &mdash; the terms the rule fired on, which are highlighted in the name.</p>
@@ -875,7 +980,7 @@ ${RULE_ORDER.map((r) => `              <option value="${esc(r)}">${esc(RULE_BLUR
     <!-- ══ back to the pipeline ══════════════════════════════════════════ -->
 
     <section id="reach">
-      <p class="kicker">08 &middot; Keystroke, part one</p>
+      <p class="kicker">09 &middot; Keystroke, part one</p>
       <h2>What your word reaches</h2>
 
       <p>USDA names a food <span class="rec">Food, qualifier, qualifier</span>. Everything below leans on that: the <strong>head phrase</strong> before the first comma is the food's identity, and everything after it is description. Retrieval scores how much of a food's own name your query accounts for, on six rungs.</p>
@@ -942,7 +1047,7 @@ ${[
     </section>
 
     <section id="order">
-      <p class="kicker">09 &middot; Keystroke, part two</p>
+      <p class="kicker">10 &middot; Keystroke, part two</p>
       <h2>${keyCensus.keys.length === 12 ? "Twelve" : keyCensus.keys.length} keys, read in order, never summed</h2>
 
       <p>Every retrieved row gets ${n(keyCensus.keys.length)} numbers. They are compared <strong>strictly in sequence</strong> &mdash; a tie on the first is broken by the second &mdash; so an earlier key is never traded against a later one. A row scores as the best of all its names, including the ${n(index.foods.filter((r) => r.also).length)} rows carrying aliases a merge discarded.</p>
@@ -969,7 +1074,7 @@ ${KEY_BLURB.map(
     </section>
 
     <section id="screen">
-      <p class="kicker">10 &middot; Display</p>
+      <p class="kicker">11 &middot; Display</p>
       <h2>What actually reaches the screen</h2>
 
       <p>The ranked list is cut to <strong>50 rows</strong>, and that is the last narrowing. Nothing below 50 is reachable by any means except typing a different word.</p>
@@ -992,7 +1097,7 @@ ${scoreAll("grape")
     </section>
 
     <section id="edges">
-      <p class="kicker">11 &middot; The edges</p>
+      <p class="kicker">12 &middot; The edges</p>
       <h2>Where this data runs out</h2>
 
       <p>Five measurements that no rule states and nobody designed. They are what the corpus <em>became</em>.</p>
@@ -1075,7 +1180,7 @@ ${shippedWords
     </section>
 
     <section id="bar">
-      <p class="kicker">12 &middot; Honesty</p>
+      <p class="kicker">13 &middot; Honesty</p>
       <h2>How good is it, really</h2>
 
       <p>Before any of this was changed, a bar was written down and committed &mdash; 44 hand-judged queries, each with the exact record a diarist means, keyed by USDA id so a rename cannot fake a pass.</p>
@@ -1094,7 +1199,7 @@ ${shippedWords
     </section>
 
     <section id="tradeoffs">
-      <p class="kicker">13 &middot; Trade-offs</p>
+      <p class="kicker">14 &middot; Trade-offs</p>
       <h2>Every choice, and what it costs</h2>
 
       <div class="tablewrap">
@@ -1121,7 +1226,7 @@ ${shippedWords
     </section>
 
     <section id="pending">
-      <p class="kicker">14 &middot; What the rule cost</p>
+      <p class="kicker">15 &middot; What the rule cost</p>
       <h2>One row per ingredient, and the fourteen foods it took</h2>
 
       <p>The corpus used to carry every record USDA published about a food, including the ones it had cooked first. Typing <span class="rec">beef</span> returned rows that were the same sentence permuted over trim, grade, separation and cooking. That list was not mis-sorted &mdash; it was one food written out thirty times, and no ordering of thirty copies produces fewer than thirty.</p>
@@ -1170,7 +1275,7 @@ ${shippedWords
     </section>
 
     <section id="faq">
-      <p class="kicker">15 &middot; Questions</p>
+      <p class="kicker">16 &middot; Questions</p>
       <h2>Questions this usually raises</h2>
 
       <div class="faq">
@@ -1234,7 +1339,14 @@ ${shippedWords
 
 </div>
 
+<script id="corpus" type="application/json">${JSON.stringify(searchCorpus).replace(/</g, "\\u003c")}</script>
+<script>
+${bundleSearch()}
+</script>
 <script id="drops" type="application/json">${JSON.stringify(reviewData).replace(/</g, "\\u003c")}</script>
+<script>
+${readFileSync(join(ROOT, "scripts", "food-search-tryit.js"), "utf8")}
+</script>
 <script>
 ${readFileSync(join(ROOT, "scripts", "food-search-explainer.js"), "utf8")}
 </script>

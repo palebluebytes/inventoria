@@ -1084,3 +1084,132 @@ td.num.neg {
   color: var(--muted);
   font-style: italic;
 }
+
+/* ── the live search ──────────────────────────────────── */
+
+.tryit {
+  border: 1px solid var(--hair);
+  border-top: 2px solid var(--ink);
+  background: var(--surface);
+  padding: 1.2rem 1.1rem 1.3rem;
+  margin: 1.6rem 0 0;
+}
+
+.presets {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.4rem 0.5rem;
+  margin-top: 0.9rem;
+}
+.presets > span {
+  font-family: var(--display);
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-right: 0.2rem;
+}
+.presets button {
+  font-family: var(--mono);
+  font-size: 0.76rem;
+  color: var(--ink);
+  background: var(--paper);
+  border: 1px solid var(--hair);
+  padding: 0.24rem 0.5rem;
+  cursor: pointer;
+  min-height: 1.9rem;
+}
+.presets button:hover {
+  border-color: var(--ink);
+}
+.presets button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.hits {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+/* Rank marks, the app's own (ADR-0090 §2): the winner inverts, the runners-up
+     carry a stepping left edge that thins over three rows and then stops. */
+.hit {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.2rem 1rem;
+  align-items: baseline;
+  padding: 0.5rem 0.7rem;
+  background: var(--paper);
+  border-left: 2px solid var(--hair);
+}
+.hit[data-rank="0"] {
+  background: var(--ink);
+  color: var(--paper);
+  border-left-color: var(--ink);
+}
+.hit[data-rank="0"] .hitname {
+  font-weight: 600;
+}
+.hit[data-rank="1"] {
+  border-left-width: 6px;
+  border-left-color: var(--ink);
+}
+.hit[data-rank="2"] {
+  border-left-width: 4px;
+  border-left-color: var(--ink);
+}
+
+.hitname {
+  font-family: var(--display);
+  font-size: 0.9rem;
+  line-height: 1.35;
+}
+.hitkcal {
+  font-family: var(--mono);
+  font-size: 0.76rem;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  opacity: 0.75;
+}
+.hitkeys {
+  grid-column: 1 / -1;
+  font-family: var(--mono);
+  font-size: 0.68rem;
+  font-variant-numeric: tabular-nums;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.1rem 0.75rem;
+  opacity: 0.72;
+}
+.hitkeys b {
+  font-weight: 400;
+}
+.hitkeys i {
+  font-style: normal;
+  opacity: 0.6;
+}
+.hitalias {
+  grid-column: 1 / -1;
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  color: var(--accent);
+}
+.hit[data-rank="0"] .hitalias {
+  color: var(--paper);
+  opacity: 0.85;
+}
+
+.cutline {
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--cut);
+  border-top: 1px dashed var(--cut);
+  padding-top: 0.4rem;
+  margin-top: 0.4rem;
+}
