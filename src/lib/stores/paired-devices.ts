@@ -631,13 +631,43 @@ export function revokePairedDevice(device_id: string): void {
 }
 
 /**
+ * **Phase 1 for every pairing at once**: the jar-wide wipe's half of the act
+ * (ADR-0096 §12), answering how many pairings it marked.
+ *
+ * The jar-wide wipe has to unpair, because otherwise it is a no-op with extra
+ * steps: it empties `datoms` and touches nothing here, so every vector goes
+ * empty and the next sync is ADR-0075 §6's empty-vector case — the whole ledger
+ * comes back.
+ *
+ * **It marks rather than removing, and the mark is the load-bearing half.** It
+ * is synchronous and local, so both lanes stop before any delete has left this
+ * device — which is what closes the window a wipe otherwise opens, since a wake
+ * takes its list once and then spends seconds per lane. Taking the whole record
+ * instead would throw away the addresses the withdrawal spends, making it
+ * best-effort at exactly the moment there is most to withdraw.
+ *
+ * A row already carrying a mark is left as it is rather than counted twice: it
+ * is a pending revocation the same sweep is already going to finish.
+ */
+export function revokeAllPairedDevices(): number {
+  const held = readPairedDevices();
+  const marking = held.filter((device) => !device.revoked).length;
+  if (marking > 0) keep(held.map((device) => ({ ...device, revoked: true })));
+  return marking;
+}
+
+/**
  * **Phase 3**: drops the row, once the withdrawal has landed.
  *
  * Discarding it any earlier throws away the two addresses the withdrawal
  * needs, which is precisely what would make it best-effort — so `unpair.ts`
  * is the only thing that reaches it, and only once both deletes have returned.
- * The jar-wide wipe unpairs by taking the whole `localStorage` record and is
- * #403's.
+ *
+ * **The jar-wide wipe reaches it by the same route** and not by taking the
+ * whole `localStorage` record, which is what this comment used to anticipate:
+ * it marks every row through {@link revokeAllPairedDevices} and the ordinary
+ * sweep finishes them, so there is one way a pairing leaves this list rather
+ * than two (`jar-wipe.ts`, #403).
  */
 export function forgetPairedDevice(device_id: string): void {
   keep(readPairedDevices().filter((device) => device.device_id !== device_id));

@@ -10,17 +10,23 @@
  * leaves each side with a current view of the other, and that an attempt which
  * does not finish leaves nothing behind but rows a later attempt will skip.
  */
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, vi } from "vitest";
 import sqlite3InitModule from "@sqlite.org/sqlite-wasm";
 import { localRelay } from "./support/local-relay";
+
+// `jar-wipe.ts` reaches the worker RPC only to build its default seams, and the
+// one case below injects its own.
+vi.mock("../../src/lib/db/db.client", () => ({ dbClient: {} }));
 import {
   createLedgerSchema,
   importLedgerRows,
   readLedgerPage,
   readLedgerVersionVector,
+  resetLedgerSchema,
   type LedgerDb,
   type LedgerRow,
 } from "../../src/lib/db/db.core";
+import { runJarWipe } from "../../src/lib/jar-wipe";
 import { createHlc, type Hlc, type HlcMark } from "../../src/lib/db/hlc";
 import { derivePairingChains } from "../../src/lib/p2p/pairing-chain";
 import {
@@ -175,6 +181,40 @@ describe("two devices converge, and what crosses is what the peer lacks", () => 
     expect(rowsOf(a)).toHaveLength(2);
     expect(ended.a).toMatchObject({ rows_sent: 1, rows_received: 1 });
     expect(ended.b).toMatchObject({ rows_sent: 1, rows_received: 1 });
+  });
+
+  // ADR-0096 §12: the jar-wide wipe unpairs, and re-pairing afterwards honestly
+  // means *pull it all back from the laptop*. It is demonstrated rather than
+  // asserted because it is the honest outcome rather than a bug — and it is
+  // demonstrated **here**, in the suite that owns first syncs, because the
+  // whole claim is that it is a normal one with no special path.
+  it("pulls the whole ledger back after a jar-wide wipe, as a normal first sync", async () => {
+    const a = device("device_a");
+    const b = device("dev_b");
+    hold(a, [
+      row({ attribute: "a/1" }),
+      row({ attribute: "a/2", hlc_ms: 2_000 }),
+    ]);
+
+    await converge(a, b);
+    expect(rowsOf(b)).toHaveLength(2);
+
+    // The wipe on A, through the real run: the pairings are severed (there are
+    // none in this Node jar, which is the honest zero) and the ledger goes.
+    const wiped = await runJarWipe({
+      clearLedger: async () => resetLedgerSchema(a.db),
+      reclaimSpace: async () => {},
+      withdrawLanes: async () => {},
+    });
+    expect(wiped.kind).toBe("wiped");
+    expect(rowsOf(a)).toEqual([]);
+
+    // Pairing again is a first sync, and a first sync is the empty-vector case.
+    const again = await converge(a, b);
+
+    expect(rowsOf(a)).toEqual(rowsOf(b));
+    expect(rowsOf(a)).toHaveLength(2);
+    expect(again.a).toMatchObject({ rows_sent: 0, rows_received: 2 });
   });
 
   it("is the empty case when neither device holds anything", async () => {

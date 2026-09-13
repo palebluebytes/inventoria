@@ -25,7 +25,22 @@ const STORAGE_MODULE = readCode("src/lib/storage/persistent-storage.ts");
 const CORE = readCode("src/lib/db/db.core.ts");
 const WORKER = readCode("src/lib/db/db.worker.ts");
 
-const handler = SETTINGS.slice(
+/**
+ * The run moved out of the screen at #403 and is `src/lib/jar-wipe.ts`'s, for
+ * `facet-wipe.ts`'s reason: the ordering and the sentences are the parts worth
+ * testing and neither should need a Worker. The claims below are unchanged —
+ * they are read against the module that now holds them, and the behaviour they
+ * pin structurally is exercised for real in `jar-wipe.test.ts`.
+ */
+const JAR_WIPE = readCode("src/lib/jar-wipe.ts");
+
+const handler = JAR_WIPE.slice(
+  JAR_WIPE.indexOf("export async function runJarWipe"),
+  JAR_WIPE.indexOf("export function jarWipeReport")
+);
+
+/** What is left on the screen: the two dialogs, and the readout it re-reads. */
+const screenHandler = SETTINGS.slice(
   SETTINGS.indexOf("async function wipeDatabase"),
   SETTINGS.indexOf("let showLedger")
 );
@@ -56,9 +71,9 @@ describe("the reclaim is its own operation (ADR-0079 §4)", () => {
 
 describe("the wipe attempts the reclaim and reports what happened", () => {
   it("commits the delete first, then attempts the vacuum", () => {
-    expect(handler.indexOf("dbClient.clear()")).toBeGreaterThan(-1);
-    expect(handler.indexOf("dbClient.vacuum()")).toBeGreaterThan(
-      handler.indexOf("dbClient.clear()")
+    expect(handler.indexOf("seams.clearLedger()")).toBeGreaterThan(-1);
+    expect(handler.indexOf("seams.reclaimSpace()")).toBeGreaterThan(
+      handler.indexOf("seams.clearLedger()")
     );
   });
 
@@ -69,7 +84,7 @@ describe("the wipe attempts the reclaim and reports what happened", () => {
     // formatter's opinion of it.
     const flat = handler.replace(/\s+/g, " ");
     expect(flat).toMatch(
-      /try \{ await dbClient\.vacuum\(\); \} catch \([^)]*\) \{[^}]*reclaimed = false;/
+      /try \{ await seams\.reclaimSpace\(\); \} catch \([^)]*\) \{[^}]*reclaimed = false;/
     );
   });
 
@@ -77,9 +92,13 @@ describe("the wipe attempts the reclaim and reports what happened", () => {
     // Both branches open on the half that is true either way, and they differ
     // only on the half that can fail. The spelling is not the claim; that there
     // are two of them, and that only one asserts the space came back, is.
-    const messages = [...handler.matchAll(/"(The ledger is empty[^"]*)"/g)].map(
-      (m) => m[1]
-    );
+    //
+    // Read against the whole module rather than the run: #403 moved the pair
+    // into `jarWipeReport`, where the pairing clauses that follow them are
+    // built.
+    const messages = [
+      ...JAR_WIPE.matchAll(/"(The ledger is empty[^"]*)"/g),
+    ].map((m) => m[1]);
     expect(messages).toHaveLength(2);
     expect(
       messages.filter((m) => /\bhas been reclaimed\b/.test(m))
@@ -88,7 +107,7 @@ describe("the wipe attempts the reclaim and reports what happened", () => {
       messages.filter((m) => /\bcould not be reclaimed\b/.test(m))
     ).toHaveLength(1);
     // The old message claimed an intention rather than an outcome.
-    expect(handler).not.toMatch(/wiped successfully/);
+    expect(JAR_WIPE).not.toMatch(/wiped successfully/);
   });
 });
 
@@ -127,7 +146,9 @@ describe("the storage readout is told when its screen is looked at", () => {
     // ticket's own case — wipe, dismiss, look at the figure — stays frozen.
     expect(STORAGE).toMatch(/export function read\(\)/);
     expect(SETTINGS).toMatch(/<StorageStatus[^>]*bind:this=\{storage\}/);
-    expect(handler).toMatch(/storage\?\.read\(\)/);
+    // Still the screen's: the readout is a component instance this handler
+    // holds, and the run below it knows nothing about a screen.
+    expect(screenHandler).toMatch(/storage\?\.read\(\)/);
   });
 
   it("is not driven by the worker's invalidation broadcast", () => {

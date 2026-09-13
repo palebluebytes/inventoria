@@ -19,7 +19,8 @@
   import Alert from "../ui/Alert.svelte";
   import Badge from "../ui/Badge.svelte";
   import Checkbox from "../ui/Checkbox.svelte";
-  import { appError } from "../logs/app-log";
+  import { jarWipeConfirmation, runJarWipe } from "../jar-wipe";
+  import { readPairedDevices } from "../stores/paired-devices";
 
   let {
     dbReady,
@@ -43,34 +44,24 @@
    */
   let storage = $state<ReturnType<typeof StorageStatus> | undefined>(undefined);
 
+  // **The run is `lib/jar-wipe.ts`'s, not this screen's** — the ordering of its
+  // four effects and the sentences that report them are the parts worth
+  // testing, and none of them should need a Worker or a network to exercise.
+  // Same split as `facets/facet-wipe.ts` and `views/ledger/export-run.ts`, and
+  // for the same reason.
+  //
+  // **The dialogs stay the platform's.** The Facet-scoped wipe has an in-app
+  // confirmation with counts, and this one should too, but swapping them drags
+  // in the tap floor, the sheet vocabulary and a second confirmation design —
+  // none of which is what this change is about. Recorded as its own issue
+  // rather than carried along.
   async function wipeDatabase() {
-    if (
-      !confirm(
-        "Are you sure you want to completely wipe the database? This cannot be undone."
-      )
-    ) {
+    if (!confirm(jarWipeConfirmation(readPairedDevices().length))) return;
+
+    const ended = await runJarWipe();
+    if (ended.kind === "failed") {
+      alert(ended.message);
       return;
-    }
-    try {
-      await dbClient.clear();
-    } catch (err) {
-      appError("clearing the ledger failed", err);
-      alert("Failed to wipe database");
-      return;
-    }
-    // The delete has committed; the reclaim is attempted after it and is
-    // best-effort (ADR-0079 §4). `VACUUM` cannot run inside a transaction, so
-    // "both or neither" is not expressible — a vacuum that fails leaves the
-    // rows gone and the storage figure above unmoved, and the message has to be
-    // able to say exactly that. The emptiness is unconditional because it is
-    // true either way; only the space is conditional, because only the space
-    // can fail.
-    let reclaimed = true;
-    try {
-      await dbClient.vacuum();
-    } catch (err) {
-      appError("compacting the ledger failed", err);
-      reclaimed = false;
     }
     // Asked before the alert rather than after it: `alert` blocks, so either
     // way the new figure lands when it is dismissed, and asking first leaves
@@ -78,11 +69,7 @@
     // not promised to keep step with the file behind it, so that is worth
     // having.
     storage?.read();
-    alert(
-      reclaimed
-        ? "The ledger is empty, and the space it was using has been reclaimed."
-        : "The ledger is empty. The space it was using could not be reclaimed, so the storage figure may not have changed."
-    );
+    alert(ended.message);
   }
 
   // **This screen carries no credentials and no form** (ADR-0080 §2, §4). A
