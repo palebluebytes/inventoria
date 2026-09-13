@@ -6,14 +6,31 @@
  * every other read and every import already uses. SQLite stays in the worker
  * (`CODING_STANDARDS` §1.2) and the rows cross as data.
  *
- * **Nothing here narrows.** ADR-0075 §7 inverts three of ADR-0073's payload
- * rules — superseded datoms cross, photos cross, and stamps are kept — so the
- * page read carries no `entityPrefixes` and no attribute exclusion, and the
- * only narrowing is the peer's own version vector. A device that lacks your
- * photos is not a second copy of your ledger, it is a lossy one.
+ * **What narrows here is the lane, and never the kind of row.** ADR-0075 §7
+ * inverts three of ADR-0073's payload rules — superseded datoms cross, photos
+ * cross, and stamps are kept — and all three still hold: a device that lacks
+ * your photos is not a second copy of your ledger, it is a lossy one, so
+ * nothing here excludes an attribute and nothing here skips a superseded fact.
+ *
+ * What ADR-0103 §1 adds is one narrowing of a different kind: a lane carries
+ * the rows of the **Tracked Domains** its two ends agreed on. The predicate is
+ * **derived** — `entityPrefixesOfDomains` over the scope, the same function a
+ * Facet-scoped wipe reaches through `entityPrefixesOf` — and it composes with
+ * the peer's own version vector in `readLedgerPage`, which already took both.
+ *
+ * **A jar-wide lane is every prefix the registry declares, which is not quite
+ * the same as no narrowing.** A row whose entity carries a prefix **no** domain
+ * declares is now excluded here as well, and there is such a row: ADR-0086 §3
+ * retired six scraper-minted prefixes whose rows stay in `datoms` forever.
+ * Nothing is lost that was not already withheld — the version vector has an
+ * axis per content domain and no row here stands on one
+ * ([#425](https://github.com/palebluebytes/inventoria/issues/425)) — but the
+ * ticket that repairs that now has **two** mechanisms to undo rather than one,
+ * and this is the second.
  */
 
 import { dbClient } from "../db/db.client";
+import { entityPrefixesOfDomains } from "../facets/registry";
 import type { FirstSyncLedger } from "./first-sync";
 
 /**
@@ -30,8 +47,11 @@ export async function appSyncLedger(): Promise<FirstSyncLedger> {
   return {
     device_id,
     vector: () => dbClient.versionVector(),
-    page: (after, budgetBytes, above) =>
-      dbClient.ledgerPage(after, budgetBytes, { above }),
+    page: (after, budgetBytes, above, scope) =>
+      dbClient.ledgerPage(after, budgetBytes, {
+        above,
+        entityPrefixes: entityPrefixesOfDomains(scope),
+      }),
     // A first sync is convergence like any other, so its batches are held to
     // the carried deletions this ledger holds (ADR-0096 §12). It is the case
     // most in need of it: a first sync is the empty-vector case, so a peer

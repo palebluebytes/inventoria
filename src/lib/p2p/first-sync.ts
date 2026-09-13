@@ -30,10 +30,13 @@
  * Each lane runs `open → chunk 0 … chunk n → close`, and the two lanes run at
  * the same time because neither waits on the other to start.
  *
- *   - **`open`** carries this device's `device_id` and its version vector. The
- *     `device_id` is what the peer keys its record by, and ADR-0096 §8 is
- *     explicit that it *is not learned until the act is spent* — which is why
- *     "Pair again" can promise nothing about which row it replaces.
+ *   - **`open`** carries this device's `device_id`, its version vector and the
+ *     domain set of the Facet this act is running in. The `device_id` is what
+ *     the peer keys its record by, and ADR-0096 §8 is explicit that it *is not
+ *     learned until the act is spent* — which is why "Pair again" can promise
+ *     nothing about which row it replaces. The domain set is ADR-0103 §3's one
+ *     new statement on the wire, and **the lane's scope is the intersection**
+ *     of the two.
  *   - **`chunk`** carries the datom lines a holder of the peer's vector lacks,
  *     in the ledger's own NDJSON grammar. **An empty chunk is the final one**,
  *     which is the whole of the end-of-stream marker: `readLedgerPage` returns
@@ -48,6 +51,23 @@
  * pre-sync state — and the deposit that view sizes would re-send the whole
  * first sync. There is exactly one live session left in this design, so the fix
  * is needed in one place instead of everywhere.
+ *
+ * **The domain set rides `open` and not `close`, which is where ADR-0103 §3
+ * puts it.** A scope agreed at the close cannot narrow the chunks that crossed
+ * before it, and §1 is that the chunks are what a scope binds: the two sides
+ * have to hold the intersection before either pages its ledger, because each
+ * filters `above` with it. The record is still written on receipt of the peer's
+ * closing vector, so what §3 was pointing at — the exchange that completes the
+ * act — is unchanged; only the frame the statement rides is. The foot of
+ * ADR-0103 carries the correction.
+ *
+ * **The scope is spent where rows are read and not where they are written**,
+ * on both ends: each side pages its own ledger inside the agreed scope, and
+ * neither filters what arrives. That is the same standard as everywhere else on
+ * this wire — a frame whose seal held came from your own device (ADR-0075 §13),
+ * so what is refused here is malformed and never merely unexpected — and both
+ * ends derive the scope from the same two statements, so a peer sending out of
+ * lane is a bug rather than a disagreement.
  *
  * ### The seal, and what the label is for
  *
@@ -88,6 +108,7 @@ import { datomLine } from "../db/ledger-export";
 import { parseNdjsonObject } from "../db/ledger-import";
 import { readVersionVector, type VersionVector } from "../db/version-vector";
 import { refusingChunk, readDatomChunk } from "./datom-chunk";
+import { laneScope, readLaneScope, type LaneScope } from "./lane-scope";
 import type { LaneDirection, PairedChains } from "./pairing-chain";
 import type { PairingCode } from "./pairing-code";
 import { whyRoomEnded, type Room } from "./relay-room";
@@ -128,11 +149,20 @@ export interface FirstSyncLedger {
   readonly device_id: string;
   /** What this ledger holds, per originating device. Queried, never stored. */
   vector(): Promise<VersionVector>;
-  /** The next rows a holder of `above` lacks; empty once the walk is done. */
+  /**
+   * The next rows **inside `scope`** that a holder of `above` lacks; empty once
+   * the walk is done.
+   *
+   * The two narrowings are independent and both apply: `above` is what the peer
+   * already holds, and `scope` is what this lane carries at all (ADR-0103 §1).
+   * The scope is a parameter rather than something the seam was built with,
+   * because it is not known until the peer has stated its own domains.
+   */
   page(
     after: LedgerCursor | null,
     budgetBytes: number,
-    above: VersionVector
+    above: VersionVector,
+    scope: LaneScope
   ): Promise<LedgerRow[]>;
   /**
    * Appends one chunk with its stamps intact, returning how many rows were new.
@@ -148,6 +178,18 @@ export interface FirstSyncProgress {
 }
 
 export interface FirstSyncOptions {
+  /**
+   * The Tracked Domains **this** side's Facet holds (ADR-0103 §1).
+   *
+   * It is this device's own statement and not yet the lane's scope, which is
+   * why it is spelled the way the wire spells it: the scope is what the two
+   * statements agree on, and only {@link FirstSyncResult.scope} is that.
+   *
+   * Required, and the options bag is required with it, so that no caller can
+   * reach an un-narrowed lane by leaving an argument off. A whole-Jar lane is
+   * `scopeOfFacet("root")` and says so.
+   */
+  domains: LaneScope;
   onProgress?: (progress: FirstSyncProgress) => void;
   chunkBudgetBytes?: number;
 }
@@ -162,6 +204,15 @@ export interface FirstSyncResult extends FirstSyncProgress {
   device_id: string;
   /** What the peer held when it closed — this device's view of it from now. */
   peer_vector: VersionVector;
+  /**
+   * What this lane carries: the two Facets' domain sets, intersected
+   * (ADR-0103 §3).
+   *
+   * It is here because it is the pairing's from now on rather than this
+   * session's — every later deposit and collection is narrowed by it, and
+   * pairing again is what re-scopes it (§4).
+   */
+  scope: LaneScope;
 }
 
 // ---------------------------------------------------------------------------
@@ -184,9 +235,10 @@ export async function runFirstSync(
   chains: PairedChains,
   ledger: FirstSyncLedger,
   {
+    domains,
     onProgress,
     chunkBudgetBytes = SYNC_CHUNK_BUDGET_BYTES,
-  }: FirstSyncOptions = {}
+  }: FirstSyncOptions
 ): Promise<FirstSyncResult> {
   const ours = chains.deposit.direction;
   const theirs = chains.collect.direction;
@@ -218,13 +270,19 @@ export async function runFirstSync(
       JSON.stringify({
         device_id: ledger.device_id,
         vector: await ledger.vector(),
+        domains,
       })
     );
 
     const peer = await opened.waited;
     let after: LedgerCursor | null = null;
     for (let seq = 0; ; seq += 1) {
-      const rows = await ledger.page(after, chunkBudgetBytes, peer.vector);
+      const rows = await ledger.page(
+        after,
+        chunkBudgetBytes,
+        peer.vector,
+        peer.scope
+      );
       await send(chunkLabel(ours, seq), rows.map(datomLine).join(""));
       // An empty chunk is the end of this lane, and `readLedgerPage` returns
       // one only when the walk is finished.
@@ -264,7 +322,15 @@ export async function runFirstSync(
       }
 
       if (!peer) {
-        peer = readOpening(await open(event.bytes, openLabel(theirs)));
+        const stated = readOpening(await open(event.bytes, openLabel(theirs)));
+        // The scope is agreed here, once, and everything downstream reads it
+        // rather than re-deriving it: both lanes of this act and the record
+        // that outlives it have to mean one thing by "this lane" (§3).
+        peer = {
+          device_id: stated.device_id,
+          vector: stated.vector,
+          scope: laneScope(domains, stated.domains),
+        };
         opened.settle(peer);
         continue;
       }
@@ -294,6 +360,7 @@ export async function runFirstSync(
         peer_vector: readClosingVector(
           await open(event.bytes, closeLabel(theirs))
         ),
+        scope: peer.scope,
       };
     }
   }
@@ -321,22 +388,39 @@ export async function runFirstSync(
 // The bodies, read to the standard ADR-0075 §13 sets
 // ---------------------------------------------------------------------------
 
+/** What the peer said when it opened: three statements about itself. */
+interface StatedOpening {
+  device_id: string;
+  vector: VersionVector;
+  /** The domains the peer's own Facet holds, before this side's are met. */
+  domains: LaneScope;
+}
+
+/** The peer, with the scope the two statements agreed on (§3). */
 interface PeerOpening {
   device_id: string;
   vector: VersionVector;
+  scope: LaneScope;
 }
 
-/** Who the peer is, and what it held when it closed. The record's two facts. */
+/** Who the peer is, what it held when it closed, and what this lane carries. */
 type PeerClosing = Omit<FirstSyncResult, keyof FirstSyncProgress>;
 
-function readOpening(body: string): PeerOpening {
+function readOpening(body: string): StatedOpening {
   return refusingChunk(() => {
     const raw = parseNdjsonObject(body, null);
     const device_id = raw.device_id;
     if (typeof device_id !== "string" || device_id.length === 0) {
       throw new Error("the other device did not say which device it is.");
     }
-    return { device_id, vector: readVersionVector(raw.vector) };
+    return {
+      device_id,
+      vector: readVersionVector(raw.vector),
+      // A peer that states no domains predates ADR-0103 and paired from the
+      // root, whose scope is the whole Jar — `readLaneScope` is where that
+      // reading lives, beside the forward-compatible one §11 gives a vector.
+      domains: readLaneScope(raw.domains),
+    };
   });
 }
 

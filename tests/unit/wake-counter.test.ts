@@ -34,6 +34,7 @@ import {
   UNPRODUCTIVE_WAKE_LIMIT,
 } from "../../src/lib/p2p/wake-counter";
 import type { PairedDevice } from "../../src/lib/stores/paired-devices";
+import { WHOLE_JAR } from "../../src/lib/p2p/lane-scope";
 
 const ORIGIN = "https://app.example";
 
@@ -55,6 +56,7 @@ const pairing = (
   name: null,
   deposit: { direction: "a2b", state: "", index: 0 },
   collect: { direction: "b2a", state: "", index: 0 },
+  scope: WHOLE_JAR,
   peer_vector: {},
   deposit_standing: null,
   peer_roster: null,

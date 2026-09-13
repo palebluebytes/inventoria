@@ -15,6 +15,7 @@
 import { describe, it, expect, afterEach, vi } from "vitest";
 import { stubLocalStorage } from "./support/local-storage";
 import { fakeBucket, routeOver } from "./support/store-bucket";
+import { WHOLE_JAR } from "../../src/lib/p2p/lane-scope";
 import {
   derivePairingChains,
   laneAddress,
@@ -421,6 +422,7 @@ describe("what the peer meets afterwards, and what re-pairing is", () => {
       device_id: "dev_b",
       chains: await derivePairingChains(new Uint8Array(32).fill(9), "read"),
       peer_vector: {},
+      scope: WHOLE_JAR,
     });
 
     const [fresh] = records.readPairedDevices();
@@ -450,6 +452,7 @@ describe("what the peer meets afterwards, and what re-pairing is", () => {
       device_id: "dev_b",
       chains: await derivePairingChains(new Uint8Array(32).fill(9), "read"),
       peer_vector: {},
+      scope: WHOLE_JAR,
     });
 
     expect(held.size).toBe(0);

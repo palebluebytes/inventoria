@@ -36,6 +36,8 @@
     UNPAIRING_WORDS,
   } from "../../p2p/unpair";
   import { isStopped } from "../../p2p/wake-counter";
+  import { scopeOfFacet } from "../../p2p/lane-scope";
+  import type { FacetId } from "../../facets/registry";
   import { writeDate } from "../../p2p/send-date";
 
   // **Paired devices**, and the act that makes one (ADR-0096 §8, ADR-0084 §6).
@@ -61,6 +63,13 @@
   // the moment you switch tabs, and *a silent forty-second transfer that
   // vanishes when you look away is not silent, it is broken*. Steady state will
   // show nothing at all; this is the one case that does.
+
+  // **Which Facet this surface is**, named by the caller as a literal and never
+  // worked out from the URL (ADR-0076 §6). It is the whole of what ADR-0103 §1
+  // needs from the surface: a pairing act carries the domains of the Facet it
+  // ran in, so the section that draws the act is where that Facet is known.
+  // Today the root is the only caller (ADR-0084 §6); #423 is the second.
+  let { facetId }: { facetId: FacetId } = $props();
 
   /** Which face is up: nothing, the code being shown, or the reader. */
   let act = $state<"none" | "showing" | "reading">("none");
@@ -132,6 +141,11 @@
       reach = "sync";
       syncing = { rows_sent: 0, rows_received: 0 };
       const converged = await runFirstSync(room, acting, chains, ledger, {
+        // **The lane is scoped to the Facet this act ran in** (ADR-0103 §1),
+        // and the Facet is the surface's rather than something worked out at
+        // runtime — the same rule `LogSettingsSection` follows, and ADR-0076
+        // §6's reason for it.
+        domains: scopeOfFacet(facetId),
         onProgress: (progress) => (syncing = progress),
       });
 
@@ -150,6 +164,7 @@
         device_id: converged.device_id,
         chains,
         peer_vector: converged.peer_vector,
+        scope: converged.scope,
       });
       ended = DEVICES_PAIRED;
     } catch (failure) {

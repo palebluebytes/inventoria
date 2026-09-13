@@ -32,6 +32,8 @@ import {
   type PairedChains,
 } from "../../src/lib/p2p/pairing-chain";
 import type { VersionVector } from "../../src/lib/db/version-vector";
+import { WHOLE_JAR } from "../../src/lib/p2p/lane-scope";
+import { TRACKED_DOMAINS } from "../../src/lib/facets/registry";
 
 type Records = typeof import("../../src/lib/stores/paired-devices");
 
@@ -69,6 +71,7 @@ describe("a row appears only when a first sync completes", () => {
       device_id: "dev_b",
       chains,
       peer_vector: A_VECTOR,
+      scope: WHOLE_JAR,
     });
 
     const [kept] = records.readPairedDevices();
@@ -88,6 +91,7 @@ describe("a row appears only when a first sync completes", () => {
       device_id: "dev_b",
       chains,
       peer_vector: A_VECTOR,
+      scope: WHOLE_JAR,
     });
 
     const [kept] = records.readPairedDevices();
@@ -106,6 +110,7 @@ describe("nothing in the record can regenerate the pairing", () => {
       device_id: "dev_b",
       chains: await derivePairingChains(secret.slice(), "showed"),
       peer_vector: A_VECTOR,
+      scope: WHOLE_JAR,
     });
 
     const written = jar.store.get("inventoria_paired_devices") ?? "";
@@ -122,6 +127,7 @@ describe("nothing in the record can regenerate the pairing", () => {
       device_id: "dev_b",
       chains,
       peer_vector: A_VECTOR,
+      scope: WHOLE_JAR,
     });
 
     const written = jar.store.get("inventoria_paired_devices") ?? "";
@@ -142,11 +148,13 @@ describe("pairing is keyed by device, and pairing again replaces", () => {
       device_id: "dev_b",
       chains: first,
       peer_vector: {},
+      scope: WHOLE_JAR,
     });
     records.rememberPairedDevice({
       device_id: "dev_b",
       chains: second,
       peer_vector: A_VECTOR,
+      scope: WHOLE_JAR,
     });
 
     const held = records.readPairedDevices();
@@ -162,15 +170,38 @@ describe("pairing is keyed by device, and pairing again replaces", () => {
       device_id: "dev_b",
       chains: await chainsFrom(1),
       peer_vector: {},
+      scope: WHOLE_JAR,
     });
     records.namePairedDevice("dev_b", "The laptop");
     records.rememberPairedDevice({
       device_id: "dev_b",
       chains: await chainsFrom(2),
       peer_vector: {},
+      scope: WHOLE_JAR,
     });
 
     expect(records.readPairedDevices()[0].name).toBe("The laptop");
+  });
+
+  it("re-scopes the lane, because the act that just ran decides what it carries", async () => {
+    // ADR-0103 §4: one pairing per device pair, and pairing again replaces it
+    // **and re-scopes it**. A user who paired from the root and later pairs the
+    // same phone from Rations has narrowed the lane, and the record is where
+    // that lands.
+    records.rememberPairedDevice({
+      device_id: "dev_b",
+      chains: await chainsFrom(1),
+      peer_vector: {},
+      scope: WHOLE_JAR,
+    });
+    records.rememberPairedDevice({
+      device_id: "dev_b",
+      chains: await chainsFrom(2),
+      peer_vector: {},
+      scope: ["food"],
+    });
+
+    expect(records.readPairedDevices()[0].scope).toEqual(["food"]);
   });
 
   it("keeps a second device beside the first", async () => {
@@ -178,11 +209,13 @@ describe("pairing is keyed by device, and pairing again replaces", () => {
       device_id: "dev_b",
       chains: await chainsFrom(1),
       peer_vector: {},
+      scope: WHOLE_JAR,
     });
     records.rememberPairedDevice({
       device_id: "dev_c",
       chains: await chainsFrom(2),
       peer_vector: {},
+      scope: WHOLE_JAR,
     });
 
     expect(records.readPairedDevices().map((d) => d.device_id)).toEqual([
@@ -196,11 +229,13 @@ describe("pairing is keyed by device, and pairing again replaces", () => {
       device_id: "dev_b",
       chains: await chainsFrom(1),
       peer_vector: {},
+      scope: WHOLE_JAR,
     });
     records.rememberPairedDevice({
       device_id: "dev_c",
       chains: await chainsFrom(2),
       peer_vector: {},
+      scope: WHOLE_JAR,
     });
 
     records.forgetPairedDevice("dev_b");
@@ -217,6 +252,7 @@ describe("a wake moves the record it was handed", () => {
       device_id: "dev_b",
       chains: await chainsFrom(1),
       peer_vector: {},
+      scope: WHOLE_JAR,
     });
   });
 
@@ -245,6 +281,7 @@ describe("a wake moves the record it was handed", () => {
       device_id: "dev_c",
       chains: await chainsFrom(2),
       peer_vector: {},
+      scope: WHOLE_JAR,
     });
     const [held] = records.readPairedDevices();
 
@@ -306,6 +343,7 @@ describe("the record holds the peer's last-stated roster (ADR-0096 §6)", () => 
       device_id: "dev_b",
       chains: await chainsFrom(1),
       peer_vector: {},
+      scope: WHOLE_JAR,
     });
   });
 
@@ -339,6 +377,7 @@ describe("the record holds the peer's last-stated roster (ADR-0096 §6)", () => 
       device_id: "dev_b",
       chains: await chainsFrom(3),
       peer_vector: {},
+      scope: WHOLE_JAR,
     });
 
     // Unlike the name, which is this device's own and is kept: the roster is
@@ -373,7 +412,12 @@ describe("the record holds the peer's last-stated roster (ADR-0096 §6)", () => 
 describe("the record carries K's counter and the last-met date (§11)", () => {
   beforeEach(async () => {
     records.rememberPairedDevice(
-      { device_id: "dev_b", chains: await chainsFrom(7), peer_vector: {} },
+      {
+        device_id: "dev_b",
+        chains: await chainsFrom(7),
+        peer_vector: {},
+        scope: WHOLE_JAR,
+      },
       new Date("2026-09-13T23:40:00")
     );
   });
@@ -409,6 +453,7 @@ describe("the record carries K's counter and the last-met date (§11)", () => {
       device_id: "dev_b",
       chains: await chainsFrom(9),
       peer_vector: {},
+      scope: WHOLE_JAR,
     });
 
     // Pairing again is the reversal §11 leaves to the user, so the act that
@@ -429,6 +474,34 @@ describe("the record carries K's counter and the last-met date (§11)", () => {
       unproductive_wakes: 0,
       last_met: null,
     });
+  });
+
+  it("reads a record written before the lane had a scope as the whole Jar", () => {
+    const [sound] = records.readPairedDevices();
+    const { scope: _scope, ...older } = sound;
+    stubLocalStorage({
+      seed: { inventoria_paired_devices: JSON.stringify([older]) },
+    });
+
+    // ADR-0103 §1: a record written before this field predates the pairing
+    // surface leaving the root, and the root's lane is the whole Jar. Reading
+    // it as anything narrower would withhold rows from a healthy pairing.
+    expect(records.readPairedDevices()[0].scope).toEqual(
+      TRACKED_DOMAINS.map((d) => d.id)
+    );
+  });
+
+  it("drops a row whose lane scope is not a list of domains", () => {
+    const [sound] = records.readPairedDevices();
+    stubLocalStorage({
+      seed: {
+        inventoria_paired_devices: JSON.stringify([
+          { ...sound, scope: "food" },
+        ]),
+      },
+    });
+
+    expect(records.readPairedDevices()).toEqual([]);
   });
 
   it("drops a row whose count is not a whole number of wakes", () => {
@@ -471,6 +544,7 @@ describe("a name is typed locally, about the peer, after the act", () => {
       device_id: "dev_b",
       chains: await chainsFrom(1),
       peer_vector: {},
+      scope: WHOLE_JAR,
     });
   });
 
@@ -503,6 +577,7 @@ describe("the record never reaches the ledger", () => {
       device_id: "dev_b",
       chains: await chainsFrom(7),
       peer_vector: A_VECTOR,
+      scope: WHOLE_JAR,
     });
 
     expect(countDatoms(db)).toBe(0);
@@ -548,6 +623,7 @@ describe("the jar is a boundary like any other", () => {
       device_id: "dev_b",
       chains: await chainsFrom(1),
       peer_vector: {},
+      scope: WHOLE_JAR,
     });
     const [sound] = records.readPairedDevices();
     stubLocalStorage({
@@ -564,6 +640,7 @@ describe("the jar is a boundary like any other", () => {
       device_id: "dev_b",
       chains: await chainsFrom(1),
       peer_vector: {},
+      scope: WHOLE_JAR,
     });
     const kept = records.readPairedDevices();
     stubLocalStorage({
@@ -592,6 +669,7 @@ describe("the jar is a boundary like any other", () => {
         device_id: "dev_b",
         chains,
         peer_vector: {},
+        scope: WHOLE_JAR,
       })
     ).not.toThrow();
     // Both the read and the live list say nothing is paired, because nothing
@@ -606,6 +684,7 @@ describe("the jar is a boundary like any other", () => {
       device_id: "dev_b",
       chains: await chainsFrom(1),
       peer_vector: {},
+      scope: WHOLE_JAR,
     });
     expect(get(records.pairedDevices).map((d) => d.device_id)).toEqual([
       "dev_b",

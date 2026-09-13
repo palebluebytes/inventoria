@@ -1,5 +1,6 @@
 import { writable } from "svelte/store";
 import { readVersionVector, type VersionVector } from "../db/version-vector";
+import { readLaneScope, WHOLE_JAR, type LaneScope } from "../p2p/lane-scope";
 import { writeDate } from "../p2p/send-date";
 import {
   CHAIN_STATE_BYTES,
@@ -119,6 +120,27 @@ export interface PairedDevice {
   deposit: StoredLane;
   /** The lane this device collects from. */
   collect: StoredLane;
+  /**
+   * The Tracked Domains this pairing carries, agreed by intersection at the
+   * act (ADR-0103 §1 and §3).
+   *
+   * **It is a fact about rows and never about the peer** (§2). Nothing here is
+   * the far device's install roster: a food lane says *this pairing carries
+   * food*, which is as true of a Rations phone paired with a root laptop as of
+   * two Rations phones, and neither end learns which.
+   *
+   * **One pairing per device pair, so pairing again re-scopes it** (§4). Both
+   * directions are sound under the vector's second axis: widening leaves the
+   * new domains' marks absent for that peer, which is the empty-vector case and
+   * therefore a first sync of those domains, and narrowing leaves the dropped
+   * domains' marks standing, correctly — the lane no longer carries them and
+   * nothing advances them.
+   *
+   * **Absent reads as the whole Jar**, because a record written before this
+   * field predates the pairing surface leaving the root, and the root's lane
+   * was jar-wide. {@link filled} is what turns the absence into the field.
+   */
+  scope: LaneScope;
   /**
    * What the peer said it held when the first sync closed.
    *
@@ -301,6 +323,7 @@ export function laneChainOf(lane: StoredLane): LaneChain {
  */
 const filled = (device: PairedDevice): PairedDevice => ({
   ...device,
+  scope: device.scope ?? WHOLE_JAR,
   deposit_standing: device.deposit_standing ?? null,
   peer_roster: device.peer_roster ?? null,
   unproductive_wakes: device.unproductive_wakes ?? 0,
@@ -375,6 +398,11 @@ function isPairedDevice(row: unknown): row is PairedDevice {
   }
   try {
     readVersionVector(row.peer_vector);
+    // Checked with the wire's own reader for `isPairedDevice`'s argument: a
+    // scope that passed a looser test here would narrow — or fail to narrow —
+    // every page this pairing reads afterwards. Absence is admitted and is what
+    // {@link filled} turns into the whole Jar.
+    readLaneScope("scope" in row ? row.scope : undefined);
     return true;
   } catch {
     return false;
@@ -519,6 +547,8 @@ export interface CompletedPairing {
   device_id: string;
   chains: PairedChains;
   peer_vector: VersionVector;
+  /** What the act's two Facets agreed this lane carries (ADR-0103 §3). */
+  scope: LaneScope;
 }
 
 /**
@@ -536,7 +566,7 @@ export interface CompletedPairing {
  * chance, and the last moment its addresses exist.
  */
 export function rememberPairedDevice(
-  { device_id, chains, peer_vector }: CompletedPairing,
+  { device_id, chains, peer_vector, scope }: CompletedPairing,
   at: Date = new Date()
 ): PairedDevice {
   const held = readPairedDevices();
@@ -547,6 +577,12 @@ export function rememberPairedDevice(
     name: held.find((device) => device.device_id === device_id)?.name ?? null,
     deposit: storedLane(chains.deposit),
     collect: storedLane(chains.collect),
+    // **Pairing again re-scopes the lane** (ADR-0103 §4), which is why the
+    // scope is taken from the act rather than carried across like the name: the
+    // act that just ran is what decides what this pairing carries, and a
+    // pairing made from Rations after one made from the root is a narrowing the
+    // user performed.
+    scope,
     peer_vector,
     // Nothing has been deposited at index zero yet, so the first deposit of
     // this pairing's life goes out unconditionally.

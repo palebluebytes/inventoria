@@ -209,11 +209,13 @@
   <LedgerImport {dbReady} />
 </Card>
 
-<!-- Your own devices, and the act that pairs one (ADR-0096 §8). It is the
-     root's because a pairing carries the whole jar rather than one Facet's
-     rows, and because ADR-0084 §6 puts the list here — and it expands in place
-     rather than opening the Devices screen ADR-0075 §4 used to name. -->
-<PairedDevicesSection />
+<!-- Your own devices, and the act that pairs one (ADR-0096 §8). ADR-0084 §6 puts
+     the list here, and it expands in place rather than opening the Devices
+     screen ADR-0075 §4 used to name. It is **no longer here because a pairing
+     must carry the whole jar**: ADR-0103 §1 scopes a lane to the Facet the act
+     ran in, so this one says which Facet it is and the root's answer is the
+     whole jar. Rations gains a surface of its own at #423. -->
+<PairedDevicesSection facetId="root" />
 
 <!-- The jar-wide card: the root holds all six content domains, so it lists every
      channel and its Review and Export is jar-wide (ADR-0080 §2). Its switch is
