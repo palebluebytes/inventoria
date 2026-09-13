@@ -919,6 +919,18 @@ describe("the floor, swept", () => {
    * boxes have to be kept level. That is ADR-0093's Consequences read forwards
    * rather than backwards: a count falling here is a copy that can no longer
    * miss a fix.
+   *
+   * Then 133 → 131 at #316, and the arithmetic is worth writing down because
+   * "five triggers became one component" would predict −4. Five disclosures
+   * moved onto `ui/Disclosure`, which adds one box here, and three keys left:
+   * `DailyDashboard`'s `.aggregates-toggle`, `AllergenSafetyBlock`'s
+   * `.info-btn` and `EndingLine`'s `.plain`. The other two left no key at all.
+   * `FoodView`'s `.header-icon-btn` is worn by three buttons and keyed once, so
+   * the two that stayed plain keep it; `NutritionTargetEditor`'s `.info-btn` is
+   * worn by the section-help ⓘ *and* by the rationale ⓘ beside it, which is a
+   * plain `<button>` opening a sheet rather than a disclosure, so that key
+   * stays too. A key here is a distinct box, not a call site — which is the
+   * same reason #416 moved this figure by one when it looked like two.
    */
   it("carries most of them on a declared floor, not on arithmetic", () => {
     const how = { declared: 0, drawn: 0, sanctioned: 0 };
@@ -929,7 +941,7 @@ describe("the floor, swept", () => {
       else if (b.kind === "drawn") how.drawn++;
     }
 
-    expect(how).toEqual({ declared: 133, drawn: 26, sanctioned: 6 });
+    expect(how).toEqual({ declared: 131, drawn: 26, sanctioned: 6 });
     // Every box lands in exactly one column. Without this the two figures above
     // could both be right while a box fell out of the sweep between them.
     expect(how.declared + how.drawn + how.sanctioned).toBe(SWEEP.groups.size);

@@ -100,6 +100,7 @@
   import Card from "../ui/Card.svelte";
   import { enterBackStop, leaveBackStop } from "../ui/back-stack";
   import Badge from "../ui/Badge.svelte";
+  import Disclosure from "../ui/Disclosure.svelte";
   import ReceivedMealPanel from "./food/ReceivedMealPanel.svelte";
   import type { SendCode } from "../p2p/send-code";
   import type { ReceiveOpening } from "../p2p/receive-link";
@@ -1093,16 +1094,15 @@
             {@render todayMark()}
           </button>
         {/if}
-        <button
-          type="button"
+        <Disclosure
           class="header-icon-btn"
-          aria-expanded={aboutOpen}
-          aria-controls={aboutId}
+          open={aboutOpen}
+          controls={aboutId}
           aria-label="About the food screen"
-          onclick={() => (aboutOpen = !aboutOpen)}
+          onToggle={() => (aboutOpen = !aboutOpen)}
         >
-          {@render infoMark()}
-        </button>
+          {#snippet mark()}{@render infoMark()}{/snippet}
+        </Disclosure>
       {/if}
       <!-- The standing controls, drawn from the roster rather than listed again
            here, so the header keeps its members and their left-to-right order by
@@ -1589,8 +1589,14 @@
   }
   /* Top-right icons — the ⓘ that unfolds the blurb and the gear that opens the
      food settings sheet. Bare (no box), opposite the title, aligned to the
-     header's top. */
-  .header-icon-btn {
+     header's top.
+
+     **Anchored under `.header-actions` and reached with `:global` since #316.**
+     The ⓘ is `ui/Disclosure` now, and a class handed to a component carries no
+     scoping hash — so a plain `.header-icon-btn` rule would dress its two
+     plain-`<button>` neighbours and silently skip it. Anchoring keeps the one
+     rule and lets it land on all three. */
+  .header-actions :global(.header-icon-btn) {
     flex: 0 0 auto;
     display: flex;
     align-items: center;
@@ -1606,18 +1612,18 @@
     cursor: pointer;
     transition: transform 0.1s ease-out;
   }
-  .header-icon-btn svg {
+  .header-actions :global(.header-icon-btn svg) {
     width: 1.5rem;
     height: 1.5rem;
   }
   /* The recipe mark rides a child WayInIcon, which sizes itself for the meal
      header's smaller squares, so it is reached here with `:global` and sized to
      match its two neighbours. */
-  .header-icon-btn :global(.entry-icon) {
+  .header-actions :global(.header-icon-btn .entry-icon) {
     width: 1.5rem;
     height: 1.5rem;
   }
-  .header-icon-btn:hover {
+  .header-actions :global(.header-icon-btn:hover) {
     color: var(--text-secondary);
   }
   /* The page you are on, inverted — ink and paper, which is how this frame
@@ -1630,15 +1636,15 @@
      difference between "a door" and "where you are". Hover is switched back off
      on it — a control that greys on hover reads as leaving the state it is
      showing, and this one goes nowhere. */
-  .header-icon-btn[aria-current="page"],
-  .header-icon-btn[aria-current="page"]:hover {
+  .header-actions :global(.header-icon-btn[aria-current="page"]),
+  .header-actions :global(.header-icon-btn[aria-current="page"]:hover) {
     background: var(--ink);
     color: var(--paper);
   }
-  .header-icon-btn:active {
+  .header-actions :global(.header-icon-btn:active) {
     transform: scale(0.92);
   }
-  .header-icon-btn:focus-visible {
+  .header-actions :global(.header-icon-btn:focus-visible) {
     outline: 2px solid var(--ink);
     outline-offset: 2px;
   }

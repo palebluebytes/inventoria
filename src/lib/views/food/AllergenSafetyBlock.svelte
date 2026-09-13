@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Disclosure from "../../ui/Disclosure.svelte";
   import type { AllergenVerdict } from "../../food/off-signals";
   import { allergenBlockView } from "../../food/allergen-block";
   import {
@@ -105,26 +106,28 @@
       <!-- Mandatory disclaimer (ADR-0043 §3), tucked behind this ⓘ: an empty
            allergens list is "none found in the parsed ingredients", not
            "allergen-free" — so the honest caveat is always one tap away. -->
-      <button
-        type="button"
-        class="info-btn"
+      <Disclosure
+        class="info-open"
         data-testid="allergen-disclaimer-toggle"
-        aria-expanded={showDisclaimer}
-        aria-controls="allergen-disclaimer"
+        open={showDisclaimer}
+        controls="allergen-disclaimer"
         aria-label="How this allergen reading is made"
-        onclick={() => (showDisclaimer = !showDisclaimer)}
+        onToggle={() => (showDisclaimer = !showDisclaimer)}
       >
-        i
-      </button>
+        {#snippet mark()}<span class="info-mark">i</span>{/snippet}
+      </Disclosure>
     </div>
-    {#if showDisclaimer}
-      <p id="allergen-disclaimer" class="allergen-disclaimer" role="note">
-        This is <strong>Open Food Facts' reading of the ingredients</strong>,
-        not a verdict this app makes — always check the packaging. A missing
-        allergen means none was found in the parsed ingredients, not that the
-        food is free from it.
-      </p>
-    {/if}
+    <p
+      id="allergen-disclaimer"
+      class="allergen-disclaimer"
+      role="note"
+      hidden={!showDisclaimer}
+    >
+      This is <strong>Open Food Facts' reading of the ingredients</strong>, not
+      a verdict this app makes — always check the packaging. A missing allergen
+      means none was found in the parsed ingredients, not that the food is free
+      from it.
+    </p>
 
     <!-- Contains › May-contain › Free-from, in precedence order (§3). May-contain
          is a DISTINCT line ("may contain" ≠ "contains"); Free-from is declared
@@ -170,50 +173,47 @@
   }
   /* The disclaimer ⓘ — the nutrition-editor's small circular black-bordered "i"
      idiom (a lowercase italic serif "i" reads as the info glyph). */
-  .info-btn {
-    flex-shrink: 0;
+  /* The ⓘ ring, drawn by the mark rather than by the button around it.
+
+     Before #316 this was a `::before` on the button, because ADR-0098 §3's
+     recipe is what a control drawing its own mark in CSS has to do: the box
+     carries the floor, the pseudo-element draws the 1.35rem circle, and hover
+     and focus relocate onto it. `ui/Disclosure` carries the floor now and takes
+     a `mark` snippet, so the mark can simply *be* an element — which is also
+     what keeps this rule scoped. Anchoring the old class under `:global` to
+     reach a component put a 21.6px width on a box that takes a tap, and
+     `tap-floor.test.ts` convicted it, correctly: a sweep cannot tell a ring
+     drawn inside a floored box from a control shrunk by a rule reaching across
+     a component. */
+  .info-mark {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    /* The ring is drawn by a ::before rather than by this button's own border,
-       so the box can carry the floor without drawing a 48px circle
-       (ADR-0098 §3). `isolation` keeps the pseudo-element's `z-index: -1`
-       inside the button, behind its glyph and in front of nothing else. */
-    position: relative;
-    isolation: isolate;
-    min-width: var(--tap-min);
-    min-height: var(--tap-min);
-    padding: 0;
-    border: none;
-    background: none;
+    width: 1.35rem;
+    height: 1.35rem;
+    border: 2px solid currentColor;
+    border-radius: 50%;
     color: var(--ink);
     font-family: var(--font-serif);
     font-size: var(--step-n1);
     font-weight: 700;
     font-style: italic;
     line-height: 1;
-    cursor: pointer;
   }
-  .info-btn::before {
-    content: "";
-    position: absolute;
-    inset: 0;
-    margin: auto;
-    z-index: -1;
-    width: 1.35rem;
-    height: 1.35rem;
-    border: 2px solid currentColor;
-    border-radius: 50%;
-  }
-  .info-btn:hover::before {
+  /* The whole floored button inverts the ring, not the 21.6px ring itself, so
+     the hover target is the thing a finger can actually land on. The mark is
+     this file's element and carries its scoping hash; the button is
+     `ui/Disclosure`'s and wears the class as a prop, so only that half goes
+     through `:global`. */
+  .allergen-head :global(.info-open:hover .info-mark) {
     background: var(--ink);
-  }
-  .info-btn:hover {
     color: var(--paper);
   }
-  .info-btn:focus-visible {
-    outline: 2px solid var(--ink);
-    outline-offset: 2px;
+  /* `hidden` collapses it, and the attribute is what the trigger's
+     `aria-expanded` describes — so it leaves the accessibility tree with it.
+     It was an `{#if}` before #316, which `aria-expanded` cannot describe. */
+  .allergen-disclaimer[hidden] {
+    display: none;
   }
   .allergen-disclaimer {
     margin: var(--space-2xs) 0 0;

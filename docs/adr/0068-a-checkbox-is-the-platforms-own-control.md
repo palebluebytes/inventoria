@@ -163,3 +163,46 @@ none` belonged to the four caps rows, where dragging across a label is only
   it draws, and nothing in ADR-0036 moves — it chose bits for `RadioGroup` on
   grounds that still hold. Carries the ADR-0038 frame tokens and sits beside
   ADR-0039's `Button` / `Card` as another canonical primitive.
+
+## Amendment (2026-09-13, #316): §1 applied to a disclosure, and what it returns
+
+`ui/Disclosure` is the second member minted under §1's test — _a new primitive
+reaches for bits when the platform has no control with the behaviour, never
+merely because its siblings did_ — and it returns **no**. Recording the working,
+because the answer is not obvious from outside: bits-ui ships an `Accordion`,
+this app already uses it, and the cheap move was to reach for it again.
+
+A single disclosure fails the test four ways.
+
+- **One item.** Everything `Accordion` contributes is _between-item_ behaviour.
+  Roving arrow-key focus has no sibling header to move to, and a
+  single-vs-multiple open policy is a boolean when there is one item.
+- **It would not even save the ARIA.** bits omits the header/region links, which
+  is why `RecipeBuilder` wires `aria-controls`, `role=region` and
+  `aria-labelledby` by hand under a comment saying so. Taking the dependency
+  would mean writing the same attributes anyway.
+- **`Accordion.Header level={3}`** injects a heading into a screen's outline,
+  which is a claim about document structure that a fold in a card should not be
+  making.
+- **State.** `Accordion.Content` mounts and unmounts rather than carrying the
+  `hidden` attribute `aria-expanded` describes, and the largest call site's
+  open-ness is a persisted store rather than a value array bits controls.
+
+`RecipeBuilder`'s own accordion is the counter-example and **stays on bits**: it
+has many items, roving focus between headers and a multiple-open policy, which
+is exactly the behaviour the platform lacks. So the two live side by side, and
+the line between them is §1's, not a preference.
+
+**One thing §1 does not decide, and #316 found it.** The test answers how a
+member is built; it says nothing about which _boxes_ a member owns. #316 asked
+for a component owning the trigger, the region, and the generated id linking
+them. At four of its five sites the two boxes have different parents — a head
+row beside a heading or another control, with the region as that row's sibling —
+and at one the region is in another part of the screen entirely. So the region
+stayed the caller's and `controls` is a required prop, which keeps the defect
+the ticket was about (`EndingLine` shipped `aria-expanded` with no
+`aria-controls` at all) while giving up a typo. The typo is covered by
+`tests/unit/disclosure.test.ts`, which resolves every `aria-controls` the app
+writes against the ids in its own file — a check that is _stronger_ than
+ownership, because ownership would only have prevented it at the one site where
+the structure allowed it.

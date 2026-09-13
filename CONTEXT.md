@@ -696,6 +696,28 @@ control, so bits-ui has nothing to add here. A name is not optional, and the row
 typography is the caller's `class`. See ADR-0068.
 _Avoid_: Toggle, tick box, a second checkbox skin
 
+**Disclosure**:
+The one control that opens one region (`ui/Disclosure.svelte`): the `<button>`, its
+`aria-expanded`, the `aria-controls` naming the region, the tap floor, the focus ring
+and the mark beside the label. **Not a bits-ui `Accordion`** — every one of that
+component's contributions is between-item behaviour, it omits the header/region links
+anyway, and its content mounts and unmounts rather than carrying the `hidden` attribute
+`aria-expanded` describes (ADR-0068 §1, as amended). `RecipeBuilder`'s accordion is the
+counter-example and stays on bits: many items, roving focus, a multiple-open policy.
+It owns the **trigger and not the region**, because at four of its five sites the two
+boxes have different parents; `controls` is a required prop instead, so a trigger with
+no region is unexpressible, and `tests/unit/disclosure.test.ts` resolves every id.
+Three visual shapes cost **zero variants**: the mark is a snippet (a hole, free however
+many callers fill it), defaulting to the drawn caret and switched off with `mark={null}`
+where the label _is_ the mark. The caret is drawn because `▸`/`▾` fall outside every
+unicode-range Epilogue is served in. The cap-height repair lives here; the title's
+size, weight, tracking and case do **not** — those are the caller's, or a section
+header's look would bind every future disclosure.
+See ADR-0100 and ADR-0068 §1.
+_Avoid_: Accordion (for one item), Collapsible, Expander, InfoToggle, a second
+disclosure, and the five it replaced — `.aggregates-toggle`, `.header-icon-btn`'s ⓘ,
+two `.info-btn` copies and `EndingLine`'s `.plain`
+
 **FieldCaption**:
 The line that names the control under it (`ui/FieldCaption.svelte`): a real `<label>`
 and the `for` that binds it, which is what no class can carry and why this is a

@@ -38,6 +38,7 @@
   } from "../../food/nutrition-targets";
   import { onDestroy } from "svelte";
   import Checkbox from "../../ui/Checkbox.svelte";
+  import Disclosure from "../../ui/Disclosure.svelte";
   import NutrientCard from "./NutrientCard.svelte";
   import NutrientCardGrid from "./NutrientCardGrid.svelte";
   import NutrientGroupHead from "./NutrientGroupHead.svelte";
@@ -462,26 +463,23 @@
     <h2>Nutrition Display</h2>
     <!-- The section help is tucked behind this ⓘ, inline with the heading, so the
          section leads straight into the grids. Toggles the paragraph below. -->
-    <button
-      type="button"
-      class="info-btn"
-      aria-expanded={showHelp}
-      aria-controls="nutrition-display-help"
+    <Disclosure
+      class="info-open"
+      open={showHelp}
+      controls="nutrition-display-help"
       aria-label="How Nutrition Display works"
-      onclick={() => (showHelp = !showHelp)}
+      onToggle={() => (showHelp = !showHelp)}
     >
-      i
-    </button>
+      {#snippet mark()}<span class="info-mark">i</span>{/snippet}
+    </Disclosure>
   </div>
-  {#if showHelp}
-    <p id="nutrition-display-help" class="mt-2">
-      Tap a nutrient to show it on the food dashboard, and set the daily
-      allowance it reaches toward. A blank target keeps the baked default (shown
-      greyed); ↺ clears an override; enter 0 to opt out of a target. Calories
-      are always shown. The limits below are caps to stay under — the day tints
-      amber once you go over.
-    </p>
-  {/if}
+  <p id="nutrition-display-help" class="help-para mt-2" hidden={!showHelp}>
+    Tap a nutrient to show it on the food dashboard, and set the daily allowance
+    it reaches toward. A blank target keeps the baked default (shown greyed); ↺
+    clears an override; enter 0 to opt out of a target. Calories are always
+    shown. The limits below are caps to stay under — the day tints amber once
+    you go over.
+  </p>
 
   <!-- The heading bands and card grids bleed to the card's edges so the section
        reads edge-to-edge like the dashboard's full-day modal. -->
@@ -682,6 +680,41 @@
      button. Sits in a section-head band (transparent, inheriting the band's
      colour) or, with .calc-info, pinned in the calculator cell's top-right
      corner over the action. Lowercase serif-less "i" reads as the info glyph. */
+  /* The section-help ⓘ's ring, drawn by the mark rather than by the button
+     around it.
+
+     It wore `.info-btn` — ADR-0098 §3's recipe, where the box carries the floor
+     and a `::before` draws the 1.35rem circle with hover and focus relocated
+     onto it — and the rationale ⓘ beside it still does, because that one is a
+     plain `<button>` opening a sheet rather than a disclosure. `ui/Disclosure`
+     carries the floor and takes a `mark` snippet, so this mark can simply *be*
+     an element, which is what keeps the rule scoped: anchoring the old class
+     under `:global` to reach a component put a 21.6px width on a box that takes
+     a tap, and `tap-floor.test.ts` convicted it, correctly. #390 is where the
+     remaining copies of §3's recipe go. */
+  .info-mark {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.35rem;
+    height: 1.35rem;
+    border: 2px solid currentColor;
+    border-radius: 50%;
+    color: inherit;
+    font-family: var(--font-serif);
+    font-size: var(--step-n1);
+    font-weight: 700;
+    font-style: italic;
+    line-height: 1;
+  }
+  /* The whole floored button inverts the ring, not the 21.6px ring itself, so
+     the hover target is the thing a finger can land on. The mark is this file's
+     element and carries its scoping hash; the button is `ui/Disclosure`'s and
+     wears the class as a prop, so only that half goes through `:global`. */
+  .section-head-row :global(.info-open:hover .info-mark) {
+    background: var(--ink);
+    color: var(--paper);
+  }
   .info-btn {
     flex-shrink: 0;
     display: inline-flex;
@@ -866,6 +899,12 @@
     white-space: nowrap;
   }
 
+  /* `hidden` collapses it, and the attribute is what the trigger's
+     `aria-expanded` describes — so it leaves the accessibility tree with it.
+     It was an `{#if}` before #316, which `aria-expanded` cannot describe. */
+  .help-para[hidden] {
+    display: none;
+  }
   .mt-2 {
     margin-top: var(--space-xs);
   }

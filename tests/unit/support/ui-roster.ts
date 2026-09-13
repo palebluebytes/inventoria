@@ -30,6 +30,7 @@ export const MEMBERS = [
   "src/lib/ui/Button.svelte",
   "src/lib/ui/Card.svelte",
   "src/lib/ui/Checkbox.svelte",
+  "src/lib/ui/Disclosure.svelte",
   "src/lib/ui/FieldCaption.svelte",
   "src/lib/ui/Input.svelte",
   "src/lib/ui/Meter.svelte",
