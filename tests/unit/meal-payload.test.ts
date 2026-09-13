@@ -8,6 +8,7 @@ import {
   MEAL_ROOT_PREFIX,
   MEAL_TWIN_PREFIXES,
   OMITTED_ATTRIBUTES,
+  REFERENCE_ATTRIBUTES,
   buildMealPayload,
   referencesOf,
   winningRows,
@@ -20,6 +21,13 @@ import {
   LARGE_MEAL_RECIPES,
   synthesiseLargeMeal,
 } from "./support/large-meal";
+
+/**
+ * The canonical registry of what the ledger holds, read as text. Two claims
+ * below are read against it rather than against a mirror of it: what a meal is
+ * allowed to carry, and which attributes hold an entity reference.
+ */
+const REGISTRY = readFileSync("docs/eavt-vocabulary.md", "utf8");
 
 /** The read seam over a fixed ledger, remembering what it was asked for. */
 function ledgerOf(rows: LedgerRow[]) {
@@ -388,11 +396,9 @@ describe("the ceiling", () => {
  * this — which puts the decision on whoever coins it, at the moment they do.
  */
 describe("the registry a meal's two allow-lists are read against", () => {
-  const registry = readFileSync("docs/eavt-vocabulary.md", "utf8");
-
   /** Every backticked id in the first column of the table under a heading. */
   function prefixesUnder(heading: string): string[] {
-    const body = registry.split(`### ${heading}\n`)[1].split("\n#")[0];
+    const body = REGISTRY.split(`### ${heading}\n`)[1].split("\n#")[0];
     return body
       .split("\n")
       .filter((line) => line.startsWith("| `"))
@@ -438,7 +444,7 @@ describe("the registry a meal's two allow-lists are read against", () => {
   });
 
   it("accounts for every attribute namespace the registry lists", () => {
-    const declared = [...registry.matchAll(/^### `([a-z_]+\/)`$/gm)].map(
+    const declared = [...REGISTRY.matchAll(/^### `([a-z_]+\/)`$/gm)].map(
       (m) => m[1]
     );
 
@@ -449,5 +455,75 @@ describe("the registry a meal's two allow-lists are read against", () => {
 
   it("reads the closure's root prefix off the registry's own event list", () => {
     expect(prefixesUnder("Events")).toContain(MEAL_ROOT_PREFIX);
+  });
+});
+
+/**
+ * ADR-0103 §7. A Facet-scoped sync lane is sanctioned only where the Facet's
+ * rows have no reference leaving them, and what proves that is `referencesOf`
+ * being the ledger's whole reference vocabulary rather than an enumeration
+ * somebody kept current. ADR-0079 §1's wipe rested on the same property
+ * **once**, at the moment it shipped; a lane rests on it on every wake, which
+ * is why ADR-0078 §8's argument transfers unchanged: a build rule with nothing
+ * checking it is a comment.
+ *
+ * So the registry's marked references are **partitioned** the way the two
+ * allow-lists above are. Every attribute the page marks `(reference)` is either
+ * an edge the closure walks or one named below, and an attribute in neither
+ * fails here, at the moment somebody coins it.
+ */
+describe("the reference attributes the registry marks", () => {
+  /**
+   * Marked references `referencesOf` deliberately does not read.
+   *
+   * An entry is admissible only where the reference **resolves inside the
+   * Tracked Domain of the row holding it**, because that is the property
+   * ADR-0103 §7 needs: a lane scoped to one Facet then cannot ship a row
+   * pointing outside its own scope. `event/replaced_by` is a Consumption Event
+   * naming the Consumption Event that corrected it (`calorie.store.ts`), so
+   * both ends are food's; `habit/replaces` is the Habit Lineage link, `habit:`
+   * to `habit:`, so both ends are habits'. Neither is a closure edge either: a
+   * meal crosses as it stands, not as the corrections that produced it
+   * (ADR-0073 §1).
+   */
+  const RESOLVES_IN_ITS_OWN_DOMAIN = ["event/replaced_by", "habit/replaces"];
+
+  /** The marker the registry's "Attribute namespaces" preamble documents. */
+  const MARKER = /\*\*\(reference\)\*\*/g;
+
+  /**
+   * Every attribute the registry marks as holding an entity reference, as
+   * `namespace/name`. The namespace comes from the enclosing `###` heading and
+   * is cleared by any other one, so a marker outside an attribute section is
+   * dropped rather than credited to the section above it.
+   */
+  function markedReferences(): string[] {
+    const found: string[] = [];
+    let namespace: string | null = null;
+    for (const line of REGISTRY.split("\n")) {
+      if (line.startsWith("### ")) {
+        namespace = line.match(/^### `([a-z_]+)\/`$/)?.[1] ?? null;
+      }
+      const name = line.match(/^- `([a-z_]+)` \*\*\(reference\)\*\*/)?.[1];
+      if (name && namespace) found.push(`${namespace}/${name}`);
+    }
+    return found;
+  }
+
+  it("accounts for every marked reference, as walked or as named", () => {
+    expect(markedReferences().sort()).toEqual(
+      [...REFERENCE_ATTRIBUTES, ...RESOLVES_IN_ITS_OWN_DOMAIN].sort()
+    );
+  });
+
+  /**
+   * Without this the partition above is only as honest as the parser: a marker
+   * on a line the bullet grammar misses would be silently absent from both
+   * sides, and the check would pass by not seeing the thing it is for.
+   */
+  it("credits every marker on the page to an attribute bullet", () => {
+    expect(markedReferences()).toHaveLength(
+      (REGISTRY.match(MARKER) ?? []).length
+    );
   });
 });

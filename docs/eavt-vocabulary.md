@@ -157,6 +157,15 @@ An attribute key begins with a namespace naming the family of facts it belongs t
 The attributes listed below are representative, not exhaustive; the source under
 `src/` is the complete list.
 
+An attribute whose value names another **entity** is marked with a bold `(reference)`
+after its name, and that set alone is exhaustive. It is gated rather than descriptive: every
+marked attribute is either read by `referencesOf` (`src/lib/p2p/meal-payload.ts`) or
+named in `tests/unit/meal-payload.test.ts` as one whose reference stays inside the
+Tracked Domain of the row holding it, and an attribute in neither fails
+`pnpm test:unit`. A Facet-scoped sync lane rests on that set being complete on every
+wake, where the Facet-scoped wipe rested on it once
+([ADR-0103](adr/0103-a-pairing-is-scoped-to-the-facet-its-act-ran-in.md) §7).
+
 ### `food/`
 
 Food Digital Twins.
@@ -238,8 +247,8 @@ Recipe twins (schema.org/Recipe).
 
 - `name`, `description`, `url`, `image`, `yield`.
 - `instructions`: ordered HowToStep text.
-- `ingredients`: pure `{ ref, amount, unit }` references. Nutrition is derived, never
-  stored.
+- `ingredients` **(reference)**: pure `{ ref, amount, unit }` references. Nutrition is
+  derived, never stored.
 
 ### `media/`
 
@@ -284,7 +293,8 @@ because it names the ingestion machinery rather than a domain, and nothing may s
 Habit Blueprints.
 
 - `name`, `category`, `instrument`, `schedule_rules`, `status`.
-- `replaces`: the **Habit Lineage** link.
+- `replaces` **(reference)**: the **Habit Lineage** link, one `habit:` naming the
+  `habit:` it supersedes.
 
 ### `cal_event/`
 
@@ -299,9 +309,12 @@ Every logged Event.
 - `type`: the event verb, a closed set of six. `ConsumeAction` (food),
   `WatchAction` and `ReadAction` (media), `ExerciseAction` (habits),
   `OccurrenceAction` (calendar), `AcquisitionAction` (physical items).
-- `target`: polymorphic. It references **any** twin, across all four food prefixes
-  (`gtin:`, `fdc:`, `food:custom_`, `recipe:`) as well as media and physical-item
-  twins. Also `target_id`.
+- `target` **(reference)**: polymorphic. It references **any** twin, across all four
+  food prefixes (`gtin:`, `fdc:`, `food:custom_`, `recipe:`) as well as media and
+  physical-item twins, and a Habit Blueprint.
+- `target_id`: which target inside a `daily_multiple` Habit Blueprint's
+  `schedule_rules` an Execution Event was for. A rule's own id and never an entity,
+  which is why it carries no marker while its neighbour above does.
 - `status`: the meaning depends on `type`. For media Engagement Events it is the
   shared four-value enum `saved`, `started`, `progress`, `completed`. For Acquisition
   Events it is `wanted` or `owned`. For Execution Events it is `completed`, `exempt`,
@@ -317,15 +330,16 @@ Every logged Event.
 - `season`, `episode`, `review`, `pages_read`, `instrument_used`, `slot_id`,
   `metadata`.
 - `meal_type`: the **Meal Type**.
-- `replaced_by`: the correction link written when a logged event is superseded
+- `replaced_by` **(reference)**: the correction link written when a logged event is
+  superseded, one `event:consume_` naming the `event:consume_` that corrected it
   ([ADR-0022](adr/0022-recipe-instantiations-as-editable-snapshots.md)).
 - `metrics`: the frozen breakdown scaled to the amount logged. The
   `{ calories, protein, fat, carbs }` headline plus every extra nutrient the food
   carried, each under its `nutrition/info` panel name such as `fiber_content` or
   `sodium_content`, and the micronutrients. A nutrient the food never reported is
   absent, never `0` (ADR-0030).
-- `instantiation`: a logged recipe's frozen **Recipe Instantiation** snapshot.
-  Holds `based_on`, `yield`, and per-row
+- `instantiation` **(reference)**: a logged recipe's frozen **Recipe Instantiation**
+  snapshot. Holds `based_on`, `yield`, and per-row
   `{ ref, name, amount, unit, calories, protein, fat, carbs, ... }` carrying the same
   full breakdown.
 
