@@ -59,9 +59,10 @@ import {
  * both indices to zero and overwrites the peer's vector, and that loses nothing
  * only because the pairing being replaced is a *fresh* one: the act mints a new
  * secret and a new `state₀`, so the lanes it replaces address nothing any more.
- * #396 is what makes an index worth something, and whoever builds #400's
- * two-phase unpair has to take the old lanes' outstanding objects **before**
- * this overwrites the indices and the etag that reach them.
+ * #396 is what makes an index worth something, and the two-phase unpair takes
+ * the old lanes' outstanding objects **before** this overwrites the indices and
+ * the etag that reach them — `unpair.ts` holds that ordering, and the pairing
+ * act settles a pending revocation before it reaches this function.
  */
 
 /** One lane's ratchet, at the index it has reached. */
@@ -181,6 +182,23 @@ export interface PairedDevice {
    * this version always has one.
    */
   last_met: string | null;
+  /**
+   * Phase 1 of the two-phase unpair: **the user has severed this pairing and
+   * the withdrawal has not landed yet** (ADR-0096 §11).
+   *
+   * The mark is the half that was always local, immediate and unforgeable, so
+   * it is what stops the lanes rather than the row's removal: from here this
+   * device deposits nothing, collects nothing, and states the pairing to
+   * nobody. Everything else on the row is **kept** — both lanes, both indices
+   * and the deposit's standing — because those are the only things that reach
+   * the two objects the withdrawal has to take, and discarding them first is
+   * exactly what would make it best-effort.
+   *
+   * So a marked row is a **pending revocation**, retryable on any later open,
+   * and {@link forgetPairedDevice} is reached only once the deletes have
+   * landed. `unpair.ts` is the whole of that ordering.
+   */
+  revoked: boolean;
 }
 
 /**
@@ -287,6 +305,7 @@ const filled = (device: PairedDevice): PairedDevice => ({
   peer_roster: device.peer_roster ?? null,
   unproductive_wakes: device.unproductive_wakes ?? 0,
   last_met: device.last_met ?? null,
+  revoked: device.revoked ?? false,
 });
 
 /**
@@ -348,7 +367,8 @@ function isPairedDevice(row: unknown): row is PairedDevice {
       isWakeCount(
         "unproductive_wakes" in row ? row.unproductive_wakes : undefined
       ) &&
-      isMetDay("last_met" in row ? row.last_met : null)
+      isMetDay("last_met" in row ? row.last_met : null) &&
+      isRevokedMark("revoked" in row ? row.revoked : undefined)
     )
   ) {
     return false;
@@ -430,6 +450,21 @@ function isWakeCount(wakes: unknown): wakes is number {
 function isMetDay(last_met: unknown): last_met is string | null {
   if (last_met === null || last_met === undefined) return true;
   return typeof last_met === "string" && /^\d{4}-\d{2}-\d{2}$/.test(last_met);
+}
+
+/**
+ * The revocation mark, checked to the standard the wake reads it at: a pairing
+ * is either severed or it is not.
+ *
+ * **Absent reads as not revoked**, which is the only reading available: a
+ * record written before the mark existed is a live pairing, and reading it as
+ * revoked would silently stop every pairing on the jar at the upgrade.
+ * {@link filled} is what turns the absence into the field.
+ */
+function isRevokedMark(revoked: unknown): revoked is boolean {
+  return (
+    revoked === undefined || revoked === null || typeof revoked === "boolean"
+  );
 }
 
 function isStoredLane(lane: unknown): lane is StoredLane {
@@ -520,6 +555,13 @@ export function rememberPairedDevice(
     // show no date at all until its first productive wake, on the one screen
     // whose job is to say when they last met.
     last_met: metOn(at),
+    // A pairing made again is a **fresh** one, whatever happened to the row it
+    // replaces: new secret, new `state₀`, both indices at zero. Carrying a mark
+    // across would leave the new pairing severed before its first wake. What a
+    // re-pairing must not do is silently strand the *old* lanes' objects, and
+    // that is why the act settles any pending withdrawal before it reaches
+    // here rather than why this field is cleared.
+    revoked: false,
   };
   keep([
     ...held.filter((device) => device.device_id !== device_id),
@@ -556,13 +598,36 @@ export function namePairedDevice(device_id: string, name: string): void {
 }
 
 /**
- * Severs one pairing, here, unilaterally, with no message and no coordination.
+ * **Phase 1 of the unpair**: marks the pairing revoked and keeps everything
+ * else (ADR-0096 §11).
  *
  * ADR-0075 §4: every device already holds total power over its own pairings,
  * and §12 makes **silence the revocation signal** — a message can be dropped,
  * blocked or missed, and a revocation you can suppress is worse than none
- * because it reports success. The two-phase delete that also takes what this
- * device left in the store is #400's; this is the local half it will extend.
+ * because it reports success. So nothing is sent, and the peer reaches the
+ * one-sided state on its own.
+ *
+ * The mark is immediate and unforgeable because it is local: depositing and
+ * collecting stop here, before any delete has left this device. Returns the
+ * row as it now stands, so the caller can reach the two addresses without
+ * reading the list again, or `null` where there was no such pairing.
+ */
+export function revokePairedDevice(device_id: string): PairedDevice | null {
+  const held = readPairedDevices();
+  const found = held.find((device) => device.device_id === device_id);
+  if (!found) return null;
+  const marked: PairedDevice = { ...found, revoked: true };
+  keep(held.map((row) => (row.device_id === device_id ? marked : row)));
+  return marked;
+}
+
+/**
+ * **Phase 3**: drops the row, once the withdrawal has landed.
+ *
+ * Discarding it any earlier throws away the two addresses the withdrawal
+ * needs, which is precisely what would make it best-effort — so this is
+ * reached from `unpair.ts` after both deletes, and from the jar-wide wipe,
+ * which takes the whole record anyway.
  */
 export function forgetPairedDevice(device_id: string): void {
   keep(readPairedDevices().filter((device) => device.device_id !== device_id));
