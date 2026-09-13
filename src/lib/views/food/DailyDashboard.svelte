@@ -1249,12 +1249,28 @@
          timeline holds prose-width rows. `minmax(0, 1fr)` rather than `1fr` so
          a long food name shrinks the track instead of pushing the rail off. */
       grid-template-columns: minmax(0, 1fr) var(--rail);
-      /* The timeline runs the height of both rail blocks. The month leads the
+      /* The timeline runs the height of the whole rail. The month leads the
          rail because it is the day's own name and the thing you steer with;
-         the numbers are what the chosen day turned out to be. */
+         the numbers are what the chosen day turned out to be.
+
+         The rows are written out because the numbers row must be the flexible
+         one, and that is what keeps the rail still. A grid item spanning
+         several rows hands the height it has over them to the INTRINSIC rows it
+         spans, split between them — so while both rows were `auto`, half of
+         whatever the timeline was taller by landed in the month's row, and the
+         month's row is what sets where the numbers begin. Collapsing the meters
+         then grew the row above by half of what they had measured, and carried
+         "Nutrition" and its Full day button a few hundred pixels down the page.
+         A flexible track in the span stops that distribution outright: the
+         month's row is now sized by the month and nothing else, the timeline's
+         spare height goes into the numbers row below where there is nothing to
+         move, and the disclosure opens and closes underneath a header that
+         stays where it is. `start` keeps the numbers at the top of that row
+         however tall it grows. */
       grid-template-areas:
         "meals month"
         "meals numbers";
+      grid-template-rows: auto 1fr;
       /* The rail sits at the top of its column; the timeline is as tall as the
          day is. Without it the two stretch to each other and the meters float
          in the middle of a column of air. */
