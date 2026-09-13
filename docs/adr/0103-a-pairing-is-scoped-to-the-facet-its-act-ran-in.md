@@ -404,3 +404,35 @@ first time rather than vacuously. A second member of the `jar` Tracked Domain ow
 attribution rule under §6. And a Facet whose rows reference another Facet's reopens §7
 outright — that Facet does not get a scoped lane, by the same argument that says it does not
 get a wipe.
+
+## Amendment (2026-09-13): §7's documented set is five attributes, not three, and the gate is a partition
+
+§7 names the gate's claim as _every attribute `docs/eavt-vocabulary.md` documents as
+holding an entity reference appears in `referencesOf`_, and the Context says that set is
+three. Writing the gate ([#420](https://github.com/palebluebytes/inventoria/issues/420))
+found **five**. `event/replaced_by` is a Consumption Event naming the Consumption Event
+that corrected it (`calorie.store.ts`), and `habit/replaces` is the Habit Lineage link;
+both hold an entity id, neither is read by `referencesOf`, and both predate this record by
+months. The claim as written would have gone red the day it was checked.
+
+What shipped instead is the shape the two allow-lists beside it already use: the marked set
+is **partitioned** rather than contained. `docs/eavt-vocabulary.md` marks every attribute
+that holds a reference, and every marked attribute is either read by `referencesOf` or
+named in `tests/unit/meal-payload.test.ts` as one whose reference **resolves inside the
+Tracked Domain of the row holding it**. An attribute in neither fails `pnpm test:unit`,
+which is the property §7 was buying: a new food attribute pointing out of food is refused
+at the moment somebody coins it, and no reader has to notice.
+
+**§7's conclusion survives, on the partition's criterion rather than on the function's
+contents.** A correction link points at another Consumption Event and a lineage link at
+another Habit Blueprint, so both stay inside their own domain, and a lane scoped to one
+Facet still cannot ship a row pointing outside its scope. What does not survive is the
+Context's sentence that `referencesOf` reads _the whole ledger's reference vocabulary_. It
+reads the **closure's**, which is a smaller thing, and the two were conflated.
+
+**One consequence is named rather than repaired.** A meal payload carrying an
+`event/replaced_by` would land a row pointing at an entity that did not come with it,
+because the reader recomputes reachability from `referencesOf` and never sees that edge.
+Nothing sends one today, since a send picks a day's live events and a live event holds no
+correction link. That is a hole in ADR-0073's self-containment rather than in this record's,
+and closing it would widen what a meal carries, so it is left open here.
