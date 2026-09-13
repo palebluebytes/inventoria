@@ -28,7 +28,7 @@ import {
 } from "../../src/lib/p2p/wake-cadence";
 
 /** A sync that found nothing, acknowledged nothing and owes nothing. */
-const QUIET: WakeRound = { productive: [], owed: false };
+const QUIET: WakeRound = { owed: false };
 
 /**
  * The two syncs, the two signals, and a tally of each — stood up by hand rather
@@ -214,7 +214,7 @@ describe("a collection is a floor rather than a schedule", () => {
 
   it("does not skip while a peer is owed an acknowledgement", async () => {
     const bench = wakeBench();
-    bench.answer({ productive: [], owed: true });
+    bench.answer({ owed: true });
     open = openWake(bench.work);
     await drain();
 

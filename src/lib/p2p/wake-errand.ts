@@ -104,6 +104,21 @@ const stillServed = (held: PairedDevice[]): PairedDevice[] =>
   held.filter((paired) => !isStopped(paired));
 
 /**
+ * What one full sync did, which is the cadence's {@link WakeRound} plus the one
+ * thing only §11's counter wants.
+ *
+ * It is declared here rather than there because the counter is folded here: the
+ * names never reach `wake-cadence.ts`, which reads `owed` and nothing else.
+ */
+export interface SyncRound extends WakeRound {
+  /**
+   * The `device_id` of every pairing that produced something — an
+   * acknowledgement received, or a collection **settled**.
+   */
+  productive: string[];
+}
+
+/**
  * Converge with every paired device, once.
  *
  * **Pairings run one after another rather than at once.** Each one's work is a
@@ -121,7 +136,7 @@ const stillServed = (held: PairedDevice[]): PairedDevice[] =>
 export async function convergeWithPeers(
   store: Store = appStore,
   ledger: WakeLedger = appWakeLedger
-): Promise<WakeRound> {
+): Promise<SyncRound> {
   const productive: string[] = [];
   let owed = false;
   const held = readPairedDevices();
@@ -137,6 +152,14 @@ export async function convergeWithPeers(
       }
       // A take that moved rows and settled nothing: the acknowledgement it owes
       // is not in the store, so the next sync repeats it whole from the `GET`.
+      //
+      // **Today this cannot fire, and it is kept deliberately.**
+      // `convergeWithPeer` settles whenever anything was taken, so an unsettled
+      // take reaches this loop down the `catch` below, which owes the peer for
+      // its own reason. What is guarded here is the shape rather than the
+      // build: a commit point that returned an unsettled take instead of
+      // throwing would otherwise skip the floor silently (ADR-0096 §11's entry
+      // on #399).
       if (outcome.collected > 0 && !outcome.settled) owed = true;
       if (outcome.jammed) appWarn(JAMMED);
     } catch (failure) {

@@ -93,13 +93,16 @@ export const DEPOSIT_DEBOUNCE_MS = 5_000;
  */
 export const COLLECTION_FLOOR_MS = 60 * 60 * 1_000;
 
-/** What one sync across every pairing reports back to the cadence. */
+/**
+ * What one sync across every pairing reports back to the cadence.
+ *
+ * **One field, because one field is all this module reads.** A sync also says
+ * which pairings produced something, and that goes to §11's counter in
+ * `wake-errand.ts` without passing through here — a round shaped by what the
+ * cadence needs is what keeps _it counts nothing_ true of the type as well as
+ * of the code.
+ */
 export interface WakeRound {
-  /**
-   * The `device_id` of every pairing that produced something — an
-   * acknowledgement received, or a collection **settled**.
-   */
-  productive: string[];
   /**
    * Whether any pairing was left owing its peer an acknowledgement: a take that
    * did not settle, or a sync that failed part way.

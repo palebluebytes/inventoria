@@ -223,6 +223,12 @@ export const metOn = (at: Date): string => writeDate(at, "YYYY-MM-DD");
  * It builds a **local** midnight rather than letting `new Date(string)` parse
  * it, which would read `YYYY-MM-DD` as UTC and draw the day before in every
  * zone behind it.
+ *
+ * **It lives beside {@link metOn} rather than beside `writeDate`**, because the
+ * two of them and `isMetDay` are the three sides of one field's invariant: what
+ * the record keeps, what it will accept back, and how coarse it is. Splitting
+ * the reader out would put half of that in a module that knows nothing about
+ * this field.
  */
 export function readMet(last_met: string): Date {
   const [year, month, day] = last_met.split("-").map(Number);
