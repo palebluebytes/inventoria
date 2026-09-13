@@ -3,6 +3,7 @@
 **Status:** Accepted  
 **Date:** 2026-09-07  
 **Amends:** [ADR-0093](0093-a-tap-floor-binds-the-box-that-accepts-the-tap.md) (Scope, which held the floor to text fields and named this widening as future work; §6, whose `SHORT_BY_ARGUMENT` was empty and is now six; and its Amendment, which left a reading unread wherever _any_ conditional rule touched a modelled property)  
+**Amended by:** [ADR-0100](0100-what-earns-a-member-of-the-ui-vocabulary.md) (the Consequences below predict a new primitive for §3's duplication; it is refused, and the four copies adopt `ui/Button` instead. §3 itself stands)  
 **Implemented:** #361 — `tests/unit/support/tap-floor.ts` (the model: what takes a tap and how big its box is), `tests/unit/tap-floor.test.ts` (the sweep, the width clause, the cross-component clause and the two library rosters) and `tests/unit/support/markup.ts` (the `child` snippet, the import edge, and the walk fix below), plus the ninety boxes the sweep then convicted across thirty-four components
 
 ## Context
@@ -121,3 +122,29 @@ An exemption covers a box in all three of the sweep's lists — short, narrow, u
 **The instrument found a hole in its own reader.** `markup.ts`'s tag walk tracks quote state, and an apostrophe in a handler's `//` comment — "the input's blur" — opened a quote nothing closed: the scan ran off the end of the file, dropped the tag it was reading, and dropped every tag after it. `CategoryPicker`'s `<li role="option">` and the three elements below it were invisible to **every** census in this repository, which is why a 44px option row survived #338, #376 and #381. Comments are now skipped inside an expression. This is the third time a fixed assumption in that walk has narrowed a population silently, after #376's brace depth and ADR-0093's at-rule drop, and the pattern is worth naming: a reader that cannot parse something must say so, and this one was built to stop.
 
 **The roster is the one thing here that can rot quietly.** Its coverage assertion catches a _new_ part; it cannot catch bits-ui changing what an existing part renders. That would need a rendered-DOM measurement, which is the e2e tier, and is not attempted here.
+
+## Amendment (2026-09-13): the duplication needed an adoption, not a primitive
+
+The Consequences above filed #390 with a prediction: _"the answer is a primitive
+rather than a fifth copy, which is a change to the ADR-0040 vocabulary"_.
+[ADR-0100](0100-what-earns-a-member-of-the-ui-vocabulary.md) refuses that primitive,
+and the prediction is withdrawn.
+
+What it missed is a question §3 never asks: **why is the mark drawn in CSS at
+all?** `ui/Button` already carries `min-height: var(--tap-min)` and already takes
+a `children` snippet, so the four copies are `<button>`s that never adopted it.
+The `::before` and the two relocated states exist only because the mark is a CSS
+drawing rather than content — pass a glyph or an SVG as children and there is
+nothing to centre absolutely and nothing to relocate. ADR-0100 §1's subtraction
+clause therefore leaves a reach of zero, and §6 refuses the name `IconButton`
+besides: a control you press is a `Button`.
+
+**§3 is not withdrawn.** Where a mark genuinely is drawn in CSS, the split it
+describes remains the right recipe. What ADR-0100 adds is the prior question, and
+the consequence that where the mark can be content, adoption **deletes** the
+recipe rather than extracting it.
+
+#390 stays open under its own number, retitled to the adoption, because the
+measurement in it — four copies, two identical pairs, byte-identical including
+their comment, and identical before this change — is the evidence the refusal
+rests on.

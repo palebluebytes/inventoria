@@ -2,6 +2,7 @@
 
 **Status:** Accepted  
 **Date:** 2026-08-05  
+**Amended by:** [ADR-0100](0100-what-earns-a-member-of-the-ui-vocabulary.md) (the deletion test named in this record's Context becomes the general rule for minting any `ui/` member, and the bespoke remainder below is re-derived by it rather than carried)  
 **Implemented:** #82 (`ui/ToggleGroup.svelte` + tag-bar adoption), #81 (`Badge` colour axis)
 
 ## Context
@@ -124,3 +125,29 @@ Explicitly **out of scope**, kept bespoke:
   are built in #82 (this ADR ships alongside them). `Badge`'s `neutral` variant +
   `categoryBadgeVariant` helper are the parallel #81; the two tickets do not block
   each other.
+
+## Amendment (2026-09-13): the deletion test was the durable part, and it was not written as a rule
+
+This record's Context contains the sentence the vocabulary has been decided by
+ever since — _"It fails the deletion test: it removes little and adds a broad new
+surface"_ — and states it as an observation about `Chip` rather than as a test
+anything else could be put to. Four tickets (#316, #383, #384, #390) then arrived
+asking the same question and were each parked on the grounds that answering it
+would decide the vocabulary by accident. That is what an unstated rule costs.
+
+[ADR-0100](0100-what-earns-a-member-of-the-ui-vocabulary.md) states it. Two things
+about this record change:
+
+- **The two verdicts here are the calibration.** `Chip` refused and `ToggleGroup`
+  minted, on the same day, both at a post-subtraction reach of **one** — which is
+  what proves a count alone cannot be the rule, and forced ADR-0100 to make the
+  discriminator the _width of what is added_ rather than the number of copies
+  removed. Read the pair as a worked example rather than as two separate calls.
+- **The bespoke-remainder boundary is re-derived, not carried.** Nutrient data
+  pills, the Owned/Wanted tabs, `reps-pill` and `time-hint-pill` all fall out of
+  ADR-0100 §1's one-semantics clause without being named. The list stays here as
+  the record of what was decided; it is no longer a second mechanism, and nothing
+  should be added to it.
+
+Nothing in the Decision above is withdrawn. The three-way split of the chip space
+stands exactly as written.
