@@ -2,6 +2,7 @@
 import { test, expect } from "@playwright/test";
 import { PAGES, iconIdOf, pageLabel } from "../src/lib/food/pages";
 import { hasPagesAt, openRationsDay } from "./support/rations";
+import { openWayIn } from "./support/ways-in";
 
 /** Shared by the two catalogues that photograph the **root** Facet: nothing is
  *  worth capturing until the ledger has answered, and every screen there reads
@@ -120,6 +121,17 @@ const ROOT_SHELL_FLAT = `
   .sidebar {
     position: static !important;
   }
+  /* The day's Way-in bar is position:fixed below 768 (ADR-0101 S3), and a
+     fixed box in a full-page capture is rendered once at the viewport's top
+     whatever the page's height — so left pinned it would be photographed lying
+     across the meters rather than at the foot of the screen. Un-pinned it falls
+     into the slot it already occupies above 768, at the head of the day, which
+     is a stable place and a true one. The same device as .sidebar above and
+     .add-habit-sheet below, for the same reason. (No backticks -- template
+     literal.) */
+  .way-in-bar {
+    position: static !important;
+  }
   /* Un-pin the sheet so a full-page capture contains all of it: a
      position:fixed box is rendered once, at the top of the image,
      whatever the page's height. (No backticks in this block -- it is a
@@ -166,6 +178,16 @@ const RATIONS_SHELL_FLAT = `
   .main {
     overflow-y: visible !important;
     height: auto !important;
+  }
+  /* The day's Way-in bar is position:fixed below 768 (ADR-0101 S3), and a
+     fixed box in a full-page capture is rendered once at the viewport's top
+     whatever the page's height — so left pinned it would be photographed lying
+     across the meters rather than at the foot of the screen. Un-pinned it falls
+     into the slot it already occupies above 768, at the head of the day, which
+     is a stable place and a true one. The same device as .main above, for the
+     same reason. (No backticks -- template literal.) */
+  .way-in-bar {
+    position: static !important;
   }
 `;
 
@@ -581,9 +603,7 @@ test.describe("Visual Catalog Generator", () => {
 
     // Log a breakfast item via the direct sheet.
     await page.locator(".nav-item", { hasText: "Food" }).click();
-    await page
-      .getByRole("button", { name: "Search for a breakfast food" })
-      .click();
+    await openWayIn(page, "breakfast", "search");
     await page.locator("#food-search-input").fill("banana");
     await page.locator(".result-item", { hasText: "Mock Banana" }).click();
     await page.getByLabel("Amount in grams").fill("150");
@@ -1035,9 +1055,7 @@ test.describe("Visual Catalog — the surfaces a meal opens", () => {
 
   /** Search breakfast for the one food the fixture serves, and stage it. */
   async function stageBanana(page: import("@playwright/test").Page) {
-    await page
-      .getByRole("button", { name: "Search for a breakfast food" })
-      .click();
+    await openWayIn(page, "breakfast", "search");
     await page.locator("#food-search-input").fill("banana");
     await page.locator(".result-item", { hasText: "Mock Banana" }).click();
     await expect(page.locator(".staged")).toBeVisible();
@@ -1100,9 +1118,7 @@ test.describe("Visual Catalog — the surfaces a meal opens", () => {
 
   test("the search way in, holding its results", async ({ page }) => {
     await openFood(page);
-    await page
-      .getByRole("button", { name: "Search for a breakfast food" })
-      .click();
+    await openWayIn(page, "breakfast", "search");
     await page.locator("#food-search-input").fill("banana");
     await expect(
       page.locator(".result-item", { hasText: "Mock Banana" })
@@ -1126,9 +1142,7 @@ test.describe("Visual Catalog — the surfaces a meal opens", () => {
 
   test("the quick-entry intent chooser", async ({ page }) => {
     await openFood(page);
-    await page
-      .getByRole("button", { name: "Enter a breakfast yourself" })
-      .click();
+    await openWayIn(page, "breakfast", "custom");
     await expect(page.getByTestId("manual-intent-chooser")).toBeVisible();
 
     await takeSheetScreenshot(page, sheet(page), "food-quick-entry.png");
@@ -1144,7 +1158,7 @@ test.describe("Visual Catalog — the surfaces a meal opens", () => {
     await page.locator("#log-food-btn").click();
     await page.getByRole("button", { name: "Today", exact: true }).click();
 
-    await page.getByRole("button", { name: "Copy a past breakfast" }).click();
+    await openWayIn(page, "breakfast", "past");
     await expect(page.getByTestId("past-meal-list")).toBeVisible();
 
     await takeSheetScreenshot(page, sheet(page), "food-past-meal.png");
@@ -1223,9 +1237,7 @@ test.describe("Visual Catalog — Rations' own shell", () => {
    *  `food-dashboard` shot logs, so the two shells are photographed holding the
    *  same day. */
   async function logBreakfast(page: import("@playwright/test").Page) {
-    await page
-      .getByRole("button", { name: "Search for a breakfast food" })
-      .click();
+    await openWayIn(page, "breakfast", "search");
     await page.locator("#food-search-input").fill("banana");
     await page.locator(".result-item", { hasText: "Mock Banana" }).click();
     await page.getByLabel("Amount in grams").fill("150");

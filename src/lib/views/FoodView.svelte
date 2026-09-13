@@ -1190,10 +1190,10 @@
       {/each}
     </dl>
     <!-- The ways into a meal, drawn from WAYS_IN rather than listed again here,
-         so the legend keeps the header's roster and its left-to-right order by
+         so the legend keeps the bar's roster and its left-to-right order by
          construction. A sixth way in would appear here without anyone
          remembering to add it. -->
-    <p class="legend-head">In a meal's header</p>
+    <p class="legend-head">On the way-in bar</p>
     <dl class="legend">
       {#each WAYS_IN as kind (kind)}
         <div class="legend-row">
@@ -1225,6 +1225,7 @@
     onRemoveItem={removeItem}
     {scalePreview}
     {scaleNotes}
+    {selectionBar}
   />
 {/if}
 
@@ -1448,30 +1449,40 @@
      The Selection itself is kept rather than cleared: leaving a screen is not
      the way out of a mode (§1 gives it its own), and dropping a hand-picked set
      of rows because somebody opened Recipes would be destroying work as a side
-     effect of navigation. Coming back to the day comes back to the Selection. -->
-{#if selected_ids.size > 0 && !onPage}
-  <SelectionBar
-    count={selected_ids.size}
-    note={status_note}
-    scaleOpen={scale_open}
-    onDismiss={clearSelection}
-    onHandOff={() => (selection_panel_open = true)}
-    onScale={toggleScale}
-    onMove={() => (move_open = true)}
-    onRecipe={buildRecipe}
-  >
-    {#snippet tier()}
-      {#if scale_open}
-        <ScaleTier
-          bind:factor={scale_factor}
-          bind:op={scale_op}
-          busy={scaling}
-          onApply={applyScale}
-        />
-      {/if}
-    {/snippet}
-  </SelectionBar>
-{/if}
+     effect of navigation. Coming back to the day comes back to the Selection.
+
+     **Handed to the day rather than rendered beside it** (ADR-0101 §4), so that
+     one render can sit in two places. Below 768 the bar is `position: fixed` and
+     where it stands in the markup buys nothing; above it, it is sticky inside
+     the slot the Way-in bar occupies, and a box can only stick where it stands.
+     The `!onPage` test is gone from here because `DailyDashboard` is itself
+     behind it — the day and this bar are now shown and hidden together, which is
+     what §3 above already says in prose. -->
+{#snippet selectionBar()}
+  {#if selected_ids.size > 0}
+    <SelectionBar
+      count={selected_ids.size}
+      note={status_note}
+      scaleOpen={scale_open}
+      onDismiss={clearSelection}
+      onHandOff={() => (selection_panel_open = true)}
+      onScale={toggleScale}
+      onMove={() => (move_open = true)}
+      onRecipe={buildRecipe}
+    >
+      {#snippet tier()}
+        {#if scale_open}
+          <ScaleTier
+            bind:factor={scale_factor}
+            bind:op={scale_op}
+            busy={scaling}
+            onApply={applyScale}
+          />
+        {/if}
+      {/snippet}
+    </SelectionBar>
+  {/if}
+{/snippet}
 
 <!-- Recipe builder — Consolidate (seeded from selected foods), Define (empty new
      template), or Edit (an existing template), ADR-0022. -->

@@ -3,6 +3,7 @@
 **Status:** Accepted  
 **Date:** 2026-09-02  
 **Amends:** [ADR-0074](0074-sending-is-the-meals-own-numbers-and-receiving-has-no-door.md) (§3's "the same control at two scales" becomes three: an arbitrary selection of logged foods gains a nutrition panel, and the Way out sits in it)  
+**Amended by:** [ADR-0101](0101-the-ways-into-a-day-are-one-bar-anchored-where-the-hand-is.md) §4 (§3's "owns the foot of the screen" becomes "owns one slot": the foot of the band on a phone, the head of the day's column above 768)  
 **Implemented:** #321, #322 `ed47e35` (`SelectionBar.svelte`, `ScaleTier.svelte`, `SelectionVerbIcon.svelte`, the Provisional figure in `FoodItemRow.svelte`), #323 `569c482` (`moveLoggedFoodsToMeal`, `MoveMealSheet.svelte`), #324 `faa7221` (`MealNutritionPanel` becomes `LoggedFoodsPanel`)
 
 ## Context

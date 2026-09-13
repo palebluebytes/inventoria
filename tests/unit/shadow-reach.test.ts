@@ -100,6 +100,12 @@ describe("the two boxes that owe a reservation hold it", () => {
     expect(reservedIn(styleOf("src/lib/ui/Row.svelte"))).toEqual([".row"]);
   });
 
+  it("the way-in rail's cells reserve --shadow-1-reach, which is Button's (§2)", () => {
+    expect(reservedIn(styleOf("src/lib/views/food/WayInRail.svelte"))).toEqual([
+      ".rail :global(.way-in-cell)",
+    ]);
+  });
+
   it("ui/Button is deliberately not converted (§4)", () => {
     // Its 2px overhang is real at fifty-three call sites and harmless at nearly
     // all of them; converting the primitive would move fifty-three layouts to

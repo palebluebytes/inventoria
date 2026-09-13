@@ -223,9 +223,54 @@
     outline-offset: -3px;
   }
 
+  /* Above 768 the Selection does not rise from the foot of the window. It takes
+     over the slot at the head of the day that the Way-in bar occupies, and the
+     Way-in bar folds out of it at the same moment (ADR-0101 §4).
+
+     The reason is the one ADR-0089 §6 gives for the overlay shape: a surface
+     rising from the far end of a large screen is imitating a device that is not
+     there. On a phone the foot of the band is where the hand is and the bar
+     belongs there; above 768 the head of the day's column is where the eye
+     already is.
+
+     The geometry is not here. `DailyDashboard`'s `.way-in-slot` owns the sticky,
+     the offset and the clip; this file says only what the bar does differently
+     once it is riding in one — which is why the anchoring `bottom` below stays
+     the single declaration #331 made it. */
+  @media (min-width: 768px) {
+    .selbar {
+      /* Static. The slot is the sticky box up here and this rides inside it,
+         stacked over the Way-in bar in one grid cell — which is what lets a
+         Selection COVER that bar the way z-index covers it on a phone. */
+      position: static;
+      /* The mirror of `slideUp`, and a full one. Down there the bar is anchored
+         to the band's bottom edge and arrives from below the screen; up here it
+         is anchored to the head of the day's column and arrives from above it.
+         The slot clips, so the travel happens out of sight and the bar appears
+         to come down out of the header rather than to fade in on the spot —
+         which a nudge-and-fade could not do, and was the version that read as
+         "nothing changed". */
+      animation: dropIn 0.2s var(--ease-snap);
+    }
+    /* The safe-area reserve belongs to a bar sitting on the bottom edge. Up here
+       it is dead space under the verbs. */
+    .sb-main {
+      padding-bottom: var(--space-s);
+    }
+  }
+
   @keyframes slideUp {
     from {
       transform: translateY(100%);
+    }
+    to {
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes dropIn {
+    from {
+      transform: translateY(-100%);
     }
     to {
       transform: translateY(0);

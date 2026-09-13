@@ -69,8 +69,19 @@ describe("one shell rule, written once and shared by both Facets", () => {
     // Not a desktop rule, although the desktop shell is where it was noticed:
     // the reason is about boxes rather than widths, and the timeline is the last
     // child of the day at every one of them.
-    const timeline = ruleOf(DAY, ".timeline");
-    expect(decl(timeline, "padding-bottom")).toBe("var(--space-2xl)");
+    //
+    // The `--space-2xl` term is the one this test has always been about, and it
+    // survives at both widths. What ADR-0101 §3 added to it below 768 is the
+    // MEASURED height of the pinned Way-in bar standing over the day's last
+    // rows — a second question (what is covering the foot of the screen), asked
+    // only where something is. Above 768 the bar is in flow and the reserve goes
+    // back to being room and nothing else.
+    expect(decl(ruleOf(DAY, ".timeline"), "padding-bottom")).toBe(
+      "calc(var(--space-2xl) + var(--way-in-bar-h, 0px))"
+    );
+    expect(decl(ruleOf(DAY, ".timeline", WIDE), "padding-bottom")).toBe(
+      "var(--space-2xl)"
+    );
   });
 
   it("keeps the room under the last meal off the scroll container", () => {
@@ -203,7 +214,20 @@ describe("a media query means the shape changes here", () => {
     // column count or role in any of the seven.
     expect(bumps("src/lib/views/FoodView.svelte")).toEqual([]);
     expect(bumps("src/lib/views/food/CommitButton.svelte")).toEqual([]);
-    expect(bumps(DAY)).toEqual([]);
+
+    // The day's three are named rather than swept to empty, because every one of
+    // them is the thing this section tests FOR: at 768 the Way-in bar stops
+    // being pinned to the band's bottom edge and becomes sticky at the head of
+    // the column (ADR-0101 §3), so the slot it shares with the Selection bar
+    // changes from a plain block to a clipped one-cell grid, the two bars stack
+    // in that cell, and the day stops reserving the foot of the screen for a bar
+    // that is no longer standing on it. Position, role and stacking all change;
+    // no token steps.
+    expect(bumps(DAY)).toEqual([
+      ".way-in-slot",
+      ".way-in-slot > :global(.way-in-bar), .way-in-slot > :global(.selbar)",
+      ".timeline",
+    ]);
   });
 
   it("keeps the ones the roster of seven did not name", () => {

@@ -5,10 +5,25 @@
     activeTab = $bindable(),
     dbReady,
     dbError,
+    height = $bindable(0),
   }: {
     activeTab: "food" | "agenda" | "media" | "items" | "notes" | "settings";
     dbReady: boolean;
     dbError: string;
+    /**
+     * This box's own border-box height, reported out so the shell can publish
+     * it as `--shell-floor` (`src/app.css`).
+     *
+     * Below 768 this is the app's floor: anything pinned to the band's bottom
+     * edge lands behind it. Measured rather than restated, because the height is
+     * `--tap-min` plus two paddings plus a safe-area inset the device picks, and
+     * a sum of those written somewhere else is a copy that goes stale.
+     *
+     * Above 768 the aside is a left rail rather than a floor, and the shell
+     * zeroes `--shell-floor` there — so what this reports up here (a full column
+     * height) is never read.
+     */
+    height?: number;
   } = $props();
 
   const tabs = [
@@ -21,7 +36,7 @@
   ] as const;
 </script>
 
-<aside class="sidebar">
+<aside class="sidebar" bind:offsetHeight={height}>
   <div class="logo">
     <span class="logo-icon">⬡</span>
     <span class="logo-text">Inventoria</span>

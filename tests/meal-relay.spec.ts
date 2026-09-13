@@ -1,5 +1,7 @@
 /// <reference types="node" />
 import { test, expect, type Page } from "@playwright/test";
+import type { MealType } from "../src/lib/food/meal-type";
+import { openWayIn } from "./support/ways-in";
 
 // **One meal, two browsers, one real room** (#298).
 //
@@ -127,10 +129,8 @@ async function waitForDbReady(page: Page) {
 }
 
 /** Logs 100g of a mock food into a meal on the day the week strip is showing. */
-async function logMockFood(page: Page, meal_type: string, food: string) {
-  await page
-    .getByRole("button", { name: `Search for a ${meal_type} food` })
-    .click();
+async function logMockFood(page: Page, meal_type: MealType, food: string) {
+  await openWayIn(page, meal_type, "search");
   await page.locator("#food-search-input").fill(food.replace("Mock ", ""));
   await page.locator(".result-item", { hasText: food }).click();
   await page.getByLabel("Amount in grams").fill("100");

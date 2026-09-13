@@ -146,6 +146,12 @@
   type Tab = "food" | "agenda" | "media" | "items" | "notes" | "settings";
   let activeTab = $state<Tab>("food");
 
+  // The tab bar's measured height, published as `--shell-floor` below. Zero
+  // until the aside has been laid out, which is the same value Rations keeps
+  // permanently — so nothing pinned to the band's bottom edge is ever offset by
+  // a number nobody measured.
+  let navFloor = $state(0);
+
   /**
    * The other Facet, named here only so the root can offer it (ADR-0078 §4).
    *
@@ -172,8 +178,21 @@
     <BottomSheetDemo />
   {/await}
 {:else}
-  <div class="app">
-    <Sidebar bind:activeTab {dbReady} {dbError} />
+  <!-- `--nav-box` is the nav's MEASURED height, and the stylesheet below turns
+       it into `--shell-floor`: how much of the band's bottom edge this shell's
+       own chrome takes, so a surface pinned to that edge can clear it
+       (`src/app.css` declares the 0 that Rations keeps). Measured rather than
+       restated — the nav is `--tap-min` plus two paddings plus a safe-area inset
+       the device picks, and a sum of those written anywhere else is the copy
+       that goes stale.
+
+       **Two names, because an inline style outranks every selector.** Writing
+       the floor itself here would win against the `@media` rule that zeroes it
+       above 768, and the bar would clear a rail that is not on the bottom edge
+       at all. So the measurement comes in under its own name and the derivation
+       stays in the stylesheet, where one rule can beat another. -->
+  <div class="app" style="--nav-box: {navFloor}px">
+    <Sidebar bind:activeTab {dbReady} {dbError} bind:height={navFloor} />
 
     <main class="main">
       <!-- Above every tab, because the act it reports is about the jar rather
@@ -230,6 +249,11 @@
 
 <style>
   .app {
+    /* The nav IS this shell's floor below 768 — it is a flex item at the foot of
+       a `100svh` box — so it takes exactly its own height off the band's bottom
+       edge. `src/app.css` declares the token and the 0 a shell without one
+       keeps. */
+    --shell-floor: var(--nav-box, 0px);
     display: flex;
     flex-direction: column-reverse;
     height: 100svh;
@@ -254,6 +278,10 @@
   @media (min-width: 768px) {
     .app {
       flex-direction: row;
+      /* The aside is a left rail up here, not the app's floor, so it takes none
+         of the band's bottom edge. Zeroed rather than left reporting a column's
+         height, so the property means what its name says at every width. */
+      --shell-floor: 0px;
     }
   }
 </style>

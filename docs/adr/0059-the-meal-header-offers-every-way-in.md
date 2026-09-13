@@ -2,6 +2,7 @@
 
 **Status:** Accepted  
 **Date:** 2026-08-26  
+**Amended by:** [ADR-0101](0101-the-ways-into-a-day-are-one-bar-anchored-where-the-hand-is.md) §1 (a way in stops being a control in the meal header and becomes a tab's panel in one bar for the whole day; the roster of five, their order, their three glosses and their single-purpose sheets are untouched)  
 **Implemented:** [#167](https://github.com/palebluebytes/inventoria/issues/167); `66b03e8` (the read and the copy), `627f8d6` (the header and the sheets), `92b163c` (review fixes); `src/lib/food/ways-in.ts` (the five and their labels), `src/lib/views/food/DailyDashboard.svelte` (the header), `src/lib/views/food/FoodStager.svelte` (`methodDock`), `src/lib/views/food/LogFoodSheet.svelte` (single-purpose)
 
 ## Context

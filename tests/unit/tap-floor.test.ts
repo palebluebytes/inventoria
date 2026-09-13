@@ -900,6 +900,16 @@ describe("the floor, swept", () => {
    * A third column exists now, and it is meant to stay at six. `sanctioned` is
    * `SHORT_BY_ARGUMENT`'s length by construction, so a seventh entry moves this
    * assertion as well as that list — two diffs for one exemption, deliberately.
+   *
+   * It rose 133 → 134 at #416, and by **one** box rather than the two the
+   * ticket projected. The day's five way-in controls left the meal header for a
+   * bar of their own (ADR-0101 §1), so `WayInRail`'s cell and `DailyDashboard`'s
+   * `.way-in` are the same `ui/Button` in a new place — and a `ui/Button` is
+   * counted once, at the primitive, never per call site. What actually arrived
+   * is the tab: `WayInBar`'s `#Tabs.Trigger.wib-tab`, a bits-ui element this
+   * sweep reads directly, `declared` on `min-height: var(--tap-min)` like every
+   * other library-rendered cell in the list. The ticket's second box was the
+   * prototype's own variant switcher, which does not ship.
    */
   it("carries most of them on a declared floor, not on arithmetic", () => {
     const how = { declared: 0, drawn: 0, sanctioned: 0 };
@@ -910,7 +920,7 @@ describe("the floor, swept", () => {
       else if (b.kind === "drawn") how.drawn++;
     }
 
-    expect(how).toEqual({ declared: 133, drawn: 26, sanctioned: 6 });
+    expect(how).toEqual({ declared: 134, drawn: 26, sanctioned: 6 });
     // Every box lands in exactly one column. Without this the two figures above
     // could both be right while a box fell out of the sweep between them.
     expect(how.declared + how.drawn + how.sanctioned).toBe(SWEEP.groups.size);

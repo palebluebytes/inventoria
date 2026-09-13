@@ -247,10 +247,18 @@ describe("a sheet over a sheet replaces it on a phone (§7)", () => {
  *   full-height sheet resolves to on a phone is the shape it already has. What
  *   folding would change is only the wide screen, where a photo reader wants
  *   the screen rather than a 600px card. Out of scope, on purpose.
+ *
+ *   `WayInBar` is the third, and it is `SelectionBar`'s twin by construction:
+ *   the two share one slot (ADR-0101 §4), so they are pinned to the same edge by
+ *   the same declaration below 768 and neither is pinned at all above it. It is
+ *   not an overlay either — it is the day's permanent Way-in bar, and ADR-0101
+ *   §3's whole argument is that below the sheet breakpoint it belongs on the
+ *   band's bottom edge because that edge is where the hand is.
  */
 const PINNED_OUTSIDE_THE_PRIMITIVE = [
   "src/lib/views/food/LabelPhotoReader.svelte",
   "src/lib/views/food/SelectionBar.svelte",
+  "src/lib/views/food/WayInBar.svelte",
 ];
 
 describe("no surface hand-rolls a centred card (§6)", () => {

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import type { Snippet } from "svelte";
   import {
     consumptionStore,
     consumptionForDay,
@@ -6,7 +7,7 @@
   } from "../../stores/calorie.store";
   import { hasPastMeal, type CopyNote } from "../../food/past-meals";
   import { loggedDayKeys } from "../../food/logged-days";
-  import { WAYS_IN, wayInLabel, type WayIn } from "../../food/ways-in";
+  import type { WayIn } from "../../food/ways-in";
   import { MEAL_TYPES, type MealType } from "../../food/meal-type";
   import { totalNutrition } from "../../food/consumption-state";
   import {
@@ -52,7 +53,7 @@
   import NutritionPanelCell from "./NutritionPanelCell.svelte";
   import { longpress } from "../../actions/longpress";
   import type { ScalePreview } from "../../food/scale-amount";
-  import WayInIcon from "./WayInIcon.svelte";
+  import WayInBar from "./WayInBar.svelte";
   import LoggedFoodsPanel from "./LoggedFoodsPanel.svelte";
 
   let {
@@ -67,11 +68,26 @@
     onRemoveItem,
     scalePreview,
     scaleNotes,
+    selectionBar,
   }: {
     dbReady: boolean;
     selectedDate: Date;
-    /** A header control was tapped: which meal, and which way in (ADR-0059). */
+    /** A way in was tapped on the day's Way-in bar: which meal, which way in
+     *  (ADR-0059's roster, ADR-0101's surface). */
     onEnterMeal: (meal_type: MealType, kind: WayIn) => void;
+    /**
+     * The Selection bar, handed in rather than rendered beside the day, so that
+     * ONE render can sit in two places (ADR-0101 §4).
+     *
+     * Below 768 it is `position: fixed` and where it stands in the markup buys
+     * nothing. Above it, it is sticky in the slot the Way-in bar occupies — and
+     * a box can only stick where it stands, which is the whole reason this is a
+     * prop and not a sibling in `FoodView`.
+     *
+     * Optional so nothing but the food screen has to know about a Selection;
+     * the day renders its slot either way.
+     */
+    selectionBar?: Snippet;
     /** The line a partial copy left behind (ADR-0058 §11), or null after a
      *  clean one. The host only passes one that belongs to the day on screen. */
     copyNote?: CopyNote | null;
@@ -94,6 +110,24 @@
   // Long-press a logged item to start selecting; while a selection is active,
   // tapping items toggles them (for building a recipe from them).
   let selectionActive = $derived(selectedIds.size > 0);
+
+  // How much of the day's foot the pinned Way-in bar is standing on, below 768.
+  // Measured rather than restated: the bar's height is genuinely unknown, since
+  // its rail drops a cell for a meal with no past (ADR-0059 §4) and its captions
+  // ride a fluid scale, so a spacer written as a sum of tokens would be a second
+  // copy of that geometry and wrong for one of the four meals.
+  //
+  // **The last UNFOLDED height is what the day keeps**, which is the reason
+  // these are two values rather than one. The bar collapses to nothing while a
+  // Selection is live (ADR-0101 §4), and letting the reserve collapse with it
+  // would shorten the page's scroll range at the exact moment the Selection bar
+  // arrives to stand in the same place at much the same height. The day reserves
+  // the foot of the screen for whichever bar is in it.
+  let wayInBarBox = $state(0);
+  let wayInBarHeight = $state(0);
+  $effect(() => {
+    if (!selectionActive && wayInBarBox > 0) wayInBarHeight = wayInBarBox;
+  });
 
   // A long-press is followed by a synthetic click on release; without this the
   // click would immediately toggle the item we just selected back off.
@@ -369,7 +403,30 @@
   </section>
 
   <!-- Timeline & Logged Meals -->
-  <div class="timeline mt-6">
+  <div class="timeline mt-6" style="--way-in-bar-h: {wayInBarHeight}px">
+    <!-- The slot the two bars share (ADR-0101 §4). Above 768 they STACK in one
+         grid cell rather than following each other down the page, which is what
+         lets a Selection cover the Way-in bar up here the way z-index covers it
+         on a phone. The slot owns the sticky, because a sticky box can only
+         travel inside a containing block taller than itself and a two-item stack
+         is not one.
+
+         Both are rendered HERE, in flow, because that is what the sticky half
+         needs; the pinned half takes itself out of flow from the same place. -->
+    <div class="way-in-slot">
+      <WayInBar
+        folded={selectionActive}
+        {dbReady}
+        {mealHasPast}
+        {onEnterMeal}
+        bind:height={wayInBarBox}
+      />
+      <!-- The Selection's own bar, in the Way-in bar's slot. The two never stand
+           here together — the Way-in bar folds the moment a Selection exists,
+           which is what `folded` above is — so the slot holds whichever one the
+           screen is in. -->
+      {@render selectionBar?.()}
+    </div>
     {#each meal_types as meal_type}
       <div class="meal-section">
         <div class="meal-section-header">
@@ -390,30 +447,12 @@
               >{meal_type.toUpperCase()}</button
             >
           </h3>
-          <!-- Every way into this meal is its own control, in line with the meal
-               name, and there is no `+` (ADR-0059 §1). All five are secondary:
-               with the `+` gone there is no primary action left to protect, and
-               electing one of the five would be a claim nothing supports (§3).
-               The past-meal control is absent, not disabled, until the meal has
-               history (§4) — and since it leads the row, the row shortens from
-               the meal name's end. -->
-          <div class="meal-actions">
-            {#each WAYS_IN as kind (kind)}
-              {#if kind !== "past" || mealHasPast[meal_type]}
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  class="way-in"
-                  disabled={!dbReady}
-                  aria-label={wayInLabel(kind, meal_type)}
-                  title={wayInLabel(kind, meal_type)}
-                  onclick={() => onEnterMeal(meal_type, kind)}
-                >
-                  <WayInIcon {kind} />
-                </Button>
-              {/if}
-            {/each}
-          </div>
+          <!-- No way in here. They left for the day's one Way-in bar above
+               (ADR-0101 §1), which is the whole of what that record amends in
+               ADR-0059: five floored controls plus their gaps is 276px, and the
+               header could not hold that beside the meal's name on any phone
+               under ~414px. The header keeps its name, its nutrition-panel
+               control and its subtotal. -->
         </div>
 
         {#if copyNote && copyNote.meal_type === meal_type}
@@ -889,6 +928,53 @@
     font-variant-numeric: tabular-nums;
   }
 
+  /* The slot the Way-in bar and the Selection bar share (ADR-0101 §4).
+
+     On a phone it is nothing at all, and `display: contents` is how it says so.
+     Both children are `position: fixed`, so they take no space here and the
+     Selection covers the Way-in bar by z-index alone — but a plain block would
+     still be a flex item of `.timeline`, and `.timeline` has a `gap`, so an
+     empty one opens `--space-m` of nothing above the first meal on every phone.
+     With `contents` there is no box: the two children are what `.timeline` sees,
+     and neither is a flex item, because neither is in flow.
+
+     Whatever this box is down there, it may never become a containing block for
+     them — a `transform`, a `filter` or `contain` here would drag both off the
+     band. `contents` cannot: there is nothing left to be one.
+
+     Above 768 the slot is the sticky thing and the bars are not, for a reason
+     that is structural rather than stylistic: a sticky box can only travel
+     inside a containing block taller than itself, and a two-item stack is not
+     one. So the slot sticks and the bars ride in it. `overflow: hidden` is what
+     makes the Selection ARRIVE rather than appear — it starts a full height
+     above the cell and is clipped until it enters. */
+  .way-in-slot {
+    display: contents;
+  }
+  @media (min-width: 768px) {
+    .way-in-slot {
+      position: sticky;
+      /* `.main` pays `var(--space-l)` of top padding above 768, and a scroll
+         container's START padding sits inside its scrollport — so a box asking
+         for `top: 0` comes to rest under it rather than on the edge, 49.7px
+         down. `FoodStager`'s `.cf-stage` cancels its own container's padding the
+         same way. The offset restates the shell's own token rather than
+         measuring the gap, so the two cannot drift. */
+      top: calc(-1 * var(--space-l));
+      z-index: 20;
+      margin-bottom: var(--space-s);
+      overflow: hidden;
+      display: grid;
+    }
+    /* One cell, two bars. The Selection is second in the markup and therefore
+       paints over the Way-in bar, which is the same order the phone gets from
+       z-index. */
+    .way-in-slot > :global(.way-in-bar),
+    .way-in-slot > :global(.selbar) {
+      grid-area: 1 / 1;
+    }
+  }
+
   .timeline {
     display: flex;
     flex-direction: column;
@@ -902,8 +988,22 @@
        browsers have historically disagreed about, and a last child's padding is
        not in dispute anywhere. The argument is about boxes rather than about
        widths, so this is unconditional — the desktop shell is where it was
-       noticed, not where it applies. */
-    padding-bottom: var(--space-2xl);
+       noticed, not where it applies.
+
+       Below 768 it also buys back the height of the pinned Way-in bar standing
+       over the day (ADR-0101 §3). `--way-in-bar-h` is that bar's own measured
+       border-box height, written on this element by the script above; it is 0
+       before the first measurement, which is the same page this padding already
+       described. */
+    padding-bottom: calc(var(--space-2xl) + var(--way-in-bar-h, 0px));
+  }
+  @media (min-width: 768px) {
+    /* Up here the bar is in flow at the head of the column and owes the foot of
+       the day nothing, so the reserve goes back to being room under the last
+       meal and nothing else. */
+    .timeline {
+      padding-bottom: var(--space-2xl);
+    }
   }
   .meal-section {
     display: flex;
@@ -914,9 +1014,10 @@
        one line on a narrow one, instead of a fixed small size. */
     container-type: inline-size;
   }
+  /* One child since the five ways in left (ADR-0101 §1), so there is nothing
+     left to space apart; the row is the meal's name on a rule. */
   .meal-section-header {
     display: flex;
-    justify-content: space-between;
     align-items: center;
     border-bottom: 1px solid var(--border);
     padding-bottom: var(--space-3xs);
@@ -943,20 +1044,6 @@
     text-decoration: underline;
     text-underline-offset: 0.2em;
   }
-  /* Icon-only actions — the meal header names the meal, so each just reads as
-     its own verb. The frame, hover-invert, press-flush and focus ring are the
-     shared Button (secondary) (ADR-0039 / #78). */
-  /* Five squares plus their gaps is roughly 12rem of header. They wrap rather
-     than push the meal name off, so a narrow screen shows the squeeze. The
-     fixed square sizing stays here, reached via `:global` under the scoped
-     header since the class rides a child Button. */
-  .meal-actions {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: flex-end;
-    align-items: center;
-    gap: var(--space-2xs);
-  }
   /* The button form of the subtotal line: the same box it has always been, so
      only the affordance is added and the tally does not move. */
   .meal-total-btn {
@@ -975,14 +1062,6 @@
     text-decoration: underline;
   }
 
-  .meal-section-header :global(.way-in) {
-    flex-shrink: 0;
-    /* A `ui/Button` reshaped from outside, so the floor has to be restated
-       here: a `:global` rule outranks the primitive's own (ADR-0098 §5). */
-    width: var(--tap-min);
-    height: var(--tap-min);
-    padding: 0;
-  }
   .meal-note {
     margin: var(--space-3xs) 0 0;
     font-size: var(--step-n2);

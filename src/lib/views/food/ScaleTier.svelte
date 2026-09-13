@@ -87,6 +87,52 @@
     border-bottom: var(--edge);
   }
 
+  /* **A tier opens away from the edge its bar is anchored to** (ADR-0101 §4).
+
+     On a phone the Selection bar sits on the band's bottom edge, so a tier above
+     the verbs is the only place it can go — it grows up, into the screen, and
+     the verbs stay where the thumb left them. Above 768 the bar is anchored the
+     other way round, stuck at the head of the day's column, and the same markup
+     would then put the tier at that corner and shove the verb row down the page.
+     That corner is the one the Way-in bar hands over — `WayInBar`'s desktop
+     padding exists to make the two match — so it is the one thing in this bar
+     that must not move.
+
+     `order` rather than a second render: one tier, in one place in the markup,
+     sitting on whichever side of the verbs the anchor puts it. The rule flips
+     with it, because it is the seam between the two rows and belongs to
+     whichever edge faces them. */
+  @media (min-width: 768px) {
+    .sb-scale {
+      order: 1;
+      border-bottom: 0;
+      border-top: var(--edge);
+      animation: tierDown 0.2s var(--ease-snap);
+    }
+  }
+
+  /* The same gesture the bar itself arrives on, restated rather than shared:
+     Svelte scopes a `@keyframes` name to its component, so `SelectionBar`'s
+     `dropIn` is not reachable from here. Both are ADR-0003 §4's sharp move — a
+     short drop and no overshoot, because a tier that overshoots reads as a thing
+     that wobbled. */
+  @keyframes tierDown {
+    from {
+      opacity: 0;
+      transform: translateY(-0.5rem);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .sb-scale {
+      animation: none;
+    }
+  }
+
   /* ToggleGroup is `width: 100%` by default, which would push the rest of the
      tier off the row. Two cells need no more than their content. */
   .sb-scale :global(.togglegroup-field) {
