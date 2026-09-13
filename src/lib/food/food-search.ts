@@ -1,6 +1,8 @@
 import type { EntityPayload } from "../ingestion/ingest";
 import { searchUsdaCorpus } from "./usda-corpus";
 import { curatedMatches } from "./curated-foods";
+import { byFrecency, type Frecency } from "./frecency";
+import { matchLedgerFoods, type LedgerFood } from "./ledger-foods";
 import { macrosFromNutrition, PER_100G, type NutritionInfo } from "./nutrition";
 import { manualEntryIsReusable, type ManualEntry } from "./provenance";
 
@@ -172,6 +174,40 @@ export class NoReferenceFoodError extends Error {
 export interface ReferenceFoodSearch {
   results: FoodResult[];
   rescued_by_vocabulary: boolean;
+  /**
+   * The foods from this device's own ledger that the query reached, best first
+   * (#320), UNRESOLVED.
+   *
+   * Handed back as ledger foods rather than as `FoodResult`s because turning one
+   * into a result means fetching its twin, and a fold may not do I/O
+   * (`CODING_STANDARDS.md` §2.1). The caller already holds a twin cache for the
+   * Recent list and resolves these through the same one, so a food shown in both
+   * places is fetched once.
+   *
+   * They belong ABOVE `results` when rendered — #320's "shape" question, decided
+   * as a pinned block rather than as interleaving. An OFF or hand-typed name is
+   * not `Food, qualifier` shaped, so the corpus's ten name keys read it as noise
+   * rather than ranking it; interleaving would sort your foods by a grammar they
+   * do not have. Pinning also says the true thing, which is that a food you have
+   * eaten before is a different kind of answer from a reference row.
+   */
+  your_foods: LedgerFood[];
+}
+
+/**
+ * What this device already knows, for a search to read beside the corpus.
+ *
+ * Passed in rather than fetched, because both halves are folds over the
+ * consumption store the caller already holds and a search that reached for a
+ * store could not be tested without one (`CODING_STANDARDS.md` §2.1). Absent on
+ * a caller with no ledger in hand, which is what every existing test and every
+ * script relies on.
+ */
+export interface SearchContext {
+  /** Every food already logged here that the corpus does not carry. */
+  ledgerFoods?: readonly LedgerFood[];
+  /** How recently and how often each entity has been logged (#165). */
+  frecency?: ReadonlyMap<string, Frecency>;
 }
 
 /**
@@ -189,24 +225,43 @@ export interface ReferenceFoodSearch {
  * offline install alike.
  */
 export async function searchUsdaFoods(
-  query: string
+  query: string,
+  context: SearchContext = {}
 ): Promise<ReferenceFoodSearch> {
   const trimmed = query.trim();
-  if (!trimmed) return { results: [], rescued_by_vocabulary: false };
+  if (!trimmed)
+    return { results: [], rescued_by_vocabulary: false, your_foods: [] };
+  const frecency = context.frecency ?? new Map();
   // The phrases come back with the foods because the curated table reads them
   // too (ADR-0049 §6): what was typed, plus the vocabulary's expansions of it
   // where what was typed reached no reference food at all.
-  const { phrases, foods, rescued_by_vocabulary } =
-    await searchUsdaCorpus(trimmed);
+  const { phrases, foods, rescued_by_vocabulary } = await searchUsdaCorpus(
+    trimmed,
+    undefined,
+    frecency
+  );
   const curated = curatedMatches(phrases);
+  // The same phrases again, for ADR-0049 §6's reason: three tables reading one
+  // typed query must not disagree about what was typed.
+  const curatedEntities = new Set(curated.map((m) => m.payload.entity));
+  const yours = matchLedgerFoods(context.ledgerFoods ?? [], phrases)
+    // A curated stand-in you have logged is already about to be shown as the
+    // stand-in, under its disclosure (ADR-0046 §5). Showing it twice would make
+    // the disclosure optional.
+    .filter((food) => !curatedEntities.has(food.target))
+    .sort(byFrecency(frecency, (food) => food.target));
   const results = [
-    ...curated.filter((m) => m.exact),
-    ...foods.map((payload) => ({ payload, exact: false })),
-    ...curated.filter((m) => !m.exact),
-  ].map(({ payload }) => mapPayloadToFoodResult(payload));
-  if (results.length === 0) throw new NoReferenceFoodError();
+    ...curated.filter((m) => m.exact).map((m) => m.payload),
+    ...foods,
+    ...curated.filter((m) => !m.exact).map((m) => m.payload),
+  ].map(mapPayloadToFoodResult);
+  // A query that reached only your own foods still answered. Throwing here would
+  // send the caller down the "no food found" path for a search that found one,
+  // and would record a vocabulary miss that did not happen (ADR-0053 §3).
+  if (results.length === 0 && yours.length === 0)
+    throw new NoReferenceFoodError();
   // A curated stand-in answering a query the corpus could not is not a rescue:
   // the flag says the VOCABULARY answered, and the two tables are deliberately
   // separate mechanisms (ADR-0049 §6).
-  return { results, rescued_by_vocabulary };
+  return { results, rescued_by_vocabulary, your_foods: yours };
 }

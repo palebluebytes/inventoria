@@ -25,7 +25,12 @@
   } from "../../food/food-search";
   import { searchList } from "../../food/search-list";
   import type { EntityPayload } from "../../ingestion/ingest";
-  import { getLocalFoodTwin } from "../../stores/calorie.store";
+  import {
+    consumptionStore,
+    getLocalFoodTwin,
+  } from "../../stores/calorie.store";
+  import { frecencyOf } from "../../food/frecency";
+  import { ledgerFoodsFromEvents } from "../../food/ledger-foods";
   import { offContributeDefault } from "../../stores/device-settings";
   import { secretsStore } from "../../stores/secrets";
   import {
@@ -1572,6 +1577,9 @@
   }
 
   // ── Actions ────────────────────────────────────────────────────────────────
+  // Twins resolved for the "Your foods" block, kept across searches so typing
+  // does not refetch the same panel on every keystroke.
+  const searchTwinCache = new Map<string, FoodResult>();
   async function handleSearch() {
     clearTimeout(debounceTimer);
     if (!query.trim()) return;
@@ -1581,8 +1589,37 @@
     results = [];
     staged = null;
     try {
-      const search = await searchUsdaFoods(query);
-      results = search.results;
+      // What this device already knows, folded from the consumption store the
+      // sheet is already subscribed to. Both folds are pure and pass in, because
+      // a search that reached for a store could not be tested without one
+      // (`CODING_STANDARDS.md` §2.1).
+      const events = $consumptionStore ?? [];
+      const search = await searchUsdaFoods(query, {
+        ledgerFoods: ledgerFoodsFromEvents(events),
+        frecency: frecencyOf(events),
+      });
+      // Your own foods lead, resolved through the SAME twin cache the Recent
+      // list fills (#320), so a food in both places is fetched once. One that no
+      // longer resolves — its twin retracted out from under the log — is simply
+      // dropped rather than rendered as a row with no panel.
+      const yours: FoodResult[] = [];
+      for (const food of search.your_foods) {
+        let twin = searchTwinCache.get(food.target);
+        if (!twin) {
+          const payload = await getLocalFoodTwin(food.target);
+          if (!payload) continue;
+          twin = mapPayloadToFoodResult(payload);
+          searchTwinCache.set(food.target, twin);
+        }
+        yours.push(twin);
+      }
+      // Prepended, and deliberately NOT marked as a separate block on screen.
+      // ADR-0090 §6 keeps rows name-only, and its heading sits outside the
+      // listbox so only options are its children — so a "Your foods" badge or a
+      // second heading would each break a rule the list already states. They
+      // lead, they are yours, and you recognise them: that is the whole of the
+      // disclosure this needs.
+      results = [...yours, ...search.results];
       lastQuery = query.trim();
       status = "idle";
       if (searchSession)
