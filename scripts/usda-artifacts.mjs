@@ -46,7 +46,7 @@ import { brotliCompressSync, constants, gzipSync } from "node:zlib";
  * are generated together from one corpus, and a pair that disagreed about their
  * version would be the bug the number exists to catch.
  */
-export const SCHEMA_VERSION = 8;
+export const SCHEMA_VERSION = 9;
 
 /**
  * The panel fields a search result row renders, which is the whole of what the
@@ -215,7 +215,15 @@ export function buildArtifacts(
   // in — an `also` alias has no way to become a parent, which is what stops the
   // fourteen rows that are a row AND the prefix of their own alias (`Oil, corn`,
   // `Pineapple, raw`, `Nuts, almonds, whole, raw`) from demoting themselves.
-  const rows = survivors.map((survivor) => buildIndexRow(survivor, app));
+  const rows = survivors.map((survivor) => {
+    const row = buildIndexRow(survivor, app);
+    // 9 adds this: the ranking's base-ingredient preference, which used to read
+    // the word `raw` off the name and cannot any more - a corpus of uncooked
+    // foods says it on every row or on none. Captured from USDA's own
+    // description before the strip, so the key keeps the signal the name loses.
+    if (survivor.describedRaw) row.raw = true;
+    return row;
+  });
   const qualified = app.plainSiblingsOf(rows.map((row) => row.description));
   rows.forEach((row, i) => {
     if (qualified[i]) row.plain_sibling = true;

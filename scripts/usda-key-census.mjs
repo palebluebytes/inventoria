@@ -82,7 +82,14 @@ const ACCOUNT = join(ROOT, "docs", "research", "192-key-census.json");
 const COLLAPSED = process.env.USDA_COLLAPSED_PATH ?? null;
 
 /**
- * The twelve terms {@link compareRelevance} reads, in its order.
+ * The eleven terms {@link compareRelevance} reads, in its order.
+ *
+ * `simplicity` was the twelfth and is retired: once the corpus stopped shipping
+ * cooked foods no name ended in `, raw`, so its only discriminating branch went
+ * dead and it returned exactly what `raw` returns on all 2,484 rows. A key two
+ * slots below an identical key can never break a tie that key has not already
+ * broken, and the sweep agreed - not one query in 2,679 changed its ordering
+ * without it, leads and tail alike.
  *
  * `recent` and `frequent` are #165's frecency keys, and over a corpus with no
  * ledger behind it they are 0 on every row and tie uniformly — so this census
@@ -108,7 +115,6 @@ const KEYS = [
   "plainSibling",
   "plain",
   "wholeness",
-  "simplicity",
   "designated",
 ];
 

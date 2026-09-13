@@ -224,10 +224,6 @@ export interface ReferenceFoodName {
    * food's name either — `cheese` names every `Cheese, …` row as it always did.
    */
   nameLength: number;
-  /** 1 for a raw food, 0 otherwise — the base-ingredient preference. */
-  raw: number;
-  /** Raw simplicity: "Bananas, raw" (3) over "Bananas, overripe, raw" (2). */
-  simplicity: number;
   /** 1 for a name that is neither a modified form nor a prepared one (#143). */
   plain: number;
   /**
@@ -365,16 +361,6 @@ export function readReferenceFoodName(description: string): ReferenceFoodName {
   // `shelfLength` is only ever set where that qualifier exists.
   const nameLength =
     shelfLength > 0 ? shelfLength + wordsOf(parts[1]).length : head.length;
-  // Base-ingredient preference: someone searching a food wants the raw base
-  // form, so raw ("… raw" anywhere in the name) outranks every processed form.
-  const raw = /\braw\b/.test(lower) ? 1 : 0;
-  // Simplicity tiebreak among raw foods: "Bananas, raw" (3) over "Bananas,
-  // overripe, raw" (2) over anything merely containing "raw" (1) over the rest.
-  const simplicity = lower.endsWith(", raw")
-    ? (lower.match(/,/g) || []).length === 1
-      ? 3
-      : 2
-    : raw;
   // The canonical-record preference: among rows that tie on everything else,
   // the plain form of the food beats a modified or cooked one.
   const plain =
@@ -400,8 +386,6 @@ export function readReferenceFoodName(description: string): ReferenceFoodName {
     headChars: head.reduce((n, w) => n + w.length, 0),
     shelfLength,
     nameLength,
-    raw,
-    simplicity,
     plain,
     wholeness,
   };
@@ -474,8 +458,6 @@ export interface NameKey {
    * outranked the cheeses, so only removing them clears the screen.
    */
   named: boolean;
-  /** The name's raw-ness, carried through so one comparison reads one key. */
-  raw: number;
   /** How completely the query fills the head phrase; negative chars-to-go. */
   head: number;
   /**
@@ -503,7 +485,7 @@ export interface NameKey {
    * and the order is unchanged — the same self-gating ADR-0055 §4 relies on.
    *
    * Its slot could not be measured. Run after `head`, after `position`, after
-   * `simplicity` and dead last, it changes the same four leads and no others, so
+   * `wholeness` and dead last, it changes the same four leads and no others, so
    * the placement is an argument rather than a finding: it sits beside `head`
    * because it asks `head`'s question of the whole name, the way `plainSibling`
    * sits beside `plain` because it asks `plain`'s question of the corpus.
@@ -551,8 +533,10 @@ export interface NameKey {
    * - It reserved the slot for a "least-qualified" key. Counting qualifiers is
    *   the measure #130 already disproved — USDA writes the canonical milk with
    *   MORE qualifiers than the imitation one — so this is a boolean.
-   * - It expected the key to absorb `simplicity`. Deleting `simplicity` breaks
-   *   five of the eighteen cases measured as already correct, so it stays.
+   * - It expected the key to absorb `simplicity`, and eventually it did not have
+   *   to: once the corpus stopped shipping cooked foods no name ended in
+   *   `, raw`, `simplicity`'s only discriminating branch went dead, and the key
+   *   became an exact copy of `raw` on all 2,484 rows. It was retired then.
    *
    * A companion key preferring a WHOLE food over a part of it was measured and
    * rejected outright: USDA names its most GENERIC animal rows with part
@@ -593,7 +577,7 @@ export interface NameKey {
    * its lead.
    *
    * Its slot WAS measured, and half of it matters. From `position` downwards —
-   * after `position`, after `plainSibling`, here, or after `simplicity` — the
+   * after `position`, after `plainSibling`, or here — the
    * same 16 leads move and no others, so among those four the placement is an
    * argument: it sits after `plain` because it asks `plain`'s question one step
    * further out, `plain` asking whether this is the food in its plain form and
@@ -615,8 +599,6 @@ export interface NameKey {
    * grade/trim preference nothing in this ranking has asked for yet.
    */
   wholeness: number;
-  /** The name's raw simplicity, carried through for the same reason. */
-  simplicity: number;
 }
 
 /**
@@ -635,13 +617,11 @@ export interface RelevanceKey extends NameKey, RowRank {}
 const NO_MATCH: NameKey = {
   tier: 0,
   named: false,
-  raw: 0,
   head: 0,
   accounted: 0,
   position: 0,
   plain: 0,
   wholeness: 0,
-  simplicity: 0,
 };
 
 /** A head phrase the query does not cover, ranked below every one it does. */
@@ -694,7 +674,6 @@ export function compareRelevance(a: RelevanceKey, b: RelevanceKey): number {
     b.plainSibling - a.plainSibling ||
     b.plain - a.plain ||
     b.wholeness - a.wholeness ||
-    b.simplicity - a.simplicity ||
     b.designated - a.designated
   );
 }
@@ -751,7 +730,7 @@ export type ReferenceFoodQuery = (name: ReferenceFoodName) => NameKey;
  * real thing. So the order is re-derived from how *exactly* the name matches:
  * head-phrase, then whole-word, then mere prefix; then the raw base-ingredient
  * preference; then how completely the query fills the head phrase, and whether
- * it accounts for the rest of the name as well; then raw simplicity. Sorting is
+ * it accounts for the rest of the name as well. Sorting is
  * stable, so the candidate order breaks any remaining tie.
  *
  * It scores each name once rather than comparing two, because a comparator
@@ -776,8 +755,6 @@ export function compileReferenceFoodQuery(query: string): ReferenceFoodQuery {
     headChars,
     shelfLength,
     nameLength,
-    raw,
-    simplicity,
     plain,
     wholeness,
   }) => {
@@ -876,7 +853,6 @@ export function compileReferenceFoodQuery(query: string): ReferenceFoodQuery {
     return {
       tier,
       named,
-      raw,
       // Within a tier, prefer the head whose length the query most nearly fills:
       // for "grap" this floats "Grapes, …" (2 characters to go) above
       // "Grapefruit, …" (6). A head the query does not cover at all ranks below
@@ -892,7 +868,6 @@ export function compileReferenceFoodQuery(query: string): ReferenceFoodQuery {
       position,
       plain,
       wholeness,
-      simplicity,
     };
   };
 }
@@ -934,6 +909,23 @@ const DESIGNATED_POPULATION_CATEGORY = "American Indian/Alaska Native Foods";
  * way.
  */
 export interface RowRank {
+  /**
+   * 1 when USDA's own description of this record called it raw, 0 otherwise.
+   *
+   * A ROW fact since the corpus stopped shipping cooked foods, and it had to
+   * become one. The key used to read the word off the name; the shipped name no
+   * longer carries it, because a corpus of uncooked foods says `raw` on every row
+   * or on none. Baked at generation time from the description USDA published,
+   * before the strip takes the word.
+   *
+   * It is not "is this food uncooked" - every row is. It is **did USDA describe
+   * it as raw**, which separates a whole fresh food from a processed one that
+   * simply has not been cooked yet. `Potatoes, flesh and skin, raw` says raw;
+   * `Potatoes, hash brown, refrigerated, unprepared` does not, and the second is
+   * a product. Strip the word and both score 0, and a typed `potato` leads with
+   * hash browns - which is exactly what happened before this moved.
+   */
+  raw: number;
   /**
    * How recently this food was logged on THIS device, larger being more recent,
    * and 0 for a food never logged (#165, `frecency.ts`).
@@ -1025,12 +1017,14 @@ export function readRowRank(
   row: {
     foodCategory?: string;
     plain_sibling?: boolean;
+    raw?: boolean;
   },
   frecency: { recent: number; frequent: number } = { recent: 0, frequent: 0 }
 ): RowRank {
   return {
     recent: frecency.recent,
     frequent: frecency.frequent,
+    raw: row.raw ? 1 : 0,
     plainSibling: row.plain_sibling ? 0 : 1,
     designated: row.foodCategory === DESIGNATED_POPULATION_CATEGORY ? 0 : 1,
   };

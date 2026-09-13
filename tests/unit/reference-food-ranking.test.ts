@@ -28,6 +28,7 @@ const tiedOnRowKeys = (key: ReturnType<typeof rank>): RelevanceKey => ({
   ...key,
   recent: 0,
   frequent: 0,
+  raw: 0,
   plainSibling: 1,
   designated: 1,
 });
@@ -187,11 +188,20 @@ describe("readReferenceFoodName", () => {
     ).toBe(0);
   });
 
-  it("settles the raw keys, which no query changes", () => {
-    expect(readReferenceFoodName("Bananas, raw").simplicity).toBe(3);
-    expect(readReferenceFoodName("Bananas, overripe, raw").simplicity).toBe(2);
-    expect(readReferenceFoodName("Beef, raw, ground").simplicity).toBe(1);
-    expect(readReferenceFoodName("Cheese, cheddar").raw).toBe(0);
+  it("no longer reads `raw` off the name, because the name cannot carry it", () => {
+    // `raw` moved to `RowRank` when the corpus stopped shipping cooked foods: a
+    // corpus of uncooked foods says the word on every row or on none, so it is
+    // baked from USDA's own description at generation time instead. What it
+    // separates is not "is this uncooked" - everything is - but whether USDA
+    // DESCRIBED it as raw, which tells a whole fresh food from a processed one
+    // that simply has not been cooked yet.
+    expect(readRowRank({ raw: true }).raw).toBe(1);
+    expect(readRowRank({ raw: false }).raw).toBe(0);
+    expect(readRowRank({}).raw).toBe(0);
+    // `simplicity` sat beside it and is retired: it read `endsWith(", raw")`,
+    // which no name does now, so it returned exactly what `raw` returned from
+    // two slots below it.
+    expect("simplicity" in readReferenceFoodName("Beef, ground")).toBe(false);
   });
 });
 
@@ -518,7 +528,6 @@ describe("compareRelevance", () => {
       plainSibling: 1,
       plain: 1,
       wholeness: 1,
-      simplicity: 3,
       designated: 1,
       ...over,
     });
@@ -539,7 +548,6 @@ describe("compareRelevance", () => {
           plainSibling: 0,
           plain: 0,
           wholeness: 0,
-          simplicity: 0,
           designated: 0,
         },
         { tier: 20 }
@@ -559,7 +567,6 @@ describe("compareRelevance", () => {
           plainSibling: 0,
           plain: 0,
           wholeness: 0,
-          simplicity: 0,
           designated: 0,
         },
         { raw: 0 }
@@ -574,7 +581,6 @@ describe("compareRelevance", () => {
           plainSibling: 0,
           plain: 0,
           wholeness: 0,
-          simplicity: 0,
           designated: 0,
         },
         { head: -9 }
@@ -592,7 +598,6 @@ describe("compareRelevance", () => {
           plainSibling: 0,
           plain: 0,
           wholeness: 0,
-          simplicity: 0,
           designated: 0,
         },
         { accounted: 0 }
@@ -605,7 +610,6 @@ describe("compareRelevance", () => {
           plainSibling: 0,
           plain: 0,
           wholeness: 0,
-          simplicity: 0,
           designated: 0,
         },
         { position: -9 }
@@ -619,25 +623,19 @@ describe("compareRelevance", () => {
           plainSibling: 1,
           plain: 0,
           wholeness: 0,
-          simplicity: 0,
           designated: 0,
         },
         { plainSibling: 0 }
       )
     ).toBeLessThan(0);
     expect(
-      beats(
-        { plain: 1, wholeness: 0, simplicity: 0, designated: 0 },
-        { plain: 0 }
-      )
+      beats({ plain: 1, wholeness: 0, designated: 0 }, { plain: 0 })
     ).toBeLessThan(0);
     // ADR-0042's #162 Amendment: a separated fat never leads, so `wholeness`
-    // outranks `simplicity` — the trimmings carry the simpler name.
+    // outranks everything below it. `simplicity` used to sit here and is
+    // retired — it returned what `raw` returns, from two slots below `raw`.
     expect(
-      beats({ wholeness: 1, simplicity: 0, designated: 0 }, { wholeness: 0 })
-    ).toBeLessThan(0);
-    expect(
-      beats({ simplicity: 3, designated: 0 }, { simplicity: 2 })
+      beats({ wholeness: 1, designated: 0 }, { wholeness: 0 })
     ).toBeLessThan(0);
     // …and `designated` last, the weakest signal there is.
     expect(beats({ designated: 1 }, { designated: 0 })).toBeLessThan(0);
@@ -657,7 +655,6 @@ describe("withoutStrayMentions", () => {
     position: 0,
     plain: 0,
     wholeness: 0,
-    simplicity: 0,
   };
   /** A result set as the two fields the rule reads: the rung, and the name. */
   const scored = (rows: [string, number, boolean][]) =>

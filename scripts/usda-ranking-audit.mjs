@@ -101,17 +101,18 @@ const PAIR_SEED = 130;
 
 /**
  * The order this ranking produced BEFORE #124's position key: tier, rawness,
- * head-completeness, raw simplicity. The one place in this file that restates
+ * head-completeness. It named a fourth, `simplicity`, which was retired with the
+ * uncooked corpus - and dropping it from this restatement provably changes
+ * nothing, because `simplicity` returned what `raw` returns and `raw` is read
+ * two terms earlier, so it could never break a tie `raw` had not already broken.
+ * The one place in this file that restates
  * ranking rather than importing it, because a diff needs a second ordering and
  * the code that ships only carries one. It reads the shipped key's own fields
  * and simply declines to consult `position`, so it cannot drift from the four
  * keys it names.
  */
 const comparePreviousRelevance = (a, b) =>
-  b.tier - a.tier ||
-  b.raw - a.raw ||
-  b.head - a.head ||
-  b.simplicity - a.simplicity;
+  b.tier - a.tier || b.raw - a.raw || b.head - a.head;
 
 /** Where a known description landed, 1-based; 0 for absent from the window. */
 const rankOf = (results, description) =>
