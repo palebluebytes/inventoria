@@ -47,7 +47,7 @@
         class="nav-item {activeTab === id ? 'active' : ''}"
         onclick={() => (activeTab = id)}
       >
-        <span class="icon">{icon}</span>
+        <span class="nav-icon">{icon}</span>
         {label}
       </button>
     {/each}
@@ -124,7 +124,7 @@
     flex: 1;
     text-transform: uppercase;
   }
-  .nav-item .icon {
+  .nav-item .nav-icon {
     font-size: 1.4em;
     filter: grayscale(100%);
     opacity: 0.7;
@@ -134,7 +134,7 @@
     background: var(--bg-input);
     color: var(--ink);
   }
-  .nav-item:hover .icon {
+  .nav-item:hover .nav-icon {
     transform: scale(1.1) rotate(-5deg);
     opacity: 1;
   }
@@ -142,7 +142,7 @@
     background: var(--ink);
     color: var(--paper);
   }
-  .nav-item.active .icon {
+  .nav-item.active .nav-icon {
     opacity: 1;
   }
   .sidebar-footer {
@@ -188,7 +188,7 @@
     .nav-item:first-child {
       border-top: var(--edge-thin);
     }
-    .nav-item .icon {
+    .nav-item .nav-icon {
       font-size: 1.1em;
     }
     .sidebar-footer {

@@ -523,6 +523,19 @@ These ADRs establish this vocabulary and forbid alternatives to it. The `_Avoid_
 here matter more than most: the recurring failure is inventing a fourth thing that
 already exists as one of these.
 
+What **earns** a new member is ADR-0100: reach (a change of one mind landing in two or
+more copies, after subtracting every site an existing member already serves) or a gap
+the platform and the roster both lack, and then the deletion test — it must remove more
+surface than it adds, and never widen an existing member's variant axis to absorb a
+stranger. A member is named for its purpose or for the platform control it wraps, never
+for its appearance, and it lands with every copy converted in one change.
+
+This section is the prose half of the roster; `tests/unit/support/ui-roster.ts` is the
+machine-readable half a gate reads, and the two are edited together. A member's
+**internal class names are its own** — a caller reaches a primitive's look by handing it
+a `class`, never by writing one of its names — and
+`tests/unit/primitive-internals.test.ts` holds that at zero (#413).
+
 **BottomSheet**:
 The one sheet primitive (`ui/BottomSheet.svelte`). Every sheet in the app is this
 component, including the docked-footer and over-dialog variants. On a phone it is

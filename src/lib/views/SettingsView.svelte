@@ -234,7 +234,7 @@
 
   <div hidden={!testState.enabled} class="mt-4 border-top">
     <h3 class="mt-4">OPFS Survival Test</h3>
-    <div class="actions mt-2">
+    <div class="test-actions mt-2">
       <Button
         id="run-test-btn"
         onclick={handleStartTest}
@@ -387,7 +387,7 @@
   .border-top {
     border-top: var(--edge);
   }
-  .actions {
+  .test-actions {
     display: flex;
     gap: var(--space-xs);
   }

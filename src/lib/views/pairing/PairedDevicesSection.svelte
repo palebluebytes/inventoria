@@ -421,7 +421,7 @@
         {/each}
       </ul>
     {/if}
-    <div class="actions">
+    <div class="pair-actions">
       <Button id="pair-show-btn" onclick={() => begin("showing")}>
         Show a code
       </Button>
@@ -435,7 +435,7 @@
     </div>
   {:else if ended}
     <EndingLine words={ended} ok={ended.ending === "paired"} />
-    <div class="actions">
+    <div class="pair-actions">
       {#if ended.retry}
         <Button variant="secondary" onclick={retry}>Try again</Button>
       {/if}
@@ -496,7 +496,7 @@
     font-family: var(--font-mono);
     font-style: italic;
   }
-  .actions {
+  .pair-actions {
     display: flex;
     flex-wrap: wrap;
     gap: var(--space-xs);
