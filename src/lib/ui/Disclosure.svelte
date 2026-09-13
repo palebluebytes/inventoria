@@ -121,9 +121,21 @@
   .disclosure {
     display: inline-flex;
     align-items: center;
+    /* Centres a mark inside the floor above, which is the whole reason the
+       floor is safe to declare here: a 21.6px ⓘ in a 48px box sits in the
+       middle of it rather than against its left edge. Content wider than the
+       floor is unaffected, so a title row is untouched. */
+    justify-content: center;
     gap: var(--space-2xs);
     /* ADR-0093: the box that accepts the tap is this one, whatever is drawn
-       inside it. */
+       inside it — and on **both** axes, which is not a detail. A trigger whose
+       whole content is a 21.6px mark shrinks to fit it, so `min-height` alone
+       leaves a 21.6x48 target. `.info-btn` carried `min-width` for exactly that
+       reason and #316 dropped it on the way in; `tap-floor.test.ts` could not
+       see it, because `narrowness()` convicts a *declared* width under the
+       floor and a box that declares none at all reads as unbounded. The
+       screenshot caught it. */
+    min-width: var(--tap-min);
     min-height: var(--tap-min);
     padding: 0;
     border: none;

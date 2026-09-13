@@ -711,6 +711,12 @@
      the hover target is the thing a finger can land on. The mark is this file's
      element and carries its scoping hash; the button is `ui/Disclosure`'s and
      wears the class as a prop, so only that half goes through `:global`. */
+  /* The ⓘ shares a flex row with the heading beside it, so it must not shrink
+     when that heading is long. `.info-btn` carried this and the port has to
+     keep it: `ui/Disclosure` owns the floor, not the row it sits in. */
+  .section-head-row :global(.info-open) {
+    flex-shrink: 0;
+  }
   .section-head-row :global(.info-open:hover .info-mark) {
     background: var(--ink);
     color: var(--paper);

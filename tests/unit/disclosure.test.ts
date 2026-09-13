@@ -29,6 +29,7 @@ import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { render } from "svelte/server";
 import { attr, elementsOf, trackedSvelteFiles } from "./support/markup";
+import { decl, ruleOf } from "./support/stylesheet";
 import Disclosure from "../../src/lib/ui/Disclosure.svelte";
 
 const FILES = trackedSvelteFiles();
@@ -143,6 +144,38 @@ describe("Disclosure", () => {
     expect(body).toContain("disclosure info-open");
     expect(body).toContain('aria-label="How this allergen reading is made"');
     expect(body).toContain('data-testid="allergen-disclaimer-toggle"');
+  });
+});
+
+describe("the floor a bare mark needs", () => {
+  /**
+   * **The sweep cannot make this assertion, which is why it is written out.**
+   * `tap-floor.test.ts`'s `narrowness()` convicts a box declaring a `width`,
+   * `max-width` or `min-width` under the floor; a box declaring **none at all**
+   * reads as unbounded, because a shrink-to-fit width is a fact about rendered
+   * content and not about a stylesheet.
+   *
+   * That blind spot is real and this ticket walked into it. `.info-btn` carried
+   * `min-width: var(--tap-min)` — ADR-0098 §3's recipe puts the floor on both
+   * axes precisely because the mark inside is smaller than the target — and the
+   * first port of it declared only `min-height`. Every gate passed. A 21.6px ⓘ
+   * in a button that shrinks to fit it is a 21.6x48 tap target, and what caught
+   * it was the rebaseline moving pixels nobody had predicted.
+   *
+   * So the floor is asserted here, on both axes, against the token rather than
+   * against a number.
+   */
+  const RULE = ruleOf("src/lib/ui/Disclosure.svelte", ".disclosure");
+
+  it("declares the tap floor on both axes", () => {
+    expect(decl(RULE, "min-height")).toBe("var(--tap-min)");
+    expect(decl(RULE, "min-width")).toBe("var(--tap-min)");
+  });
+
+  it("centres what it draws, so the floor does not strand the mark", () => {
+    // A floor without this puts a 21.6px ring against the left edge of a 48px
+    // box — level, and visibly wrong.
+    expect(decl(RULE, "justify-content")).toBe("center");
   });
 });
 
