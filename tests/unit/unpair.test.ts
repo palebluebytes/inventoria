@@ -25,7 +25,11 @@ import {
   StoreUnreachableError,
   type Store,
 } from "../../src/lib/p2p/deposit-store";
-import { unpairClaim } from "../../src/lib/p2p/unpair";
+import {
+  pairingsBeside,
+  UNPAIR_ELSEWHERE,
+  unpairClaim,
+} from "../../src/lib/p2p/unpair";
 
 const ORIGIN = "https://app.example";
 
@@ -321,7 +325,7 @@ describe("a pending revocation is carried, and retried on any later open", () =>
 });
 
 describe("the claim says exactly what the deletes achieve", () => {
-  const claim = unpairClaim("the laptop");
+  const claim = unpairClaim("the laptop", 0);
 
   it("claims what has not been picked up yet, and names the device", async () => {
     expect(claim).toContain("the laptop");
@@ -338,6 +342,45 @@ describe("the claim says exactly what the deletes achieve", () => {
     // An unpair is scoped to one pairing; at three devices the others go on
     // syncing exactly as they were (§10).
     expect(claim).toContain("these two devices only");
+  });
+
+  it("says nothing about other devices on a household of two", async () => {
+    // The same rule as the wipe's confirmation: a sentence about your other
+    // devices on a jar with one pairing teaches a word for nothing.
+    expect(claim).not.toContain(UNPAIR_ELSEWHERE);
+  });
+
+  it("names the cost §10 says is paid at the surface, past two", async () => {
+    // Revocation completes at the rate of the household's least-used device,
+    // because each device is unpaired on itself and a device you have not
+    // opened is one you have not unpaired.
+    const household = unpairClaim("the laptop", 1);
+
+    expect(household).toContain(UNPAIR_ELSEWHERE);
+    expect(household.startsWith(claim)).toBe(true);
+  });
+
+  it("counts the pairings that still stand, and not the one being severed", async () => {
+    const { records } = await withJar([
+      await pairing("dev_b", 1),
+      await pairing("dev_c", 2),
+    ]);
+
+    // Severing either one leaves exactly one other device to go and tap.
+    expect(pairingsBeside("dev_b", records.readPairedDevices())).toBe(1);
+    expect(pairingsBeside("dev_c", records.readPairedDevices())).toBe(1);
+  });
+
+  it("does not count a pairing already on its way out", async () => {
+    // A household of two part way through a withdrawal is the household of
+    // two it is about to be: the marked row is not another device to go and
+    // tap, so severing the one that still stands leaves nobody.
+    const { records } = await withJar([
+      await pairing("dev_b", 1),
+      await pairing("dev_gone", 2, { revoked: true }),
+    ]);
+
+    expect(pairingsBeside("dev_b", records.readPairedDevices())).toBe(0);
   });
 
   it("is not read as permanent", async () => {

@@ -29,6 +29,7 @@
     type PairedDevice,
   } from "../../stores/paired-devices";
   import {
+    pairingsBeside,
     unpairClaim,
     unpairDevice,
     withdrawRevoked,
@@ -378,7 +379,12 @@
               {:else}
                 {#if unpairing === device.device_id}
                   <div class="confirm">
-                    <p class="claim">{unpairClaim(callSign(device))}</p>
+                    <p class="claim">
+                      {unpairClaim(
+                        callSign(device),
+                        pairingsBeside(device.device_id, $pairedDevices)
+                      )}
+                    </p>
                     <div class="row-actions">
                       <Button onclick={() => confirmUnpair(device)}>
                         Unpair

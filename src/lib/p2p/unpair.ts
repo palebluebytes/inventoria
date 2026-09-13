@@ -90,19 +90,82 @@ import { laneAddress } from "./pairing-chain";
  *   door taken is removing the bytes that are left.
  * - It does not claim **household completeness**. An unpair is scoped to one
  *   pairing; at three devices the others go on syncing exactly as they were.
+ *   {@link UNPAIR_ELSEWHERE} is that clause said out loud where there is a
+ *   household to say it about.
  * - It is not read as **permanent**. A peer that has not yet learned of the
  *   unpairing may put one more sealed object at its lane, under a chain this
  *   device has destroyed — openable by nobody, and cleared out by the store on
  *   its own.
  *
  * It names the device, because the row it sits under is not the only row.
+ *
+ * **At a household of two it reads exactly as it always did**, which is
+ * `jarWipeConfirmation`'s rule and for its reason: a sentence about your other
+ * devices on a jar that has one pairing teaches a word for nothing, and the
+ * overwhelming majority of installs are that jar. `others` is how many
+ * *standing* pairings this device holds beside the one being severed — a
+ * pairing already on its way out is not another device to go and tap.
  */
-export const unpairClaim = (called: string): string =>
-  `Unpairing removes anything this device has left for ${called} that has ` +
-  `not been picked up yet. What it already collected stays on it, and this ` +
-  `unpairs these two devices only. Until it notices, it may leave one more ` +
-  `message here, which nothing can open and which the store clears out on ` +
-  `its own.`;
+export const unpairClaim = (called: string, others: number): string => {
+  const claim =
+    `Unpairing removes anything this device has left for ${called} that has ` +
+    `not been picked up yet. What it already collected stays on it, and this ` +
+    `unpairs these two devices only. Until it notices, it may leave one more ` +
+    `message here, which nothing can open and which the store clears out on ` +
+    `its own.`;
+  return others === 0 ? claim : `${claim} ${UNPAIR_ELSEWHERE}`;
+};
+
+/**
+ * The cost ADR-0096 §10 says is **paid at the surface only**, and this is the
+ * surface paying it.
+ *
+ * > **Revocation completes at the rate of the household's least-used device.**
+ * > §11's two-phase unpair is local, so unpairing on the phone is complete for
+ * > the phone's lane and **pending on every other device until that device is
+ * > next opened** — in a design whose whole purpose is that you no longer need
+ * > to open them. §11's _zero residual when the revoker is online_ is an N = 2
+ * > property.
+ *
+ * **It states what this act does and never what the household looks like.** A
+ * device cannot know whether its peers are paired with the one being severed —
+ * §6's roster is a statement each peer makes about itself, read on the screen
+ * and never merged — so the sentence says _these are not affected_ and leaves
+ * the looking to the person, rather than naming devices it would be guessing
+ * about.
+ *
+ * **And propagating the revocation instead is refused**, on ADR-0075 §14.6's
+ * stated reason: the peer may never come online, so the instruction is missed
+ * while the surface reports success. A sentence claims no success.
+ */
+export const UNPAIR_ELSEWHERE =
+  "Your other devices are not unpaired from it here. Each device is unpaired " +
+  "on itself, so one you have not opened stays paired with it until you do.";
+
+/**
+ * How many pairings would still stand after this one was severed, which is
+ * {@link unpairClaim}'s second argument.
+ *
+ * **A revoked row does not count.** It is here only until its withdrawal
+ * lands, and it is not another device to go and tap — so a household of two
+ * part way through a withdrawal reads as the household of two it is about to
+ * be, rather than borrowing a sentence from a household of three.
+ *
+ * **It is the Device roster, counted rather than listed.** The set it measures
+ * is exactly what a deposit down this pairing's lane would state (ADR-0096
+ * §6): the pairings that still stand, minus the one at the far end. That is
+ * not a coincidence and it is not a shared helper either — `wake-errand.ts`
+ * builds the list for the wire and this counts it for a sentence, and the two
+ * filters agree on one field and differ on everything around it.
+ *
+ * It is here rather than on the section for the reason the claim is: it
+ * decides which sentence the claim makes, so the two meet in one file.
+ */
+export const pairingsBeside = (
+  device_id: string,
+  held: readonly PairedDevice[]
+): number =>
+  held.filter((row) => !row.revoked && row.device_id !== device_id).length;
 
 /**
  * The pending state, carried until the deletes land.
