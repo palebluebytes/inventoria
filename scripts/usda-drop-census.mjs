@@ -390,7 +390,37 @@ async function main() {
     });
   }
 
-  const shipped = afterNames.length - enrichment.dropped.size;
+  // The frozen-mirror rule, last of all and over the names that will ship —
+  // where the generator runs it, and for its reason: until the origin strip has
+  // run these rows still say `New Zealand, imported` and no mirror can be seen.
+  const finalRows = trimmedRows
+    .filter((row) => !enrichment.dropped.has(row.fdcId))
+    .map((row) => ({
+      ...row,
+      description: enrichment.renamed.get(row.fdcId) ?? row.description,
+    }));
+  const mirrors = app.resolveFrozenMirrors(finalRows);
+  for (const fdcId of mirrors) {
+    const s = byId.get(fdcId);
+    const row = finalRows.find((r) => r.fdcId === fdcId);
+    drops.push({
+      fdcId,
+      description: row.description,
+      dataType: s.food.dataType,
+      ...(s.food.foodCategory ? { foodCategory: s.food.foodCategory } : {}),
+      group: s.group.map((f) => f.description),
+      nutrients: s.food.foodNutrients.length,
+      calories:
+        s.food.foodNutrients.find((n) => n.nutrientId === 1008)?.value ?? null,
+      stage: "name",
+      rule: "frozen_mirror",
+      // Relational: what removed it is the unfrozen cut that ships, never a word.
+      because: [],
+      because_kind: "by_collision",
+    });
+  }
+
+  const shipped = afterNames.length - enrichment.dropped.size - mirrors.size;
 
   // The census adds up or it is wrong. The rule ORDER above is mirrored from
   // `buildCorpus` rather than borrowed from it — the one place this script could

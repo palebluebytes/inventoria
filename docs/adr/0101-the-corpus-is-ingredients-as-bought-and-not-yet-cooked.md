@@ -357,3 +357,73 @@ when the rule sees it — and it caught the first draft, which had been written
 from the shipped names with the tags already stripped.
 
 Corpus 2,484 → **2,475**.
+
+## Amendment (2026-09-13): egg, frozen mirrors, and a hedge
+
+Typing `egg` answered with 28 rows led by `Egg, whole, frozen, salted,
+pasteurized` — liquid egg poured out of a drum in a bakery — with sixteen more
+industrial egg products above the box on the shelf. Three findings came out of
+reading it.
+
+### `raw` means two things, and `isProcessedProduct` believes the wrong one
+
+That filter waves through anything USDA calls raw, on the ground that a raw food
+is a base ingredient. USDA calls frozen salted pasteurised liquid egg raw because
+nobody cooked it — so the row slipped past the `frozen` marker written for
+exactly its shape. Twenty-six rows in the corpus were rescued that way and most
+of the rescues are right: nine are fresh-squeezed juices, which is the case the
+escape exists for.
+
+The same two senses reach §6's row fact. `Egg, whole, raw, frozen, salted,
+pasteurized` scores `raw = 1` and `Eggs, Grade A, Large, egg whole` scores 0,
+because USDA never wrote the word on the box — so the industrial row led. It is
+the `roast`-the-cut against `roasted`-the-method problem one level up, and it is
+recorded rather than fixed: measured over `lamb`, `turkey` and `orange juice` the
+misfire moves nothing, because later keys separate those. It moved `egg` because
+`egg` had fourteen rows in it that should not have been there at all.
+
+### `Egg` is read, and fourteen rows go
+
+All 21 rows of the head were read. Six are frozen pasteurised liquid egg, seven
+are dried egg — the dehydrated form of a food the corpus keeps, which is
+ADR-0061 §3's own argument about dried buttermilk applied to another head — and
+one is `Egg substitute, powder`. The seven survivors are the three Grade A box
+rows and the four other birds; a duck egg stays, because ADR-0055 §1 forbids
+dropping a food for being rare.
+
+`egg` now answers with 14 rows rather than 28.
+
+### A frozen copy of a fresh cut is not another food
+
+USDA publishes New Zealand lamb frozen and American lamb fresh, cut for cut.
+`isFrozenMirror` removes a row whose only difference from a shipping row is the
+freezing and the trade words ADR-0100 §2 has already ruled name the same food —
+a trim and a grade. Nine rows, every one of them lamb.
+
+**It is relational and takes no read head**, unlike the three rules beside it: it
+fires only where an unfrozen row of the same cut is provably in the corpus, so it
+is a collapse in §7's sense rather than a judgement about who looks for a food.
+Two frozen rows are left standing and both are the rule working —
+`Pork, fresh, ears, frozen` has no unfrozen twin anywhere, and
+`Turkey roast, boneless, frozen, seasoned` is seasoned, which is a different food
+rather than a copy of one.
+
+**It runs last, over the names that will ship**, and that is the third rule in
+this corpus to need that ordering. Asked where the variant rules run, the row is
+still `Lamb, New Zealand, imported, frozen, loin, …` — the origin strip has not
+happened — so its identity carries two words the fresh row never had and no
+mirror is ever found.
+
+### A hedge about handling is not a name
+
+`Fish, cod, Pacific, raw (may have been previously frozen)` is cod. The bracket
+says USDA does not know how the sample travelled, and it welded itself to the
+state word, so the row shipped saying `raw` while every other fish had lost it.
+
+**`may` is the test.** Eleven other parentheticals in the corpus begin `includes`
+and every one names the food — `(includes tops and bulb)`,
+`(includes boston and bibb types)` — so those stay. The one other `may` stays
+too: `(may contain additives to retain moisture)` hedges about what is IN the
+shrimp, and added water is a claim about the panel rather than about the journey.
+
+Corpus 2,475 → **2,452**.

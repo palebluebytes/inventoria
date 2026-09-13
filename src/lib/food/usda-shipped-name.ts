@@ -453,8 +453,33 @@ const namedParts = (description: string): NamedPart[] => {
 const FOOD_DISTRIBUTION_GLOSS =
   /\s*\(includes foods for usda[''\u2019]s food distribution program\)/i;
 
+/**
+ * A parenthetical that hedges about handling rather than naming the food.
+ *
+ * `Fish, cod, Pacific, raw (may have been previously frozen)` is cod. The
+ * bracket says USDA does not know how the sample travelled, which is a note
+ * about the sample and not about what you are eating - and it welds itself to
+ * the state word, so the row shipped as `Fish, cod, Pacific, raw` while every
+ * other fish had lost that word.
+ *
+ * **`may` is the whole test, and it is doing real work.** Eleven other
+ * parentheticals in the corpus begin `includes`, and every one of them NAMES the
+ * food: `Onions, spring or scallions (includes tops and bulb)` says which parts
+ * the panel measured, and `(includes boston and bibb types)` says which
+ * varieties the row stands for. Those stay. A `may` says the opposite - that
+ * USDA is not claiming anything.
+ *
+ * The one other `may` is deliberately NOT here.
+ * `Crustaceans, shrimp, mixed species, raw (may contain additives to retain
+ * moisture)` hedges about what is IN the shrimp, and added water is a claim
+ * about the panel rather than about the journey. Removing it would hide
+ * something a reader of the number should know.
+ */
+const HANDLING_HEDGE = /\s*\(may have been previously frozen\)/i;
 export function stripNonNamingQualifiers(description: string): string {
-  const glossed = description.replace(FOOD_DISTRIBUTION_GLOSS, "");
+  const glossed = description
+    .replace(FOOD_DISTRIBUTION_GLOSS, "")
+    .replace(HANDLING_HEDGE, "");
   const parts = namedParts(glossed);
   const keep = parts.map(
     ({ lookup }, index) => index === 0 || !STRIPPED_QUALIFIERS.has(lookup)

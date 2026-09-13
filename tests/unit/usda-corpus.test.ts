@@ -299,7 +299,7 @@ describe("the bundled search index", () => {
     // pasteurized process, American` and its `food` sibling stop naming a
     // fortification and become the plain form of the `low fat` and
     // `vitamin D fortified` rows filed beneath them.
-    expect(index.foods.filter((row) => row.plain_sibling).length).toBe(432);
+    expect(index.foods.filter((row) => row.plain_sibling).length).toBe(427);
     // Omitted rather than emitted false, like every other absent field.
     expect(index.foods.filter((row) => row.plain_sibling === false)).toEqual(
       []
@@ -367,7 +367,7 @@ describe("the bundled search index", () => {
   });
 
   it("is the surviving reference foods, and says which archives it came from", () => {
-    expect(index.foods.length).toBe(2475);
+    expect(index.foods.length).toBe(2452);
     expect(index.generated_from.map((a) => a.dataset)).toEqual([
       "Foundation Foods",
       "SR Legacy",
@@ -383,7 +383,7 @@ describe("the bundled search index", () => {
     // What the alias loop is skipped for, which is the whole reason
     // `bestNameKey` costs nothing on most rows.
     expect(index.foods.filter((row) => !(row.also ?? []).length).length).toBe(
-      2406
+      2383
     );
     // And what `SEARCH_RESULT_LIMIT` is a ceiling ON. Measured after ADR-0062
     // §1, because that is the set the list would have to render.
@@ -544,7 +544,7 @@ describe("the bundled search index", () => {
         !isManufacturingInput(row.description)
     );
     expect(byProcessedAlone).toHaveLength(rejected.length);
-    expect(rejected).toHaveLength(26);
+    expect(rejected).toHaveLength(11);
   });
 
   it("holds no variant of a food it already keeps", () => {
@@ -760,16 +760,13 @@ describe("the bundled search index", () => {
     // "refused" means and what a later generator or filter change could undo
     // without either the predicate or its own test noticing.
     const descriptions = index.foods.map((row) => row.description);
+    // The six dried-egg rows this list used to carry are gone, and #157's
+    // refusal is untouched by that: the predicate still does not reach them —
+    // `usda-food-kind.test.ts` pins that — and what removed them is a read
+    // verdict about the `Egg` head, which is a different rule with its own
+    // record. A refusal to widen a regex is not a promise that no other rule
+    // may ever take the row.
     for (const kept of [
-      // A process spec, not a channel: `glucose reduced` says how the food was
-      // made. Their plain twins ship too, which is why the retail-twin test
-      // could not decide this one.
-      "Egg, white, dried, stabilized, glucose reduced",
-      "Egg, whole, dried, stabilized, glucose reduced",
-      "Egg, white, dried, flakes, stabilized, glucose reduced",
-      "Egg, white, dried, powder, stabilized, glucose reduced",
-      "Egg, white, dried",
-      "Egg, whole, dried",
       // Both a factory input and a tub in a shop, and ADR-0055 §7's refusal of a
       // powder-or-supplement marker is what keeps them.
       "Soy protein isolate",
@@ -1404,9 +1401,9 @@ describe("searchIndexRows", () => {
       // parenthetical - `Nuts, coconut cream, raw (liquid expressed from grated
       // meat)`, `Durian, raw or frozen`. Typing either word is no longer a way
       // to ask anything.
-      raw: [7, 7],
+      raw: [6, 6],
       cooked: [0, 0],
-      salt: [93, 1],
+      salt: [91, 1],
       water: [39, 10],
       oil: [102, 70],
     });
@@ -1785,7 +1782,11 @@ describe("searchIndexRows", () => {
       "beef",
       "veal",
       "wagyu beef",
-      "frozen lamb",
+      // `frozen lamb` used to sit here and reached a New Zealand cut that has
+      // since gone as a frozen mirror of a fresh one. There is no origin-worded
+      // replacement: ADR-0056 strips those words, so `australian lamb` and
+      // `new zealand lamb` both answer nothing now. `lamb` above still carries
+      // the case.
       "bowhead whale",
     ] as const) {
       const lead = descriptionsFor(query)[0];
@@ -2047,7 +2048,7 @@ describe("searchIndexRows", () => {
     // here at once.
     expect({ notFirst, gained, lost }).toEqual({
       notFirst: 21,
-      gained: 215,
+      gained: 211,
       lost: 0,
     });
   }, 30_000);

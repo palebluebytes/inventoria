@@ -3,9 +3,9 @@
   "schema_version": 1,
   "ticket": "https://github.com/palebluebytes/inventoria/issues/192",
   "map": "https://github.com/palebluebytes/inventoria/issues/186",
-  "ruler": "sweepQueries over the shipped corpus — 2661 queries, pinned and used against both corpora",
+  "ruler": "sweepQueries over the shipped corpus — 2647 queries, pinned and used against both corpora",
   "corpora": {
-    "shipped": "public/usda/search-index.json sha256:e89ac2baed151ad8"
+    "shipped": "public/usda/search-index.json sha256:6969d24701e00d7d"
   },
   "gold_sets": {
     "143": "19 of 50 adjudicated heads carry verdict \"correct\" — the leads ADR-0055 §2 protects",
@@ -33,14 +33,14 @@
   "runs": [
     {
       "label": "shipped",
-      "rows": 2475,
-      "names": 2544,
-      "queries": 2661,
-      "answered": 2661,
+      "rows": 2452,
+      "names": 2521,
+      "queries": 2647,
+      "answered": 2647,
       "empty": 0,
       "plain_sibling": {
-        "carried": 432,
-        "derived": 432,
+        "carried": 427,
+        "derived": 427,
         "stale": 0
       },
       "gold_leads_held": 19,
@@ -94,7 +94,7 @@
         },
         {
           "key": "raw",
-          "moved": 78,
+          "moved": 75,
           "gold_leads_broken": 0,
           "c1_lost": 1,
           "examples": [
@@ -193,7 +193,7 @@
         },
         {
           "key": "position",
-          "moved": 196,
+          "moved": 194,
           "gold_leads_broken": 0,
           "c1_lost": 0,
           "examples": [
@@ -226,7 +226,7 @@
         },
         {
           "key": "plainSibling",
-          "moved": 61,
+          "moved": 60,
           "gold_leads_broken": 0,
           "c1_lost": 0,
           "examples": [
@@ -259,7 +259,7 @@
         },
         {
           "key": "plain",
-          "moved": 29,
+          "moved": 30,
           "gold_leads_broken": 0,
           "c1_lost": 1,
           "examples": [
@@ -292,7 +292,7 @@
         },
         {
           "key": "wholeness",
-          "moved": 9,
+          "moved": 8,
           "gold_leads_broken": 0,
           "c1_lost": 0,
           "examples": [
@@ -312,12 +312,12 @@
               "without": "Lamb, fresh, separable fat"
             },
             {
-              "query": "frozen lamb",
-              "shipped": "Lamb, frozen, composite of trimmed retail cuts, separable lean and fat",
-              "without": "Lamb, frozen, composite of trimmed retail cuts, separable fat"
+              "query": "game",
+              "shipped": "Game meat, rabbit, domesticated, composite of cuts",
+              "without": "Game meat, muskrat"
             },
             {
-              "query": "game",
+              "query": "game meat",
               "shipped": "Game meat, rabbit, domesticated, composite of cuts",
               "without": "Game meat, muskrat"
             }
@@ -358,7 +358,7 @@
         },
         {
           "key": "raw+plain",
-          "moved": 109,
+          "moved": 107,
           "gold_leads_broken": 1,
           "c1_lost": 2,
           "examples": [

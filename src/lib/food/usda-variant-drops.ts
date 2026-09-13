@@ -71,6 +71,12 @@ const ADJUDICATED_HEADS: ReadonlySet<string> = new Set([
   "milk",
   "yogurt",
   "soymilk",
+  // `Egg` was read for #186: all 21 rows, one at a time. The three mechanical
+  // rules find nothing under it — no egg row says `fluid`, so the dehydrated
+  // rule has no wet sibling to point at — and the fourteen drops below are all
+  // hand-written. It is named here anyway, because the claim this set makes is
+  // that somebody has READ the head, and somebody has.
+  "egg",
 ]);
 
 /** A description's head phrase, lowercased and whitespace-collapsed. */
@@ -371,6 +377,33 @@ interface AdjudicatedVariantGroup {
 
 const ADJUDICATED_VARIANT_GROUPS: readonly AdjudicatedVariantGroup[] = [
   {
+    why: "Liquid egg, frozen and pasteurised for a bakery to pour out of a drum. It is the same egg as the box on the shelf with the shell taken off and the temperature changed, and `Eggs, Grade A, Large, egg whole` ships. What made it reachable at all is a quirk worth recording: `isProcessedProduct` waves through anything USDA calls `raw`, and USDA calls these raw because nobody cooked them — so `Egg, whole, raw, frozen, salted, pasteurized` slipped past the `frozen` marker that was written for exactly this shape. It was the row a typed `egg` used to lead with.",
+    rows: [
+      [170893, "Egg, whole, raw, frozen, salted, pasteurized"],
+      [323604, "Egg, whole, raw, frozen, pasteurized"],
+      [323697, "Egg, white, raw, frozen, pasteurized"],
+      [329596, "Egg, yolk, raw, frozen, pasteurized"],
+      [173436, "Egg, yolk, raw, frozen, salted, pasteurized"],
+      [173422, "Egg, yolk, raw, frozen, sugared, pasteurized"],
+    ],
+  },
+  {
+    why: "Dried egg, which is the dehydrated form of a food the corpus keeps — ADR-0061 §3's argument about dried buttermilk, applied to the head it was written for. `Egg, whole, dried` is 575 kcal against the box's 148 because the water is gone; nothing else about it is a different food. The `stabilized, glucose reduced` rows say plainly who they are for: glucose is removed so the powder does not brown in storage, which is a shelf-life problem a baker has and a cook does not.",
+    rows: [
+      [329490, "Egg, whole, dried"],
+      [173425, "Egg, whole, dried, stabilized, glucose reduced"],
+      [323793, "Egg, white, dried"],
+      [170895, "Egg, white, dried, stabilized, glucose reduced"],
+      [173426, "Egg, white, dried, flakes, stabilized, glucose reduced"],
+      [173427, "Egg, white, dried, powder, stabilized, glucose reduced"],
+      [329716, "Egg, yolk, dried"],
+    ],
+  },
+  {
+    why: "An egg substitute is not an egg, and a powdered one is not an ingredient either. `MODIFIED_FORM` already demotes a substitute in the ranking; this removes it from a list it was crowding.",
+    rows: [[173429, "Egg substitute, powder"]],
+  },
+  {
     why: "A milkshake is a dessert drink. It is a food, and the reason for removing it is that it crowds a list of milks — stated plainly, because dressing it as a claim about the record would be the manoeuvre ADR-0056 §5 refused.",
     rows: [
       [170883, "Milk shakes, thick chocolate"],
@@ -509,6 +542,79 @@ export const ADJUDICATED_VARIANTS: readonly AdjudicatedVariant[] =
   );
 
 /**
+ * The collapsing axes a frozen mirror is allowed to differ on.
+ *
+ * ADR-0100 §2 already rules that a trim and a grade name the same food — they
+ * are true at purchase but written for a butcher's trade, and no reader of this
+ * app has chosen between them. So a frozen New Zealand lamb loin trimmed to
+ * 1/8" and a fresh one trimmed to 1/4" and graded choice are the same cut, and
+ * asking them to match on those words would be re-importing a distinction that
+ * record has already erased.
+ */
+const COLLAPSING_AXIS =
+  /^(usda )?(choice|select|prime|all grades|trimmed to (0|1\/8|1\/4)" ?fat)$/;
+
+/**
+ * True when this row is a frozen copy of a food the corpus already carries
+ * fresh.
+ *
+ * USDA publishes New Zealand lamb frozen and American lamb fresh, cut for cut:
+ * nine rows whose only difference from a shipping row is the freezing and the
+ * trade words above. Freezing is not a preparation and not a food — it is how
+ * the meat travelled — and a reader typing `lamb` should not meet the same cut
+ * twice because one of them crossed an ocean.
+ *
+ * **Relational, and the survivor is proved rather than assumed.** It fires only
+ * where an unfrozen row of the same cut is in the corpus being built, which is
+ * the shape ADR-0055 §1 admits and the one ADR-0100 §7 states as a principle: a
+ * drop that can point at a survivor is a collapse, and a collapse fires
+ * corpus-wide because its worst case is a wrong representative rather than a
+ * missing food.
+ *
+ * **So it takes no read head**, unlike the three rules above it. Those remove a
+ * food on a judgement about who looks for it and are confined to a head somebody
+ * has read; this removes a second copy of a food that stays.
+ *
+ * Two frozen rows are deliberately left standing, and both are the rule working:
+ * `Pork, fresh, ears, frozen` has no unfrozen pig ear anywhere in the corpus, and
+ * `Turkey roast, boneless, frozen, seasoned, light and dark meat` is seasoned,
+ * which is a different food and not a copy of one.
+ *
+ * **It runs LAST, over the names that will ship**, and that is not a detail. The
+ * three rules above it see USDA's own descriptions, where this row is still
+ * `Lamb, New Zealand, imported, frozen, loin, …` — ADR-0056's origin strip has
+ * not run yet, so its identity carries two words the fresh row never had and no
+ * mirror is ever found. Asked after the strips, the two names differ by the
+ * freezing alone. It is the third rule in this corpus to need that ordering,
+ * after the designation tag and the Food Distribution Program gloss.
+ *
+ * @param siblings - Every shipping description sharing this row's head phrase,
+ *   this one included.
+ */
+export function isFrozenMirror(
+  description: string,
+  siblings: readonly string[]
+): boolean {
+  const isFrozen = (name: string) =>
+    qualifiersOf(name).slice(1).includes("frozen");
+  if (!isFrozen(description)) return false;
+  const identity = (name: string) =>
+    qualifiersOf(name)
+      .filter(
+        (part, at) =>
+          at === 0 || (part !== "frozen" && !COLLAPSING_AXIS.test(part))
+      )
+      .join("|");
+  const mine = identity(description);
+  return siblings.some(
+    (sibling) =>
+      sibling !== description &&
+      !isFrozen(sibling) &&
+      identity(sibling) === mine
+  );
+}
+
+/**
  * Which rows of a corpus are a variant of a food it already keeps, and which
  * rule took each (ADR-0061).
  *
@@ -552,4 +658,32 @@ export function resolveVariantDrops(
       drops.set(fdcId, "adjudicated_variant");
 
   return drops;
+}
+
+/**
+ * Every frozen mirror in a finished corpus, by `fdcId`.
+ *
+ * Takes the rows rather than being asked one at a time, because the question is
+ * about the corpus: whether an unfrozen row of this cut is in it.
+ */
+export function resolveFrozenMirrors(
+  rows: readonly VariantRow[]
+): ReadonlySet<number> {
+  const byHead = new Map<string, string[]>();
+  for (const row of rows) {
+    const head = headPhrase(row.description);
+    const siblings = byHead.get(head);
+    if (siblings) siblings.push(row.description);
+    else byHead.set(head, [row.description]);
+  }
+  const mirrors = new Set<number>();
+  for (const row of rows)
+    if (
+      isFrozenMirror(
+        row.description,
+        byHead.get(headPhrase(row.description)) ?? []
+      )
+    )
+      mirrors.add(row.fdcId);
+  return mirrors;
 }

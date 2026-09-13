@@ -108,6 +108,7 @@ export const FOOD_KIND_EXPORTS = [
 export const VARIANT_DROP_EXPORTS = [
   "resolveVariantDrops",
   "ADJUDICATED_VARIANTS",
+  "resolveFrozenMirrors",
 ];
 
 /**

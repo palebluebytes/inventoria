@@ -251,6 +251,18 @@ export function applyShippedNames(survivors, app) {
         : survivor;
     });
 
+  // Last of all, over the names that will ship: a frozen copy of a cut the
+  // corpus already carries fresh. It has to be here rather than with the variant
+  // rules, because until ADR-0056's strip runs these rows still say
+  // `New Zealand, imported` and no mirror can be seen.
+  const mirrors = app.resolveFrozenMirrors(
+    shipped.map((s) => ({
+      fdcId: s.food.fdcId,
+      description: s.food.description,
+    }))
+  );
+  const unfrozen = shipped.filter((s) => !mirrors.has(s.food.fdcId));
+
   const origin_dropped = {
     collision: 0,
     preparation_sibling: 0,
@@ -258,7 +270,8 @@ export function applyShippedNames(survivors, app) {
   };
   for (const reason of dropped.values()) origin_dropped[reason]++;
   return {
-    survivors: shipped,
+    survivors: unfrozen,
+    frozen_mirror: mirrors.size,
     renamed: renamed.size,
     maturity: maturity.size,
     uncontested: uncontested.size,

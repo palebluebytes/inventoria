@@ -89,6 +89,7 @@ const RULE_ORDER = [
   "dehydrated_form",
   "fortification_duplicate",
   "adjudicated_variant",
+  "frozen_mirror",
   "collision",
   "preparation_sibling",
   "designation_collision",
@@ -153,7 +154,11 @@ const RULE_BLURB = {
   ],
   adjudicated_variant: [
     "Removed by hand, under a read head",
-    "Only three head phrases have been read row by row. A drop may fire nowhere else.",
+    "Four head phrases have been read row by row — Milk, Yogurt, Soymilk and Egg. A drop may fire nowhere else.",
+  ],
+  frozen_mirror: [
+    "A frozen copy of a fresh cut",
+    "USDA publishes New Zealand lamb frozen and American lamb fresh, cut for cut. It fires only where the unfrozen row provably ships.",
   ],
   collision: [
     "Its new name is already taken",

@@ -81,6 +81,7 @@ import {
 import {
   resolveVariantDrops,
   ADJUDICATED_VARIANTS,
+  resolveFrozenMirrors,
 } from "../../src/lib/food/usda-variant-drops";
 
 // The generation step behind ADR-0047: USDA's bulk archives reduced to the two
@@ -110,6 +111,7 @@ const app = {
   isManufacturingInput,
   resolveVariantDrops,
   ADJUDICATED_VARIANTS,
+  resolveFrozenMirrors,
   fdcReportsNoEnergy,
   fdcIdentityKey,
   resolveFdcGroup,

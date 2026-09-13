@@ -19,6 +19,7 @@ import {
 } from "../../src/lib/food/usda-shipped-name";
 import {
   ADJUDICATED_VARIANTS,
+  resolveFrozenMirrors,
   resolveVariantDrops,
 } from "../../src/lib/food/usda-variant-drops";
 
@@ -30,12 +31,13 @@ import {
 /**
  * The app's own rosters, in the shape the passes read them through.
  *
- * Partial on purpose — the two adjudication passes read these eight and nothing
+ * Partial on purpose — the two adjudication passes read these nine and nothing
  * else. `satisfies` keeps each one checked against the real export, so a
  * renamed roster or a changed signature still fails here.
  */
 const app = {
   resolveVariantDrops,
+  resolveFrozenMirrors,
   ADJUDICATED_VARIANTS,
   resolveShippedNames,
   stripNonNamingQualifiers,

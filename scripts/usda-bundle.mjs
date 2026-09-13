@@ -183,6 +183,7 @@ export const BUNDLE_DATASETS = ["Foundation Foods", "SR Legacy"];
  * @property {(rows: { fdcId: number, description: string, panelFields?: number }[]) => { renamed: ReadonlyMap<number, string>, dropped: ReadonlyMap<number, string> }} resolveShippedNames
  * @property {(rows: { fdcId: number, description: string }[]) => ReadonlyMap<number, string>} dropUncontestedQualifiers
  * @property {(rows: { fdcId: number, description: string }[]) => ReadonlyMap<number, string>} renameSeedMaturity
+ * @property {(rows: { fdcId: number, description: string }[]) => ReadonlySet<number>} resolveFrozenMirrors
  * @property {(rows: { fdcId: number, description: string }[]) => { renamed: ReadonlyMap<number, string>, dropped: ReadonlySet<number> }} stripEnrichment
  * @property {(description: string) => string} stripNonNamingQualifiers
  * @property {readonly TwinLedgerEntry[]} TWIN_LEDGER

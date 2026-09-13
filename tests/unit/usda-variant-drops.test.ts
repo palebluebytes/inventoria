@@ -276,9 +276,9 @@ describe("isFortificationDuplicate", () => {
 });
 
 describe("the rows ADR-0061 §5 adjudicates by hand", () => {
-  it("names thirty rows, each once and each with a reason", () => {
-    expect(ADJUDICATED_VARIANTS).toHaveLength(30);
-    expect(new Set(ADJUDICATED_VARIANTS.map(([fdcId]) => fdcId)).size).toBe(30);
+  it("names forty-four rows, each once and each with a reason", () => {
+    expect(ADJUDICATED_VARIANTS).toHaveLength(44);
+    expect(new Set(ADJUDICATED_VARIANTS.map(([fdcId]) => fdcId)).size).toBe(44);
     for (const [fdcId, description, why] of ADJUDICATED_VARIANTS)
       expect([fdcId, description, why.length > 40]).toEqual([
         fdcId,
