@@ -14,19 +14,14 @@
  *
  * ### What overlapping costs, and why the conditional `PUT` does not cover it
  *
- * A deposit's rewrite is conditional on the etag this device's own `PUT`
- * returned, and a **refused** rewrite is answered by an unconditional recreate
- * (§5's 2026-09-12 amendment). So the store's write order and the jar's write
- * order can disagree: one errand's `PUT` can land first and its record write
- * last, leaving `deposit_standing` naming an object the other errand has
- * already replaced. The peer then collects the object that is actually there,
- * acknowledges it, and this device merges the **other** one's `brings` into
- * `peer_vector` — crediting the peer with rows it never received, which
- * `vectorAboveMatch` withholds on every later sync. `paired-devices.ts`
- * documents the mirror of this on `DepositStanding` — _if the peer took an
- * earlier rewrite and the recreate is a fuller one, crediting the fuller one
- * would skip the rows only it carried, permanently_ — and this is the same
- * hazard reached from the other side.
+ * The whole argument is the 2026-09-13 Amendment's, in five steps; what it
+ * comes to is that a refused rewrite is answered by an unconditional recreate
+ * (§5's 2026-09-12 amendment), so the **store's** write order and the
+ * **record's** can disagree. A `deposit_standing` left naming an object the
+ * other errand has already replaced credits the peer with what that other
+ * object carried, and `vectorAboveMatch` withholds the difference on every
+ * later sync. `paired-devices.ts` documents the mirror of it on
+ * `DepositStanding`.
  *
  * A lock on the write alone would not close it. Both errands read
  * `deposit_standing` before either writes, so the disagreement is settled
@@ -48,14 +43,23 @@
  * `ifAvailable` — the cost of waiting is latency on a path with no deadline,
  * and the cost of skipping is the open the user made.
  *
- * ### Where there is no `LockManager`, the errand runs anyway
+ * ### Where the lock cannot be had, the errand runs anyway
  *
- * It is absent under the Node unit runner and can be absent in a browser that
- * has taken it away, so presence is checked the way every `localStorage` access
- * in this app checks its own. **The fallback is "wake", not "do not wake"**: a
- * device with one open has nothing to serialise against, and refusing to
- * converge to avoid a race that needs a second open would trade a certainty for
- * a possibility.
+ * **The fallback is "wake", not "do not wake"**: a device with one open has
+ * nothing to serialise against, and refusing to converge to avoid a race that
+ * needs a second open would trade a certainty for a possibility.
+ *
+ * There are two ways not to have it and both take that fallback. The API is
+ * **absent** under the Node unit runner and in any insecure context, which is
+ * the `typeof` half of the guard every `localStorage` access in this app
+ * carries; and it can be **present and refusing** — an opaque origin rejects
+ * `request()` with a `SecurityError`, and a privacy-locked browser can throw on
+ * the accessor rather than on the reference — which is the `try` half, the one
+ * `carried-deletion-notice.ts` names in so many words.
+ *
+ * A refusal is told from a failure by whether the callback ever ran, because
+ * the two want opposite answers: an errand that already ran may not be run
+ * again, or a device deposits twice.
  */
 
 /**
@@ -68,26 +72,49 @@
 export const WAKE_LOCK_NAME = "inventoria_wake";
 
 /**
- * The browser's `LockManager`, or `null` where this runtime has none.
+ * The browser's `LockManager`, or `null` where this runtime will not give one
+ * up.
  *
  * The Web Locks API is secure-context only and the Node unit runner has a
  * `navigator` with no `locks` on it, so presence is checked rather than
- * assumed — `persistent-storage.ts` reads `navigator.storage` the same way.
+ * assumed. The `try` is the other half: a browser that has taken the API away
+ * can throw on the accessor rather than answer with `undefined`, and this path
+ * runs on every open.
  */
 function lockManager(): LockManager | null {
-  if (typeof navigator === "undefined") return null;
-  if (!("locks" in navigator) || !navigator.locks) return null;
-  return navigator.locks;
+  try {
+    if (typeof navigator === "undefined") return null;
+    if (!("locks" in navigator) || !navigator.locks) return null;
+    return navigator.locks;
+  } catch {
+    return null;
+  }
 }
 
 /**
  * Runs one wake's errand with every other wake at this origin held off.
  *
  * It resolves and rejects with whatever the errand did: a failure is the
- * caller's to report, and the lock is released either way.
+ * caller's to report — `wake-errand.ts` already logs a sync that did not
+ * converge — and the lock is released either way.
+ *
+ * **A lock that was never granted is not a failed errand.** `request()` rejects
+ * outright on an opaque origin, without ever calling back, and treating that as
+ * the errand's own rejection would be the silent _do not wake_ this whole
+ * module exists to avoid. So the errand runs unserialised instead, and the flag
+ * is what keeps that from re-running one that already ran.
  */
 export async function underWakeLock<T>(errand: () => Promise<T>): Promise<T> {
   const locks = lockManager();
   if (locks === null) return errand();
-  return locks.request(WAKE_LOCK_NAME, errand);
+  let granted = false;
+  try {
+    return await locks.request(WAKE_LOCK_NAME, () => {
+      granted = true;
+      return errand();
+    });
+  } catch (refused) {
+    if (granted) throw refused;
+    return errand();
+  }
 }

@@ -20,6 +20,16 @@
  * A arrives last. The second wake then gets as far as it can — all the way
  * through its own deposit with no lock, and no further than the queue with one.
  *
+ * **The direction the disagreement runs in is stated rather than glossed.** Two
+ * overlapping *deposits* cannot produce the overstating case on their own: both
+ * compute their delta against the same `peer_vector` over a ledger that only
+ * grows, so the later one's is the superset and the standing that survives can
+ * only **understate** what the object carries. That is the harmless side of the
+ * asymmetry, and it is the side measured here. The overstating side needs the
+ * two errands to disagree about `peer_vector` — a collection running beside a
+ * deposit — and the lock covers it because it serialises the errand rather than
+ * the case.
+ *
  * The ledger is a real SQLite one and the store is the real route over a bucket
  * that honours `onlyIf.etagMatches`, for `wake.test.ts`'s reason: the etag
  * refusal that makes the recreate happen is the whole mechanism, and a fake
@@ -59,7 +69,13 @@ import { underWakeLock, WAKE_LOCK_NAME } from "../../src/lib/p2p/wake-lock";
 import { stubLocalStorage } from "./support/local-storage";
 import { fakeBucket, routeOver } from "./support/store-bucket";
 import { pairedWith } from "./support/paired-device";
-import { stubLockManager, stubNoLockManager } from "./support/web-locks";
+import {
+  stubLockManager,
+  stubNoLockManager,
+  stubRefusingLockManager,
+  stubUnreachableLockManager,
+  type FakeLockManager,
+} from "./support/web-locks";
 
 const ORIGIN = "https://app.example";
 
@@ -202,21 +218,9 @@ function holdingStore(inner: Store): {
   return { store, holdNextDeposit };
 }
 
-/** Every task the runtime has queued, run out. */
-async function drained(turns = 200): Promise<void> {
-  for (let turn = 0; turn < turns; turn += 1) {
-    await new Promise<void>((resolve) => setImmediate(resolve));
-  }
-}
-
-/**
- * The second wake, run as far as it can get while the first is still holding.
- *
- * Without a lock that is all the way through its own deposit, and the errand
- * wins the race; with one it is the back of the queue, and the drain wins.
- */
-const asFarAsItGets = (errand: Promise<unknown>): Promise<unknown> =>
-  Promise.race([errand, drained()]);
+/** One wake's deposit errand, taking the lock the way `openAppWake` does. */
+const wakeOver = (over: Store): Promise<void> =>
+  underWakeLock(() => depositToPeers(over, ledger));
 
 // ---------------------------------------------------------------------------
 
@@ -226,17 +230,17 @@ describe("two wakes at one origin leave the record agreeing with the store", () 
    * bytes land first and its record write lands last, with a row logged in the
    * other window in between so the two deltas genuinely differ.
    */
-  async function overlappingWakes(): Promise<void> {
+  async function overlappingWakes(locks: FakeLockManager): Promise<void> {
     await paired();
     const { store, holdNextDeposit } = holdingStore(route);
 
     // A deposit already stands at this index, so the next rewrite is
     // conditional and a refusal has somewhere to come from.
     importLedgerRows(db, [logged("event:breakfast", 1_000)]);
-    await underWakeLock(() => depositToPeers(store, ledger));
+    await wakeOver(store);
 
     const holding = holdNextDeposit();
-    const first = underWakeLock(() => depositToPeers(store, ledger));
+    const first = wakeOver(store);
     await holding.landed;
 
     // A meal logged in the other window, after the first wake read the ledger
@@ -244,24 +248,26 @@ describe("two wakes at one origin leave the record agreeing with the store", () 
     // deltas differ (#418).
     importLedgerRows(db, [logged("event:lunch", 2_000)]);
 
-    const second = underWakeLock(() => depositToPeers(store, ledger));
-    await asFarAsItGets(second);
+    // The second wake, run as far as it can get while the first is still
+    // holding: to the back of the queue with a lock, and all the way through
+    // its own deposit without one. Both endings are waited on by name rather
+    // than by a count of event-loop turns, so neither outcome depends on how
+    // quickly WebCrypto finishes.
+    const queued = locks.queuesOnce();
+    const second = wakeOver(store);
+    await Promise.race([second, queued]);
     holding.release();
     await Promise.all([first, second]);
   }
 
   it("names the object that is actually at the address", async () => {
-    stubLockManager();
-
-    await overlappingWakes();
+    await overlappingWakes(stubLockManager());
 
     expect(standing().etag).toBe(bucket.held.get(await address())!.etag);
   });
 
   it("credits the peer with what that object carries and no more", async () => {
-    stubLockManager();
-
-    await overlappingWakes();
+    await overlappingWakes(stubLockManager());
 
     // `brings` is what an acknowledgement for this index will mean. Anything
     // beyond what the object holds is a row the peer is credited with and will
@@ -276,7 +282,7 @@ describe("two wakes at one origin leave the record agreeing with the store", () 
   it("runs the second wake once the first has finished, never beside it", async () => {
     const locks = stubLockManager();
 
-    await overlappingWakes();
+    await overlappingWakes(locks);
 
     expect(locks.requested).toEqual([
       WAKE_LOCK_NAME,
@@ -286,20 +292,54 @@ describe("two wakes at one origin leave the record agreeing with the store", () 
   });
 });
 
-describe("a browser with no Web Locks still wakes", () => {
-  it("deposits on the lane with no LockManager to take", async () => {
-    stubNoLockManager();
+describe("a runtime that cannot give up the lock still wakes", () => {
+  /**
+   * The three ways not to have one, and every one of them takes the same
+   * fallback: **wake**, not "do not wake".
+   *
+   * The first is the Node runner and any insecure context; the second is a
+   * browser that removed the API rather than leaving it `undefined`; the third
+   * is an opaque origin, which answers a `request()` with a `SecurityError`
+   * and never calls back. Only the first is reachable by a presence check,
+   * which is why all three are stated.
+   */
+  const unlockable: [string, () => void][] = [
+    ["no LockManager at all", stubNoLockManager],
+    ["a locks accessor that throws", stubUnreachableLockManager],
+    ["a request that is refused outright", stubRefusingLockManager],
+  ];
+
+  for (const [runtime, stub] of unlockable) {
+    it(`deposits on the lane with ${runtime}`, async () => {
+      stub();
+      await paired();
+      importLedgerRows(db, [logged("event:breakfast", 1_000)]);
+
+      await wakeOver(route);
+
+      expect(bucket.held.has(await address())).toBe(true);
+      expect((await carried()).map((row) => row.entity)).toEqual([
+        "event:breakfast",
+      ]);
+    });
+  }
+
+  it("deposits once and not twice when the request is refused", async () => {
+    stubRefusingLockManager();
     await paired();
+    const puts: string[] = [];
+    const counted: Store = {
+      ...route,
+      deposit: (at, sealed, ifMatch) => (
+        puts.push(at),
+        route.deposit(at, sealed, ifMatch)
+      ),
+    };
     importLedgerRows(db, [logged("event:breakfast", 1_000)]);
 
-    await underWakeLock(() => depositToPeers(route, ledger));
+    await wakeOver(counted);
 
-    // The fallback is "wake", not "do not wake": a device with one open has
-    // nothing to serialise against.
-    expect(bucket.held.has(await address())).toBe(true);
-    expect((await carried()).map((row) => row.entity)).toEqual([
-      "event:breakfast",
-    ]);
+    expect(puts).toEqual([await address()]);
   });
 
   it("keeps the record agreeing with the store across two errands", async () => {
@@ -307,30 +347,96 @@ describe("a browser with no Web Locks still wakes", () => {
     await paired();
     importLedgerRows(db, [logged("event:breakfast", 1_000)]);
 
-    await underWakeLock(() => depositToPeers(route, ledger));
+    await wakeOver(route);
     importLedgerRows(db, [logged("event:lunch", 2_000)]);
-    await underWakeLock(() => depositToPeers(route, ledger));
+    await wakeOver(route);
 
     expect(standing().etag).toBe(bucket.held.get(await address())!.etag);
     expect(standing().brings).toEqual(await carriedVector());
   });
 });
 
-describe("the app's own wake takes the lock", () => {
+describe("a lock never granted is not an errand that failed", () => {
+  // Both sides of the same rejection, because the fallback reads one and must
+  // not read the other: a `request()` that refused before calling back is
+  // retried unserialised, and an errand that threw under a lock it was granted
+  // is reported. Confusing them puts two deposits on one lane.
+
+  it("reports an errand that threw rather than running it again", async () => {
+    stubLockManager();
+    let ran = 0;
+    const failing = async (): Promise<void> => {
+      ran += 1;
+      throw new Error("the store could not be reached.");
+    };
+
+    await expect(underWakeLock(failing)).rejects.toThrow(
+      "the store could not be reached."
+    );
+    expect(ran).toBe(1);
+  });
+
+  it("frees the lock for the next wake when an errand throws", async () => {
+    const locks = stubLockManager();
+    const after: string[] = [];
+
+    await expect(
+      underWakeLock(() => Promise.reject(new Error("nope")))
+    ).rejects.toThrow("nope");
+    await underWakeLock(async () => void after.push("second"));
+
+    expect(after).toEqual(["second"]);
+    expect(locks.requested).toEqual([WAKE_LOCK_NAME, WAKE_LOCK_NAME]);
+  });
+});
+
+describe("the app's own wake is the one that takes the lock", () => {
+  /**
+   * A wake whose whole errand is a pending withdrawal, which is the one round
+   * that leaves a mark without reaching the worker that owns SQLite.
+   *
+   * The record is marked revoked and kept, so the round's first act is
+   * `withdrawRevoked` — two `DELETE`s and then the row itself (ADR-0096 §11).
+   * Its disappearance is how a test proves through `openAppWake` that the
+   * errand ran, rather than through the seam it is supposed to be wired to.
+   *
+   * The collection at open is fired rather than returned, so it is waited on by
+   * its effect: `vi.waitFor` retries the assertion until the withdrawal lands.
+   */
+  async function withdrawnOnOpen(): Promise<void> {
+    const chains = await derivePairingChains(
+      new Uint8Array(32).fill(7),
+      "showed"
+    );
+    stubLocalStorage({
+      seed: {
+        [JAR_KEY]: JSON.stringify([
+          { ...pairedWith(PEER, chains), revoked: true },
+        ]),
+      },
+    });
+
+    const wake = openAppWake(route, { collectionFloorMs: 60 * 60 * 1_000 });
+    try {
+      await vi.waitFor(() => expect(readPairedDevices()).toEqual([]));
+    } finally {
+      wake.close();
+    }
+  }
+
   it("opens under it rather than beside it", async () => {
     // Proved through `openAppWake` and not through the seam alone: a lock the
     // errand does not reach is a lock that serialises nothing.
-    //
-    // The jar is empty, so the round serves no lane and never reaches the
-    // worker that owns SQLite — what is under test is that the errand ran
-    // inside the lock at all.
     const locks = stubLockManager();
-    stubLocalStorage({ seed: { [JAR_KEY]: "[]" } });
 
-    const wake = openAppWake(route, { collectionFloorMs: 60 * 60 * 1_000 });
-    await drained(20);
-    wake.close();
+    await withdrawnOnOpen();
 
     expect(locks.requested).toEqual([WAKE_LOCK_NAME]);
+  });
+
+  it("still runs its errand where there is no lock to take", async () => {
+    stubNoLockManager();
+
+    await withdrawnOnOpen();
   });
 });
