@@ -122,9 +122,9 @@ import {
   StoreUnreachableError,
   type Store,
 } from "./deposit-store";
-import { deriveLaneKey, type LaneChain } from "./pairing-chain";
+import { deriveLaneKey, laneAddress } from "./pairing-chain";
 import { readDatomChunk, refusingChunk } from "./datom-chunk";
-import { base64url, randomBytes, type RandomBytes } from "./room-code";
+import { randomBytes, type RandomBytes } from "./room-code";
 import {
   chunkCost,
   openDeposit,
@@ -739,18 +739,8 @@ async function outstandingDelta(
 }
 
 // ---------------------------------------------------------------------------
-// The lane's two derivations, and the bodies read to ADR-0075 §13's standard
+// What a lane states, and the bodies read to ADR-0075 §13's standard
 // ---------------------------------------------------------------------------
-
-/**
- * Where a lane's deposit sits, as the route's flat namespace takes it.
- *
- * Base64url of the address the ratchet yields, which is 43 characters of the
- * route's `[A-Za-z0-9_-]{1,256}` — a shape rule the server keeps because it
- * cannot tell a derived address from an invented one and must not try.
- */
-const laneAddress = async (lane: LaneChain): Promise<string> =>
-  base64url(await deriveLaneKey(lane, "addr"));
 
 /**
  * What this device says it is paired with, down this one lane.

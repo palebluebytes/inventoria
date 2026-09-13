@@ -36,6 +36,8 @@
  * future index forever, and re-pairing is the only recovery (§18).
  */
 
+import { base64url } from "./room-code";
+
 /** The width of a chain state, an address and a seal key alike: SHA-256's. */
 export const CHAIN_STATE_BYTES = 32;
 
@@ -124,6 +126,22 @@ export function deriveLaneKey(
 ): Promise<Uint8Array> {
   return hkdf(lane.state, `${CHAIN_INFO_PREFIX}${purpose}/${lane.direction}`);
 }
+
+/**
+ * Where a lane's deposit sits, as the route's flat namespace takes it.
+ *
+ * Base64url of the address the ratchet yields, which is 43 characters of the
+ * route's `[A-Za-z0-9_-]{1,256}` — a shape rule the server keeps because it
+ * cannot tell a derived address from an invented one and must not try.
+ *
+ * **It is here rather than in `wake.ts` because two acts reach a lane's
+ * object**, and they must reach the same one: a wake collects and deposits at
+ * it, and the two-phase unpair deletes it (ADR-0096 §11). A second derivation
+ * beside this one would be a withdrawal that emptied a different address than
+ * the one it claimed.
+ */
+export const laneAddress = async (lane: LaneChain): Promise<string> =>
+  base64url(await deriveLaneKey(lane, "addr"));
 
 /**
  * The lane at its next index.
