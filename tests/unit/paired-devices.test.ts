@@ -106,6 +106,63 @@ describe("a completed pairing has a row, and an incomplete one has none", () => 
   });
 });
 
+describe("the last-met date and the one-sided state (ADR-0096 §11)", () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  const withJar = async (over: Record<string, unknown>) => {
+    stubLocalStorage({
+      seed: {
+        inventoria_paired_devices: JSON.stringify([{ ...PAIRING, ...over }]),
+      },
+    });
+    vi.resetModules();
+    const [{ render: renderFresh }, Section] = await Promise.all([
+      import("svelte/server"),
+      import("../../src/lib/views/pairing/PairedDevicesSection.svelte"),
+    ]);
+    return renderFresh(Section.default, { props: {} }).body;
+  };
+
+  it("says when the two devices last met, coarsened to the day", async () => {
+    const body = await withJar({ last_met: "2026-09-13" });
+
+    // The only thing this design ever says about staleness, on the only screen
+    // it says it: no spinner, no toast and no badge anywhere else.
+    expect(body).toContain("Last met 13/09/2026.");
+  });
+
+  it("says nothing where a record was written before the date existed", async () => {
+    const body = await withJar({ last_met: null });
+
+    // An absent date is not a claim that the devices have never met.
+    expect(body).not.toContain("Last met");
+  });
+
+  it("shows the one-sided state once a pairing has stopped", async () => {
+    const body = await withJar({ unproductive_wakes: 200 });
+
+    // ADR-0075 §12's two pieces of news, of which only one is actionable — and
+    // the two actions are the two that exist.
+    expect(body).toContain("one-sided");
+    expect(body).toContain("Unpair it here");
+    expect(body).not.toContain("network");
+  });
+
+  it("shows nothing of the kind while a pairing is still being served", async () => {
+    const body = await withJar({ unproductive_wakes: 199 });
+    expect(body).not.toContain("one-sided");
+  });
+
+  it("keeps the row, because hitting K never unpairs", async () => {
+    const body = await withJar({ unproductive_wakes: 200 });
+
+    expect(body).toContain("dev_b0c1");
+    expect(body).toContain("Rename");
+    expect(body).toContain("Unpair");
+    expect(body).not.toContain("No devices are paired.");
+  });
+});
+
 describe("what a device says it is paired with is a list you go and look at", () => {
   afterEach(() => vi.unstubAllGlobals());
 

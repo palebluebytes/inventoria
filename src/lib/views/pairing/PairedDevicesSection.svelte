@@ -25,9 +25,12 @@
     forgetPairedDevice,
     namePairedDevice,
     pairedDevices,
+    readMet,
     rememberPairedDevice,
     type PairedDevice,
   } from "../../stores/paired-devices";
+  import { isStopped } from "../../p2p/wake-counter";
+  import { writeDate } from "../../p2p/send-date";
 
   // **Paired devices**, and the act that makes one (ADR-0096 §8, ADR-0084 §6).
   //
@@ -197,6 +200,44 @@
     return `Also paired with ${listOf(named)}.`;
   }
 
+  /**
+   * When these two devices last produced something for each other, coarsened
+   * to the day (ADR-0096 §9 and §11).
+   *
+   * **This is the only thing the design ever says about staleness, and this is
+   * the only place it says it.** No spinner, no toast and no badge anywhere
+   * else: the stale device cannot know what it has not got, and opening it *is*
+   * the collection, so a mark could only ever appear on the device that needs
+   * it least.
+   *
+   * A record written before the date existed says nothing rather than claiming
+   * the devices have never met.
+   */
+  const lastMetLine = (device: PairedDevice) =>
+    device.last_met === null
+      ? ""
+      : `Last met ${writeDate(readMet(device.last_met))}.`;
+
+  /**
+   * §11's one-sided state: this pairing has produced nothing for K = 200
+   * consecutive wakes, so its keys are no longer touched.
+   *
+   * **It says the pairing is one-sided and never that the network failed** —
+   * ADR-0075 §12's two pieces of news, of which only one is actionable. The
+   * two actions are the two that exist: unpair it here too, or pair again. It
+   * is not a warning about data, because none was lost: both ledgers are
+   * intact, the store still holds the outstanding delta, and a peer that comes
+   * back collects it.
+   *
+   * **Nothing here unpairs on its own.** Hitting K is a pause a timer noticed;
+   * removing the row would be an irreversible act a timer took, and the user
+   * cannot re-pair without the other device in the room.
+   */
+  const ONE_SIDED =
+    "This pairing is one-sided. Nothing has come back from this device for a " +
+    "long time, so it is no longer being synced with. Unpair it here, or pair " +
+    "the two devices again.";
+
   function saveName() {
     if (!naming) return;
     namePairedDevice(naming.device_id, naming.name);
@@ -298,6 +339,16 @@
               {@const stated = rosterLine(device, $pairedDevices)}
               {#if stated}
                 <p class="roster">{stated}</p>
+              {/if}
+              <!-- §11's two lines, and the whole of what this design says
+                   about staleness. The date is on every row; the one-sided
+                   state is on the rows that ran out. -->
+              {@const met = lastMetLine(device)}
+              {#if met}
+                <p class="roster">{met}</p>
+              {/if}
+              {#if isStopped(device)}
+                <p class="one-sided">{ONE_SIDED}</p>
               {/if}
             {/if}
           </li>
@@ -424,6 +475,14 @@
     margin: var(--space-3xs) 0 0;
     padding-inline: var(--space-xs);
     color: var(--text-secondary);
+    font-size: var(--step-n1);
+  }
+  /* Louder than the roster beside it and quieter than an error, because it is
+     news rather than a failure: nothing was lost and nothing is broken. */
+  .one-sided {
+    margin: var(--space-3xs) 0 0;
+    padding-inline: var(--space-xs);
+    color: var(--ink);
     font-size: var(--step-n1);
   }
   .rename {
