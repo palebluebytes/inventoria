@@ -659,12 +659,36 @@ describe("the roster", () => {
 });
 
 describe("ADJUDICATED_NAMES — the names no rule reaches (ADR-0061 §5)", () => {
-  it("holds one entry, and states the name it was read against", () => {
-    // One, and the count is the assertion: everything else in this module is a
+  it("holds four entries, and states the name each was read against", () => {
+    // Four, and the count is the assertion: everything else in this module is a
     // positional rule that fires wherever a roster phrase occupies a whole
     // qualifier part. A hand list growing past a handful would mean a rule was
     // missed, which is a measurement rather than another entry.
+    //
+    // The three eggs are one entry three times over, and they are here rather
+    // than in a rule because there IS no rule: USDA named four birds and then
+    // filed the fifth by its retail grade, so nothing in the description says
+    // which bird laid it. That is knowledge about shoppers, not about the food,
+    // and it has to be written down (ADR-0101's amendment).
     expect(ADJUDICATED_NAMES).toEqual([
+      [
+        748967,
+        "Eggs, Grade A, Large, egg whole",
+        "Egg, chicken, whole, fresh, raw",
+        expect.stringContaining("bird"),
+      ],
+      [
+        747997,
+        "Eggs, Grade A, Large, egg white",
+        "Egg, chicken, white, fresh, raw",
+        expect.any(String),
+      ],
+      [
+        748236,
+        "Eggs, Grade A, Large, egg yolk",
+        "Egg, chicken, yolk, fresh, raw",
+        expect.any(String),
+      ],
       [
         171266,
         "Milk, producer, fluid, 3.7% milkfat",

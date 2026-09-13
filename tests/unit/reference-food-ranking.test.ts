@@ -28,6 +28,7 @@ const tiedOnRowKeys = (key: ReturnType<typeof rank>): RelevanceKey => ({
   ...key,
   recent: 0,
   frequent: 0,
+  canonical: 0,
   raw: 0,
   plainSibling: 1,
   designated: 1,
@@ -520,6 +521,7 @@ describe("compareRelevance", () => {
       tier: 20,
       recent: 0,
       frequent: 0,
+      canonical: 0,
       named: true,
       raw: 1,
       head: -1,
@@ -557,6 +559,32 @@ describe("compareRelevance", () => {
     // keys differing only there tie, and `withoutStrayMentions` is what reads
     // the field. As a sorting key it moved 20 leads for nothing.
     expect(beats({ named: true }, { named: false })).toBe(0);
+    // `canonical` beats every key after it: the hand-picked row wins while
+    // being worse on all eight.
+    expect(
+      beats(
+        {
+          canonical: 1,
+          raw: 0,
+          head: -9,
+          accounted: 0,
+          position: -9,
+          plainSibling: 0,
+          plain: 0,
+          wholeness: 0,
+          designated: 0,
+        },
+        { canonical: 0 }
+      )
+    ).toBeLessThan(0);
+    // …and loses to both keys before it, which is the placement argument in
+    // ADR-0101's amendment: log the duck egg and the duck leads.
+    expect(beats({ recent: 1, canonical: 0 }, { canonical: 1 })).toBeLessThan(
+      0
+    );
+    expect(beats({ frequent: 1, canonical: 0 }, { canonical: 1 })).toBeLessThan(
+      0
+    );
     expect(
       beats(
         {

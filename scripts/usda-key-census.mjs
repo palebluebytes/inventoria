@@ -108,6 +108,7 @@ const KEYS = [
   "tier",
   "recent",
   "frequent",
+  "canonical",
   "raw",
   "head",
   "accounted",

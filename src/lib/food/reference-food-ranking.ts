@@ -667,6 +667,7 @@ export function compareRelevance(a: RelevanceKey, b: RelevanceKey): number {
     b.tier - a.tier ||
     b.recent - a.recent ||
     b.frequent - a.frequent ||
+    b.canonical - a.canonical ||
     b.raw - a.raw ||
     b.head - a.head ||
     b.accounted - a.accounted ||
@@ -908,7 +909,64 @@ const DESIGNATED_POPULATION_CATEGORY = "American Indian/Alaska Native Foods";
  * better as in every other key and {@link compareRelevance} reads them the same
  * way.
  */
+/**
+ * The row that IS the food, where USDA's names leave the commonest one unnamed.
+ *
+ * A hand-written roster, and the only one in this file that names records
+ * rather than describing a shape. ADR-0055 §1 is what permits it — "prevalence
+ * may rank a food and may never drop one" — and this ranks: every row it names
+ * stays in the corpus whether it is listed here or not, and no row leaves
+ * because it is absent.
+ *
+ * **It exists because a tie has to break somewhere, and `fdcId` is not a
+ * reason.** The five eggs are the case it was written for. USDA names four
+ * birds — `Egg, duck, whole, fresh`, goose, quail, turkey — and then files a
+ * hen's egg under its retail grade, so the one egg nearly every search means is
+ * the one whose name never says which bird laid it. ADR-0101's rename gives it
+ * the same shape as its four siblings, at which point all five are `Egg, <bird>,
+ * …`: same tier, same head, same raw flag, same everything the keys can read.
+ * They tie to the bottom of {@link compareRelevance} and the sort falls through
+ * to corpus order, where the duck's 172189 is simply a smaller number than the
+ * hen's 748967. Nothing about that is a judgement, and it is what put duck,
+ * goose, quail and turkey above a box of eggs.
+ *
+ * **No key that reads a description can break it**, which is why this is a
+ * roster and not a rule. The tie is exact: the names differ only in the bird,
+ * and the corpus holds no fact saying which bird is the default one — that is
+ * knowledge about shoppers, not about food composition, so it has to be written
+ * down rather than derived. A rule inferring it from nutrients, category or
+ * word frequency would be a denylist in a predicate's clothing, which is the
+ * thing ADR-0055 §4 refuses.
+ *
+ * **Kept small on purpose.** Every entry is a hand-made claim that has to be
+ * defended and cannot be measured, so the bar is: the rows tie all the way
+ * down, AND one of them is what a shopper typing the head phrase means. A row
+ * that merely deserves to rank higher is a job for a key that reads a fact, not
+ * for this list.
+ */
+export const CANONICAL_ROWS: ReadonlyMap<number, string> = new Map([
+  [
+    748967,
+    "the hen's egg, against four birds USDA named and one it filed by grade",
+  ],
+]);
+
 export interface RowRank {
+  /**
+   * 1 when this row is the one {@link CANONICAL_ROWS} names for its head, 0
+   * otherwise — and 0 for every row of every head the roster says nothing about,
+   * so the key ties uniformly and changes nothing outside the tie it was
+   * written for.
+   *
+   * **Below the two frecency keys and above everything else.** Below them
+   * because a food you actually eat outranks a food someone hand-picked: log
+   * duck eggs and duck leads, which is the whole point of #165. Above the rest
+   * because the tie it breaks runs through every remaining key — placed any
+   * lower it would be read only after `raw`, `head`, `position` and the others
+   * had already failed to separate the rows, which is the same position, and
+   * placed lower still it would sit under keys it is meant to overrule.
+   */
+  canonical: number;
   /**
    * 1 when USDA's own description of this record called it raw, 0 otherwise.
    *
@@ -1015,6 +1073,7 @@ export function plainSiblingsOf(descriptions: readonly string[]): boolean[] {
  */
 export function readRowRank(
   row: {
+    fdcId?: number;
     foodCategory?: string;
     plain_sibling?: boolean;
     raw?: boolean;
@@ -1024,6 +1083,7 @@ export function readRowRank(
   return {
     recent: frecency.recent,
     frequent: frecency.frequent,
+    canonical: CANONICAL_ROWS.has(row.fdcId ?? -1) ? 1 : 0,
     raw: row.raw ? 1 : 0,
     plainSibling: row.plain_sibling ? 0 : 1,
     designated: row.foodCategory === DESIGNATED_POPULATION_CATEGORY ? 0 : 1,

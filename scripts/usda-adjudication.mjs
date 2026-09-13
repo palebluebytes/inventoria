@@ -166,7 +166,20 @@ export function applyShippedNames(survivors, app) {
   const named = survivors.map((survivor) => {
     const entry = byId.get(survivor.food.fdcId);
     if (!entry) return survivor;
-    return { ...survivor, food: { ...survivor.food, description: entry[2] } };
+    // The published name joins `also`, exactly as a name the twin merge
+    // discarded does. A hand rename and a merge are the same event from a
+    // searcher's side — the row still exists and the words they know it by have
+    // stopped being its description — and this is what `also` is for.
+    //
+    // It is not optional politeness. `Eggs, Grade A, Large, egg whole` is what
+    // is printed on the box, and before this line ADR-0101's rename made a row
+    // unreachable by the only name a shopper has ever seen for it, silently and
+    // with every test still green but one.
+    return {
+      ...survivor,
+      food: { ...survivor.food, description: entry[2] },
+      also: [...(survivor.also ?? []), entry[1]],
+    };
   });
 
   const { renamed, dropped, fortification } = app.resolveShippedNames(

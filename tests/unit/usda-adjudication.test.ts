@@ -129,21 +129,46 @@ describe("applyVariantDrops — ADR-0061's variants of a food the corpus keeps",
 });
 
 describe("applyShippedNames — the hand-adjudicated names (ADR-0061 §5)", () => {
+  // Every entry has to be present, because the pass refuses a roster whose row
+  // the corpus dropped — so a case that varies ONE row supplies the rest intact.
+  const wholeRoster = () =>
+    ADJUDICATED_NAMES.map(([fdcId, published]) => survivor(fdcId, published));
+  /** The roster with one row's published description replaced. */
+  const rosterExcept = (fdcId: number, description: string) =>
+    wholeRoster().map((s) =>
+      s.food.fdcId === fdcId ? survivor(fdcId, description) : s
+    );
+
   it("ships the milk under the name a reader was given, not USDA's", () => {
-    const applied = applyShippedNames(
-      [survivor(171266, "Milk, producer, fluid, 3.7% milkfat")],
-      app
-    );
-    expect(applied.survivors[0].food.description).toBe(
-      "Milk, whole, 3.7% milkfat"
-    );
-    expect(applied.adjudicated).toBe(1);
+    const applied = applyShippedNames(wholeRoster(), app);
+    const shipped = (fdcId: number) =>
+      applied.survivors.find((s: Survivor) => s.food.fdcId === fdcId)?.food
+        .description;
+    expect(shipped(171266)).toBe("Milk, whole, 3.7% milkfat");
+    expect(applied.adjudicated).toBe(ADJUDICATED_NAMES.length);
+  });
+
+  it("names the bird on the eggs USDA filed by retail grade", () => {
+    // ADR-0101's amendment. The `, raw` is load-bearing and not decoration: the
+    // row's base-ingredient fact is read off the description at this point, and
+    // USDA never wrote the word on a graded egg — so without it a box of fresh
+    // eggs scores 0 where a drum of liquid egg scores 1. The strip takes the
+    // word out again before the name ships, which is what this asserts.
+    const applied = applyShippedNames(wholeRoster(), app);
+    const shipped = (fdcId: number) =>
+      applied.survivors.find((s: Survivor) => s.food.fdcId === fdcId)?.food
+        .description;
+    expect([shipped(748967), shipped(747997), shipped(748236)]).toEqual([
+      "Egg, chicken, whole, fresh",
+      "Egg, chicken, white, fresh",
+      "Egg, chicken, yolk, fresh",
+    ]);
   });
 
   it("refuses a corpus that has moved past the published name", () => {
     expect(() =>
       applyShippedNames(
-        [survivor(171266, "Milk, producer, fluid, 3.7 percent milkfat")],
+        rosterExcept(171266, "Milk, producer, fluid, 3.7 percent milkfat"),
         app
       )
     ).toThrow(/reached by reading the other name/);

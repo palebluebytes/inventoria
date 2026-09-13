@@ -299,14 +299,17 @@ describe("the bundled search index", () => {
     // pasteurized process, American` and its `food` sibling stop naming a
     // fortification and become the plain form of the `low fat` and
     // `vitamin D fortified` rows filed beneath them.
-    expect(index.foods.filter((row) => row.plain_sibling).length).toBe(427);
+    // 427 to 423 when `isReconstitutedDrink` took the eight made-up drink
+    // mixes: four of them were the plain sibling of nothing else, and a row
+    // whose only qualified twin has left stops being one.
+    expect(index.foods.filter((row) => row.plain_sibling).length).toBe(423);
     // Omitted rather than emitted false, like every other absent field.
     expect(index.foods.filter((row) => row.plain_sibling === false)).toEqual(
       []
     );
   });
 
-  it("holds 720 rows whose head phrase is a shelf label, under 18 labels", () => {
+  it("holds 571 rows whose head phrase is a shelf label, under 18 labels", () => {
     // ADR-0042's #154 Amendment, tripwired the way ADR-0055 §3 tripwired
     // `plainSibling`: the roster is hand-written, so a head phrase added or
     // misspelled shows up as a count here rather than as a quietly reordered
@@ -314,7 +317,10 @@ describe("the bundled search index", () => {
     const shelved = index.foods.filter(
       (row) => readReferenceFoodName(row.description).shelfLength > 0
     );
-    expect(shelved.length).toBe(578);
+    // 578 to 571: seven of the eight drinks the reconstituted-drink rule takes
+    // were filed under the `Beverages` shelf label, and the eighth under
+    // `Alcoholic beverage`.
+    expect(shelved.length).toBe(571);
     const labels = new Set(
       shelved.map((row) => qualifiersOf(row.description)[0])
     );
@@ -367,7 +373,7 @@ describe("the bundled search index", () => {
   });
 
   it("is the surviving reference foods, and says which archives it came from", () => {
-    expect(index.foods.length).toBe(2452);
+    expect(index.foods.length).toBe(2444);
     expect(index.generated_from.map((a) => a.dataset)).toEqual([
       "Foundation Foods",
       "SR Legacy",
@@ -383,11 +389,14 @@ describe("the bundled search index", () => {
     // What the alias loop is skipped for, which is the whole reason
     // `bestNameKey` costs nothing on most rows.
     expect(index.foods.filter((row) => !(row.also ?? []).length).length).toBe(
-      2383
+      2374
     );
     // And what `SEARCH_RESULT_LIMIT` is a ceiling ON. Measured after ADR-0062
     // §1, because that is the set the list would have to render.
-    expect(withoutStrayMentions(scoredFor("b")).length).toBe(734);
+    // 734 to 727: seven of the eight rows the reconstituted-drink rule takes
+    // are filed under a head phrase beginning with `b` — six `Beverages` and
+    // one `Alcoholic beverage`.
+    expect(withoutStrayMentions(scoredFor("b")).length).toBe(727);
   });
 
   // ── ADR-0048's invariant, over the artifact itself ────────────────────────
@@ -1395,7 +1404,10 @@ describe("searchIndexRows", () => {
         ])
       )
     ).toEqual({
-      milk: [34, 16],
+      // 34 to 30: four of the drink mixes `isReconstitutedDrink` takes named
+      // the milk they were made up with, and a row that MENTIONS milk was
+      // exactly what ADR-0062 §1 wanted off this list anyway.
+      milk: [30, 16],
       // `raw` reaches seven rows and `cooked` none: the corpus ships only
       // uncooked foods and the word has left every name that is not a
       // parenthetical - `Nuts, coconut cream, raw (liquid expressed from grated
@@ -1404,7 +1416,9 @@ describe("searchIndexRows", () => {
       raw: [6, 6],
       cooked: [0, 0],
       salt: [91, 1],
-      water: [39, 10],
+      // 39 to 35: the four remaining rows saying `prepared with water` were
+      // drink mixes, and `isReconstitutedDrink` took them.
+      water: [35, 10],
       oil: [102, 70],
     });
   });
@@ -2048,7 +2062,11 @@ describe("searchIndexRows", () => {
     // here at once.
     expect({ notFirst, gained, lost }).toEqual({
       notFirst: 21,
-      gained: 211,
+      // 211 to 209: two of the rows that had gained their lead were drink mixes
+      // the reconstituted-drink rule has since taken out of the corpus. A lead
+      // that leaves with its row is not a lead lost, which is why `lost` is
+      // still the invariant and still zero.
+      gained: 209,
       lost: 0,
     });
   }, 30_000);
@@ -2180,7 +2198,10 @@ describe("the twin merge's discarded names, as search aliases", () => {
       ["spinach mature", "Spinach, mature"],
       ["millet", "Millet, whole grain"],
       ["shiitake mushrooms", "Mushrooms, shiitake"],
-      ["grade a large egg whole", "Eggs, Grade A, Large, egg whole"],
+      // The alias outlives the rename, which is the point of asserting it here:
+      // ADR-0101's amendment ships this row as `Egg, chicken, whole, fresh`, and
+      // someone who knows it by USDA's grade still reaches it.
+      ["grade a large egg whole", "Egg, chicken, whole, fresh"],
       ["heavy whipping cream", "Cream, heavy"],
       ["sweet peppers green", "Peppers, bell, green"],
       ["pak-choi", "Cabbage, bok choy"],
@@ -2238,7 +2259,7 @@ describe("the twin merge's discarded names, as search aliases", () => {
     expect(descriptionsFor("table salt")[0]).toBe("Salt, table");
   });
 
-  it("carries an alias only where USDA held a second name for the food", () => {
+  it("carries an alias where a name was discarded, by a merge or by hand", () => {
     const aliased = index.foods.filter((food) => food.also);
 
     // 79, not #137's 87: an alias exists because a merge discarded a name, so
@@ -2248,7 +2269,16 @@ describe("the twin merge's discarded names, as search aliases", () => {
     // The eightieth left with ADR-0061's drops: `Buttermilk, low fat` answered
     // to `Milk, buttermilk, fluid, cultured, lowfat`, and both the row and the
     // name it carried are gone.
-    expect(aliased).toHaveLength(69);
+    // 70, and the seventieth is not a merge at all: ADR-0061 §5's milk rename
+    // now leaves `Milk, producer, fluid, 3.7% milkfat` behind as an alias, the
+    // same way a merge leaves the name it discarded. The three eggs ADR-0101
+    // renames were already aliased by their merge, so they add none.
+    //
+    // A hand rename and a merge are one event from a searcher's side, which is
+    // why this test no longer says "only where USDA held a second name": what
+    // mints an alias is a name this row answered to and no longer ships under,
+    // whoever discarded it.
+    expect(aliased).toHaveLength(70);
     // Never the row's own name back to it, and never a name it already reads as.
     for (const food of aliased)
       expect(food.also).not.toContain(food.description);
