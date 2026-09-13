@@ -44,7 +44,7 @@ const SOURCE_DIR = "src";
 const ALLOWED = [
   {
     file: "src/lib/logs/app-log.ts",
-    calls: 3,
+    calls: 4,
     why: "it IS the routing: one console method per level, ADR-0092 §5.3",
   },
   {
@@ -139,7 +139,7 @@ function main() {
       `\n  ERR a module calls the console without going through the facility:\n`,
       ...strays.map(([file, calls]) => `      ${file}: ${calls} call(s)`),
       ``,
-      `      Use appError / appWarn / appDebug from src/lib/logs/app-log.ts.`,
+      `      Use appError / appWarn / appInfo / appDebug from src/lib/logs/app-log.ts.`,
       `      They call the matching console method AND write a record, which is`,
       `      the whole of ADR-0092 §5.3: one call site, both outputs.`,
       ``,

@@ -61,8 +61,8 @@ denominator rather than its arithmetic.
 
 **It was taken over `console.*` alone.** The population is now every search session
 and every scan session as well. Across the three channels the levels are 20 ERROR,
-15 DEBUG and one WARN in `app`; two WARN outcomes, three INFO outcomes and a DEBUG
-field in `search`; one ERROR, two WARN and two INFO in `scan`. Severity separates
+15 DEBUG, one WARN and one INFO in `app`; two WARN outcomes, three INFO outcomes and a
+DEBUG field in `search`; one ERROR, two WARN and two INFO in `scan`. Severity separates
 those. It also does the job a channel cannot do: it decides **what is captured** at a
 given dial position, and therefore what a channel costs at each one.
 

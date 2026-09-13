@@ -235,6 +235,31 @@ export function appWarn(msg: string, err?: unknown): void {
 }
 
 /**
+ * The app did something the user asked for and cannot otherwise see a record of
+ * (ADR-0092 §5, INFO 9).
+ *
+ * **One site, and it is a deletion.** The jar-wide wipe drops the whole
+ * `datoms` table, so every ledger-side trace of it is destroyed by the act that
+ * would have written one; the log lives in `localStorage`, which that wipe does
+ * not touch, so this is the only place the act can leave a mark. A person who
+ * later asks where everything went has an answer.
+ *
+ * **INFO rather than DEBUG, because DEBUG is not recorded by default.** The
+ * dial's default position is `Normal`, whose threshold *is* INFO
+ * (`DEFAULT_DIAL_POSITION` in `log-facility.ts`), so a wipe logged at DEBUG
+ * would print and never be kept — coverage that looks like coverage and is
+ * not. And not WARN:
+ * the three sites there all say *the app is running in a shape you did not ask
+ * for*, and a wipe the user confirmed is the opposite of that.
+ *
+ * It takes no error, for {@link appDebug}'s reason: a site with a failure to
+ * report belongs at one of the two levels above.
+ */
+export function appInfo(msg: string): void {
+  write(SEVERITY.INFO, console.info, msg);
+}
+
+/**
  * The app's internal trace (ADR-0092 §5, DEBUG 5).
  *
  * Takes no error: a boot line narrates something that worked, and a site with an
