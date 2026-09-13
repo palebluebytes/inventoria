@@ -606,14 +606,22 @@ export const ENTITY_PREFIXES = TRACKED_DOMAINS.flatMap((d) => d.entityPrefixes);
 export type TrackedDomainId = (typeof TRACKED_DOMAINS)[number]["id"];
 
 /**
- * The id of a **content domain**: a Tracked Domain that records a kind of thing
- * the user tracks, carries a screen and sits in a Facet. `CONTEXT.md` carries
- * the term. Today it is the six, and not the Jar domain.
+ * A **content domain**: a Tracked Domain that records a kind of thing the user
+ * tracks, carries a screen and sits in a Facet. `CONTEXT.md` carries the term.
+ * Today it is the six, and not the Jar domain.
  *
  * Derived from `views` rather than from any Facet's list, and the two agree
  * because `scripts/entity-ownership-check.mjs` holds them to the biconditional:
  * a domain with views is declared by at least one Facet, and a domain with no
  * views is declared by none (ADR-0096 §13).
+ */
+export type ContentDomain = Extract<
+  (typeof TRACKED_DOMAINS)[number],
+  { views: readonly [unknown, ...unknown[]] }
+>;
+
+/**
+ * A {@link ContentDomain}'s id, as a literal union.
  *
  * It exists for anything whose meaning is *the Facets this belongs to*, where
  * naming a domain no Facet holds is not a narrower answer but an empty one. A
@@ -624,10 +632,21 @@ export type TrackedDomainId = (typeof TRACKED_DOMAINS)[number]["id"];
  * the way to say *jar-wide*, and it is a different statement from naming an
  * owner nobody can reach.
  */
-export type ContentDomainId = Extract<
-  (typeof TRACKED_DOMAINS)[number],
-  { views: readonly [unknown, ...unknown[]] }
->["id"];
+export type ContentDomainId = ContentDomain["id"];
+
+/**
+ * The content domains themselves, in roster order — {@link ContentDomainId}'s
+ * value, read off the same field so the type and the list cannot name
+ * different sets.
+ *
+ * It exists for the readers that need each domain's **prefixes** rather than
+ * only its id: the version vector has one axis per content domain and none for
+ * the Jar domain (ADR-0103 §5), and it builds both the query that computes a
+ * vector and the `WHERE` that filters by one out of what each domain owns.
+ */
+export const CONTENT_DOMAINS: readonly ContentDomain[] = TRACKED_DOMAINS.filter(
+  (domain): domain is ContentDomain => domain.views.length > 0
+);
 
 /**
  * A prefix the app is allowed to mint. The union is what makes an undeclared
