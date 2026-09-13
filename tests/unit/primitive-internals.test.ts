@@ -48,9 +48,21 @@
  */
 import { describe, expect, it } from "vitest";
 import { elementsOf, trackedSvelteFiles } from "./support/markup";
+import { appSheet, classNamesIn } from "./support/stylesheet";
 import { MEMBERS, NOT_MEMBERS, uiFolderFiles } from "./support/ui-roster";
 
 const FILES = trackedSvelteFiles();
+
+/**
+ * A name declared in `src/app.css` is **shared by construction** and owned by
+ * nobody, so wearing one is never this defect. `.field-caption` is the live
+ * case: `ui/FieldCaption` wears it on the `<label for>` it owns, and so do the
+ * three captions that name a *group* rather than a control and therefore cannot
+ * be a label — `ui/Segmented`, `ui/ToggleGroup` and, in `ReportsPage`, bits-ui's
+ * `DateRangePicker.Label`. That is ADR-0100 §4's ladder returning "a class", and
+ * it is the one form of sharing that is meant to travel by name.
+ */
+const SHARED = classNamesIn(appSheet());
 
 /** Every class name a rostered member unconditionally puts on a plain element
  *  of its own, with the members that put it there. A name on a component tag
@@ -60,6 +72,7 @@ for (const file of MEMBERS) {
   for (const el of elementsOf(file)) {
     if (el.tag.startsWith("#") || el.tag.includes(".")) continue;
     for (const name of el.classes) {
+      if (SHARED.has(name)) continue;
       OWNED.set(name, [...new Set([...(OWNED.get(name) ?? []), file])]);
     }
   }
@@ -108,6 +121,14 @@ describe("a ui/ primitive's internal class names", () => {
     for (const name of ["dock-input", "method", "on", "primary"]) {
       expect(OWNED.has(name)).toBe(false);
     }
+  });
+
+  it("credits a shared class to nobody either", () => {
+    // The other half of that job: `.field-caption` is declared in `app.css` for
+    // two populations that share a look and cannot share an element, so four
+    // files wear it deliberately (#383).
+    expect(SHARED.has("field-caption")).toBe(true);
+    expect(OWNED.has("field-caption")).toBe(false);
   });
 
   it("finds the names it is about, so an empty sweep cannot pass", () => {

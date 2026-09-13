@@ -1,6 +1,7 @@
 <script lang="ts">
   import { untrack } from "svelte";
   import BottomSheet from "../../ui/BottomSheet.svelte";
+  import FieldCaption from "../../ui/FieldCaption.svelte";
   import Segmented from "../../ui/Segmented.svelte";
   import {
     computeEnergyAndMacros,
@@ -214,21 +215,22 @@
 
     <!-- Metric only (kg/cm): Mifflin-St Jeor is natively metric (ADR-0033 §1). -->
     <div class="metrics">
-      <label class="field">
-        <span class="field-label">Age</span>
+      <div class="field">
+        <FieldCaption for="calc-age">Age</FieldCaption>
         <input
           type="number"
           class="num"
           min="0"
           step="1"
           inputmode="numeric"
+          id="calc-age"
           data-field="age"
           placeholder="years"
           bind:value={ageRaw}
         />
-      </label>
-      <label class="field">
-        <span class="field-label">Height</span>
+      </div>
+      <div class="field">
+        <FieldCaption for="calc-height">Height</FieldCaption>
         <span class="num-with-unit">
           <input
             type="number"
@@ -236,15 +238,16 @@
             min="0"
             step="any"
             inputmode="decimal"
+            id="calc-height"
             data-field="height"
             placeholder="cm"
             bind:value={heightRaw}
           />
           <span class="unit">cm</span>
         </span>
-      </label>
-      <label class="field">
-        <span class="field-label">Weight</span>
+      </div>
+      <div class="field">
+        <FieldCaption for="calc-weight">Weight</FieldCaption>
         <span class="num-with-unit">
           <input
             type="number"
@@ -252,13 +255,14 @@
             min="0"
             step="any"
             inputmode="decimal"
+            id="calc-weight"
             data-field="weight"
             placeholder="kg"
             bind:value={weightRaw}
           />
           <span class="unit">kg</span>
         </span>
-      </label>
+      </div>
     </div>
 
     <!-- Four-way IOM PAL activity picker + a one-sentence explanation. -->
@@ -324,7 +328,7 @@
 
         <!-- Manual nudge on the final calorie number. -->
         <div class="nudge">
-          <label class="nudge-label" for="calc-nudge">Adjust calories</label>
+          <FieldCaption for="calc-nudge">Adjust calories</FieldCaption>
           <span class="num-with-unit">
             <input
               id="calc-nudge"
@@ -382,20 +386,16 @@
     font-size: var(--step-n1);
   }
 
+  /* A `<div>` since #383, not a `<label>`: the caption inside it is a real
+     `<label for>` now, and a label inside a label is not markup. */
   .field {
-    display: block;
     margin: 0 0 var(--space-m);
-    padding: 0;
-    border: none;
   }
-  .field-label {
-    display: block;
-    padding: 0;
-    margin: 0 0 var(--space-2xs);
-    font-size: var(--step-n1);
-    font-weight: 800;
-    text-transform: uppercase;
-    color: var(--ink);
+  /* The caption is `ui/FieldCaption`; this is the distance under it, which is
+     placement and so stays here (#383). */
+  .field :global(.field-caption),
+  .nudge :global(.field-caption) {
+    margin-bottom: var(--space-2xs);
   }
 
   .hint {
@@ -432,8 +432,11 @@
   .num {
     width: 100%;
     min-width: 0;
-    /* The field is the target — its `<label class="field">` wraps the caption
-       too, so the label's box is the pair rather than this one (ADR-0093). */
+    /* The input is the target, and takes the floor itself. It used to sit
+       inside a `<label class="field">` that wrapped the caption with it, so the
+       pair was one box; #383 made the caption its own `<label for>` and the
+       wrapper a `<div>`, which leaves this the smallest box accepting the tap
+       (ADR-0093). The line below was already here, so the floor did not move. */
     min-height: var(--tap-min);
     padding: var(--space-2xs) var(--space-xs);
     font-family: var(--font-mono);
@@ -518,12 +521,6 @@
     margin-top: var(--space-m);
     padding-top: var(--space-s);
     border-top: var(--edge);
-  }
-  .nudge-label {
-    font-size: var(--step-n1);
-    font-weight: 800;
-    text-transform: uppercase;
-    color: var(--ink);
   }
   .nudge .num {
     width: 6rem;

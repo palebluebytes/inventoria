@@ -679,6 +679,30 @@ control, so bits-ui has nothing to add here. A name is not optional, and the row
 typography is the caller's `class`. See ADR-0068.
 _Avoid_: Toggle, tick box, a second checkbox skin
 
+**FieldCaption**:
+The line that names the control under it (`ui/FieldCaption.svelte`): a real `<label>`
+and the `for` that binds it, which is what no class can carry and why this is a
+component rather than a rule (ADR-0100 §4). Its look — `--step-n1`, weight 800,
+uppercase, ink — is `.field-caption` in `src/app.css`, declared there because a caption
+over a **group** cannot be a `<label for>` at all: a radio row, a toggle row and a
+segmented date range have no one labelable control, so `ui/Segmented`, `ui/ToggleGroup`
+and bits-ui's `DateRangePicker.Label` name theirs with a `<span id>` and
+`aria-labelledby` and reach the same class. `for` is required and takes no fallback.
+The **gap under it is the caller's**, not the primitive's, because eight of the sites
+sit in a flex column that already gaps them. There are **no variants**: `MediaEngagementModal`'s
+mono ink chip was the one caller that wanted one and converged instead, since a branch
+serving one caller is the sentence ADR-0040 refused `Chip` with. Seventeen rules in
+eight settings went at #383, two of them outside the type scale and two not uppercase.
+`tests/unit/field-caption.test.ts` holds both halves at zero: every `<label for>` in
+`src/` is this component's, and no rule outside `app.css` redeclares the look.
+See ADR-0100 and ADR-0095 §3.
+_Avoid_: Label, FormLabel, field label, a second caption skin, and the eight it
+replaced — `.form-group label` (×4), `.field-label` (two files, two elements),
+`.nudge-label`, `.fl`, `.kcal-label` / `.mini-flabel`, `.cf-lbl`, `.cf-reason-code`'s
+type, `.cf-pack > span` and `ReadPairingCode`'s `.label`. A `<label>` that **wraps**
+its control is a different device and stays one: there the label is the tap target
+(`ui/Checkbox`, `AmountField`, `NutrientCard`).
+
 **Input**:
 The one single-line field (`ui/Input.svelte`): a native `<input>` in a wrapper, wearing
 the house field skin, with `--tap-min` declared rather than arrived at by arithmetic.

@@ -18,6 +18,7 @@
   import IngredientAmountSheet from "./IngredientAmountSheet.svelte";
   import FoodItemRow from "./FoodItemRow.svelte";
   import NutrientPreview from "./NutrientPreview.svelte";
+  import FieldCaption from "../../ui/FieldCaption.svelte";
 
   // The shared ingredient-list surface behind both the recipe builder
   // (Consolidate/Define) and the instantiation editor (Instantiate/Correct):
@@ -144,7 +145,7 @@
      repeating a kcal/protein headline here only invited the eye to check one
      against the other. -->
 <div class="ing-head">
-  <span class="fl">Ingredients ({ingredients.length})</span>
+  <span class="section-head">Ingredients ({ingredients.length})</span>
 </div>
 <ul class="ings">
   {#each ingredients as ing, i (ing.entity)}
@@ -188,7 +189,7 @@
      ingredient by hand was only ever a way of saying it. -->
 <div class="yield-row">
   {#if servingsMode === "makes"}
-    <label class="fl" for="recipe-yield">Makes (servings)</label>
+    <FieldCaption for="recipe-yield">Makes (servings)</FieldCaption>
     <input
       id="recipe-yield"
       class="tin yield-in"
@@ -198,7 +199,7 @@
       bind:value={recipeYield}
     />
   {:else}
-    <label class="fl" for="recipe-servings">Servings</label>
+    <FieldCaption for="recipe-servings">Servings</FieldCaption>
     <input
       id="recipe-servings"
       class="tin yield-in"
@@ -217,7 +218,7 @@
      than read off a source panel, but there is no reason to read them
      differently — the old three-macro pill row showed strictly less. -->
 <div class="recipe-figures" data-testid="recipe-figures">
-  <span class="fl">{figuresLabel}</span>
+  <span class="section-head">{figuresLabel}</span>
   <NutrientPreview
     breakdown={visibleTotal}
     testid="recipe-nutrient-breakdown"
@@ -245,18 +246,17 @@
 {/if}
 
 <style>
-  .fl {
+  /* Not a caption and out of #383's reach set: these two name a *section* —
+     the ingredient list, and the figures under it — rather than a control, so
+     there is nothing for a `for` to point at. They keep the type they had. */
+  .section-head {
     display: block;
     font-size: var(--step-n2);
     font-weight: 700;
     text-transform: uppercase;
-    margin: var(--space-s) 0 var(--space-3xs);
   }
   .ing-head {
     margin-top: var(--space-m);
-  }
-  .ing-head .fl {
-    margin: 0;
   }
   .ings {
     list-style: none;
@@ -298,7 +298,7 @@
     gap: var(--space-s);
     margin-top: var(--space-m);
   }
-  .yield-row .fl {
+  .yield-row :global(.field-caption) {
     margin: 0;
   }
   /* Sized for what it holds — a serving count is one or two digits, so the field
@@ -316,7 +316,7 @@
   .recipe-figures {
     margin-top: var(--space-s);
   }
-  .recipe-figures .fl {
+  .recipe-figures .section-head {
     margin: 0 0 var(--space-2xs);
   }
 </style>

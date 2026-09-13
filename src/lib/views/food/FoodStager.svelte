@@ -111,6 +111,7 @@
   import Alert from "../../ui/Alert.svelte";
   import Button from "../../ui/Button.svelte";
   import Checkbox from "../../ui/Checkbox.svelte";
+  import FieldCaption from "../../ui/FieldCaption.svelte";
   import Input from "../../ui/Input.svelte";
   import Textarea from "../../ui/Textarea.svelte";
   import Segmented from "../../ui/Segmented.svelte";
@@ -2408,16 +2409,18 @@
                     <div class="cf-reason" data-testid="capture-reason">
                       <p>{CAPTURE_COPY[captureReason]}</p>
                       {#if captureReason === "unreadable"}
-                        <label class="cf-reason-code">
-                          <span>Barcode digits (optional)</span>
+                        <div class="cf-reason-code">
+                          <FieldCaption for="cf-barcode-digits">
+                            Barcode digits (optional)
+                          </FieldCaption>
                           <input
+                            id="cf-barcode-digits"
                             type="text"
                             inputmode="numeric"
                             placeholder="e.g. 8901222932167"
-                            aria-label="Barcode digits"
                             bind:value={barcode}
                           />
-                        </label>
+                        </div>
                       {/if}
                     </div>
                   {/if}
@@ -2539,8 +2542,8 @@
                   </div>
 
                   <div class="cf-basis">
-                    <label class="cf-pack">
-                      <span>Pack size</span>
+                    <div class="cf-pack">
+                      <FieldCaption for="cf-pack-size">Pack size</FieldCaption>
                       <input
                         id="cf-pack-size"
                         type="text"
@@ -2563,7 +2566,7 @@
                           testid="cf-basis"
                         />
                       </span>
-                    </label>
+                    </div>
                     <!-- What the figures below therefore mean. Stated rather
                     than asked a second time. -->
                     <p class="cf-basis-derived" data-testid="cf-basis-derived">
@@ -2604,10 +2607,12 @@
                           class:skip={skipped.has(f.key)}
                           class:unverified={prefilled.has(f.key)}
                         >
-                          <label
+                          <FieldCaption
                             class="cf-lbl"
-                            for={idFor[f.key] ?? `cf-${f.key}`}>{f.label}</label
+                            for={idFor[f.key] ?? `cf-${f.key}`}
                           >
+                            {f.label}
+                          </FieldCaption>
                           <div class="cf-ctl">
                             <input
                               id={idFor[f.key] ?? `cf-${f.key}`}
@@ -3183,27 +3188,21 @@
     font-size: 0.85rem;
     color: var(--text-primary);
   }
+  /* A `<div>` since #383, not a `<label>`: its caption is `ui/FieldCaption`
+     now, which is a real `<label for>` and cannot be nested inside another.
+     What is left here is the column and its gap, which is placement. */
   .cf-reason-code {
     display: flex;
     flex-direction: column;
     gap: var(--space-3xs);
     margin-top: var(--space-xs);
-    font-size: 0.75rem;
-    font-weight: 700;
-    color: var(--text-secondary);
-    text-transform: uppercase;
-    letter-spacing: 0.03em;
   }
   .cf-reason-code input {
-    font: inherit;
     background: var(--paper);
     border: 1px solid var(--border);
     border-radius: var(--radius);
     padding: 0.5rem 0.6rem;
     color: var(--text-primary);
-    text-transform: none;
-    letter-spacing: normal;
-    font-weight: 400;
   }
 
   /* OFF reference-photo strip (§8) — a read-only aid, visually distinct from the
@@ -3362,13 +3361,11 @@
     align-items: center;
     gap: 0.35rem;
   }
-  /* Reads as one of the transcription rows below it, because that is what it is:
-     a value off the packet. It matched the muted hint text instead, which sized
-     it out of the form it belongs to. */
-  .cf-pack > span {
-    font-size: 0.92rem;
-    font-weight: 700;
-  }
+  /* Reads as one of the transcription rows below it, because that is what it
+     is: a value off the packet. It matched the muted hint text instead, which
+     sized it out of the form it belongs to. It is `ui/FieldCaption` since #383,
+     which is what those rows are too, so the two now agree by reference rather
+     than by two hand-set sizes that happened to match. */
   .cf-pack input {
     width: 5rem;
     text-align: right;
@@ -3450,8 +3447,9 @@
     border-bottom: 1px solid var(--border);
     border-radius: var(--radius);
   }
-  .cf-lbl {
-    font-size: 0.92rem;
+  /* The caption is `ui/FieldCaption`; this is the one line a grid cell needs
+     so a long nutrient name can shrink rather than widen its column. */
+  .cf-row :global(.cf-lbl) {
     min-width: 0;
   }
   .cf-ctl {

@@ -344,3 +344,45 @@ body {
     max-width: var(--measure);
   }
 }
+
+/* ── The caption over a control ──────────────────────────────────────────────
+ * The look `ui/FieldCaption` draws, declared once for the two kinds of site
+ * that draw it (#383, ADR-0100).
+ *
+ * **Here rather than inside the primitive, because two populations share the
+ * look and only one of them can take the element.** A caption over a single
+ * control is a `<label for>`, and that is the component's — ADR-0100 §4, since
+ * an element and an association are not declarations. A caption over a *group*
+ * cannot be: a radio row, a toggle row and a segmented date range have no one
+ * labelable control between them, so `ui/Segmented`, `ui/ToggleGroup` and
+ * bits-ui's `DateRangePicker.Label` each name their group with a `<span id>`
+ * and `aria-labelledby`. Those three shared only declarations with the other
+ * thirteen, and ADR-0100 §4's ladder says declarations alone may be a shared
+ * class.
+ *
+ * They were three byte-identical copies of the six lines below, and they are
+ * the reason 800 won: `.segmented-label` and `.togglegroup-label` are the only
+ * settings in the app that were ever reached by reference, and `ReportsPage`
+ * reached for the same numbers unprompted months later with no primitive to
+ * copy (#346). Seven settings across fifteen rules disagreed; these three did
+ * not.
+ *
+ * A caller's own rule beats this one without `!important` and without
+ * thinking about it: Svelte scopes a component's `.x` to 0,2,0 against this
+ * 0,1,0, which is what makes placement the caller's and the look nobody's but
+ * this rule's. `tests/unit/field-caption.test.ts` holds the population at
+ * zero, so a sixteenth caption cannot re-declare the look somewhere else.
+ *
+ * **The gap under a caption is not here, and the three copies did carry one.**
+ * Eight of the fifteen sites sit in a flex column that already gaps them, so a
+ * `margin-bottom` in this rule would be a line seven callers then had to undo
+ * through `:global` — a caller's rule cannot reach a class it hands a component
+ * any other way. Distance is placement, and placement is the caller's; what
+ * wants a margin says so where it is drawn. */
+.field-caption {
+  display: block;
+  font-size: var(--step-n1);
+  font-weight: 800;
+  text-transform: uppercase;
+  color: var(--ink);
+}

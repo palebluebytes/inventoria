@@ -17,6 +17,7 @@
   import { sanitizeYield } from "../../food/recipe-nutrition";
   import { Accordion } from "bits-ui";
   import Alert from "../../ui/Alert.svelte";
+  import FieldCaption from "../../ui/FieldCaption.svelte";
   import Textarea from "../../ui/Textarea.svelte";
   import IngredientListEditor from "./IngredientListEditor.svelte";
 
@@ -291,13 +292,15 @@
 {#if !ready}
   <p class="loading">Loading recipe…</p>
 {:else}
-  <label class="fl" for="recipe-name">Name</label>
-  <input
-    id="recipe-name"
-    class="tin big"
-    placeholder="e.g. Overnight oats"
-    bind:value={recipeName}
-  />
+  <div class="name-field">
+    <FieldCaption for="recipe-name">Name</FieldCaption>
+    <input
+      id="recipe-name"
+      class="tin big"
+      placeholder="e.g. Overnight oats"
+      bind:value={recipeName}
+    />
+  </div>
 
   <IngredientListEditor bind:ingredients bind:recipeYield />
 
@@ -417,11 +420,12 @@
     padding: var(--space-l) 0;
     text-align: center;
   }
-  .fl {
-    display: block;
-    font-size: var(--step-n2);
-    font-weight: 700;
-    text-transform: uppercase;
+  /* The caption's distance from what is above it and from its own field —
+     placement, so it stays here while the look comes from `ui/FieldCaption`
+     (#383). The wrapper exists to be the scoped ancestor: a class handed to a
+     component carries no scoping hash, so a rule reaching one has to go
+     through `:global` under a box this file does own. */
+  .name-field :global(.field-caption) {
     margin: var(--space-s) 0 var(--space-3xs);
   }
   .tin {

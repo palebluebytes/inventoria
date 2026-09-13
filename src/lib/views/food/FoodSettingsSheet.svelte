@@ -6,6 +6,7 @@
   import { secretsStore, setSecret } from "../../stores/secrets";
   import BottomSheet from "../../ui/BottomSheet.svelte";
   import Checkbox from "../../ui/Checkbox.svelte";
+  import FieldCaption from "../../ui/FieldCaption.svelte";
   import Input from "../../ui/Input.svelte";
   import NutritionTargetEditor from "./NutritionTargetEditor.svelte";
   import FoodDataSection from "./FoodDataSection.svelte";
@@ -154,7 +155,9 @@
     <h2>Food Data Sources</h2>
     <div class="settings-form mt-4">
       <div class="form-group">
-        <label for="food-off-user-id">Open Food Facts Username</label>
+        <FieldCaption for="food-off-user-id"
+          >Open Food Facts Username</FieldCaption
+        >
         <Input
           id="food-off-user-id"
           type="text"
@@ -170,7 +173,9 @@
       </div>
 
       <div class="form-group">
-        <label for="food-off-password">Open Food Facts Password</label>
+        <FieldCaption for="food-off-password"
+          >Open Food Facts Password</FieldCaption
+        >
         <div class="secret-field">
           <Input
             id="food-off-password"
@@ -280,11 +285,6 @@
     display: flex;
     flex-direction: column;
     gap: var(--space-3xs);
-  }
-  .form-group label {
-    font-weight: 700;
-    font-size: var(--step-n1);
-    text-transform: uppercase;
   }
   /* Both fields are `ui/Input` (#375). Rations wore a skin invented in the media
      views and copied here, which is the crossing that ticket was written for;

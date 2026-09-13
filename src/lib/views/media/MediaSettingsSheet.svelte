@@ -3,6 +3,7 @@
   import { get } from "svelte/store";
   import { onDestroy } from "svelte";
   import BottomSheet from "../../ui/BottomSheet.svelte";
+  import FieldCaption from "../../ui/FieldCaption.svelte";
   import Input from "../../ui/Input.svelte";
 
   // **Media settings** (ADR-0080 §4): a setting lives beside the thing it
@@ -54,7 +55,7 @@
 <BottomSheet isOpen title="Media settings" {onClose}>
   <div class="settings-form">
     <div class="form-group">
-      <label for="tmdb-api-key">TMDB API Key</label>
+      <FieldCaption for="tmdb-api-key">TMDB API Key</FieldCaption>
       <div class="secret-field">
         <Input
           id="tmdb-api-key"
@@ -116,11 +117,6 @@
     display: flex;
     flex-direction: column;
     gap: var(--space-3xs);
-  }
-  .form-group label {
-    font-weight: 700;
-    font-size: var(--step-n1);
-    text-transform: uppercase;
   }
   /* The field is `ui/Input` (#375) and says nothing about its own look. This
      wrapper exists for the reveal toggle alone: it is the box that button is

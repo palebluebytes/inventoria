@@ -4,7 +4,7 @@
 **Date:** 2026-09-13  
 **Amends:** [ADR-0040](0040-no-monolithic-chip-vocabulary.md) — its deletion test is generalised out of the chip space, and its bespoke remainder is re-derived rather than carried  
 **Amends:** [ADR-0098](0098-a-tap-floor-binds-every-control-not-every-field.md) — the prediction in its Consequences that the mark/target duplication needs a new primitive is withdrawn; §3 stands  
-**Implemented:** nothing yet. The four tickets this record decides are #383 (required), #384 (earned), #316 (earned) and #390 (refused, and becomes an adoption)
+**Implemented:** `src/lib/ui/FieldCaption.svelte` and `.field-caption` in `src/app.css` (#383); the roster a gate reads is `tests/unit/support/ui-roster.ts`. The four tickets this record decides are #383 (filed as required — see the Amendment below, which downgrades it to earned), #384 (earned), #316 (earned) and #390 (refused, and becomes an adoption)
 
 ## Context
 
@@ -281,3 +281,57 @@ clause put there to reproduce the `Chip` verdict.
   ADR-0040's deletion test out of the chip space and amends its remainder;
   withdraws the prediction in ADR-0098's Consequences that the mark/target
   duplication needs a new primitive, while leaving its §3 standing.
+
+## Amendment (2026-09-13, #383): §5's worked case is not a defect, and the census it rests on was short twice
+
+**§5's example is refuted on the markup.** This record says of #383's reach set
+that _"`CalorieCalculatorSheet`'s `.field-label` is `<span>Age</span>` over a
+number input — no `for`, no association"_, and calls that _"a broken control,
+not an inconsistent one"_. Read at `6a456151`, the three sites are:
+
+```svelte
+<label class="field">
+  <span class="field-label">Age</span>
+  <input type="number" class="num" … />
+</label>
+```
+
+The label **wraps** its control, which is an association the platform supplies
+and assistive technology honours. The same is true of the file's two other
+metrics fields, and of `FoodStager`'s `.cf-reason-code`. So there was no
+accessibility defect at any of them, the `<span>`/`<label>` split the re-measure
+found was a difference in _how_ the association was written rather than whether
+it existed, and **#383 was earned rather than required**. The work is unchanged:
+Trigger A was met eight settings over, and §5 governs the discretion, not the
+trigger.
+
+What the claim was reaching for survives in a weaker form and is worth keeping:
+an implicit association cannot be seen by a sweep, cannot be pointed at from
+another element, and breaks silently the moment somebody moves the caption out
+of the wrapper. Explicit is better, and the port made all seventeen explicit.
+But that is a preference, not a bug, and this record should not have been
+written as though a control were broken without opening the file.
+
+**The census was short twice, not once.** #383's body found ten sites, its
+re-measure found six more and called the total fifteen rules in seven settings.
+Implementing it found two that neither pass had: `FoodStager`'s `.cf-pack > span`
+and `ReadPairingCode`'s `.label` — the latter an eighth setting. Both were
+invisible for one reason, and it is a reason worth stating because §8 asks every
+member for a census: a caption written as a `<span>` **inside a wrapping
+`<label>`** defeats a sweep keyed on rules reaching a label, because what the
+rule reaches is the wrapper and not the text. The census that shipped
+(`tests/unit/field-caption.test.ts`) therefore asks two questions, not one — is
+every `<label for>` the primitive's, and does any rule outside `app.css`
+redeclare the look — and the first only became answerable once the port had
+emptied the population.
+
+**§4's ladder returned "a class" as well as "a component", and both were
+needed.** The shared thing across thirteen sites is an element and its `for`, so
+those are the component. Three more captions name a **group** — `ui/Segmented`,
+`ui/ToggleGroup` and, in `ReportsPage`, bits-ui's `DateRangePicker.Label` — and a
+group of radio cells or date segments has no one labelable control to point a
+`for` at, so each draws a `<span id>` reached by `aria-labelledby`. Those three
+shared declarations only, which is §4's other rung, and they were three
+byte-identical copies of the look. Declaring it once in `src/app.css` is what
+lets the census assert a single declaration; leaving it inside the component
+would have left four copies of the thing ADR-0095 §1 exists to stop.

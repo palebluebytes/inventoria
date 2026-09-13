@@ -3,6 +3,7 @@
   import { habitsStore, type HabitLineage } from "../../stores/habits.store";
   import type { ScheduleRule } from "../../habits/habits";
   import Card from "../../ui/Card.svelte";
+  import FieldCaption from "../../ui/FieldCaption.svelte";
   import Input from "../../ui/Input.svelte";
   import Select from "../../ui/Select.svelte";
   import Textarea from "../../ui/Textarea.svelte";
@@ -163,7 +164,7 @@
         <div class="row-group">
           <!-- Logging Status Selector -->
           <div class="col-group">
-            <label for="log-status-val" class="field-label">Log Status</label>
+            <FieldCaption for="log-status-val">Log Status</FieldCaption>
             <Select
               id="log-status-val"
               bind:value={logStatusValue}
@@ -177,7 +178,7 @@
           <!-- Optional Subtarget Selector -->
           {#if lineage.head.schedule_rules?.type === "daily_multiple" && lineage.head.schedule_rules.targets}
             <div class="col-group">
-              <label for="log-target" class="field-label">Target Area</label>
+              <FieldCaption for="log-target">Target Area</FieldCaption>
               <Select
                 id="log-target"
                 bind:value={logTargetId}
@@ -195,7 +196,7 @@
           {/if}
         </div>
 
-        <label for="log-note" class="field-label">Qualitative Notes</label>
+        <FieldCaption for="log-note">Qualitative Notes</FieldCaption>
         <Textarea
           id="log-note"
           placeholder="How did it feel? (optional)"
@@ -204,7 +205,7 @@
 
         <div class="row-group">
           <div class="col-group">
-            <label for="log-difficulty" class="field-label">Difficulty</label>
+            <FieldCaption for="log-difficulty">Difficulty</FieldCaption>
             <Select
               id="log-difficulty"
               bind:value={logDifficulty}
@@ -217,8 +218,7 @@
           </div>
 
           <div class="col-group">
-            <label for="log-duration" class="field-label">Duration (mins)</label
-            >
+            <FieldCaption for="log-duration">Duration (mins)</FieldCaption>
             <Input
               id="log-duration"
               type="number"
@@ -253,12 +253,12 @@
         Editing chains a new blueprint version to preserve history.
       </p>
       <div class="form-group">
-        <label for="edit-name" class="field-label">Habit Name</label>
+        <FieldCaption for="edit-name">Habit Name</FieldCaption>
         <Input id="edit-name" placeholder="Name" bind:value={habitName} />
 
         <div class="row-group">
           <div class="col-group">
-            <label for="edit-category" class="field-label">Category</label>
+            <FieldCaption for="edit-category">Category</FieldCaption>
             <Select
               id="edit-category"
               bind:value={habitCategory}
@@ -276,9 +276,9 @@
         <!-- Schedule -->
         <ScheduleRuleEditor bind:value={editScheduleRule} />
 
-        <label for="edit-instrument" class="field-label"
-          >Instrument ID (optional)</label
-        >
+        <FieldCaption for="edit-instrument">
+          Instrument ID (optional)
+        </FieldCaption>
         <Input
           id="edit-instrument"
           placeholder="twin:kettlebell_16kg"
@@ -325,14 +325,6 @@
     display: flex;
     flex-direction: column;
     gap: var(--space-s);
-  }
-  .field-label {
-    font-size: var(--step-n2);
-    font-weight: 600;
-    color: var(--text-primary);
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    margin-bottom: calc(var(--space-3xs) * -1);
   }
   .row-group {
     display: flex;
