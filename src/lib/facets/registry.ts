@@ -698,7 +698,27 @@ export function domainsOf(facetId: string): TrackedDomain[] {
 
 /** The entity prefixes a Facet owns: the union of its domains'. */
 export function entityPrefixesOf(facetId: string): string[] {
-  return domainsOf(facetId).flatMap((d) => [...d.entityPrefixes]);
+  return entityPrefixesOfDomains(domainsOf(facetId).map((d) => d.id));
+}
+
+/**
+ * The entity prefixes a set of Tracked Domains owns, named by id.
+ *
+ * The same derivation {@link entityPrefixesOf} reads through a Facet's own
+ * list, reached directly by the one caller whose domains are not a Facet's: a
+ * lane's scope is the **intersection** of two Facets' domain sets (ADR-0103
+ * §3), so it can be narrower than either Facet and there is no `facetId` to
+ * ask. One function is what keeps a wipe's predicate and a lane's from being
+ * two lists of the same thing (ADR-0079 §3).
+ *
+ * **A domain id this build does not know contributes nothing**, which is how a
+ * scope stated by a device on a later build is inert rather than refused: no
+ * row here can belong to a domain that is not on this roster.
+ */
+export function entityPrefixesOfDomains(ids: readonly string[]): string[] {
+  return TRACKED_DOMAINS.filter((d) => ids.includes(d.id)).flatMap((d) => [
+    ...d.entityPrefixes,
+  ]);
 }
 
 /** The `localStorage` prefixes a Facet owns. Derived the same way, same reason. */
