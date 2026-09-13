@@ -137,6 +137,18 @@
     /* Thin, flat and square: a line in a list, not a Card. */
     border: var(--edge-thin);
     padding: var(--space-s);
+    /* Room for the drop shadow `.selected` paints, which is drawn OUTSIDE the
+       box and so made a selected row `--shadow-2-reach` wider than the column
+       holding it. That is how one stayed visible past the right edge of the
+       pinned bar meant to be covering it (ADR-0102 §2).
+
+       **Reserved on every row, not on the selected one** (§3). Adding it at
+       selection time would shrink the row by 4px at the exact moment it is
+       being highlighted, which is a worse artefact than the one being fixed.
+       The price is uniform and never moves: every row is 4px narrower and
+       carries 4px more beneath it. */
+    margin-right: var(--shadow-2-reach);
+    margin-bottom: var(--shadow-2-reach);
   }
   /* Reset the native <button> so a pressable row is identical to an inert one. */
   button.row {

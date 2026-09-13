@@ -176,6 +176,28 @@
   --shadow-2: 3px 3px 0 1px var(--ink);
   --shadow-3: 7px 7px 0 1px var(--ink);
 
+  /* How far each of those reaches PAST the element, on the right and on the
+     bottom: the offset plus the spread. Left and top are zero, and that is the
+     same arithmetic the overlap above is written on — the spread expands by 1
+     and the offset moves by at least 1, so nothing crosses those two edges.
+
+     A drop shadow is painted outside the element's box and takes no layout
+     space at all. That is invisible while it falls into a gap, and it is a
+     defect the moment something has to CONTAIN the element or COVER it: a cell
+     in a grid's last track paints its shadow outside the grid, where the
+     container's clip cuts it off, and a selected row paints one past the right
+     edge of the pinned bar that is supposed to be hiding it. Reserving this
+     much as margin is what puts the shadow back inside the length — and the
+     element is that much smaller for it, which is the trade (ADR-0102 §2).
+
+     Named rather than written as `4px` at the sites that need it, because a
+     literal is a number that silently stops matching `--shadow-2` the day that
+     token moves. A reach is derived, so the pair moves together;
+     `tests/unit/shadow-reach.test.ts` is what holds them to it. */
+  --shadow-1-reach: 2px;
+  --shadow-2-reach: 4px;
+  --shadow-3-reach: 8px;
+
   /* ── Motion ──────────────────────────────────────────────────────────────
      ADR-0003 §4 rules motion here: a sharp, immediate transform, never a soft
      float. So no spring and no overshoot — a mark that overshoots reads as a

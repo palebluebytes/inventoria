@@ -3,6 +3,7 @@
 **Status:** Accepted  
 **Date:** 2026-08-04  
 **Amended by:** ADR-0039 (narrows how these tokens may be applied: `Button` and `Card` become their canonical carriers)  
+**Amended by:** [ADR-0102](0102-a-drop-shadow-is-reserved-where-a-box-must-contain-or-cover-it.md) (each elevation token gains a reach — how far its shadow travels past the element — because the recipe as tokenized says what the shadow looks like and nothing about what it costs in layout)  
 **Implemented:** #71-#75, plus #75 (colour) and #83 (radius, shadow shape, colour keywords) for the §Enforcement lint rules
 
 ## Context
