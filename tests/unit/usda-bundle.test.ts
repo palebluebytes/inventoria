@@ -75,6 +75,7 @@ import {
   isManufacturingInput,
   isPreparedProduct,
   isCookedForm,
+  ADJUDICATED_DISHES,
   isProcessedProduct,
 } from "../../src/lib/food/usda-food-kind";
 import {
@@ -104,6 +105,7 @@ const app = {
   isProcessedProduct,
   isPreparedProduct,
   isCookedForm,
+  ADJUDICATED_DISHES,
   isDryBasisRecord,
   isManufacturingInput,
   resolveVariantDrops,
@@ -379,6 +381,7 @@ describe("buildCorpus — the ADR-0042 survivors, merged at generation time", ()
       brand_specific: 1,
       processed: 1,
       prepared: 1,
+      adjudicated_dish: 0,
       cooked_form: 0,
       dry_basis: 0,
       manufacturing_input: 0,
@@ -560,6 +563,7 @@ describe("buildCorpus — the ADR-0042 survivors, merged at generation time", ()
       brand_specific: 0,
       processed: 0,
       prepared: 0,
+      adjudicated_dish: 0,
       cooked_form: 0,
       dry_basis: 1,
       manufacturing_input: 0,

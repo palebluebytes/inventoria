@@ -300,3 +300,60 @@ only outright false name any of these rules produced, and it is the reason the
 rule is a map with an exception rather than a substitution.
 
 Measured before it shipped: **44 rows renamed, zero collisions.**
+
+## Amendment (2026-09-13): nine dishes no category signal reaches
+
+`isPreparedProduct` decides a dish mostly from USDA's own filing, and there is
+one category it cannot take. `American Indian/Alaska Native Foods` holds 130
+rows, and all but a handful are single-ingredient foods nothing else in the
+corpus carries — moose meat, bearded seal oil, bowhead blubber, walrus liver.
+Dropping the category would delete about 120 real ingredients to remove nine
+dishes, which is exactly the trade the `Sweets` and `Baked Products` splits
+already refuse.
+
+So `Corned beef and potatoes in tortilla` shipped, and it is a composite dish by
+any reading. It carries no brand, no processed marker and no cooking word, so no
+predicate in the generator could see it.
+
+> **Nine rows are written down as dishes in `ADJUDICATED_DISHES` and dropped by
+> reading**, which is the only kind of drop ADR-0100 §6 licenses for a head
+> nobody can decide mechanically. All 130 rows of the category were read to
+> produce them.
+
+The three Agutuk records, `Corned beef and potatoes in tortilla`,
+`Mush, blue corn with ash`, `Soup, fish, homemade`, both `Tamales` rows, and
+`Tortilla, includes plain and from mutton sandwich` — the last of which is not a
+tortilla at all, USDA having averaged a plain tortilla together with a filled
+sandwich, so its panel is neither thing.
+
+**The line is the corpus's own rather than a fresh one, and the breads prove it.**
+`isPreparedProduct` keeps bready staples — croissant, bagel, tortilla — and drops
+only sweet treats and composites. So `Bread, kneel down`, `Piki bread`,
+`Tennis Bread, plain`, `Tortilla, blue corn, Sakwavikaviki`,
+`Bread, blue corn, somiviki` and `Frybread, made with lard` all stay. Dropping
+them while keeping a croissant would be holding one population to a stricter rule
+than another, and this is the category where that would be least defensible.
+
+**Nothing is dropped for being anybody's food.** ADR-0055 §1's refusal stands
+whole: every row above is a recipe of several ingredients, and the residue this
+map ruled out of scope at charting — seal oil, owl flesh, muskrat — is untouched.
+The brewed teas and `Chilchen (Red Berry Beverage)` stay too, because ADR-0042
+keeps `Beverages` out of the dropped categories on the ground that generic
+coffee, tea and water are reference foods; extending that line is a decision of
+its own.
+
+**The first attempt was a regex and it was wrong.** A sweep over `and`, `with`
+and `bread` returned twenty-one rows, of which eight were false: `Fish, halibut,
+with skin`, `Whale, bowhead, skin and subcutaneous fat (muktuk)` and
+`Walrus, meat and subcutaneous fat` use those words about PARTS of one animal. A
+lexical rule here deletes real food in the one category where ADR-0055 §1 is most
+explicit, which is why this is a list and not a predicate.
+
+`assertAdjudicatedDishesRead` is the guard, and it is the third module to carry
+the same one: a written verdict must still name the row it was reached by
+reading, or it is a verdict about words nobody has read. It compares against
+USDA's own description, designation tag and all, because that is the row's name
+when the rule sees it — and it caught the first draft, which had been written
+from the shipped names with the tags already stripped.
+
+Corpus 2,484 → **2,475**.

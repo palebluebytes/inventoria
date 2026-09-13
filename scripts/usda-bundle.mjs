@@ -159,6 +159,7 @@ export const BUNDLE_DATASETS = ["Foundation Foods", "SR Legacy"];
  * @property {(description: string) => boolean} isProcessedProduct
  * @property {(foodCategory: string | undefined, description: string) => boolean} isPreparedProduct
  * @property {(foodCategory: string | undefined, description: string) => boolean} isCookedForm
+ * @property {readonly (readonly [number, string, string])[]} ADJUDICATED_DISHES
  * @property {(description: string) => boolean} isDryBasisRecord
  * @property {(description: string) => boolean} isManufacturingInput
  * @property {(rows: { fdcId: number, description: string }[]) => ReadonlyMap<number, string>} resolveVariantDrops
@@ -354,6 +355,7 @@ export function buildCorpus(groups, app) {
     brand_specific: 0,
     processed: 0,
     prepared: 0,
+    adjudicated_dish: 0,
     cooked_form: 0,
     dry_basis: 0,
     manufacturing_input: 0,
@@ -366,6 +368,11 @@ export function buildCorpus(groups, app) {
   // earlier rule had already taken. Only the first kind can delete a food, and
   // only the first kind is what `assertSupersededSurvive` binds.
   const supersededFired = new Set();
+  const adjudicatedDishes = new Set(
+    app.ADJUDICATED_DISHES.map(([fdcId]) => fdcId)
+  );
+  /** What each adjudicated dish was actually called when it reached the rule. */
+  const dishesRead = new Map();
 
   for (const group of groups.values()) {
     if (group.length > 1) twinned++;
@@ -386,6 +393,15 @@ export function buildCorpus(groups, app) {
     // filter above, so what reaches it is an INGREDIENT with a method written on
     // it rather than a meal — and before the two below, because a cooked food is
     // not a food this corpus carries whether or not its panel is complete.
+    // A dish no category signal reaches, read one row at a time. Asked here,
+    // beside the filter whose judgement it extends, because it IS that judgement
+    // - `isPreparedProduct` decides a dish from USDA's filing and this is the
+    // category where the filing cannot be trusted either way.
+    if (adjudicatedDishes.has(food.fdcId)) {
+      dropped.adjudicated_dish++;
+      dishesRead.set(food.fdcId, food.description);
+      continue;
+    }
     if (app.isCookedForm(food.foodCategory, food.description)) {
       dropped.cooked_form++;
       continue;
@@ -444,6 +460,7 @@ export function buildCorpus(groups, app) {
     survivors,
     dropped,
     supersededFired,
+    dishesRead,
     twinned,
     twinned_survivors,
     identities: groups.size,
@@ -574,6 +591,44 @@ export function assertTwinLedgerCovers(groups, app) {
     );
 
   return app.TWIN_LEDGER.length;
+}
+
+/**
+ * Refuses a generation in which a written dish verdict no longer names its row.
+ *
+ * The risk every hand-written list here carries, and the third module to carry
+ * it: an entry names one row, and a filter change or a mirror refresh can
+ * rewrite or remove that row without touching the entry. Then the verdict is
+ * about words nobody has read — either applied to a different food, or applied
+ * to nothing at all.
+ *
+ * Called from {@link main} rather than from `buildCorpus`, because it is a claim
+ * about the WHOLE mirror: a fixture corpus legitimately contains none of these
+ * rows, and asserting inside the builder would fail every unit test that calls
+ * it with nine foods.
+ *
+ * The description compared is USDA's own, designation tag and all, because that
+ * is the row's name when the rule sees it — ADR-0056's strip takes the tag
+ * several passes later.
+ */
+export function assertAdjudicatedDishesRead(dishesRead, app) {
+  for (const [fdcId, description] of app.ADJUDICATED_DISHES) {
+    const read = dishesRead.get(fdcId);
+    if (read === undefined)
+      throw new Error(
+        `"${description}" (${fdcId}) is written down as a dish and no row ` +
+          "reached that rule. Either an earlier filter now takes it, or the " +
+          "mirror no longer holds it; re-read the row and update or remove the " +
+          "entry in src/lib/food/usda-food-kind.ts."
+      );
+    if (read !== description)
+      throw new Error(
+        `"${description}" (${fdcId}) is written down as a dish, and that row ` +
+          `is now called "${read}". A verdict reached by reading one name must ` +
+          "not be applied to another; re-read it."
+      );
+  }
+  return app.ADJUDICATED_DISHES.length;
 }
 
 /**
@@ -794,7 +849,9 @@ async function main() {
     twinned_survivors,
     identities,
     supersededFired,
+    dishesRead,
   } = buildCorpus(groups, app);
+  const adjudicated_dishes = assertAdjudicatedDishesRead(dishesRead, app);
   // The drops come before both name rules, which ADR-0062 §3 calls load-bearing:
   // four of the five collisions the fortification strip would cause are milk
   // pairs ADR-0061 has already resolved by dropping one side.
@@ -858,7 +915,9 @@ async function main() {
     `\n${identities.toLocaleString("en-GB")} food identities across ${archives.length} archives, ` +
       `${twinned} twinned; ${survivors.length.toLocaleString("en-GB")} survive the filters ` +
       `(${dropped.brand_specific} brand-specific, ${dropped.processed} packaged or processed, ` +
-      `${dropped.prepared} prepared or composite, ${dropped.cooked_form} cooked, ` +
+      `${dropped.prepared} prepared or composite, ` +
+      `${dropped.adjudicated_dish} of ${adjudicated_dishes} dishes adjudicated by hand, ` +
+      `${dropped.cooked_form} cooked, ` +
       `${dropped.dry_basis} dry-basis, ` +
       `${dropped.manufacturing_input} manufacturing inputs, ` +
       `${dropped.no_energy} reporting no energy, ` +

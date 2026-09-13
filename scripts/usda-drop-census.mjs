@@ -158,6 +158,9 @@ export function censusFoodKind(groups, app) {
   const drops = [];
   /** @type {{ food: object, group: object[], also: string[] }[]} */
   const survivors = [];
+  const adjudicatedDishes = new Set(
+    app.ADJUDICATED_DISHES.map(([fdcId]) => fdcId)
+  );
 
   // The six food-kind judgements and the id list, in `buildCorpus`'s order.
   // `ablate` is how {@link attribute} re-asks the rule of a reduced record, and
@@ -180,6 +183,10 @@ export function censusFoodKind(groups, app) {
         app.isPreparedProduct(food.foodCategory, food.description),
       ablate: (d, category) => app.isPreparedProduct(category, d),
       reads_category: true,
+    },
+    {
+      name: "adjudicated_dish",
+      fires: (food) => adjudicatedDishes.has(food.fdcId),
     },
     {
       name: "cooked_form",
@@ -240,7 +247,8 @@ export function censusFoodKind(groups, app) {
       // `superseded` and `no_energy` have nothing to ablate. One is an id list,
       // because no property of the description decides it — only knowing that
       // napa cabbage and pe-tsai are one vegetable does (ADR-0051's converse).
-      // The other reads the PANEL, not the name (ADR-0048 §6).
+      // The other reads the PANEL, not the name (ADR-0048 §6). `adjudicated_dish`
+      // has nothing to ablate either: it is a read verdict about a whole row.
       ...(rule.ablate
         ? attribute(
             rule.ablate,

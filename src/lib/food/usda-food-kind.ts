@@ -565,3 +565,102 @@ export function isManufacturingInput(description: string): boolean {
     !HOUSEHOLD_MARKER.test(description)
   );
 }
+
+// ---------------------------------------------------------------------------
+// The dishes no category signal reaches
+// ---------------------------------------------------------------------------
+
+/**
+ * Composite dishes USDA filed under a category {@link isPreparedProduct} cannot
+ * drop, read one row at a time.
+ *
+ * `isPreparedProduct` decides a dish mostly from USDA's own filing, and
+ * `American Indian/Alaska Native Foods` is not a category it can take: 130 rows,
+ * and all but a handful are single-ingredient foods nothing else in the corpus
+ * carries — moose meat, bearded seal oil, bowhead blubber, walrus liver. Taking
+ * the category would delete about 120 real ingredients to remove nine dishes,
+ * which is the trade the `Sweets` and `Baked Products` splits already refuse.
+ *
+ * So these are written down instead. A hand-written drop is what ADR-0100 §6
+ * licenses for a head somebody has read, and all 130 rows of this category were
+ * read to produce the nine below.
+ *
+ * **The line is the corpus's own, not a fresh one.** `isPreparedProduct` keeps
+ * bready staples — croissant, bagel, tortilla — and drops sweet treats and
+ * composite dishes. So the breads here STAY, every one of them: `Bread, kneel
+ * down`, `Piki bread`, `Tennis Bread, plain`, `Tortilla, blue corn, Sakwavikaviki`,
+ * `Bread, blue corn, somiviki` and `Frybread, made with lard` are the same kind
+ * of thing as a croissant, and dropping them while keeping a croissant would be
+ * applying a stricter rule to one population than to another.
+ *
+ * **A word about parts.** The first attempt at finding these was a regex over
+ * `and`, `with` and `bread`, and eight of its twenty-one hits were wrong:
+ * `Fish, halibut, with skin`, `Whale, bowhead, skin and subcutaneous fat
+ * (muktuk)` and `Walrus, meat and subcutaneous fat` use those words about PARTS
+ * of one animal. A lexical rule here deletes real food in the one category where
+ * ADR-0055 §1 is most explicit about not doing that, which is the whole reason
+ * this is a list and not a predicate.
+ *
+ * **The descriptions are USDA's own, tag and all.** Each carries the
+ * parenthesised population tag — `(Navajo)`, `(Apache)`, `(Alaska Native)` —
+ * because that is the row's name when this rule sees it; ADR-0056's strip takes
+ * the tag several passes later. Writing the stripped name here would be a
+ * verdict about a string the rule never meets, and the guard in
+ * `usda-bundle.mjs` refuses it.
+ *
+ * Two things deliberately NOT here. The brewed teas and
+ * `Chilchen (Red Berry Beverage)` stay, because ADR-0042's prepared-food comment
+ * keeps `Beverages` out of the dropped categories on the ground that generic
+ * coffee, tea and water are reference foods — extending that line is a decision
+ * of its own, not a tidy-up. And nothing is dropped for being anybody's food:
+ * every row below is a recipe of several ingredients by any reading.
+ */
+export type AdjudicatedDish = readonly [
+  fdcId: number,
+  description: string,
+  why: string,
+];
+
+export const ADJUDICATED_DISHES: readonly AdjudicatedDish[] = [
+  [
+    169823,
+    "Agutuk, fish with shortening (Alaskan ice cream) (Alaska Native)",
+    "Whipped fat with fish worked through it. A dish of several ingredients, and USDA's own gloss calls it ice cream.",
+  ],
+  [
+    168976,
+    "Agutuk, fish/berry with seal oil (Alaskan ice cream) (Alaska Native)",
+    "The same dish with berries and seal oil.",
+  ],
+  [
+    168977,
+    "Agutuk, meat-caribou (Alaskan ice cream) (Alaska Native)",
+    "The same dish made with caribou.",
+  ],
+  [
+    167656,
+    "Corned beef and potatoes in tortilla (Apache)",
+    "Three foods assembled into a fourth. A composite dish by any reading, and the plainest case in the category.",
+  ],
+  [
+    167627,
+    "Mush, blue corn with ash (Navajo)",
+    "Cornmeal cooked into a porridge with ash stirred in. The cooked-form rule cannot see it because `mush` is not one of USDA's preparation words.",
+  ],
+  [
+    168027,
+    "Soup, fish, homemade (Alaska Native)",
+    "A soup, and USDA says homemade. `isPreparedProduct` drops every other soup by category.",
+  ],
+  [167636, "Tamales (Navajo)", "Masa wrapped around a filling and steamed."],
+  [
+    169007,
+    "Tamales, masa and pork filling (Hopi)",
+    "The same dish with its filling named.",
+  ],
+  [
+    168041,
+    "Tortilla, includes plain and from mutton sandwich (Navajo)",
+    "Not a tortilla: USDA has averaged a plain tortilla together with a filled sandwich, so the row is partly a dish and its panel is neither thing. It is also what a typed `mutton` now leads with, real mutton having left with the cooked rows.",
+  ],
+];

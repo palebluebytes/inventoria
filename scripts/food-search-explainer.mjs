@@ -79,6 +79,7 @@ const RULE_ORDER = [
   "brand_specific",
   "processed",
   "prepared",
+  "adjudicated_dish",
   "cooked_form",
   "dry_basis",
   "manufacturing_input",
@@ -113,6 +114,10 @@ const RULE_BLURB = {
   prepared: [
     "A prepared dish, not a food",
     "Mostly decided by USDA's own filing: eight of its categories are dishes end to end.",
+  ],
+  adjudicated_dish: [
+    "A dish, read one row at a time",
+    "USDA files nine composite dishes under a category the prepared-food filter cannot take without deleting 120 real ingredients with them.",
   ],
   cooked_form: [
     "Somebody cooked it",

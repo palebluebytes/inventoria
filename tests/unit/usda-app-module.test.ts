@@ -37,10 +37,19 @@ describe("the app seam — the scripts borrow the app instead of copying it", ()
   });
 
   it("names only real exports of usda-food-kind.ts", () => {
-    for (const name of FOOD_KIND_EXPORTS)
-      expect(typeof (foodKind as Record<string, unknown>)[name]).toBe(
-        "function"
-      );
+    // Six predicates and one roster, checked apart for `VARIANT_DROP_EXPORTS`'s
+    // reason: a list is not a function and a `typeof` sweep would wave it
+    // through. The roster is `ADJUDICATED_DISHES`, the dishes USDA filed under a
+    // category `isPreparedProduct` cannot take.
+    for (const name of FOOD_KIND_EXPORTS.filter(
+      (name) => name !== "ADJUDICATED_DISHES"
+    ))
+      expect([
+        name,
+        typeof (foodKind as Record<string, unknown>)[name],
+      ]).toEqual([name, "function"]);
+    expect(FOOD_KIND_EXPORTS).toContain("ADJUDICATED_DISHES");
+    expect(Array.isArray(foodKind.ADJUDICATED_DISHES)).toBe(true);
   });
 
   it("names the variant rule and the hand list behind it", () => {

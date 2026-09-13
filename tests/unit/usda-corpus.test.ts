@@ -142,7 +142,7 @@ describe("the bundled search index", () => {
     const designated = index.foods.filter(
       (row) => row.foodCategory === "American Indian/Alaska Native Foods"
     );
-    expect(designated.length).toBe(130);
+    expect(designated.length).toBe(121);
     const descriptions = index.foods.map((row) => row.description);
     expect(descriptions).toContain("Fish, Salmon, Chum");
     expect(
@@ -153,9 +153,7 @@ describe("the bundled search index", () => {
     // Brackets USDA uses for anything else are untouched: a local name, a
     // species, a dish's English gloss.
     expect(descriptions).toContain("Seal, bearded (Oogruk), meat");
-    expect(descriptions).toContain(
-      "Agutuk, fish with shortening (Alaskan ice cream)"
-    );
+    expect(descriptions).toContain("Cabbage, chinese (pe-tsai)");
   });
 
   it("keeps the origin words where they are the food's own name", () => {
@@ -301,7 +299,7 @@ describe("the bundled search index", () => {
     // pasteurized process, American` and its `food` sibling stop naming a
     // fortification and become the plain form of the `low fat` and
     // `vitamin D fortified` rows filed beneath them.
-    expect(index.foods.filter((row) => row.plain_sibling).length).toBe(433);
+    expect(index.foods.filter((row) => row.plain_sibling).length).toBe(432);
     // Omitted rather than emitted false, like every other absent field.
     expect(index.foods.filter((row) => row.plain_sibling === false)).toEqual(
       []
@@ -369,7 +367,7 @@ describe("the bundled search index", () => {
   });
 
   it("is the surviving reference foods, and says which archives it came from", () => {
-    expect(index.foods.length).toBe(2484);
+    expect(index.foods.length).toBe(2475);
     expect(index.generated_from.map((a) => a.dataset)).toEqual([
       "Foundation Foods",
       "SR Legacy",
@@ -385,11 +383,11 @@ describe("the bundled search index", () => {
     // What the alias loop is skipped for, which is the whole reason
     // `bestNameKey` costs nothing on most rows.
     expect(index.foods.filter((row) => !(row.also ?? []).length).length).toBe(
-      2415
+      2406
     );
     // And what `SEARCH_RESULT_LIMIT` is a ceiling ON. Measured after ADR-0062
     // §1, because that is the set the list would have to render.
-    expect(withoutStrayMentions(scoredFor("b")).length).toBe(735);
+    expect(withoutStrayMentions(scoredFor("b")).length).toBe(734);
   });
 
   // ── ADR-0048's invariant, over the artifact itself ────────────────────────
@@ -595,7 +593,6 @@ describe("the bundled search index", () => {
       "Fat free ice cream, no sugar added, flavors other than chocolate",
       "Sandwich spread, meatless",
       "Beef, sandwich steaks, flaked, chopped, formed and thinly sliced",
-      "Tortilla, includes plain and from mutton sandwich",
       // #144: what each of its four new rules had to leave standing.
       // `Bread, cornbread, prepared from recipe, made with low fat (2%) milk`
       // stood here until #161, which is a DIFFERENT rule with a different claim:
@@ -617,7 +614,6 @@ describe("the bundled search index", () => {
       // gluten-free bread.
       "Oil, soybean",
       "Beef, ground, 80% lean meat / 20% fat",
-      "Agutuk, fish with shortening (Alaskan ice cream)",
       "Wheat germ, crude",
       "Wheat bran, crude",
       "Rice bran, crude",
@@ -718,8 +714,12 @@ describe("the bundled search index", () => {
     // row is the whole reason the clause reads the head word rather than the
     // description, because it is a dish and a description-wide marker would
     // have taken it.
+    // The one row saying `shortening` somewhere other than its head word was
+    // `Agutuk, fish with shortening`, and it has since been adjudicated out as a
+    // dish. The clause still reads the head word rather than the description,
+    // and the reason it must is now a fact about a row the corpus had rather
+    // than one it has.
     expect(descriptions.filter((d) => /shortening/i.test(d)).sort()).toEqual([
-      "Agutuk, fish with shortening (Alaskan ice cream)",
       "Shortening household soybean (hydrogenated) and palm",
       "Shortening, household, lard and vegetable oil",
       "Shortening, household, soybean (partially hydrogenated)-cottonseed (partially hydrogenated)",
@@ -1408,7 +1408,7 @@ describe("searchIndexRows", () => {
       cooked: [0, 0],
       salt: [93, 1],
       water: [39, 10],
-      oil: [103, 70],
+      oil: [102, 70],
     });
   });
 
@@ -1634,7 +1634,9 @@ describe("searchIndexRows", () => {
     // and none to reach. ADR-0055 §1 still holds for everything it CAN hold for -
     // the point here is that a demotion never became a deletion, and what
     // deleted mutton was a different rule that says so in its own record.
-    expect(descriptionsFor("mutton")[0]).not.toMatch(/^Mutton/);
+    // `mutton` reaches nothing at all now: the only mutton row was cooked, and
+    // the tortilla that used to answer instead was adjudicated out as a dish.
+    expect(descriptionsFor("mutton")).toEqual([]);
     expect(descriptionsFor("agave").length).toBeGreaterThan(0);
   });
 
@@ -2690,12 +2692,18 @@ describe("frecency lifts a food you actually eat (#165)", () => {
         .slice(0, 50)
         .map((row) => [`fdc:${row.fdcId}`, { recent: 100, frequent: 10 }])
     );
-    const before = searchIndexRows(corpus, "cheese").hits.map(
+    // An UNCAPPED query, and that is the whole care in this case. `cheese`
+    // answers with more than the 50-row window, so reordering it changes which
+    // fifty survive the cut — correctly, since the cap is applied after the
+    // ordering. The claim here is about retrieval, so it has to be asked of a
+    // query the cap does not touch.
+    const before = searchIndexRows(corpus, "grape").hits.map(
       (h) => h.row.fdcId
     );
-    const after = searchIndexRows(corpus, "cheese", frecency).hits.map(
+    const after = searchIndexRows(corpus, "grape", frecency).hits.map(
       (h) => h.row.fdcId
     );
+    expect(after.length).toBeLessThan(SEARCH_RESULT_LIMIT);
     expect([...after].sort()).toEqual([...before].sort());
   });
 });
