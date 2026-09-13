@@ -22,13 +22,18 @@
   import { runFirstSync, type FirstSyncProgress } from "../../p2p/first-sync";
   import { appSyncLedger } from "../../p2p/sync-ledger";
   import {
-    forgetPairedDevice,
     namePairedDevice,
     pairedDevices,
     readMet,
     rememberPairedDevice,
     type PairedDevice,
   } from "../../stores/paired-devices";
+  import {
+    unpairClaim,
+    unpairDevice,
+    withdrawRevoked,
+    UNPAIRING_WORDS,
+  } from "../../p2p/unpair";
   import { isStopped } from "../../p2p/wake-counter";
   import { writeDate } from "../../p2p/send-date";
 
@@ -128,6 +133,16 @@
       const converged = await runFirstSync(room, acting, chains, ledger, {
         onProgress: (progress) => (syncing = progress),
       });
+
+      // **A re-pairing settles the revocation it is replacing first.** The
+      // record is keyed by `device_id` and pairing again replaces it, so the
+      // line below overwrites both indices and the etag that are the only
+      // things reaching a pending withdrawal's two objects (ADR-0096 §11). An
+      // act is online by definition, which makes this the one moment such a
+      // withdrawal is sure of a chance; where it still cannot land, what it
+      // abandons is sealed under a chain nothing will use again and §1's
+      // backstop reaps it.
+      await withdrawRevoked();
 
       // Guard 1's one line: the record is written here and nowhere else.
       rememberPairedDevice({
@@ -238,6 +253,17 @@
     "long time, so it is no longer being synced with. Unpair it here, or pair " +
     "the two devices again.";
 
+  /** Which row is being asked about, before anything is marked. */
+  let unpairing = $state<string | null>(null);
+
+  function confirmUnpair(device: PairedDevice) {
+    unpairing = null;
+    // The mark lands synchronously and the two deletes do not, which is what
+    // {@link UNPAIRING_WORDS} is for. Nothing is awaited here: the row redraws
+    // off the store either way.
+    void unpairDevice(device.device_id);
+  }
+
   function saveName() {
     if (!naming) return;
     namePairedDevice(naming.device_id, naming.name);
@@ -308,47 +334,78 @@
                 subtitle={device.name ? shortId(device) : ""}
               >
                 {#snippet trailing()}
-                  <span class="row-actions">
-                    <!-- The name is typed here, about the peer, after the act,
-                         and never sent (§6). -->
-                    <Button
-                      variant="ghost"
-                      onclick={() =>
-                        (naming = {
-                          device_id: device.device_id,
-                          name: device.name ?? "",
-                        })}
-                    >
-                      Rename
-                    </Button>
-                    <!-- ADR-0075 §4 and §12: severing a pairing is unilateral,
-                         needs no coordination, and sends no message — silence is
-                         the only revocation signal that cannot be forged. -->
-                    <Button
-                      variant="ghost"
-                      onclick={() => forgetPairedDevice(device.device_id)}
-                    >
-                      Unpair
-                    </Button>
-                  </span>
+                  <!-- A severed pairing offers neither action. Renaming a row
+                       on its way out is busywork, and a second Unpair on a
+                       withdrawal already under way would be a control that
+                       promises a second act where there is only one. -->
+                  {#if !device.revoked}
+                    <span class="row-actions">
+                      <!-- The name is typed here, about the peer, after the act,
+                           and never sent (§6). -->
+                      <Button
+                        variant="ghost"
+                        onclick={() =>
+                          (naming = {
+                            device_id: device.device_id,
+                            name: device.name ?? "",
+                          })}
+                      >
+                        Rename
+                      </Button>
+                      <!-- ADR-0075 §4 and §12: severing a pairing is unilateral,
+                           needs no coordination, and sends no message — silence is
+                           the only revocation signal that cannot be forged. What
+                           it achieves is claimed before it is done, because the
+                           claim is what the user is deciding on. -->
+                      <Button
+                        variant="ghost"
+                        onclick={() => (unpairing = device.device_id)}
+                      >
+                        Unpair
+                      </Button>
+                    </span>
+                  {/if}
                 {/snippet}
               </Row>
-              <!-- Two devices' rosters disagreeing is legitimate under pairwise
-                   pairing, so this is what *that* device said and is never
-                   merged with the list it sits in (§6). -->
-              {@const stated = rosterLine(device, $pairedDevices)}
-              {#if stated}
-                <p class="roster">{stated}</p>
-              {/if}
-              <!-- §11's two lines, and the whole of what this design says
-                   about staleness. The date is on every row; the one-sided
-                   state is on the rows that ran out. -->
-              {@const met = lastMetLine(device)}
-              {#if met}
-                <p class="roster">{met}</p>
-              {/if}
-              {#if isStopped(device)}
-                <p class="one-sided">{ONE_SIDED}</p>
+              {#if device.revoked}
+                <!-- Phase 1 has landed and the deletes have not. The pairing is
+                     severed from here on either way; what is pending is the
+                     withdrawal (§11). -->
+                <p class="one-sided">{UNPAIRING_WORDS}</p>
+              {:else}
+                {#if unpairing === device.device_id}
+                  <div class="confirm">
+                    <p class="claim">{unpairClaim(callSign(device))}</p>
+                    <div class="row-actions">
+                      <Button onclick={() => confirmUnpair(device)}>
+                        Unpair
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        onclick={() => (unpairing = null)}
+                      >
+                        Cancel
+                      </Button>
+                    </div>
+                  </div>
+                {/if}
+                <!-- Two devices' rosters disagreeing is legitimate under pairwise
+                     pairing, so this is what *that* device said and is never
+                     merged with the list it sits in (§6). -->
+                {@const stated = rosterLine(device, $pairedDevices)}
+                {#if stated}
+                  <p class="roster">{stated}</p>
+                {/if}
+                <!-- §11's two lines, and the whole of what this design says
+                     about staleness. The date is on every row; the one-sided
+                     state is on the rows that ran out. -->
+                {@const met = lastMetLine(device)}
+                {#if met}
+                  <p class="roster">{met}</p>
+                {/if}
+                {#if isStopped(device)}
+                  <p class="one-sided">{ONE_SIDED}</p>
+                {/if}
               {/if}
             {/if}
           </li>
@@ -490,5 +547,19 @@
     flex-wrap: wrap;
     align-items: center;
     gap: var(--space-2xs);
+  }
+  /* The claim reads at the weight of the one-sided line beside it: what the
+     act achieves is news the user is deciding on, not a warning. */
+  .confirm {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2xs);
+    margin-top: var(--space-2xs);
+    padding-inline: var(--space-xs);
+  }
+  .claim {
+    margin: 0;
+    color: var(--ink);
+    font-size: var(--step-n1);
   }
 </style>

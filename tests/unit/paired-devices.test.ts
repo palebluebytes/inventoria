@@ -15,6 +15,7 @@ import ReadPairingCode from "../../src/lib/views/pairing/ReadPairingCode.svelte"
 import ShowPairingCode from "../../src/lib/views/pairing/ShowPairingCode.svelte";
 import { writePairingCode } from "../../src/lib/p2p/pairing-code";
 import { mintRoomCode } from "../../src/lib/p2p/room-code";
+import { UNPAIRING_WORDS } from "../../src/lib/p2p/unpair";
 
 /**
  * A jar holding one completed pairing, seeded the way one lands.
@@ -160,6 +161,52 @@ describe("the last-met date and the one-sided state (ADR-0096 §11)", () => {
     expect(body).toContain("Rename");
     expect(body).toContain("Unpair");
     expect(body).not.toContain("No devices are paired.");
+  });
+});
+
+describe("what an unpair claims, and the pending state it carries (§11)", () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  const withJar = async (over: Record<string, unknown>) => {
+    stubLocalStorage({
+      seed: {
+        inventoria_paired_devices: JSON.stringify([{ ...PAIRING, ...over }]),
+      },
+    });
+    vi.resetModules();
+    const [{ render: renderFresh }, Section] = await Promise.all([
+      import("svelte/server"),
+      import("../../src/lib/views/pairing/PairedDevicesSection.svelte"),
+    ]);
+    return renderFresh(Section.default, { props: {} }).body;
+  };
+
+  it("carries the pending state until the deletes land", async () => {
+    const body = await withJar({ revoked: true });
+
+    // The mark is local and immediate and the withdrawal is two round trips,
+    // so without this line the claim is a lie in exactly the window that
+    // matters — a device that was offline when the user tapped.
+    expect(body).toContain(UNPAIRING_WORDS);
+  });
+
+  it("offers neither action on a pairing already on its way out", async () => {
+    const body = await withJar({ revoked: true });
+
+    // Renaming a row on its way out is busywork, and a second Unpair on a
+    // withdrawal already under way would promise a second act where there is
+    // only one. The row itself stays, because the withdrawal needs it.
+    expect(body).not.toContain("row-actions");
+    expect(body).not.toContain("Rename");
+    expect(body).toContain("dev_b0c1");
+  });
+
+  it("says nothing of the kind on a pairing nobody has severed", async () => {
+    const body = await withJar({});
+
+    expect(body).not.toContain(UNPAIRING_WORDS);
+    expect(body).toContain("row-actions");
+    expect(body).toContain("Rename");
   });
 });
 
