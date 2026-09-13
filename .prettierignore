@@ -11,6 +11,11 @@ pnpm-lock.yaml
 # half a million lines and take the reviewable diff with it.
 public/usda/
 
+# Generated, and byte-compared against its generator by `pnpm check`
+# (scripts/food-search-explainer.mjs --check). Its layout is the generator's, so
+# re-wrapping it here would make the staleness gate fail on every commit.
+docs/food-search.html
+
 # The drop census (scripts/usda-drop-census.mjs), one drop per line for the same
 # reason public/usda/ is here: the unit of a reviewable diff is one food.
 docs/research/usda-drop-census.json

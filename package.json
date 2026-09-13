@@ -15,7 +15,7 @@
     "check:offline": "node scripts/offline-boot-check.mjs",
     "preview": "vite preview",
     "deploy": "pnpm run build && wrangler deploy",
-    "check": "svelte-check --tsconfig ./tsconfig.app.json && tsc -p tsconfig.node.json && tsc -p tsconfig.tests.json && tsc -p tsconfig.worker.json && node scripts/worker-closure-check.mjs && node scripts/worker-config-check.mjs && node scripts/log-egress-check.mjs && node scripts/console-routing-check.mjs && node scripts/entity-ownership-check.mjs && node scripts/docs-check.mjs",
+    "check": "svelte-check --tsconfig ./tsconfig.app.json && tsc -p tsconfig.node.json && tsc -p tsconfig.tests.json && tsc -p tsconfig.worker.json && node scripts/worker-closure-check.mjs && node scripts/worker-config-check.mjs && node scripts/log-egress-check.mjs && node scripts/console-routing-check.mjs && node scripts/entity-ownership-check.mjs && node scripts/docs-check.mjs && node scripts/food-search-explainer.mjs --check",
     "check:worker": "node scripts/worker-closure-check.mjs",
     "check:worker-config": "node scripts/worker-config-check.mjs",
     "check:logs": "node scripts/log-egress-check.mjs && node scripts/console-routing-check.mjs",
@@ -29,6 +29,7 @@
     "usda:beef-pilot": "node scripts/usda-beef-pilot.mjs",
     "usda:coverage": "node scripts/usda-coverage.mjs",
     "usda:drop-census": "node scripts/usda-drop-census.mjs",
+    "docs:food-search": "node scripts/food-search-explainer.mjs",
     "usda:key-census": "node scripts/usda-key-census.mjs",
     "usda:filter-census": "node scripts/usda-filter-census.mjs",
     "curated:check": "node scripts/curated-snapshot-check.mjs",
@@ -36,6 +37,7 @@
     "test:e2e:offline": "playwright test --config playwright.offline.config.ts",
     "prepare": "husky || true",
     "usda:ranking-audit": "node scripts/usda-ranking-audit.mjs",
+    "prototype:food-forms": "vite --config vite.forms-prototype.config.ts",
     "usda:ranking-ties": "node scripts/usda-ranking-ties.mjs"
   },
   "devDependencies": {
