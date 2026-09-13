@@ -122,15 +122,22 @@ export type JarWipeOutcome =
  * **At zero it reads exactly as it always did.** "It will also unpair 0
  * devices" is noise on the overwhelming majority of installs, and a sentence
  * about pairing on a jar that has never paired teaches a word for nothing.
+ *
+ * **And past one it stops saying _the other device_** (ADR-0096 §10). At two
+ * pairings that phrase names one of several, which is the household of two
+ * this whole arc stops being able to assume: what comes back comes back from
+ * whichever device the user pairs with, and any of them has it.
  */
 export function jarWipeConfirmation(pairings: number): string {
   const base =
     "Are you sure you want to completely wipe the database? This cannot be undone.";
   if (pairings === 0) return base;
   const devices = pairings === 1 ? "1 device" : `${pairings} devices`;
+  const from =
+    pairings === 1 ? "the other device" : "whichever device you pair with";
   return (
     `${base} It will also unpair ${devices} — pairing again afterwards copies ` +
-    `everything back from the other device.`
+    `everything back from ${from}.`
   );
 }
 

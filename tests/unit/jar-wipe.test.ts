@@ -269,9 +269,19 @@ describe("the confirmation counts before it acts", () => {
     expect(wipe.jarWipeConfirmation(2)).toContain(
       "It will also unpair 2 devices"
     );
+  });
+
+  it("stops saying the other device where there is more than one", async () => {
+    // ADR-0096 §10: past one pairing that phrase names one of several, and
+    // what comes back comes back from whichever device is paired with.
+    const [wipe] = await opened();
+    expect(wipe.jarWipeConfirmation(2)).toContain(
+      "copies everything back from whichever device you pair with"
+    );
+    expect(wipe.jarWipeConfirmation(2)).not.toContain("the other device");
     // The honest half: re-pairing is a first sync, and a first sync is the
     // empty-vector case.
-    expect(wipe.jarWipeConfirmation(2)).toContain(
+    expect(wipe.jarWipeConfirmation(1)).toContain(
       "copies everything back from the other device"
     );
   });
