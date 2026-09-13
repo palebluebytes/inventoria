@@ -6,6 +6,7 @@
 **Amended by:** [ADR-0056](0056-a-name-loses-the-parts-that-do-not-name-the-food.md) §5, which gives §1 one further ground for a drop — a naming rule this project adopted having made two rows indistinguishable — and refuses the composite-drop rule §7 would otherwise have admitted  
 **Amended by:** [ADR-0061](0061-a-milk-search-returns-milks.md) §1, which gives §1 a second ground — a variant of a food the corpus keeps, under a head phrase adjudicated row by row — and §3, which narrows §7's powder refusal to admit a dehydrated form whose head holds a fluid one  
 **Amended by:** [ADR-0100](0100-what-was-done-to-a-food-is-not-another-food.md) §7, which gives §1 a third ground and the narrowest of the three — a row differing from a shipping row only on collapsing axes — and declines the general drop licence it was commissioned to take  
+**Amended by:** [ADR-0101](0101-the-corpus-is-ingredients-as-bought-and-not-yet-cooked.md) §1, which gives §1 a fourth ground and the WIDEST of the four — a record USDA cooked before it measured it is not a Reference food — and pays for it with fourteen foods that have no survivor, listed in its §8  
 **Implemented:** #151; `src/lib/food/reference-food-ranking.ts` (both keys), `src/lib/food/usda-corpus.ts` (where they attach), `scripts/usda-bundle.mjs` (schema 5)
 
 This record amends [ADR-0042](0042-usda-search-reference-foods.md) §1, whose

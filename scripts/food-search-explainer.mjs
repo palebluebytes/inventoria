@@ -7,7 +7,7 @@
  *
  * Two documents in one file, because they answer one question between them. The
  * first half explains the three narrowings a typed word goes through; the second
- * is a review surface over the 3,736 records the first narrowing removes, so
+ * is a review surface over every record the first narrowing removes, so
  * "what was discarded, and why" is a thing a person can sit down and audit
  * rather than a number in a build log.
  *
@@ -77,6 +77,7 @@ const RULE_ORDER = [
   "brand_specific",
   "processed",
   "prepared",
+  "cooked_form",
   "dry_basis",
   "manufacturing_input",
   "superseded",
@@ -88,6 +89,7 @@ const RULE_ORDER = [
   "collision",
   "preparation_sibling",
   "designation_collision",
+  "enrichment_duplicate",
 ];
 
 /**
@@ -109,6 +111,10 @@ const RULE_BLURB = {
   prepared: [
     "A prepared dish, not a food",
     "Mostly decided by USDA's own filing: eight of its categories are dishes end to end.",
+  ],
+  cooked_form: [
+    "Somebody cooked it",
+    "The corpus is ingredients as bought. Roasted nuts and seeds stay, because you can scoop those out of a bin; parboiled rice cannot be.",
   ],
   dry_basis: [
     "A laboratory assay, not a food",
@@ -153,6 +159,10 @@ const RULE_BLURB = {
   designation_collision: [
     "Collides, and has the poorer panel",
     "Two rows reach one name and the one measuring fewer nutrients goes.",
+  ],
+  enrichment_duplicate: [
+    "The unenriched half of a pair",
+    "Enrichment puts back the B vitamins milling removed. Where both halves ship, the enriched one takes the plain name and this one leaves.",
   ],
 };
 
@@ -523,7 +533,6 @@ const KEY_BLURB = [
     "wholeness",
     "2 for a whole animal averaged over its cuts, 0 for a fat trimmed off it, 1 for everything between.",
   ],
-  ["simplicity", "The name's raw simplicity."],
   [
     "designated",
     "Where two rows tie on everything else, prefer the one not published for a specific population.",
@@ -674,7 +683,7 @@ ${CSS}
       <li><a href="#sources">Four sources</a></li>
       <li><a href="#twice">Narrowing happens twice</a></li>
       <li><a href="#discarded"><b>What was discarded</b></a></li>
-      <li><a href="#rules">The fourteen rules</a></li>
+      <li><a href="#rules">The ${RULE_ORDER.length} rules</a></li>
       <li><a href="#cliff">Survival by category</a></li>
       <li><a href="#review"><b>Review all ${n(DROPPED)}</b></a></li>
       <li><a href="#reach">What your word reaches</a></li>
@@ -683,7 +692,7 @@ ${CSS}
       <li><a href="#edges">The edges</a></li>
       <li><a href="#bar">How good is it</a></li>
       <li><a href="#tradeoffs">Trade-offs</a></li>
-      <li><a href="#pending">Decided, not shipped</a></li>
+      <li><a href="#pending">What the rule cost</a></li>
       <li><a href="#faq">Questions</a></li>
     </ol>
   </nav>
@@ -751,7 +760,7 @@ ${funnelRow("Rows that are the beef you meant", "80/20 mince, past the cap", 0, 
           <tbody>
             <tr><td><strong>When</strong></td><td>Once, when the artifact is generated</td><td>Every keystroke, in your browser</td></tr>
             <tr><td><strong>Question</strong></td><td>Is this a food a person logs?</td><td>Does this word reach it, and how well?</td></tr>
-            <tr><td><strong>Instrument</strong></td><td>14 drop rules + 4 name rosters</td><td>6 tier rungs + 10 ordering keys</td></tr>
+            <tr><td><strong>Instrument</strong></td><td>${RULE_ORDER.length} drop rules + 4 name rosters</td><td>6 tier rungs + 10 ordering keys</td></tr>
             <tr><td><strong>Failure</strong></td><td>A food is gone and nothing says so</td><td>A food is there but buried</td></tr>
             <tr><td><strong>Recoverable?</strong></td><td>No &mdash; you cannot scroll to a row that never shipped</td><td>Yes &mdash; by scrolling</td></tr>
           </tbody>
@@ -796,7 +805,7 @@ ${funnelRow("Corpus ships", `${n(index.foods.filter((r) => r.dataType === "SR Le
 
     <section id="rules">
       <p class="kicker">05 &middot; By rule</p>
-      <h2>The fourteen rules, and the words they are made of</h2>
+      <h2>The ${RULE_ORDER.length} rules, and the words they are made of</h2>
 
       <p>Each card is one rule: what it claims, how many foods it took, and the terms that did the most removing. Those terms are not the rule's source &mdash; they are what the ablation found actually load-bearing across the family.</p>
 
@@ -1112,49 +1121,52 @@ ${shippedWords
     </section>
 
     <section id="pending">
-      <p class="kicker">14 &middot; Decided, not yet shipped</p>
-      <h2>What was just concluded about the corpus</h2>
+      <p class="kicker">14 &middot; What the rule cost</p>
+      <h2>One row per ingredient, and the fourteen foods it took</h2>
 
-      <p>Typing <span class="rec">beef</span> today returns ${n(scoreAll("beef").length)} rows whose first several are the same sentence permuted:</p>
-
-      <pre class="record">${scoreAll("beef")
-        .slice(0, 3)
-        .map((h) => esc(h.description))
-        .join("\n")}</pre>
-
-      <p>That list is not mis-sorted. It is <strong>one food written out thirty times</strong>, and no ordering of thirty copies produces fewer than thirty. Eight ranking keys were added over a year trying; none fixed it, because the problem was never the order.</p>
+      <p>The corpus used to carry every record USDA published about a food, including the ones it had cooked first. Typing <span class="rec">beef</span> returned rows that were the same sentence permuted over trim, grade, separation and cooking. That list was not mis-sorted &mdash; it was one food written out thirty times, and no ordering of thirty copies produces fewer than thirty.</p>
 
       <div class="note">
-        <span class="tag">A corpus row is a food as bought</span>
-        <p>An axis naming something true of the food <strong>when you bought it</strong> &mdash; variety, part, fat content &mdash; distinguishes a row. An axis naming something done to it <strong>afterwards</strong>, or a trade specification you never see &mdash; cooking, trim, grade, the butcher's separation &mdash; collapses onto the as-bought row.</p>
-        <p>You buy beef and cook it, so cooking collapses. You buy dried apricots as dried apricots, so drying <em>distinguishes</em>.</p>
+        <span class="tag">The rule the corpus now follows</span>
+        <p><strong>A corpus row is a food as bought.</strong> Cooking happens after the purchase, so a cooked record is not an ingredient and does not ship. Drying, curing and smoking happen before it, so dried apricots and smoked salmon are foods and do.</p>
+        <p>The line between them is a shop: <em>if you could scoop it out of a bin and carry it home in a paper bag with no label on it, it is an ingredient.</em> That is why roasted peanuts and toasted sunflower seeds stay and parboiled rice does not.</p>
       </div>
 
-      <p>The test throughout is the meal-log test: <strong>two records are one food if you would write one word for them in a food diary.</strong> Not nutritional equivalence &mdash; raw and cooked beef differ by a median 31% and are still one food.</p>
+      <p>${n(byRule.get("cooked_form").length)} records left on that rule alone. A name then loses the words that only existed to deny an alternative &mdash; every spelling of the uncooked state, an enrichment word whose counterpart no longer ships, and a comparative like <span class="rec">regular</span> that nothing contests any more:</p>
+
+      <pre class="record">Rice, white, long-grain, regular, raw, enriched
+  -&gt; Rice, white, long-grain</pre>
+
+      <h3>What it cost, stated rather than buried</h3>
+
+      <p><strong>Fourteen foods left the corpus entirely</strong>, because the only record USDA published of each was a cooked one. There is no version of this rule that keeps them: a rule reading one row at a time cannot tell a duplicate from the only record there is.</p>
 
       <div class="tablewrap">
         <table>
-          <thead><tr><th></th><th class="num">Today</th><th class="num">After the collapse</th></tr></thead>
+          <thead><tr><th>Gone</th><th>Why</th></tr></thead>
           <tbody>
-            <tr><td>Corpus</td><td class="num">${n(ROWS)}</td><td class="num">2,837</td></tr>
-            <tr><td><span class="rec">beef</span> answers with</td><td class="num">${n(scoreAll("beef").length)}</td><td class="num">188</td></tr>
-            <tr><td>C1 &mdash; gold row in top 3</td><td class="num">24 / 44</td><td class="num">24 / 44</td></tr>
-            <tr><td>C2 &mdash; at most 25 rows</td><td class="num">27 / 44</td><td class="num">28 / 44</td></tr>
+            <tr><td><strong>mutton</strong>, <strong>turkey breast</strong>, <strong>turkey thigh</strong>, dove</td><td>USDA publishes them roasted and no other way</td></tr>
+            <tr><td>escarole, stinging nettles, malabar spinach, tree fern</td><td>published boiled</td></tr>
+            <tr><td>buckwheat groats, pinon nuts, winged bean</td><td>published cooked or roasted</td></tr>
+            <tr><td>salmon nuggets, guava sauce, beef composite</td><td>published cooked</td></tr>
           </tbody>
         </table>
       </div>
 
-      <p style="margin-top:1.3rem"><strong>The rule works and the bar does not move.</strong> Of the twenty-one queries over the cap, exactly one crosses it. Both are true at once: <span class="rec">beef</span> answering with 188 butchery cuts <em>is</em> one row per ingredient, because a bottom round steak and a bottom round roast are two foods. The remaining distance is a paging problem, not a membership one.</p>
+      <p>A British reader loses one more thing worth naming: <span class="rec">jacket potato</span> no longer answers. A jacket potato <em>is</em> a baked potato, so there is no uncooked row for the word to reach. A raw potato is still in the corpus and still answers <span class="rec">potato</span>.</p>
 
-      <h3>The finding that shaped the rule</h3>
-      <p>The obvious fix &mdash; delete every row naming a cooking method, then every row naming a trim or grade &mdash; takes the corpus to 1,873 and looks excellent. It also <strong>deletes 1,089 foods with no survivor and eighteen head phrases entirely</strong>: mutton, teff, spelt, turkey breast, and quinoa and apricots among them. They go because USDA publishes them only cooked or only trimmed, and a rule reading one row at a time cannot tell &ldquo;this is a duplicate&rdquo; from &ldquo;this is the only record there is&rdquo;.</p>
+      <h3>What it bought</h3>
 
-      <p class="lede" style="margin-top:1.4rem">The fix that reaches USDA's granularity is the fix that deletes quinoa.</p>
+      <div class="statgrid">
+        <div class="stat"><b>${n(ROWS)}</b><span>rows, down from 4,238 &mdash; and 498 foods, down from 512</span></div>
+        <div class="stat"><b>${pc(neverOnPage, ROWS)}</b><span>of rows unreachable by typing the corpus's own vocabulary, down from 41%</span></div>
+        <div class="stat"><b>${n(scoreAll("beef").length)}</b><span>rows answer <span class="rec">beef</span></span></div>
+        <div class="stat"><b>0</b><span>leads the <span class="rec">simplicity</span> ranking key still moves</span></div>
+      </div>
 
-      <h3>And what it does <em>not</em> make redundant</h3>
-      <p>The expectation was that collapsing the duplicates would make most of the machinery above pointless. It was measured, key by key and filter by filter. <strong>Nothing is redundant:</strong> all ten of the keys that existed then still move leads, all fourteen drop rules still remove rows the collapse would not (${n(DROPPED - 1)} of ${n(DROPPED)} discarded records would simply come back), and the four name rosters share no entry with the collapse roster. The two frecency keys added since (#165) read this device's ledger rather than the corpus, so the census measures them at zero and says so.</p>
+      <p>That last figure is the one nobody was looking for. <strong>Removing the cooked rows retired a ranking key.</strong> <span class="rec">simplicity</span> now moves no lead at all and breaks nothing when deleted, and <span class="rec">raw</span> has fallen from 63 moved leads to ${n(movedLeads("raw"))} &mdash; it was reading a word no name carries any more. An earlier census went looking for exactly this and found nothing redundant; what it was testing was a rule that merged duplicate rows, and merging leaves every distinction standing. Removing them does not.</p>
 
-      <p>The reason is structural. <strong>A collapse always leaves a survivor</strong> &mdash; it merges records of <em>one</em> food. Every rule above separates <em>different</em> foods: a fat from a meat, a brand from an ingredient, an imitation from the thing. That work is identical whether the corpus holds thirty copies of each or one.</p>
+      <p>It also repaired five cases a hand-adjudication had recorded as wrong. <span class="rec">spinach</span> used to lead with <span class="rec">Spinach, cooked, boiled, drained, without salt</span>; millet, teff, tempeh and rice noodles led with their cooked rows too. All five leads were wrong because a cooked row was answering, and all five rows are gone.</p>
     </section>
 
     <section id="faq">

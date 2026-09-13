@@ -182,6 +182,12 @@ export function censusFoodKind(groups, app) {
       reads_category: true,
     },
     {
+      name: "cooked_form",
+      fires: (food) => app.isCookedForm(food.foodCategory, food.description),
+      ablate: (d, category) => app.isCookedForm(category, d),
+      reads_category: true,
+    },
+    {
       name: "dry_basis",
       fires: (food) => app.isDryBasisRecord(food.description),
       ablate: (d) => app.isDryBasisRecord(d),
@@ -337,9 +343,46 @@ async function main() {
     });
   }
 
-  const shipped = afterVariants.filter(
+  // The two name passes that run after `resolveShippedNames` in the generator.
+  // The comparative rule only renames; the enrichment rule also DROPS, taking an
+  // unenriched row whose enriched twin has just claimed the plain name, so the
+  // census has to replay both or its survivor count will not add up.
+  const afterNames = afterVariants.filter(
     (s) => !nameVerdict.dropped.has(s.food.fdcId)
-  ).length;
+  );
+  const renamedRows = afterNames.map((s) => ({
+    fdcId: s.food.fdcId,
+    description: nameVerdict.renamed.get(s.food.fdcId) ?? s.food.description,
+  }));
+  const uncontested = app.dropUncontestedQualifiers(renamedRows);
+  const trimmedRows = renamedRows.map((row) => ({
+    ...row,
+    description: uncontested.get(row.fdcId) ?? row.description,
+  }));
+  const enrichment = app.stripEnrichment(trimmedRows);
+  const byId = new Map(afterNames.map((s) => [s.food.fdcId, s]));
+  for (const fdcId of enrichment.dropped) {
+    const s = byId.get(fdcId);
+    const row = trimmedRows.find((r) => r.fdcId === fdcId);
+    drops.push({
+      fdcId,
+      description: row.description,
+      dataType: s.food.dataType,
+      ...(s.food.foodCategory ? { foodCategory: s.food.foodCategory } : {}),
+      group: s.group.map((f) => f.description),
+      nutrients: s.food.foodNutrients.length,
+      calories:
+        s.food.foodNutrients.find((n) => n.nutrientId === 1008)?.value ?? null,
+      stage: "name",
+      rule: "enrichment_duplicate",
+      // Relational like the two above it: what removed this row is the twin that
+      // took its name, never a word in it.
+      because: [],
+      because_kind: "by_collision",
+    });
+  }
+
+  const shipped = afterNames.length - enrichment.dropped.size;
 
   // The census adds up or it is wrong. The rule ORDER above is mirrored from
   // `buildCorpus` rather than borrowed from it — the one place this script could
