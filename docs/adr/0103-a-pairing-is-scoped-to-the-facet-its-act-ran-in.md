@@ -7,7 +7,7 @@
 **Amends:** [ADR-0075](0075-your-own-devices-converge-on-a-version-vector-read-off-the-ledger.md) (§6's version vector is re-keyed by originating device **and Tracked Domain**; it stays a read of `datoms` and its argument against a scalar watermark survives, widened to a second axis)  
 **Amends:** [ADR-0080](0080-a-facet-carries-a-jar-wide-control-only-where-losing-it-loses-data.md) (§9's _a food-only user therefore has no p2p at all_ is now false in both halves; §2's table gains a Paired devices row)  
 **Amends:** [ADR-0072](0072-a-meal-crosses-through-a-relay-that-cannot-read-it.md) (§7's refusal to let a sender learn anything about the recipient's device is stated not to govern own-device pairing, which it was never written about)  
-**Implemented:** #420 — §7's gate alone. `docs/eavt-vocabulary.md` now marks every attribute that holds an entity reference, `referencesOf`'s edge set is data rather than `case` labels and is exported from `src/lib/p2p/meal-payload.ts`, and `tests/unit/meal-payload.test.ts` holds the one to the other under `pnpm test:unit`. The documented set is **five** attributes and not the three §7 names, so what shipped is a partition rather than the containment asked for, and the first Amendment at the foot of this record carries that argument. **#419 — §5 and §6.** `src/lib/db/version-vector.ts` is keyed by `(device_id, Tracked Domain)`, `domainsOfRow` there is the attribution rule and `CONTENT_DOMAINS` in `src/lib/facets/registry.ts` is the axis roster; the query and the `WHERE` share one registry-derived predicate, and `tests/unit/version-vector.test.ts` holds that predicate to `domainsOfRow` one row at a time through the real engine. The second Amendment carries what §5 left to the implementer. Not yet built: the scope (§1 to §4) is #421, the wakes (§9) are #422 and the surface (§8, §10) is #423.
+**Implemented:** #420 — §7's gate alone. `docs/eavt-vocabulary.md` now marks every attribute that holds an entity reference, `referencesOf`'s edge set is data rather than `case` labels and is exported from `src/lib/p2p/meal-payload.ts`, and `tests/unit/meal-payload.test.ts` holds the one to the other under `pnpm test:unit`. The documented set is **five** attributes and not the three §7 names, so what shipped is a partition rather than the containment asked for, and the first Amendment at the foot of this record carries that argument. **#419 — §5, and §6's attribution rule.** `src/lib/db/version-vector.ts` is keyed by `(device_id, Tracked Domain)`, `domainsOfRow` there is the attribution rule and `CONTENT_DOMAINS` in `src/lib/facets/registry.ts` is the axis roster; the query and the `WHERE` share one registry-derived predicate, and `tests/unit/version-vector.test.ts` holds that predicate to `domainsOfRow` one row at a time through the real engine. The second Amendment carries what §5 left to the implementer, and the third carries which half of §6 that left standing. **#421 — §1 to §4.** `src/lib/p2p/lane-scope.ts` is a lane's scope, `entityPrefixesOfDomains` in the registry is the one derivation a wipe's predicate and a lane's now share, the domain set rides the first sync's opening frame and `PairedDevice.scope` keeps what the two ends agreed; `tests/unit/first-sync.test.ts` proves a food lane against two real ledgers, both re-pairing directions included. The third Amendment carries where §3 put the statement and what §1's predicate cannot say. Not yet built: the wakes (§9) are #422 and the surface (§8, §10) is #423.
 
 ## Context
 
@@ -472,3 +472,54 @@ accepted with the six prefixes named.
 
 Three wake suites were minting `event:` bare in their fixtures, which no minting site
 may do, and they now name a declared prefix.
+
+## Amendment (2026-09-14): §3's statement rides the opening exchange, and §1's predicate cannot carry a deletion
+
+§3 puts each side's domain set in _ADR-0096 §8's closing exchange_. Building it
+([#421](https://github.com/palebluebytes/inventoria/issues/421)) found that it
+cannot go there. ADR-0096 §8's act is _vectors exchange → chunks both ways →
+closing vector exchange_, so a scope agreed at the close is agreed **after every
+row it was supposed to bind has already crossed** — and §1 is a rule about the
+rows, not about the record. Both ends also have to hold the same scope _before_
+either pages its ledger, because each filters `above` with it, and §3's own
+argument against asymmetry is that a lane whose two ends ran different
+predicates diverges silently. So the statement rides `open`, beside the
+`device_id` and the vector that are already there. Nothing else in §3 moves: it
+is still one new statement on the wire, the record is still written on receipt
+of the peer's closing vector, and the scope is still the intersection.
+
+**§1's predicate is sound for content and silent about deletions, and the
+difference is §6's.** §1 prescribes `entityPrefixesOf` over the scope's domains
+composed with `readLedgerPage`'s existing `entityPrefixes` narrowing, and that
+is what shipped. A **Carried deletion**'s entity is `deletion:`, which belongs to
+the Jar domain — so it crosses a jar-wide lane, whose scope is the whole Jar by
+§1, and it crosses **no narrower lane at all**, because the domains it is about
+live in its `value` and no prefix list can reach them. §6's _a deletion crosses a
+lane if and only if its prefix list is a subset of the lane's_ is therefore not
+expressible in the shape §1 calls for: it needs the row's attributed domains
+(`domainsOfRow`, which #419 built for the vector) rather than its entity prefix.
+
+The gap is **incompleteness rather than corruption**, and it is bounded. A
+device on a food lane never learns of a food wipe and keeps the rows it took,
+and it cannot hand them back, because the wiping device holds the `deletion:`
+row and `importConvergedRows` refuses what it covers. No lane can be narrow
+today in any case: the only pairing act is the root's until
+[#423](https://github.com/palebluebytes/inventoria/issues/423) gives Rations the
+surface. **It is owed by [#422](https://github.com/palebluebytes/inventoria/issues/422)**,
+which is where §9 decides which wakes serve which lanes and where the fourth row
+of that table — _Rations, jar-wide, yes, for food **and its deletions** only_ —
+needs the same rule. Until it is built, this record's claim that §6 shipped with
+#419 covers the attribution half and not the crossing half.
+
+**One consequence for a wake, named so it is not read as covered.** A wake's
+deposit reads `PairedDevice.scope` for nothing yet: `wake-errand.ts` pages the
+ledger un-narrowed, as it always has. That is correct while every lane is
+jar-wide and is the first thing #422 changes.
+
+**And one for #425, which gains a second mechanism to undo.** A jar-wide lane's
+predicate is every prefix the registry declares, which is not the same as no
+predicate: a row under one of ADR-0086 §3's six retired prefixes matches none of
+them and is now withheld by the page read as well as by the vector's axes. It
+was already withheld by the axes alone, so nothing is newly lost and the second
+Amendment's account of the loss is unchanged — but a repair that reinstates the
+vector axis and stops there would still not move that row.
