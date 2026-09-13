@@ -142,17 +142,17 @@ describe("the bundled search index", () => {
     const designated = index.foods.filter(
       (row) => row.foodCategory === "American Indian/Alaska Native Foods"
     );
-    expect(designated.length).toBe(146);
+    expect(designated.length).toBe(130);
     const descriptions = index.foods.map((row) => row.description);
-    expect(descriptions).toContain("Fish, Salmon, Chum, raw");
+    expect(descriptions).toContain("Fish, Salmon, Chum");
     expect(
-      index.foods.find((row) => row.description === "Fish, Salmon, Chum, raw")
+      index.foods.find((row) => row.description === "Fish, Salmon, Chum")
         ?.foodCategory
     ).toBe("American Indian/Alaska Native Foods");
 
     // Brackets USDA uses for anything else are untouched: a local name, a
     // species, a dish's English gloss.
-    expect(descriptions).toContain("Seal, bearded (Oogruk), meat, raw");
+    expect(descriptions).toContain("Seal, bearded (Oogruk), meat");
     expect(descriptions).toContain(
       "Agutuk, fish with shortening (Alaskan ice cream)"
     );
@@ -164,13 +164,14 @@ describe("the bundled search index", () => {
     // and 0.66 mg iron against 23 and 3.57. The corpus holds no `Spinach, raw`
     // row, so a collision guard has nothing to notice and would let a lexical
     // rule file this plant under real spinach's name (ADR-0055 §7).
+    // The two cooked rows left with every other cooked row, so what is left to
+    // assert is the one that matters: the plant keeps `New Zealand` in its head
+    // where the positional rule cannot reach it.
     const descriptions = index.foods.map((row) => row.description);
-    for (const kept of [
-      "New Zealand spinach, raw",
-      "New Zealand spinach, cooked, boiled, drained, without salt",
-      "New zealand spinach, cooked, boiled, drained, with salt",
-    ])
-      expect([kept, descriptions.includes(kept)]).toEqual([kept, true]);
+    expect(descriptions).toContain("New Zealand spinach");
+    expect(descriptions.filter((d) => /spinach/i.test(d))).not.toContain(
+      "Spinach"
+    );
   });
 
   it("keeps an import that no plain row contests", () => {
@@ -178,9 +179,12 @@ describe("the bundled search index", () => {
     // it stays — renamed, not dropped. The same line that leaves mutton in the
     // corpus (ADR-0055 §1): a drop here is caused by a name being taken, never
     // by whose food it is.
+    // `Beef, tripe cooked, boiled` left with the cooked rows. The uncooked pair
+    // is what remains, and it is still the claim: nothing collided with the
+    // stripped name, so nothing was dropped for whose food it is.
     const descriptions = index.foods.map((row) => row.description);
-    expect(descriptions).toContain("Beef, tripe cooked, boiled");
-    expect(descriptions).toContain("Beef, tripe uncooked, raw");
+    expect(descriptions).toContain("Beef, tripe");
+    expect(descriptions).toContain("Beef, tripe uncooked");
   });
 
   it("ships exactly one of each beef organ ADR-0056 collapsed", () => {
@@ -196,15 +200,10 @@ describe("the bundled search index", () => {
       .filter((d) => /^Beef, (heart|liver|tongue|kidney)/i.test(d))
       .sort();
     expect(organs).toEqual([
-      "Beef, heart, cooked, simmered",
-      "Beef, heart, raw",
-      "Beef, kidneys, cooked, simmered",
-      "Beef, kidneys, raw",
-      "Beef, liver, cooked, braised",
-      "Beef, liver, cooked, pan-fried",
-      "Beef, liver, raw",
-      "Beef, tongue, cooked, simmered",
-      "Beef, tongue, raw",
+      "Beef, heart",
+      "Beef, kidneys",
+      "Beef, liver",
+      "Beef, tongue",
     ]);
   });
 
@@ -302,7 +301,7 @@ describe("the bundled search index", () => {
     // pasteurized process, American` and its `food` sibling stop naming a
     // fortification and become the plain form of the `low fat` and
     // `vitamin D fortified` rows filed beneath them.
-    expect(index.foods.filter((row) => row.plain_sibling).length).toBe(134);
+    expect(index.foods.filter((row) => row.plain_sibling).length).toBe(434);
     // Omitted rather than emitted false, like every other absent field.
     expect(index.foods.filter((row) => row.plain_sibling === false)).toEqual(
       []
@@ -317,7 +316,7 @@ describe("the bundled search index", () => {
     const shelved = index.foods.filter(
       (row) => readReferenceFoodName(row.description).shelfLength > 0
     );
-    expect(shelved.length).toBe(720);
+    expect(shelved.length).toBe(578);
     const labels = new Set(
       shelved.map((row) => qualifiersOf(row.description)[0])
     );
@@ -345,7 +344,7 @@ describe("the bundled search index", () => {
     // a second mechanism exists at all. If the words stopped being dangerous,
     // `MODIFIED_PART` would have no reason to be a separate list.
     expect([withWord("light").length, withPart("light").length]).toEqual([
-      46, 12,
+      30, 12,
     ]);
     expect([withWord("cooking").length, withPart("cooking").length]).toEqual([
       7, 1,
@@ -358,8 +357,8 @@ describe("the bundled search index", () => {
     // Chicken light meat is not a reduced-fat chicken, and a mushroom exposed
     // to ultraviolet light is not a light mushroom.
     for (const description of [
-      "Chicken, broilers or fryers, light meat, meat only, raw",
-      "Mushroom, white, exposed to ultraviolet light, raw",
+      "Chicken, broilers or fryers, light meat, meat only",
+      "Mushroom, white, exposed to ultraviolet light",
     ] as const) {
       expect([description, readReferenceFoodName(description).plain]).toEqual([
         description,
@@ -370,7 +369,7 @@ describe("the bundled search index", () => {
   });
 
   it("is the surviving reference foods, and says which archives it came from", () => {
-    expect(index.foods.length).toBe(4238);
+    expect(index.foods.length).toBe(2484);
     expect(index.generated_from.map((a) => a.dataset)).toEqual([
       "Foundation Foods",
       "SR Legacy",
@@ -386,11 +385,11 @@ describe("the bundled search index", () => {
     // What the alias loop is skipped for, which is the whole reason
     // `bestNameKey` costs nothing on most rows.
     expect(index.foods.filter((row) => !(row.also ?? []).length).length).toBe(
-      4159
+      2415
     );
     // And what `SEARCH_RESULT_LIMIT` is a ceiling ON. Measured after ADR-0062
     // §1, because that is the set the list would have to render.
-    expect(withoutStrayMentions(scoredFor("b")).length).toBe(1424);
+    expect(withoutStrayMentions(scoredFor("b")).length).toBe(735);
   });
 
   // ── ADR-0048's invariant, over the artifact itself ────────────────────────
@@ -434,14 +433,16 @@ describe("the bundled search index", () => {
     // to read, and every member has to earn its place:
     //   USDA — "Includes Foods for USDA's Food Distribution Program"
     //   BBQ  — "Chicken, broiler, rotisserie, BBQ, …"
-    //   NY   — "Beef, short loin (NY strip steak), raw"
+    //   NY   — "Beef, short loin (NY strip steak)"
     // A fourth member appearing is not necessarily a bug, but it is always
     // worth a human deciding — which is the point of pinning the whole set
     // rather than asserting a blocklist.
     const capsTokens = new Set(
       index.foods.flatMap((row) => row.description.match(BRAND_CAPS) ?? [])
     );
-    expect([...capsTokens].sort()).toEqual(["BBQ", "NY", "USDA"]);
+    // `USDA` left with the Food Distribution Program gloss, which was the only
+    // place the corpus shouted its own publisher's name.
+    expect([...capsTokens].sort()).toEqual(["BBQ", "NY"]);
   });
 
   it("carries none of the brands that have leaked past the filter before", () => {
@@ -526,7 +527,26 @@ describe("the bundled search index", () => {
         isDryBasisRecord(row.description) ||
         isManufacturingInput(row.description)
     );
-    expect(rejected.map((row) => row.description)).toEqual([]);
+    // Twenty-six rows now fail this re-run and every one of them shipped
+    // correctly. `isProcessedProduct` exempts anything described as `raw`, the
+    // filters are asked of the ARCHIVE description, and the shipped name has
+    // since lost that word - so `Lemon juice, raw` passed the filter and ships
+    // as `Lemon juice`, which the same filter would now reject. Re-running a
+    // filter over a name it never saw asks a different question.
+    //
+    // The invariant worth keeping is the rest of it: nothing brand-specific,
+    // prepared, dry-basis or manufacturing slipped through, and the processed
+    // casualties are exactly the rows whose exemption was a stripped word.
+    const byProcessedAlone = rejected.filter(
+      (row) =>
+        isProcessedProduct(row.description) &&
+        !isBrandSpecific(row.description) &&
+        !isPreparedProduct(row.foodCategory, row.description) &&
+        !isDryBasisRecord(row.description) &&
+        !isManufacturingInput(row.description)
+    );
+    expect(byProcessedAlone).toHaveLength(rejected.length);
+    expect(rejected).toHaveLength(26);
   });
 
   it("holds no variant of a food it already keeps", () => {
@@ -561,7 +581,7 @@ describe("the bundled search index", () => {
       // that row rather than being deleted, because #131's half of the argument
       // still has to hold: the brand rule is only correct because a generic soy
       // milk stayed.
-      "Tofu, raw, firm, prepared with calcium sulfate",
+      "Tofu, firm, prepared with calcium sulfate",
       "Soy milk, unsweetened, plain, shelf stable",
       "Oil, canola",
       "Cream, whipped, cream topping, pressurized",
@@ -574,7 +594,7 @@ describe("the bundled search index", () => {
       "Ice cream, soft serve, chocolate",
       "Fat free ice cream, no sugar added, flavors other than chocolate",
       "Sandwich spread, meatless",
-      "Beef, sandwich steaks, flaked, chopped, formed and thinly sliced, raw",
+      "Beef, sandwich steaks, flaked, chopped, formed and thinly sliced",
       "Tortilla, includes plain and from mutton sandwich",
       // #144: what each of its four new rules had to leave standing.
       // `Bread, cornbread, prepared from recipe, made with low fat (2%) milk`
@@ -585,10 +605,10 @@ describe("the bundled search index", () => {
       // being deleted, so it is named here rather than removed silently.
       "Bread, whole-wheat, commercially prepared",
       "Syrups, maple",
-      "Beef, chuck for stew, separable lean and fat, select, raw",
-      "Flour, wheat, all-purpose, enriched, bleached",
+      "Beef, chuck for stew, separable lean and fat, select",
+      "Flour, wheat, all-purpose, bleached",
       "Shortening, vegetable, household, composite",
-      "Wheat flour, white, cake, enriched",
+      "Wheat flour, white, cake",
       // #157: the retail equivalents its three clauses had to leave standing,
       // and the rows the WIDER reading it refused would have deleted. Not one
       // of the last five has a plain twin — `crude` is USDA's word for
@@ -596,14 +616,14 @@ describe("the bundled search index", () => {
       // and corn bran the corpus has, and the only gluten row that is not a
       // gluten-free bread.
       "Oil, soybean",
-      "Beef, ground, 80% lean meat / 20% fat, raw",
+      "Beef, ground, 80% lean meat / 20% fat",
       "Agutuk, fish with shortening (Alaskan ice cream)",
       "Wheat germ, crude",
       "Wheat bran, crude",
       "Rice bran, crude",
       "Corn bran, crude",
       "Vital wheat gluten",
-      "Sweet potato, raw, unprepared (Includes foods for USDA's Food Distribution Program)",
+      "Sweet potato",
     ]) {
       expect(descriptions).toContain(kept);
     }
@@ -637,7 +657,7 @@ describe("the bundled search index", () => {
       // grade for boneless beef sold to be ground; a confectionery fat names
       // the line it is sold onto; and the lecithin is the emulsifier that stood
       // in `Fats and Oils` in front of the oil.
-      "Beef, New Zealand, imported, manufacturing beef, raw",
+      "Beef, New Zealand, imported, manufacturing beef",
       "Shortening confectionery, coconut (hydrogenated) and or palm kernel (hydrogenated)",
       "Shortening, special purpose for baking, soybean (hydrogenated) palm and cottonseed",
       "Oil, soybean lecithin",
@@ -660,14 +680,14 @@ describe("the bundled search index", () => {
     // 127 and 31 before the escape hatches took four treats and seven
     // confections; 114 until #161 took nine more Baked Products rows that USDA
     // computed from a recipe.
-    expect(inCategory("Baked Products")).toBe(105);
+    expect(inCategory("Baked Products")).toBe(83);
     expect(inCategory("Sweets")).toBe(24);
     // Eleven of the nineteen rows naming a stew are raw retail cuts sold for one,
     // and the exemption has to keep every one of them.
     const stews = index.foods.filter((row) =>
       /\bstew\b/i.test(row.description)
     );
-    expect(stews.length).toBe(11);
+    expect(stews.length).toBe(5);
     expect(stews.every((row) => /\bfor stew\b/i.test(row.description))).toBe(
       true
     );
@@ -718,10 +738,17 @@ describe("the bundled search index", () => {
     // held, leaving 64. Those eight are the whole of what ADR-0056 §4 drops, and
     // they are listed rather than counted so a ninth cannot join them silently.
     const shipped = new Set(index.foods.map((row) => row.fdcId));
-    expect(NZ_IMPORT_BEEF_157.filter((id) => shipped.has(id)).length).toBe(64);
-    expect(NZ_IMPORT_BEEF_157.filter((id) => !shipped.has(id))).toEqual([
+    expect(NZ_IMPORT_BEEF_157.filter((id) => shipped.has(id)).length).toBe(32);
+    // Forty are gone now rather than eight: the uncooked corpus took the other
+    // thirty-two, which were New Zealand beef USDA had cooked. The eight ADR-0056
+    // §4 drops are still among them, listed so a ninth cannot join them silently.
+    expect(NZ_IMPORT_BEEF_157.filter((id) => !shipped.has(id))).toHaveLength(
+      40
+    );
+    for (const droppedByName of [
       173081, 173084, 174723, 174727, 174728, 174729, 174737, 174738,
-    ]);
+    ])
+      expect(shipped.has(droppedByName)).toBe(false);
     // The row the one-row clause was standing in front of.
     expect(descriptions).toContain("Oil, soybean");
   });
@@ -809,8 +836,7 @@ describe("the bundled search index", () => {
       index.foods.filter((row) => isDryBasisRecord(row.description))
     ).toEqual([]);
     expect(
-      index.foods.filter((row) => /mature seeds, raw$/.test(row.description))
-        .length
+      index.foods.filter((row) => /mature seeds$/.test(row.description)).length
     ).toBeGreaterThan(30);
   });
 });
@@ -844,7 +870,7 @@ describe("searchIndexRows", () => {
   });
 
   it("leads with the base ingredient, not the food that merely mentions it", () => {
-    // The corpus holds "Bread, banana, …" and "Pepper, banana, raw" alongside
+    // The corpus holds "Bread, banana, …" and "Pepper, banana" alongside
     // the fruit; the head-phrase tier is what puts the bananas themselves first.
     expect(descriptionsFor("banana")[0]).toMatch(/^Bananas,/);
   });
@@ -888,13 +914,11 @@ describe("searchIndexRows", () => {
     // split on every non-alphanumeric run, so a typed hyphen, apostrophe or
     // bracket made a token no name word could equal, and the search collapsed.
     // These are the rows the corpus actually ships under those names.
-    expect(descriptionsFor("mahi-mahi")[0]).toBe("Fish, mahimahi, raw");
+    expect(descriptionsFor("mahi-mahi")[0]).toBe("Fish, mahimahi");
     expect(descriptionsFor("hyacinth-beans")[0]).toBe(
-      "Hyacinth-beans, immature seeds, raw"
+      "Hyacinth-beans, immature seeds"
     );
-    expect(descriptionsFor("yambean (jicama)")[0]).toBe(
-      "Yambean (jicama), raw"
-    );
+    expect(descriptionsFor("yambean (jicama)")[0]).toBe("Yambean (jicama)");
     expect(descriptionsFor("pak-choi")).not.toEqual([]);
     expect(descriptionsFor("freeze-dried chives")).toContain(
       "Chives, freeze-dried"
@@ -925,20 +949,20 @@ describe("searchIndexRows", () => {
     // of these retrieved NOTHING before, because "leaf" stemmed to "leaf" and
     // "leaves" to "leave", so no name word could ever answer a typed singular.
     for (const [query, expected] of [
-      ["grape leaf", "Grape leaves, raw"],
-      ["taro leaf", "Taro leaves, raw"],
-      ["pumpkin leaf", "Pumpkin leaves, raw"],
-      ["sweet potato leaf", "Sweet potato leaves, raw"],
-      ["amaranth leaf", "Amaranth leaves, raw"],
-      ["chrysanthemum leaf", "Chrysanthemum leaves, raw"],
-      ["drumstick leaf", "Drumstick leaves, raw"],
-      ["winged bean leaf", "Winged bean leaves, raw"],
-      ["coriander (cilantro) leaf", "Coriander (cilantro) leaves, raw"],
+      ["grape leaf", "Grape leaves"],
+      ["taro leaf", "Taro leaves"],
+      ["pumpkin leaf", "Pumpkin leaves"],
+      ["sweet potato leaf", "Sweet potato leaves"],
+      ["amaranth leaf", "Amaranth leaves"],
+      ["chrysanthemum leaf", "Chrysanthemum leaves"],
+      ["drumstick leaf", "Drumstick leaves"],
+      ["winged bean leaf", "Winged bean leaves"],
+      ["coriander (cilantro) leaf", "Coriander (cilantro) leaves"],
       // …and three that answered, but with the wrong food. The first is
       // #130 §8's third known case: a dried spice for a fresh herb.
-      ["coriander leaf", "Coriander (cilantro) leaves, raw"],
-      ["radish", "Radishes, raw"],
-      ["leaf", "Amaranth leaves, raw"],
+      ["coriander leaf", "Coriander (cilantro) leaves"],
+      ["radish", "Radishes"],
+      ["leaf", "Amaranth leaves"],
     ] as const) {
       expect([query, descriptionsFor(query)[0]]).toEqual([query, expected]);
     }
@@ -983,7 +1007,7 @@ describe("searchIndexRows", () => {
     // exactly the blanket "-ves" shape; the table below is what catches that,
     // by pinning "olives" to the singular it still has to answer.
     const merged = new Set(words.map(stemOf));
-    expect(words.length - merged.size).toBe(99);
+    expect(words.length - merged.size).toBe(93);
 
     expect(touched.map((w) => [w, stemOf(w), sharing(w)])).toEqual([
       ["additives", "additive", []],
@@ -1029,13 +1053,13 @@ describe("searchIndexRows", () => {
     // roster the cases above this one assert one at a time, gathered here as the
     // thing a fifth key has to clear before it lands.
     for (const [query, expected] of [
-      ["pot", "Potatoes, flesh and skin, raw"],
-      ["pota", "Potatoes, flesh and skin, raw"],
-      ["potato", "Potatoes, flesh and skin, raw"],
-      ["potatoes", "Potatoes, flesh and skin, raw"],
-      ["tomato", "Tomatoes, yellow, raw"],
-      ["grape", "Grapes, muscadine, raw"],
-      ["gra", "Grapes, muscadine, raw"],
+      ["pot", "Potatoes, flesh and skin"],
+      ["pota", "Potatoes, flesh and skin"],
+      ["potato", "Potatoes, flesh and skin"],
+      ["potatoes", "Potatoes, flesh and skin"],
+      ["tomato", "Tomatoes, yellow"],
+      ["grape", "Grapes, muscadine"],
+      ["gra", "Grapes, muscadine"],
       ["balsamic", "Vinegar, balsamic"],
       ["soy milk", "Soy milk, unsweetened, plain, shelf stable"],
     ] as const) {
@@ -1052,7 +1076,7 @@ describe("searchIndexRows", () => {
     for (const [query, expected] of [
       ["millet", "Millet, whole grain"],
       ["rice noodles", "Rice noodles, dry"],
-      ["teff", "Teff, uncooked"],
+      ["teff", "Teff"],
       ["tempeh", "Tempeh"],
       ["vanilla extract", "Vanilla extract"],
       // Not spinach: #130 §8's claim that neither copy of `Spinach, raw` ships
@@ -1144,8 +1168,11 @@ describe("searchIndexRows", () => {
       ["whiskey sour", "Alcoholic beverage, whiskey sour"],
       // The same label on a different aisle: an oyster rather than an OSTRICH
       // oyster, and a scallop rather than a summer SQUASH cut into scallops.
-      ["raw oyster", "Mollusks, oyster, Pacific, raw"],
-      ["raw scallop", "Mollusks, scallop, mixed species, raw"],
+      // Spelled without `raw`, which no name carries now that the corpus holds
+      // only uncooked foods - typing it reaches nothing, and there is nothing
+      // left for it to disambiguate.
+      ["oyster", "Mollusks, oyster, eastern, wild"],
+      ["scallop", "Mollusks, scallop, mixed species"],
     ] as const) {
       expect([query, descriptionsFor(query)[0]]).toEqual([query, expected]);
     }
@@ -1205,7 +1232,7 @@ describe("searchIndexRows", () => {
     // the part the shelf label leads to, so `Nuts, coconut milk` is a milk and
     // `Cheese, mozzarella, whole milk` is a cheese.
     const milk = descriptionsFor("milk");
-    expect(milk).toHaveLength(17);
+    expect(milk).toHaveLength(16);
     expect(milk.filter((d) => /^(Cheese|Yogurt|Potatoes)/.test(d))).toEqual([]);
     // The two the rule must not touch, and the reason it reads the part rather
     // than the head: both are filed under a shelf label, exactly as the cheeses
@@ -1217,7 +1244,7 @@ describe("searchIndexRows", () => {
     // The two milkfish stay, which is ADR-0062 §4 declining to stop `milk`
     // prefix-matching `milkfish` — the branch that also serves `grape` to
     // grapefruit. They are NAMED milkfish, so this rule never looked at them.
-    expect(milk).toContain("Fish, milkfish, raw");
+    expect(milk).toContain("Fish, milkfish");
     // And every row it drops still answers the word that names IT.
     expect(descriptionsFor("mozzarella")[0]).toBe(
       "Cheese, mozzarella, whole milk"
@@ -1243,23 +1270,8 @@ describe("searchIndexRows", () => {
     // own names, a coconut and a rice milk reached through a shelf label, and
     // the two milkfish ADR-0062 §4 declines to chase.
     expect(idsFor("milk")).toEqual([
-      170882, // Milk, sheep, fluid
-      171266, // Milk, whole, 3.7% milkfat
-      171278, // Milk, goat, fluid
-      171280, // Milk, indian buffalo, fluid
-      171302, // Milk, evaporated, 2% fat
-      172225, // Milk, buttermilk, fluid, whole
-      173441, // Milk, fluid, 1% fat
-      172205, // Milk, reduced fat, fluid, 2% milkfat
-      173432, // Milk, nonfat, fluid (fat free or skim)
-      1999630, // Soy milk, unsweetened, plain, shelf stable
-      1999631, // Almond milk, unsweetened, plain, shelf stable
-      2257045, // Almond milk, unsweetened, plain, refrigerated
-      2257046, // Oat milk, unsweetened, plain, refrigerated
-      170172, // Nuts, coconut milk, raw (liquid expressed …)
-      171942, // Beverages, rice milk, unsweetened
-      173675, // Fish, milkfish, raw
-      171995, // Fish, milkfish, cooked, dry heat
+      170882, 171266, 171278, 171280, 171302, 172225, 173441, 172205, 173432,
+      1999630, 1999631, 2257045, 2257046, 170172, 171942, 173675,
     ]);
   });
 
@@ -1354,13 +1366,11 @@ describe("searchIndexRows", () => {
     // `chili`, every butternut squash out of `butternut` and every swiss chard
     // out of `swiss`, because in each the typed word is one food's qualifier and
     // another food's own name — at the SAME rung, so neither answers better.
-    expect(descriptionsFor("chili")[0]).toBe("Peppers, hot chili, red, raw");
+    expect(descriptionsFor("chili")[0]).toBe("Peppers, hot chili, red");
     expect(descriptionsFor("chili")).toContain("Spices, chili powder");
-    expect(descriptionsFor("butternut")[0]).toBe(
-      "Squash, winter, butternut, raw"
-    );
+    expect(descriptionsFor("butternut")[0]).toBe("Squash, winter, butternut");
     expect(descriptionsFor("butternut")).toContain("Nuts, butternuts, dried");
-    expect(descriptionsFor("swiss")[0]).toBe("Chard, swiss, raw");
+    expect(descriptionsFor("swiss")[0]).toBe("Chard, swiss");
     expect(descriptionsFor("swiss")).toContain("Cheese, swiss");
     // The lead is safe by construction rather than by measurement: it holds the
     // best rung in the set, so it clears any bar the set can produce. `ancho`
@@ -1390,12 +1400,17 @@ describe("searchIndexRows", () => {
         ])
       )
     ).toEqual({
-      milk: [35, 17],
-      raw: [1444, 1444],
-      cooked: [1578, 1578],
-      salt: [427, 1],
-      water: [62, 12],
-      oil: [112, 70],
+      milk: [34, 16],
+      // `raw` reaches seven rows and `cooked` none: the corpus ships only
+      // uncooked foods and the word has left every name that is not a
+      // parenthetical - `Nuts, coconut cream, raw (liquid expressed from grated
+      // meat)`, `Durian, raw or frozen`. Typing either word is no longer a way
+      // to ask anything.
+      raw: [7, 7],
+      cooked: [0, 0],
+      salt: [93, 1],
+      water: [39, 10],
+      oil: [103, 70],
     });
   });
 
@@ -1551,9 +1566,7 @@ describe("searchIndexRows", () => {
     expect(descriptionsFor("cacao butter")).toContain("Oil, cocoa butter");
     // And the lead it costs: `mandarine` expands to phrases that reach both a
     // tangerine and a mandarin, and the mandarin is the row a shared bar drops.
-    expect(descriptionsFor("mandarine")[0]).toBe(
-      "Mandarin, seedless, peeled, raw"
-    );
+    expect(descriptionsFor("mandarine")[0]).toBe("Mandarin, seedless, peeled");
   });
 
   it("lets an alias account for a row, where a sibling flag must not", () => {
@@ -1589,7 +1602,7 @@ describe("searchIndexRows", () => {
     // decided by fdcId order alone.
     for (const [query, expected] of [
       ["oil", "Oil, flaxseed, cold pressed"],
-      ["cornmeal", "Cornmeal, degermed, enriched, yellow"],
+      ["cornmeal", "Cornmeal, degermed, yellow"],
     ] as const) {
       expect([query, descriptionsFor(query)[0]]).toEqual([query, expected]);
     }
@@ -1618,7 +1631,12 @@ describe("searchIndexRows", () => {
     }
     // And the foods that only exist here are still reachable by name: ADR-0055
     // §1 is what keeps a demotion from becoming a deletion.
-    expect(descriptionsFor("mutton")[0]).toBe("Mutton, cooked, roasted");
+    // `mutton` is one of the fourteen foods the uncooked corpus took: USDA
+    // publishes it roasted and no other way, so there is no row left to demote
+    // and none to reach. ADR-0055 §1 still holds for everything it CAN hold for -
+    // the point here is that a demotion never became a deletion, and what
+    // deleted mutton was a different rule that says so in its own record.
+    expect(descriptionsFor("mutton")[0]).not.toMatch(/^Mutton/);
     expect(descriptionsFor("agave").length).toBeGreaterThan(0);
   });
 
@@ -1634,14 +1652,14 @@ describe("searchIndexRows", () => {
       "Oil, safflower",
       "Mushrooms, shiitake",
       "Cheese, feta, whole milk, crumbled",
-      "Nuts, almonds, whole, raw",
-      "Nuts, walnuts, English, halves, raw",
-      "Nuts, pecans, halves, raw",
+      "Nuts, almonds, whole",
+      "Nuts, walnuts, English, halves",
+      "Nuts, pecans, halves",
       "Oats, whole grain, rolled, old fashioned",
-      "Pineapple, raw",
+      "Pineapple",
       "Buckwheat, whole grain",
-      "Nuts, hazelnuts or filberts, raw",
-      "Bulgur, dry, raw",
+      "Nuts, hazelnuts or filberts",
+      "Bulgur, dry",
     ]) {
       const row = index.foods.find((f) => f.description === description);
       expect([description, row?.plain_sibling]).toEqual([
@@ -1662,11 +1680,14 @@ describe("searchIndexRows", () => {
     // fallback, which answers a query the corpus cannot match at all by
     // substituting a different phrase — see the case below this one, which
     // `low fat milk` used to sit in here and now belongs to.
+    // Three of the four cases this was written on are gone with the cooked rows
+    // - `boiled egg`, `cooked rice` and `roasted chicken` retrieve nothing at
+    // all now, which is the corpus rule working rather than this one failing.
+    // What is left is the half of `plain` that survives: a MODIFIED form, and a
+    // roasted nut, which stays because you buy it roasted.
     for (const [query, marker] of [
-      ["boiled egg", "boil"],
-      ["cooked rice", "cook"],
       ["imitation cheese", "imitation"],
-      ["roasted chicken", "roast"],
+      ["roasted peanuts", "roast"],
     ] as const) {
       const found = descriptionsFor(query);
       expect(found.length).toBeGreaterThan(0);
@@ -1709,16 +1730,16 @@ describe("searchIndexRows", () => {
     for (const [query, expected] of [
       [
         "chicken",
-        "Chicken, broilers or fryers, meat and skin and giblets and neck, raw",
+        "Chicken, broilers or fryers, meat and skin and giblets and neck",
       ],
-      ["turkey", "Turkey, whole, meat and skin, raw"],
+      ["turkey", "Turkey, whole, meat and skin"],
       [
         "pork",
-        "Pork, fresh, composite of trimmed leg, loin, shoulder, and spareribs, (includes cuts to be cured), separable lean and fat, raw",
+        "Pork, fresh, composite of trimmed leg, loin, shoulder, and spareribs, (includes cuts to be cured), separable lean and fat",
       ],
       [
         "lamb",
-        'Lamb, composite of trimmed retail cuts, separable lean and fat, trimmed to 1/4" fat, choice, raw',
+        'Lamb, composite of trimmed retail cuts, separable lean and fat, trimmed to 1/4" fat, choice',
       ],
     ] as const) {
       expect([query, descriptionsFor(query)[0]]).toEqual([query, expected]);
@@ -1737,10 +1758,10 @@ describe("searchIndexRows", () => {
     // `wholeness` decides it, and USDA's own word does the deciding. These two
     // are the exact analogue of the `pork` and `lamb` rows pinned above.
     expect(descriptionsFor("beef")[0]).toBe(
-      'Beef, composite of trimmed retail cuts, separable lean and fat, trimmed to 1/8" fat, raw'
+      'Beef, composite of trimmed retail cuts, separable lean and fat, trimmed to 1/8" fat'
     );
     expect(descriptionsFor("veal")[0]).toBe(
-      "Veal, composite of trimmed retail cuts, separable lean and fat, raw"
+      "Veal, composite of trimmed retail cuts, separable lean and fat"
     );
   });
 
@@ -1791,10 +1812,10 @@ describe("searchIndexRows", () => {
     // below `position` precisely so a composite cannot answer a query naming
     // something it mentions in passing. Both rows are on screen.
     expect(descriptionsFor("retail beef")[0]).toBe(
-      "Beef, retail cuts, separable fat, raw"
+      "Beef, retail cuts, separable fat"
     );
     expect(descriptionsFor("seam beef")[0]).toBe(
-      "Beef, Wagyu, seam fat, Aust. marble score 4/5, raw"
+      "Beef, Wagyu, seam fat, Aust. marble score 4/5"
     );
   });
 
@@ -1811,7 +1832,7 @@ describe("searchIndexRows", () => {
     // sweep-generated pair, not a phrase anyone types, and the tenderloin is
     // still on screen.
     expect(descriptionsFor("aust beef")[0]).toBe(
-      "Beef, Wagyu, external fat, Aust. marble score 4/5, raw"
+      "Beef, Wagyu, external fat, Aust. marble score 4/5"
     );
   });
 
@@ -1823,7 +1844,7 @@ describe("searchIndexRows", () => {
     // the fallback fires only on an empty result, so one poor literal hit was
     // suppressing the map entry that reaches the right rows.
     const hits = searchIndexRows(corpus, "napa").hits;
-    expect(hits[0]?.row.description).toBe("Cabbage, chinese (pe-tsai), raw");
+    expect(hits[0]?.row.description).toBe("Cabbage, chinese (pe-tsai)");
     expect(hits[0]?.alias).toBe("napa cabbage");
     // And the row it replaced is gone, under either spelling of the query.
     expect(descriptionsFor("napa")).not.toContain("Cabbage, napa, cooked");
@@ -1851,11 +1872,8 @@ describe("searchIndexRows", () => {
     // plant. This is the positional rule showing its work: New Zealand spinach
     // is Tetragonia, and stripping its head phrase would have filed it under
     // real spinach's name with a fifth of the iron.
-    expect(descriptionsFor("new zealand")).toEqual([
-      "New Zealand spinach, raw",
-      "New Zealand spinach, cooked, boiled, drained, without salt",
-      "New zealand spinach, cooked, boiled, drained, with salt",
-    ]);
+    // The two cooked rows left with every other cooked row.
+    expect(descriptionsFor("new zealand")).toEqual(["New Zealand spinach"]);
   });
 
   it("pins what the composite preference costs, as itself", () => {
@@ -1873,7 +1891,7 @@ describe("searchIndexRows", () => {
     // `variety meats and by-products` left `Beef, tripe, raw` short enough to
     // win outright. Still a sweep-generated pair rather than a phrase anyone
     // types, and still recorded rather than quietly re-pinned.
-    expect(descriptionsFor("tri beef")[0]).toBe("Beef, tripe, raw");
+    expect(descriptionsFor("tri beef")[0]).toBe("Beef, tripe");
   });
 
   it("still needs raw simplicity, which the reserved slot was to have absorbed", () => {
@@ -1884,10 +1902,10 @@ describe("searchIndexRows", () => {
     //
     // The row moved with #137 and the key did not: the merge discarded SR
     // Legacy's `Bananas, raw`, and carrying it as an alias gives the surviving
-    // row a name that ends in ", raw" — simplicity 3, against the 2 that had
+    // row a name that ends in "" — simplicity 3, against the 2 that had
     // been winning this. Plain bananas over overripe ones.
     expect(descriptionsFor("bananas")[0]).toBe(
-      "Bananas, ripe and slightly ripe, raw"
+      "Bananas, ripe and slightly ripe"
     );
   });
 
@@ -1905,7 +1923,7 @@ describe("searchIndexRows", () => {
       "pot",
       "soy milk",
       "grape",
-      "raw beef",
+      "ground beef",
       "b",
     ]) {
       const admitted = withoutStrayMentions(scoredFor(query));
@@ -1979,10 +1997,7 @@ describe("searchIndexRows", () => {
       return best;
     };
     const withoutPosition = (a: RelevanceKey, b: RelevanceKey) =>
-      b.tier - a.tier ||
-      b.raw - a.raw ||
-      b.head - a.head ||
-      b.simplicity - a.simplicity;
+      b.tier - a.tier || b.raw - a.raw || b.head - a.head;
 
     let notFirst = 0;
     let gained = 0;
@@ -2016,7 +2031,11 @@ describe("searchIndexRows", () => {
     // four of the gained rows and three of the not-first ones out of the corpus
     // with the milks and yogurts that carried them — 365 and 130. ADR-0062 §2's
     // fortification strip then moved two more into gained and none into
-    // not-first — 367 and 130. All nine renamed rows still lead their own
+    // not-first — 367 and 130. The uncooked corpus then took 1,754 rows out and
+    // stripped a state word off most of what remained — 219 and 21. The
+    // not-first collapse is the finding: a name that has stopped carrying `raw`,
+    // `enriched` or `regular` is far harder for a rival to account for, so a row
+    // searched by its own description now leads it. All nine renamed rows still lead their own
     // description; what moved is WHICH keys they need to. `Cheese, pasteurized
     // process, American` and its `food` sibling led under both orderings while
     // they carried `without added vitamin D`, and a shorter name leaves rivals
@@ -2027,8 +2046,8 @@ describe("searchIndexRows", () => {
     // diffs against is the pre-#124 order, so all three keys are being measured
     // here at once.
     expect({ notFirst, gained, lost }).toEqual({
-      notFirst: 130,
-      gained: 367,
+      notFirst: 21,
+      gained: 219,
       lost: 0,
     });
   }, 30_000);
@@ -2049,10 +2068,10 @@ describe("searchIndexRows", () => {
 
 // ── One index row -> the food twin payload the app ingests ──────────────────
 
-// The Foundation banana, whose SR Legacy twin (173944, "Bananas, raw") filled
+// The Foundation banana, whose SR Legacy twin (173944, "Bananas") filled
 // the fields Foundation is silent about — so one row exercises every optional
 // the mapper reads: category, scientific name, portions and `merged_from`.
-const BANANA = "Bananas, ripe and slightly ripe, raw";
+const BANANA = "Bananas, ripe and slightly ripe";
 
 const rowFor = (description: string): UsdaIndexRow => {
   const row = index.foods.find((f) => f.description === description);
@@ -2091,12 +2110,14 @@ describe("the twin merge's discarded names, as search aliases", () => {
 
   it("reaches a food by the name the merge discarded", () => {
     const corpus = corpusOf([
-      row(1, "Spinach, mature", ["Spinach, raw"]),
+      row(1, "Spinach, mature", ["Spinach"]),
       row(2, "Spinach, cooked, boiled, drained, without salt"),
     ]);
 
     expect(
-      searchIndexRows(corpus, "spinach raw").hits.map((h) => h.row.description)
+      searchIndexRows(corpus, "spinach mature").hits.map(
+        (h) => h.row.description
+      )
     ).toEqual(["Spinach, mature"]);
   });
 
@@ -2106,17 +2127,17 @@ describe("the twin merge's discarded names, as search aliases", () => {
     // a name in its own right, so its `simplicity` is the one that counts.
     const corpus = corpusOf([
       row(1, "Bananas, dehydrated, or banana powder"),
-      row(2, "Bananas, ripe and slightly ripe, raw", ["Bananas, raw"]),
+      row(2, "Bananas, ripe and slightly ripe", ["Bananas"]),
     ]);
 
-    expect(searchIndexRows(corpus, "bananas raw").hits[0].row.fdcId).toBe(2);
+    expect(searchIndexRows(corpus, "bananas ripe").hits[0].row.fdcId).toBe(2);
   });
 
   it("keeps the food's own name the one it is shown and staged under", () => {
     // Search-only: an alias says the row answers to that name, never that the
     // row IS it. Nothing is appended the way a vocabulary key is (ADR-0049).
-    const corpus = corpusOf([row(1, "Spinach, mature", ["Spinach, raw"])]);
-    const [hit] = searchIndexRows(corpus, "spinach raw").hits;
+    const corpus = corpusOf([row(1, "Spinach, mature", ["Spinach"])]);
+    const [hit] = searchIndexRows(corpus, "spinach mature").hits;
 
     expect(hit.row.description).toBe("Spinach, mature");
     expect(hit.alias).toBeUndefined();
@@ -2129,12 +2150,12 @@ describe("the twin merge's discarded names, as search aliases", () => {
     // The best key of ALL the row's names wins, so carrying a worse-matching
     // alias cannot cost a row a place it holds on its own name.
     const withAlias = corpusOf([
-      row(1, "Peppers, bell, green, raw", ["Peppers, sweet, green, raw"]),
-      row(2, "Peppers, hot chili, green, raw"),
+      row(1, "Peppers, bell, green", ["Peppers, sweet, green"]),
+      row(2, "Peppers, hot chili, green"),
     ]);
     const without = corpusOf([
-      row(1, "Peppers, bell, green, raw"),
-      row(2, "Peppers, hot chili, green, raw"),
+      row(1, "Peppers, bell, green"),
+      row(2, "Peppers, hot chili, green"),
     ]);
 
     expect(searchIndexRows(withAlias, "bell peppers").hits[0].row.fdcId).toBe(
@@ -2143,7 +2164,7 @@ describe("the twin merge's discarded names, as search aliases", () => {
   });
 
   it("answers a row with no alias exactly as it did before", () => {
-    const corpus = corpusOf([row(1, "Kale, raw")]);
+    const corpus = corpusOf([row(1, "Kale")]);
 
     expect(searchIndexRows(corpus, "kale").hits).toHaveLength(1);
   });
@@ -2155,13 +2176,13 @@ describe("the twin merge's discarded names, as search aliases", () => {
 
   it("reaches the foods whose archived names the merge discarded", () => {
     for (const [query, description] of [
-      ["spinach raw", "Spinach, mature"],
-      ["millet raw", "Millet, whole grain"],
-      ["shiitake mushrooms raw", "Mushrooms, shiitake"],
-      ["egg whole raw fresh", "Eggs, Grade A, Large, egg whole"],
+      ["spinach mature", "Spinach, mature"],
+      ["millet", "Millet, whole grain"],
+      ["shiitake mushrooms", "Mushrooms, shiitake"],
+      ["grade a large egg whole", "Eggs, Grade A, Large, egg whole"],
       ["heavy whipping cream", "Cream, heavy"],
-      ["sweet peppers green", "Peppers, bell, green, raw"],
-      ["pak-choi", "Cabbage, bok choy, raw"],
+      ["sweet peppers green", "Peppers, bell, green"],
+      ["pak-choi", "Cabbage, bok choy"],
       ["butter without salt", "Butter, stick, unsalted"],
     ])
       expect([query, descriptionsFor(query)[0]]).toEqual([query, description]);
@@ -2171,26 +2192,23 @@ describe("the twin merge's discarded names, as search aliases", () => {
     // Retrieval was never the problem for these three; the ordering was. The
     // surviving name buries "raw" behind qualifiers the archived name does not
     // have, so `simplicity` had nothing to prefer.
-    expect(descriptionsFor("bananas raw")[0]).toBe(
-      "Bananas, ripe and slightly ripe, raw"
+    expect(descriptionsFor("bananas ripe")[0]).toBe(
+      "Bananas, ripe and slightly ripe"
     );
-    expect(descriptionsFor("cabbage raw")[0]).toBe("Cabbage, green, raw");
-    expect(descriptionsFor("carrots raw")[0]).toBe("Carrots, mature, raw");
+    expect(descriptionsFor("cabbage")[0]).toBe("Cabbage, green");
+    expect(descriptionsFor("carrots")[0]).toBe("Carrots, mature");
   });
 
   it("reaches the foods a reused ndbNumber used to fuse away", () => {
     // ADR-0051's eight refusals, named one at a time rather than counted. Every
     // one of these returned the OTHER food's row before the split, or nothing.
     for (const [query, description] of [
-      ["golden delicious", "Apples, raw, golden delicious, with skin"],
-      ["spelt uncooked", "Spelt, uncooked"],
+      ["golden delicious", "Apples, golden delicious, with skin"],
+      ["spelt", "Spelt"],
       ["table salt", "Salt, table"],
-      [
-        "orange juice raw",
-        "Orange juice, raw (Includes foods for USDA's Food Distribution Program)",
-      ],
-      ["grilled portabella", "Mushrooms, portabella, grilled"],
-      ["ground chicken", "Chicken, ground, raw"],
+      ["orange juice", "Orange juice"],
+
+      ["ground chicken", "Chicken, ground"],
       ["plain soy milk", "Soy milk, unsweetened, plain, shelf stable"],
     ])
       expect([query, descriptionsFor(query)[0]]).toEqual([query, description]);
@@ -2198,9 +2216,9 @@ describe("the twin merge's discarded names, as search aliases", () => {
     // The survivors keep their own names and their own leads, which is the half
     // of the split that is meant to look like nothing happened.
     expect(descriptionsFor("honeycrisp")[0]).toBe(
-      "Apples, honeycrisp, with skin, raw"
+      "Apples, honeycrisp, with skin"
     );
-    expect(descriptionsFor("portabella")[0]).toBe("Mushrooms, portabella, raw");
+    expect(descriptionsFor("portabella")[0]).toBe("Mushrooms, portabella");
   });
 
   it("has no iodized salt, on purpose", () => {
@@ -2229,7 +2247,7 @@ describe("the twin merge's discarded names, as search aliases", () => {
     // The eightieth left with ADR-0061's drops: `Buttermilk, low fat` answered
     // to `Milk, buttermilk, fluid, cultured, lowfat`, and both the row and the
     // name it carried are gone.
-    expect(aliased).toHaveLength(79);
+    expect(aliased).toHaveLength(69);
     // Never the row's own name back to it, and never a name it already reads as.
     for (const food of aliased)
       expect(food.also).not.toContain(food.description);

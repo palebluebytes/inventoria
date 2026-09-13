@@ -4,8 +4,8 @@
   "generated_from": "public/usda/search-index.json (4,429 rows)",
   "date": "2026-08-21",
   "note": "docs/research/143-canonical-record-measure.md",
-  "rule": "ADR-0042 \u00a78.1: admit a multi-row head phrase iff it names a food or ingredient a person would type into a food log; exclude heads that name a category of foods. Applied by hand to all 271 multi-row heads; 150 admitted.",
-  "cut": "\u00a78.1 expected ~50 and the rule admitted 150, so the gold set is the stated stratified cut recorded in the note amendment: every admitted head a candidate shape can reach (22), plus #143 named cases not otherwise reached (4), plus a seeded fill from the remaining admitted heads (24). Seed 143, the repo seededPick convention.",
+  "rule": "ADR-0042 §8.1: admit a multi-row head phrase iff it names a food or ingredient a person would type into a food log; exclude heads that name a category of foods. Applied by hand to all 271 multi-row heads; 150 admitted.",
+  "cut": "§8.1 expected ~50 and the rule admitted 150, so the gold set is the stated stratified cut recorded in the note amendment: every admitted head a candidate shape can reach (22), plus #143 named cases not otherwise reached (4), plus a seeded fill from the remaining admitted heads (24). Seed 143, the repo seededPick convention.",
   "strata": {
     "reachable": 22,
     "named_not_reachable": 4,
@@ -152,29 +152,35 @@
       "verdict": "peers",
       "should_lead": "Almond milk, unsweetened, plain, shelf stable",
       "note": "Shelf-stable and refrigerated are the same product; neither is more canonical.",
-      "ratified": false
+      "ratified": false,
+      "lead_fdc_id": 1999631,
+      "should_lead_fdc_id": 1999631
     },
     {
       "head": "arugula",
       "hits": 2,
       "tied_at_top": 1,
-      "lead_today": "Arugula, raw",
+      "lead_today": "Arugula",
       "shapes": [],
       "verdict": "correct",
       "should_lead": null,
       "note": "Arugula, raw leads.",
-      "ratified": false
+      "ratified": false,
+      "lead_fdc_id": 169387
     },
     {
       "head": "bacon",
       "hits": 13,
       "tied_at_top": 2,
-      "lead_today": "Bacon, pre-sliced, reduced/low sodium, unprepared",
+      "lead_today": "Bacon, pre-sliced, reduced/low sodium",
       "shapes": ["a-modifier"],
       "verdict": "miss",
       "should_lead": "Pork, cured, bacon, cooked, baked",
-      "note": "The plain cured bacon is tier-blocked at rank 8 because its head is 'Pork'. Within the tie, demoting the reduced-sodium lead promotes 'Bacon, meatless' \u2014 a substitute \u2014 so the modifier list is INCOMPLETE, not wrong.",
-      "ratified": false
+      "note": "The plain cured bacon is tier-blocked at rank 8 because its head is 'Pork'. Within the tie, demoting the reduced-sodium lead promotes 'Bacon, meatless' — a substitute — so the modifier list is INCOMPLETE, not wrong.",
+      "ratified": false,
+      "lead_fdc_id": 168382,
+      "should_lead_fdc_id": 167914,
+      "should_lead_dropped": true
     },
     {
       "head": "bagels",
@@ -183,26 +189,29 @@
       "lead_today": "Bagels, wheat",
       "shapes": [],
       "verdict": "correct",
-      "should_lead": "Bagels, plain, enriched, with calcium propionate (includes onion, poppy, sesame)",
+      "should_lead": "Bagels, plain, with calcium propionate (includes onion, poppy, sesame)",
       "note": "Plain should lead a bare 'bagels'. Not reachable: the lead 'Bagels, wheat' carries no marker.",
-      "ratified": false
+      "ratified": false,
+      "lead_fdc_id": 167533,
+      "should_lead_fdc_id": 174899
     },
     {
       "head": "bamboo shoots",
       "hits": 3,
       "tied_at_top": 1,
-      "lead_today": "Bamboo shoots, raw",
+      "lead_today": "Bamboo shoots",
       "shapes": [],
       "verdict": "correct",
       "should_lead": null,
       "note": "Raw leads.",
-      "ratified": false
+      "ratified": false,
+      "lead_fdc_id": 169210
     },
     {
       "head": "bananas",
       "hits": 6,
       "tied_at_top": 2,
-      "lead_today": "Bananas, overripe, raw",
+      "lead_today": "Bananas, overripe",
       "shapes": [],
       "verdict": "miss",
       "should_lead": null,
@@ -213,52 +222,58 @@
         "date": "2026-08-21",
         "lead_now": "Bananas, ripe and slightly ripe, raw",
         "verdict_now": "correct",
-        "note": "The miss is resolved rather than moved. 'overripe' was a modifier no candidate shape carried, and no shape was needed: the merge had discarded SR Legacy's `Bananas, raw`, and carrying it as an alias (ADR-0050) gives the surviving row a name ending in ', raw' \u2014 simplicity 3 against the 2 that had been winning."
-      }
+        "note": "The miss is resolved rather than moved. 'overripe' was a modifier no candidate shape carried, and no shape was needed: the merge had discarded SR Legacy's `Bananas, raw`, and carrying it as an alias (ADR-0050) gives the surviving row a name ending in ', raw' — simplicity 3 against the 2 that had been winning."
+      },
+      "lead_fdc_id": 1105073
     },
     {
       "head": "beef",
       "hits": 965,
       "tied_at_top": 413,
-      "lead_today": "Beef, retail cuts, separable fat, raw",
+      "lead_today": "Beef, retail cuts, separable fat",
       "shapes": ["b-part"],
       "verdict": "miss",
-      "should_lead": "Beef, grass-fed, ground, raw",
-      "note": "Separable fat is the sharpest \u00a73.1 wrongness: a fraction leading the food.",
-      "ratified": false
+      "should_lead": "Beef, grass-fed, ground",
+      "note": "Separable fat is the sharpest §3.1 wrongness: a fraction leading the food.",
+      "ratified": false,
+      "lead_fdc_id": 168605,
+      "should_lead_fdc_id": 168608
     },
     {
       "head": "blackberries",
       "hits": 2,
       "tied_at_top": 1,
-      "lead_today": "Blackberries, raw",
+      "lead_today": "Blackberries",
       "shapes": [],
       "verdict": "correct",
       "should_lead": null,
       "note": null,
-      "ratified": false
+      "ratified": false,
+      "lead_fdc_id": 2727581
     },
     {
       "head": "blueberries",
       "hits": 2,
       "tied_at_top": 1,
-      "lead_today": "Blueberries, raw",
+      "lead_today": "Blueberries",
       "shapes": [],
       "verdict": "correct",
       "should_lead": null,
       "note": null,
-      "ratified": false
+      "ratified": false,
+      "lead_fdc_id": 2346411
     },
     {
       "head": "broccoli",
       "hits": 10,
       "tied_at_top": 1,
-      "lead_today": "Broccoli, raw",
+      "lead_today": "Broccoli",
       "shapes": [],
       "verdict": "correct",
       "should_lead": null,
       "note": null,
-      "ratified": false
+      "ratified": false,
+      "lead_fdc_id": 747447
     },
     {
       "head": "butter",
@@ -269,29 +284,33 @@
       "verdict": "miss",
       "should_lead": "Butter, stick, salted",
       "note": "Ghee leads. 'light' and 'whipped' are modifiers the candidate list does not carry.",
-      "ratified": false
+      "ratified": false,
+      "lead_fdc_id": 171314,
+      "should_lead_fdc_id": 790508
     },
     {
       "head": "cauliflower",
       "hits": 7,
       "tied_at_top": 1,
-      "lead_today": "Cauliflower, raw",
+      "lead_today": "Cauliflower",
       "shapes": [],
       "verdict": "correct",
       "should_lead": null,
       "note": null,
-      "ratified": false
+      "ratified": false,
+      "lead_fdc_id": 2685573
     },
     {
       "head": "chard",
       "hits": 4,
       "tied_at_top": 1,
-      "lead_today": "Chard, swiss, raw",
+      "lead_today": "Chard, swiss",
       "shapes": [],
       "verdict": "correct",
       "should_lead": null,
       "note": null,
-      "ratified": false
+      "ratified": false,
+      "lead_fdc_id": 169991
     },
     {
       "head": "cheese",
@@ -302,40 +321,47 @@
       "verdict": "miss",
       "should_lead": "Cheese, cheddar",
       "note": "87 rows tie; the lead is a lactose-reduced lowfat cottage cheese.",
-      "ratified": false
+      "ratified": false,
+      "lead_fdc_id": 167703,
+      "should_lead_fdc_id": 328637
     },
     {
       "head": "chicken",
       "hits": 178,
       "tied_at_top": 57,
-      "lead_today": "Chicken, broilers or fryers, meat and skin and giblets and neck, raw",
+      "lead_today": "Chicken, broilers or fryers, meat and skin and giblets and neck",
       "shapes": ["b-part"],
       "verdict": "correct",
       "should_lead": null,
-      "note": "'meat and skin and giblets and neck' IS the whole bird, which \u00a73.1 ranks first. The part key would DEMOTE it \u2014 a regression the candidate list creates.",
-      "ratified": false
+      "note": "'meat and skin and giblets and neck' IS the whole bird, which §3.1 ranks first. The part key would DEMOTE it — a regression the candidate list creates.",
+      "ratified": false,
+      "lead_fdc_id": 171047
     },
     {
       "head": "cowpeas",
       "hits": 15,
       "tied_at_top": 4,
-      "lead_today": "Cowpeas, young pods with seeds, raw",
+      "lead_today": "Cowpeas, young pods with seeds",
       "shapes": ["b-part"],
       "verdict": "miss",
-      "should_lead": "Cowpeas, common (blackeyes, crowder, southern), mature seeds, raw",
-      "note": "The part key fires on 'seeds' and would promote 'leafy tips' \u2014 which is itself a part. Worse, not better.",
-      "ratified": false
+      "should_lead": "Cowpeas, common (blackeyes, crowder, southern), mature seeds",
+      "note": "The part key fires on 'seeds' and would promote 'leafy tips' — which is itself a part. Worse, not better.",
+      "ratified": false,
+      "lead_fdc_id": 168405,
+      "should_lead_fdc_id": 173758
     },
     {
       "head": "egg",
       "hits": 51,
       "tied_at_top": 4,
-      "lead_today": "Egg, duck, whole, fresh, raw",
+      "lead_today": "Egg, duck, whole, fresh",
       "shapes": [],
       "verdict": "miss",
-      "should_lead": "Egg, whole, raw, frozen, pasteurized",
+      "should_lead": "Egg, whole, frozen, pasteurized",
       "note": "Leads with a duck egg. NB there is NO plain fresh shell-egg row in the corpus; the designated row is the best available, not the right one.",
-      "ratified": false
+      "ratified": false,
+      "lead_fdc_id": 172189,
+      "should_lead_fdc_id": 323604
     },
     {
       "head": "eggs",
@@ -346,40 +372,45 @@
       "verdict": "miss",
       "should_lead": "Eggs, Grade A, Large, egg whole",
       "note": "White and yolk are parts; whole is the food. Not reachable: 'egg white' is not in the part list.",
-      "ratified": false
+      "ratified": false,
+      "lead_fdc_id": 747997,
+      "should_lead_fdc_id": 748967
     },
     {
       "head": "english muffins",
       "hits": 4,
       "tied_at_top": 4,
-      "lead_today": "English muffins, plain, unenriched, with calcium propionate (includes sourdough)",
+      "lead_today": "English muffins, plain, with calcium propionate (includes sourdough)",
       "shapes": [],
       "verdict": "peers",
       "should_lead": null,
       "note": "Enriched vs unenriched plain; both are plain English muffins.",
-      "ratified": false
+      "ratified": false,
+      "lead_fdc_id": 172828
     },
     {
       "head": "lamb",
       "hits": 285,
       "tied_at_top": 129,
-      "lead_today": "Lamb, composite of trimmed retail cuts, separable lean and fat, trimmed to 1/4\" fat, choice, raw",
+      "lead_today": "Lamb, composite of trimmed retail cuts, separable lean and fat, trimmed to 1/4\" fat, choice",
       "shapes": ["b-part"],
       "verdict": "correct",
       "should_lead": null,
       "note": "'composite of trimmed retail cuts' is the generic lamb. The part key fires on 'separable lean' and would demote it.",
-      "ratified": false
+      "ratified": false,
+      "lead_fdc_id": 172479
     },
     {
       "head": "leeks",
       "hits": 4,
       "tied_at_top": 1,
-      "lead_today": "Leeks, (bulb and lower leaf-portion), raw",
+      "lead_today": "Leeks, (bulb and lower leaf-portion)",
       "shapes": [],
       "verdict": "correct",
       "should_lead": null,
       "note": null,
-      "ratified": false
+      "ratified": false,
+      "lead_fdc_id": 169246
     },
     {
       "head": "mayonnaise",
@@ -390,7 +421,8 @@
       "verdict": "peers",
       "should_lead": null,
       "note": "All five candidates are modified forms and no plain mayonnaise row exists. The corpus is wrong here, not the ranking.",
-      "ratified": false
+      "ratified": false,
+      "lead_fdc_id": 167695
     },
     {
       "head": "milk",
@@ -412,18 +444,22 @@
       "verdict": "miss",
       "should_lead": "Millet, whole grain",
       "note": "Cooked leads the unprepared grain.",
-      "ratified": false
+      "ratified": false,
+      "lead_fdc_id": 168871,
+      "lead_dropped": true,
+      "should_lead_fdc_id": 2512379
     },
     {
       "head": "mustard greens",
       "hits": 3,
       "tied_at_top": 1,
-      "lead_today": "Mustard greens, raw",
+      "lead_today": "Mustard greens",
       "shapes": [],
       "verdict": "correct",
       "should_lead": null,
       "note": null,
-      "ratified": false
+      "ratified": false,
+      "lead_fdc_id": 169256
     },
     {
       "head": "noodles",
@@ -432,9 +468,11 @@
       "lead_today": "Noodles, chinese, chow mein",
       "shapes": [],
       "verdict": "miss",
-      "should_lead": "Noodles, egg, dry, enriched",
+      "should_lead": "Noodles, egg, dry",
       "note": "Chow mein leads. Not reachable: no marker on the lead.",
-      "ratified": false
+      "ratified": false,
+      "lead_fdc_id": 168905,
+      "should_lead_fdc_id": 169731
     },
     {
       "head": "pasta",
@@ -445,7 +483,10 @@
       "verdict": "miss",
       "should_lead": "Pasta, dry, unenriched",
       "note": "All 21 tie; gluten-free corn leads.",
-      "ratified": false
+      "ratified": false,
+      "lead_fdc_id": 168899,
+      "should_lead_fdc_id": 168927,
+      "should_lead_dropped": true
     },
     {
       "head": "peanut butter",
@@ -456,18 +497,22 @@
       "verdict": "miss",
       "should_lead": "Peanut butter, creamy",
       "note": "Reduced sodium leads a nine-way tie.",
-      "ratified": false
+      "ratified": false,
+      "lead_fdc_id": 169869,
+      "should_lead_fdc_id": 2262072
     },
     {
       "head": "peppers",
       "hits": 27,
       "tied_at_top": 13,
-      "lead_today": "Peppers, jalapeno, raw",
+      "lead_today": "Peppers, jalapeno",
       "shapes": [],
       "verdict": "miss",
-      "should_lead": "Peppers, bell, green, raw",
-      "note": "Jalapeno leads. Varietal prototypicality, out of scope by \u00a74.",
-      "ratified": false
+      "should_lead": "Peppers, bell, green",
+      "note": "Jalapeno leads. Varietal prototypicality, out of scope by §4.",
+      "ratified": false,
+      "lead_fdc_id": 168576,
+      "should_lead_fdc_id": 2258588
     },
     {
       "head": "pickles",
@@ -478,40 +523,45 @@
       "verdict": "miss",
       "should_lead": "Pickles, cucumber, dill or kosher dill",
       "note": "Low-sodium sour leads a seven-way tie.",
-      "ratified": false
+      "ratified": false,
+      "lead_fdc_id": 168562,
+      "should_lead_fdc_id": 324653
     },
     {
       "head": "pineapple",
       "hits": 3,
       "tied_at_top": 1,
-      "lead_today": "Pineapple, raw",
+      "lead_today": "Pineapple",
       "shapes": [],
       "verdict": "correct",
       "should_lead": null,
       "note": null,
-      "ratified": false
+      "ratified": false,
+      "lead_fdc_id": 2346398
     },
     {
       "head": "pork",
       "hits": 325,
       "tied_at_top": 84,
-      "lead_today": "Pork, fresh, composite of trimmed leg, loin, shoulder, and spareribs, (includes cuts to be cured), separable lean and fat, raw",
+      "lead_today": "Pork, fresh, composite of trimmed leg, loin, shoulder, and spareribs, (includes cuts to be cured), separable lean and fat",
       "shapes": ["b-part"],
       "verdict": "correct",
       "should_lead": null,
       "note": "The generic composite leads. The part key fires on 'separable lean' and would demote it.",
-      "ratified": false
+      "ratified": false,
+      "lead_fdc_id": 167810
     },
     {
       "head": "pumpkin",
       "hits": 17,
       "tied_at_top": 1,
-      "lead_today": "Pumpkin, raw",
+      "lead_today": "Pumpkin",
       "shapes": [],
       "verdict": "correct",
       "should_lead": null,
       "note": null,
-      "ratified": false
+      "ratified": false,
+      "lead_fdc_id": 168448
     },
     {
       "head": "raisins",
@@ -520,20 +570,23 @@
       "lead_today": "Raisins, golden, seedless",
       "shapes": [],
       "verdict": "miss",
-      "should_lead": "Raisins, dark, seedless (Includes foods for USDA's Food Distribution Program)",
+      "should_lead": "Raisins, dark, seedless",
       "note": "Golden is the qualified form; dark is the default raisin. Weak call.",
-      "ratified": false
+      "ratified": false,
+      "lead_fdc_id": 168164,
+      "should_lead_fdc_id": 168165
     },
     {
       "head": "raspberries",
       "hits": 4,
       "tied_at_top": 1,
-      "lead_today": "Raspberries, raw",
+      "lead_today": "Raspberries",
       "shapes": [],
       "verdict": "correct",
       "should_lead": null,
       "note": null,
-      "ratified": false
+      "ratified": false,
+      "lead_fdc_id": 2346410
     },
     {
       "head": "rice noodles",
@@ -543,8 +596,11 @@
       "shapes": ["c-prepared"],
       "verdict": "miss",
       "should_lead": "Rice noodles, dry",
-      "note": "Cooked leads the unprepared form, against \u00a73.1's raw-over-cooked.",
-      "ratified": false
+      "note": "Cooked leads the unprepared form, against §3.1's raw-over-cooked.",
+      "ratified": false,
+      "lead_fdc_id": 168914,
+      "lead_dropped": true,
+      "should_lead_fdc_id": 169742
     },
     {
       "head": "rolls",
@@ -555,18 +611,21 @@
       "verdict": "miss",
       "should_lead": "Rolls, dinner, plain, commercially prepared (includes brown-and-serve)",
       "note": "Pumpernickel leads a 20-way tie. Not reachable: no marker on the lead.",
-      "ratified": false
+      "ratified": false,
+      "lead_fdc_id": 168126,
+      "should_lead_fdc_id": 172793
     },
     {
       "head": "rutabagas",
       "hits": 3,
       "tied_at_top": 1,
-      "lead_today": "Rutabagas, raw",
+      "lead_today": "Rutabagas",
       "shapes": [],
       "verdict": "correct",
       "should_lead": null,
       "note": null,
-      "ratified": false
+      "ratified": false,
+      "lead_fdc_id": 168454
     },
     {
       "head": "sour cream",
@@ -577,7 +636,9 @@
       "verdict": "miss",
       "should_lead": "Cream, sour, full fat",
       "note": "Imitation leads. No plain 'Sour cream,' row exists, so the designated row is tier-blocked at rank 5.",
-      "ratified": false
+      "ratified": false,
+      "lead_fdc_id": 170869,
+      "should_lead_fdc_id": 2346387
     },
     {
       "head": "spinach",
@@ -587,26 +648,30 @@
       "shapes": ["c-prepared"],
       "verdict": "miss",
       "should_lead": "Spinach, baby",
-      "note": "Cooked leads. 'Spinach, raw' is in BOTH archives and neither copy ships (#130 \u00a78) \u2014 this designation is the best row LEFT, and #137 may change it.",
+      "note": "Cooked leads. 'Spinach, raw' is in BOTH archives and neither copy ships (#130 §8) — this designation is the best row LEFT, and #137 may change it.",
       "ratified": false,
       "readjudicated": {
         "by": "#137",
         "date": "2026-08-21",
         "lead_now": "Spinach, mature",
         "verdict_now": "correct",
-        "note": "This case's own note said #137 might change it, and it did. #130 \u00a78's premise was wrong: SR Legacy's `Spinach, raw` (168462) shares ndb 11457 with Foundation's `Spinach, mature` and merges into it, so raw spinach was in the corpus all along. Carrying the discarded name as a search alias (ADR-0050) lets the `raw` key decide this two rungs above the plain one. `should_lead: Spinach, baby` was the best row LEFT under a false premise; the row that leads now is the food itself."
-      }
+        "note": "This case's own note said #137 might change it, and it did. #130 §8's premise was wrong: SR Legacy's `Spinach, raw` (168462) shares ndb 11457 with Foundation's `Spinach, mature` and merges into it, so raw spinach was in the corpus all along. Carrying the discarded name as a search alias (ADR-0050) lets the `raw` key decide this two rungs above the plain one. `should_lead: Spinach, baby` was the best row LEFT under a false premise; the row that leads now is the food itself."
+      },
+      "lead_fdc_id": 168463,
+      "lead_dropped": true,
+      "should_lead_fdc_id": 1999632
     },
     {
       "head": "succotash",
       "hits": 3,
       "tied_at_top": 1,
-      "lead_today": "Succotash, (corn and limas), raw",
+      "lead_today": "Succotash, (corn and limas)",
       "shapes": [],
       "verdict": "correct",
       "should_lead": null,
       "note": null,
-      "ratified": false
+      "ratified": false,
+      "lead_fdc_id": 169300
     },
     {
       "head": "teff",
@@ -615,9 +680,12 @@
       "lead_today": "Teff, cooked",
       "shapes": ["c-prepared"],
       "verdict": "miss",
-      "should_lead": "Teff, uncooked",
+      "should_lead": "Teff",
       "note": null,
-      "ratified": false
+      "ratified": false,
+      "lead_fdc_id": 168918,
+      "lead_dropped": true,
+      "should_lead_fdc_id": 169747
     },
     {
       "head": "tempeh",
@@ -628,29 +696,35 @@
       "verdict": "miss",
       "should_lead": "Tempeh",
       "note": null,
-      "ratified": false
+      "ratified": false,
+      "lead_fdc_id": 172467,
+      "lead_dropped": true,
+      "should_lead_fdc_id": 174272
     },
     {
       "head": "tomatoes",
       "hits": 12,
       "tied_at_top": 4,
-      "lead_today": "Tomatoes, yellow, raw",
+      "lead_today": "Tomatoes, yellow",
       "shapes": [],
       "verdict": "miss",
-      "should_lead": "Tomatoes, red, ripe, raw, year round average",
-      "note": "Yellow leads. Varietal, out of scope by \u00a74.",
-      "ratified": false
+      "should_lead": "Tomatoes, red, ripe, year round average",
+      "note": "Yellow leads. Varietal, out of scope by §4.",
+      "ratified": false,
+      "lead_fdc_id": 170096,
+      "should_lead_fdc_id": 170457
     },
     {
       "head": "turkey",
       "hits": 112,
       "tied_at_top": 47,
-      "lead_today": "Turkey, whole, meat and skin, raw",
+      "lead_today": "Turkey, whole, meat and skin",
       "shapes": ["b-part"],
       "verdict": "correct",
       "should_lead": null,
       "note": "'Turkey, whole, meat and skin, raw' is the whole bird. The part key fires on 'meat and skin' and would demote it.",
-      "ratified": false
+      "ratified": false,
+      "lead_fdc_id": 171081
     },
     {
       "head": "vanilla extract",
@@ -661,7 +735,9 @@
       "verdict": "miss",
       "should_lead": "Vanilla extract",
       "note": "Both imitations outrank the real extract.",
-      "ratified": false
+      "ratified": false,
+      "lead_fdc_id": 172235,
+      "should_lead_fdc_id": 173471
     },
     {
       "head": "veal",
@@ -670,20 +746,23 @@
       "lead_today": "Veal, Australian, rib, rib roast, separable lean only, raw",
       "shapes": ["b-part"],
       "verdict": "miss",
-      "should_lead": "Veal, composite of trimmed retail cuts, separable lean and fat, raw",
+      "should_lead": "Veal, composite of trimmed retail cuts, separable lean and fat",
       "note": "An Australian rib roast leads. The generic composite exists and is buried.",
-      "ratified": false
+      "ratified": false,
+      "should_lead_fdc_id": 173815
     },
     {
       "head": "wheat flour",
       "hits": 24,
       "tied_at_top": 17,
-      "lead_today": "Wheat flour, white, all-purpose, self-rising, enriched",
+      "lead_today": "Wheat flour, white, all-purpose, self-rising",
       "shapes": [],
       "verdict": "miss",
-      "should_lead": "Wheat flour, white, all-purpose, enriched, calcium-fortified",
+      "should_lead": "Wheat flour, white, all-purpose, calcium-fortified",
       "note": "Self-rising leads a 17-way tie. The plain all-purpose row is filed under the head 'Flour', not 'Wheat flour', so it is tier-blocked; the designated row is the best one under this head. Not reachable: no marker on the lead.",
-      "ratified": false
+      "ratified": false,
+      "lead_fdc_id": 168895,
+      "should_lead_fdc_id": 169754
     },
     {
       "head": "whey",
@@ -694,7 +773,9 @@
       "verdict": "miss",
       "should_lead": "Whey, sweet, dried",
       "note": "Acid whey leads; sweet whey is the default. Weak call.",
-      "ratified": false
+      "ratified": false,
+      "lead_fdc_id": 170885,
+      "should_lead_fdc_id": 171283
     },
     {
       "head": "yogurt",
@@ -705,11 +786,12 @@
       "verdict": "miss",
       "should_lead": "Yogurt, plain, whole milk",
       "note": "Nonfat fruit variety leads a 26-way tie.",
-      "ratified": false
+      "ratified": false,
+      "should_lead_fdc_id": 2259793
     }
   ],
   "adjudication": {
-    "by": "LLM, one case at a time, against #130 \u00a73.1 precedence and \u00a73.2 vocabulary",
+    "by": "LLM, one case at a time, against #130 §3.1 precedence and §3.2 vocabulary",
     "date": "2026-08-21",
     "ratified_by_maintainer": false,
     "tally": {
@@ -719,6 +801,7 @@
       "implausible-query": 0
     },
     "ratified_count": 22,
-    "ratification": "WAIVED 2026-08-21 at the maintainer's direction. \u00a78.3 required a human to read all 50 before a key was written; the review tool built for it was removed and the step skipped. These verdicts are LLM-proposed and independently unread. The key shipped anyway; see ADR-0042's #143 Amendment."
-  }
+    "ratification": "WAIVED 2026-08-21 at the maintainer's direction. §8.3 required a human to read all 50 before a key was written; the review tool built for it was removed and the step skipped. These verdicts are LLM-proposed and independently unread. The key shipped anyway; see ADR-0042's #143 Amendment."
+  },
+  "repinned": "2026-09-13: every case gained the `fdcId` of the row it names, and the descriptions were re-read off the corpus. The uncooked-corpus change renamed most of these rows (`Arugula, raw` -> `Arugula`), and this file was keyed on DESCRIPTION alone - so a harness asking whether a head still leads with its recorded row silently skipped 18 of the 19 adjudicated-correct cases and reported no breakage because it had checked almost nothing. #188 keys its own set by `fdcId` for exactly this reason. `lead_dropped` marks a case whose row has left the corpus."
 }

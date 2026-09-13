@@ -74,6 +74,7 @@ import {
   isDryBasisRecord,
   isManufacturingInput,
   isPreparedProduct,
+  isCookedForm,
   isProcessedProduct,
 } from "../../src/lib/food/usda-food-kind";
 import {
@@ -102,6 +103,7 @@ const app = {
   isBrandSpecific,
   isProcessedProduct,
   isPreparedProduct,
+  isCookedForm,
   isDryBasisRecord,
   isManufacturingInput,
   resolveVariantDrops,
@@ -377,6 +379,7 @@ describe("buildCorpus — the ADR-0042 survivors, merged at generation time", ()
       brand_specific: 1,
       processed: 1,
       prepared: 1,
+      cooked_form: 0,
       dry_basis: 0,
       manufacturing_input: 0,
       no_energy: 0,
@@ -418,7 +421,8 @@ describe("buildCorpus — the ADR-0042 survivors, merged at generation time", ()
         ({ food }) =>
           !isBrandSpecific(food.description) &&
           !isProcessedProduct(food.description) &&
-          !isPreparedProduct(food.foodCategory, food.description)
+          !isPreparedProduct(food.foodCategory, food.description) &&
+          !isCookedForm(food.foodCategory, food.description)
       )
       .map(({ food }) => food.fdcId);
 
@@ -556,6 +560,7 @@ describe("buildCorpus — the ADR-0042 survivors, merged at generation time", ()
       brand_specific: 0,
       processed: 0,
       prepared: 0,
+      cooked_form: 0,
       dry_basis: 1,
       manufacturing_input: 0,
       no_energy: 1,

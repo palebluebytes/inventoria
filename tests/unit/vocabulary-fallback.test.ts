@@ -126,7 +126,7 @@ describe("expandThroughVocabulary", () => {
 describe("the vocabulary fallback in the search", () => {
   it("answers a query the corpus has no name for", () => {
     expect(retrieves(literalOnly, "aubergine")).toBe(false);
-    expect(topFor("aubergine")).toBe("Eggplant, raw");
+    expect(topFor("aubergine")).toBe("Eggplant");
   });
 
   it("keeps the typed query beside the phrases it expanded to", () => {
@@ -179,7 +179,7 @@ describe("the vocabulary fallback in the search", () => {
     expect(hit.alias).toBe("aubergine");
     expect(
       mapIndexRowToPayload(hit.row, hit.alias).attributes["food/name"]
-    ).toBe("Eggplant, raw (aubergine)");
+    ).toBe("Eggplant (aubergine)");
   });
 
   it("leaves USDA's own description untouched in the provenance blob", () => {
@@ -190,7 +190,7 @@ describe("the vocabulary fallback in the search", () => {
     const provenance = payload.attributes[
       "provenance/raw"
     ] as RawProvenance<UsdaIndexRow>;
-    expect(provenance.raw_data.description).toBe("Eggplant, raw");
+    expect(provenance.raw_data.description).toBe("Eggplant");
   });
 
   it("keeps a NOVA inference a vocabulary key would otherwise have suppressed", () => {
@@ -284,15 +284,15 @@ describe("what the fallback buys, against the bars set before it was built", () 
     // (`prawns`, `mince`) answer through keys it spells differently, seven more
     // are the hand-written section below, and `double cream` is refused (#141).
     for (const [query, expected] of [
-      ["aubergine", "Eggplant, raw"],
-      ["courgette", "Squash, zucchini, baby, raw"],
-      ["rocket", "Arugula, raw"],
-      ["swede", "Rutabagas, raw"],
-      ["beetroot", "Beets, raw"],
-      ["cornflour", "Corn flour, masa harina, white or yellow, dry, raw"],
+      ["aubergine", "Eggplant"],
+      ["courgette", "Squash, zucchini, baby"],
+      ["rocket", "Arugula"],
+      ["swede", "Rutabagas"],
+      ["beetroot", "Beets"],
+      ["cornflour", "Corn flour, masa harina, white or yellow, dry"],
       [
         "sultanas",
-        "Grapes, red or green (European type, such as Thompson seedless), raw",
+        "Grapes, red or green (European type, such as Thompson seedless)",
       ],
     ] as const) {
       expect([query, retrieves(literalOnly, query)]).toEqual([query, false]);
@@ -300,21 +300,17 @@ describe("what the fallback buys, against the bars set before it was built", () 
     }
   });
 
-  it("answers seven more British queries from the hand-written section", () => {
+  it("answers six more British queries from the hand-written section", () => {
     // The ones #130 measured failing that OFF's taxonomy does not carry either
     // (ADR-0049's #141 Amendment). Each is asserted the same way the seven above
     // are: nothing without the vocabulary, the exact row with it — and the row
     // is the one the entry recorded, which is what the generator re-measures.
     for (const [query, expected] of [
       ["caster sugar", "Sugars, granulated"],
-      [
-        "gammon",
-        "Pork, cured, ham, center slice, country-style, separable lean only, raw",
-      ],
-      ["jacket potato", "Potatoes, baked, flesh and skin, without salt"],
-      ["mange tout", "Peas, edible-podded, raw"],
+      ["gammon", "Pork, cured, ham, whole, separable lean and fat"],
+      ["mange tout", "Peas, edible-podded"],
       ["natural yoghurt", "Yogurt, plain, whole milk"],
-      ["plain flour", "Flour, wheat, all-purpose, enriched, bleached"],
+      ["plain flour", "Flour, wheat, all-purpose, bleached"],
       ["porridge oats", "Oats, whole grain, rolled, old fashioned"],
     ] as const) {
       expect([query, retrieves(literalOnly, query)]).toEqual([query, false]);
@@ -343,16 +339,14 @@ describe("what the fallback buys, against the bars set before it was built", () 
     expect(hit.alias).toBe("gammon");
     expect(
       mapIndexRowToPayload(hit.row, hit.alias).attributes["food/name"]
-    ).toBe(
-      "Pork, cured, ham, center slice, country-style, separable lean only, raw (gammon)"
-    );
+    ).toBe("Pork, cured, ham, whole, separable lean and fat (gammon)");
   });
 
   it("reaches a hand-written key mid-type, as the derived ones are reached", () => {
     // One matcher, one map. `expandThroughVocabulary` never asked which section
     // a key came from, and merging the two at load is the whole integration.
     expect(topFor("caster sug")).toBe("Sugars, granulated");
-    expect(topFor("mange to")).toBe("Peas, edible-podded, raw");
+    expect(topFor("mange to")).toBe("Peas, edible-podded");
   });
 
   it("is a strict addition: no query that answers today answers differently", () => {
