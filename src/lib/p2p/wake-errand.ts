@@ -84,11 +84,17 @@ const JAMMED =
  * stranded at a lane nobody reads (§10). Reading it once rather than per lane
  * is what makes every deposit in one round say the same sentence.
  *
- * **A revoked pairing is the one row that is not named**, and it is the only
- * kind of row §11's counter does not reach. The mark means the user has
- * severed it, so stating it would be a claim this device no longer makes —
- * the difference from a stopped pairing exactly: one is a pause a timer
- * noticed, the other is an act the user took.
+ * **A revoked pairing is the one row that is not named.** #398's finding —
+ * *the roster is what makes §10's residual findable, and that only holds if
+ * the list is unfiltered, so no pairing's health is looked at anywhere on this
+ * path* — is **narrowed rather than reversed**: a mark is not a pairing's
+ * health, it is whether the pairing exists. A stop is a pause a timer noticed
+ * and is named precisely so the far end can hunt; a mark is an act the user
+ * took, and naming it would state a pairing this device has dropped.
+ *
+ * **And the hunt does not need it.** §10's hunt runs on what a *peer* states:
+ * a device that revokes C learns who still feeds C from B's roster, never from
+ * its own. Dropping C here costs that nothing and keeps B's picture true.
  *
  * **No name goes with it.** A name is typed locally, about the peer, after the
  * act, and it never leaves this device; an id resolves to one at the far end
@@ -96,6 +102,26 @@ const JAMMED =
  */
 const localRoster = (held: PairedDevice[]): string[] =>
   held.filter((paired) => !paired.revoked).map((paired) => paired.device_id);
+
+/**
+ * One pairing as it stands **now**, or nothing where it no longer stands.
+ *
+ * A sync takes its list once and then spends seconds per lane on the network,
+ * and an unpair runs off a tap that joins no queue — so by the time the loop
+ * reaches a row, the user may have severed it. Re-reading immediately before
+ * serving is what stops a deposit landing on a lane the withdrawal has already
+ * emptied, which is an object nothing could reach afterwards. It narrows that
+ * window to one pairing's own sync rather than the whole round; `unpair.ts`
+ * names what is left.
+ *
+ * It also serves from the fresher row, which {@link updatePairedDevice} is the
+ * mirror of: that guard stops a stale write coming back, and this stops a stale
+ * read going out.
+ */
+const stillStanding = (device_id: string): PairedDevice | null =>
+  readPairedDevices().find(
+    (row) => row.device_id === device_id && !row.revoked
+  ) ?? null;
 
 /**
  * The pairings a sync actually serves: every one that has neither run out nor
@@ -153,7 +179,9 @@ export async function convergeWithPeers(
   let owed = false;
   const held = readPairedDevices();
   const roster = localRoster(held);
-  for (const paired of stillServed(held)) {
+  for (const row of stillServed(held)) {
+    const paired = stillStanding(row.device_id);
+    if (!paired) continue;
     try {
       const outcome = await convergeWithPeer(paired, store, ledger, {
         keep: updatePairedDevice,
@@ -199,7 +227,9 @@ export async function depositToPeers(
 ): Promise<void> {
   const held = readPairedDevices();
   const roster = localRoster(held);
-  for (const paired of stillServed(held)) {
+  for (const row of stillServed(held)) {
+    const paired = stillStanding(row.device_id);
+    if (!paired) continue;
     try {
       const outcome = await depositToPeer(paired, store, ledger, {
         keep: updatePairedDevice,

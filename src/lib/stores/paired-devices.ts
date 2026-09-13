@@ -460,11 +460,13 @@ function isMetDay(last_met: unknown): last_met is string | null {
  * record written before the mark existed is a live pairing, and reading it as
  * revoked would silently stop every pairing on the jar at the upgrade.
  * {@link filled} is what turns the absence into the field.
+ *
+ * `undefined` is that absence and is the whole of what is admitted. Unlike
+ * {@link isMetDay}, `null` is not a value this field ever holds: a pairing is
+ * severed or it is not, and there is no third thing for a `null` to mean.
  */
 function isRevokedMark(revoked: unknown): revoked is boolean {
-  return (
-    revoked === undefined || revoked === null || typeof revoked === "boolean"
-  );
+  return revoked === undefined || typeof revoked === "boolean";
 }
 
 function isStoredLane(lane: unknown): lane is StoredLane {
@@ -525,6 +527,13 @@ export interface CompletedPairing {
  * **Called on completion and nowhere else.** Both halves of guard 1 rest on
  * that: it is what bounds what the store can accumulate, and it is what makes a
  * fresh pairing cost a live session rather than a whole-ledger upload.
+ *
+ * **A pending revocation is settled before this runs.** Replacing a row
+ * overwrites both indices and the etag, which are the only things reaching a
+ * pending withdrawal's two objects (ADR-0096 §11) — so the pairing act calls
+ * `withdrawRevoked` immediately before this line. An act is online by
+ * definition, which makes it the one moment such a withdrawal is sure of a
+ * chance, and the last moment its addresses exist.
  */
 export function rememberPairedDevice(
   { device_id, chains, peer_vector }: CompletedPairing,
@@ -608,26 +617,27 @@ export function namePairedDevice(device_id: string, name: string): void {
  * one-sided state on its own.
  *
  * The mark is immediate and unforgeable because it is local: depositing and
- * collecting stop here, before any delete has left this device. Returns the
- * row as it now stands, so the caller can reach the two addresses without
- * reading the list again, or `null` where there was no such pairing.
+ * collecting stop here, before any delete has left this device. It hands back
+ * nothing, because the withdrawal reads the list rather than one row —
+ * `unpair.ts` sweeps every pending revocation, and a row handed straight over
+ * would be a second path to the same two addresses.
  */
-export function revokePairedDevice(device_id: string): PairedDevice | null {
-  const held = readPairedDevices();
-  const found = held.find((device) => device.device_id === device_id);
-  if (!found) return null;
-  const marked: PairedDevice = { ...found, revoked: true };
-  keep(held.map((row) => (row.device_id === device_id ? marked : row)));
-  return marked;
+export function revokePairedDevice(device_id: string): void {
+  keep(
+    readPairedDevices().map((device) =>
+      device.device_id === device_id ? { ...device, revoked: true } : device
+    )
+  );
 }
 
 /**
  * **Phase 3**: drops the row, once the withdrawal has landed.
  *
  * Discarding it any earlier throws away the two addresses the withdrawal
- * needs, which is precisely what would make it best-effort — so this is
- * reached from `unpair.ts` after both deletes, and from the jar-wide wipe,
- * which takes the whole record anyway.
+ * needs, which is precisely what would make it best-effort — so `unpair.ts`
+ * is the only thing that reaches it, and only once both deletes have returned.
+ * The jar-wide wipe unpairs by taking the whole `localStorage` record and is
+ * #403's.
  */
 export function forgetPairedDevice(device_id: string): void {
   keep(readPairedDevices().filter((device) => device.device_id !== device_id));

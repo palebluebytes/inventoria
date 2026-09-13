@@ -260,8 +260,11 @@
     unpairing = null;
     // The mark lands synchronously and the two deletes do not, which is what
     // {@link UNPAIRING_WORDS} is for. Nothing is awaited here: the row redraws
-    // off the store either way.
-    void unpairDevice(device.device_id);
+    // off the store either way, and a withdrawal that could not land has
+    // already logged and left its mark for the next open. The `catch` is what
+    // makes dropping the promise legitimate rather than an unhandled
+    // rejection; there is nothing for it to say.
+    void unpairDevice(device.device_id).catch(() => {});
   }
 
   function saveName() {

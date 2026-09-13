@@ -140,9 +140,8 @@ describe("the mark is phase one, and it keeps what the withdrawal needs", () => 
     const row = await pairing("dev_b", 1);
     const { records } = await withJar([row]);
 
-    const marked = records.revokePairedDevice("dev_b");
+    records.revokePairedDevice("dev_b");
 
-    expect(marked?.revoked).toBe(true);
     const [held] = records.readPairedDevices();
     expect(held.revoked).toBe(true);
     // Discarding these first is what would make the withdrawal best-effort:
@@ -152,11 +151,14 @@ describe("the mark is phase one, and it keeps what the withdrawal needs", () => 
     expect(held.deposit_standing).toEqual(row.deposit_standing);
   });
 
-  it("marks nothing, and says so, where there is no such pairing", async () => {
+  it("marks nothing where there is no such pairing", async () => {
     const { records } = await withJar([await pairing("dev_b", 1)]);
 
-    expect(records.revokePairedDevice("dev_c")).toBeNull();
-    expect(records.readPairedDevices()).toHaveLength(1);
+    records.revokePairedDevice("dev_c");
+
+    expect(records.readPairedDevices()).toEqual([
+      expect.objectContaining({ device_id: "dev_b", revoked: false }),
+    ]);
   });
 
   it("reads a record written before the mark existed as a live pairing", async () => {

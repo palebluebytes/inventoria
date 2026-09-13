@@ -178,6 +178,30 @@ describe("every deposit of a round states the whole list", () => {
     expect((await envelopeOn(held, rows[0])).roster).toEqual([]);
   });
 
+  it("re-reads a row before serving it, so a tap mid-round is not overtaken", async () => {
+    // A sync takes its list once and then spends seconds per lane; an unpair
+    // runs off a tap that joins no queue. Without the re-read, a deposit lands
+    // on a lane the withdrawal has already emptied — an object nothing can
+    // reach afterwards.
+    const rows = [await pairing("dev_b", 1), await pairing("dev_c", 2)];
+    const { errand, store, held } = await withJar(rows);
+    const severing: Store = {
+      ...store,
+      deposit: async (address, sealed, ifMatch) => {
+        // The user taps while the first pairing's deposit is in flight.
+        const records = await import("../../src/lib/stores/paired-devices");
+        records.revokePairedDevice("dev_c");
+        return store.deposit(address, sealed, ifMatch);
+      },
+    };
+
+    await errand.depositToPeers(severing, EMPTY_LEDGER);
+
+    // One lane written, not two: the second row was re-read and had been
+    // severed by the time its turn came.
+    expect(held.size).toBe(1);
+  });
+
   it("touches neither lane of a severed pairing, before any delete lands", async () => {
     const rows = [await pairing("dev_revoked", 2, { revoked: true })];
     const { errand, store, held } = await withJar(rows);

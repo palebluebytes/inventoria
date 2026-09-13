@@ -13,7 +13,9 @@
  * make the withdrawal best-effort. Keeping it until the deletes land makes a
  * pending revocation **retryable on any later open**; a delete of an
  * already-collected key is a no-op that succeeds; and the peer's next rewrite
- * is refused by the etag precondition.
+ * is refused by the etag precondition. (§11 goes on to say *and never
+ * recreated*, and that half is **reversed** by the 2026-09-12 Amendment — see
+ * the last section here, where it is the reason step 2 is safe at all.)
  *
  * ### The wall this is built against
  *
@@ -37,6 +39,19 @@
  * The residual window is **whatever the peer collected before the revocation,
  * plus anything between the tap and the deletes landing** — zero when the
  * revoker is online, which is when people revoke.
+ *
+ * **That last gloss is not exact, and the inexactness is here.** A wake runs
+ * its pairings on one promise chain and takes its list once at the top; this
+ * act runs off a tap and joins no chain. So a sync already inside
+ * `convergeWithPeer` for *this* pairing when the tap lands can `PUT` after
+ * both deletes have returned, at a lane the row no longer exists to reach —
+ * one deposit the peer may still collect, and one object only §1's backstop
+ * clears. {@link withdrawRevoked}'s callers close every case they can see: the
+ * errand re-reads each row immediately before serving it, so a tap during any
+ * *other* pairing's turn is caught. The case left is the seconds inside the
+ * revoked pairing's own sync, and closing it means routing the tap through the
+ * wake's queue — which is a decision about who owns that queue rather than a
+ * line of code, so it is reported rather than repaired.
  *
  * And the emptiness is not permanent. Revocation is the **one deliberate
  * breach** of *a lane's object is deleted only after the acknowledgement for it
@@ -109,7 +124,8 @@ export const UNPAIRING_WORDS =
  * It resolves whether or not the store could be reached, because a withdrawal
  * that did not land is not a failure of the act — the pairing is severed
  * either way, from the mark onward, and what is left is a **pending
- * revocation** the surface names and the next open retries.
+ * revocation** the surface names and the next open retries. A caller with
+ * nowhere to report to may therefore drop the promise.
  */
 export async function unpairDevice(
   device_id: string,
