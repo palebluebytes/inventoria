@@ -162,6 +162,34 @@ describe("every deposit of a round states the whole list", () => {
     });
   });
 
+  it("stops naming a pairing the user has severed, mark and all", async () => {
+    // The difference from the stopped pairing above, and it is the whole
+    // difference: one is a pause a timer noticed, the other is an act the user
+    // took. A revoked row is still here only because the withdrawal needs the
+    // addresses on it, and stating it would be a claim this device has dropped.
+    const rows = [
+      await pairing("dev_b", 1),
+      await pairing("dev_revoked", 2, { revoked: true }),
+    ];
+    const { errand, store, held } = await withJar(rows);
+
+    await errand.depositToPeers(store, EMPTY_LEDGER);
+
+    expect((await envelopeOn(held, rows[0])).roster).toEqual([]);
+  });
+
+  it("touches neither lane of a severed pairing, before any delete lands", async () => {
+    const rows = [await pairing("dev_revoked", 2, { revoked: true })];
+    const { errand, store, held } = await withJar(rows);
+
+    await errand.convergeWithPeers(store, EMPTY_LEDGER);
+    await errand.depositToPeers(store, EMPTY_LEDGER);
+
+    // Depositing and collecting stop at the mark (§11), which is the half that
+    // was always local, immediate and unforgeable.
+    expect(held.size).toBe(0);
+  });
+
   it("says the same sentence on a full round as on a deposit-only one", async () => {
     const rows = [await pairing("dev_b", 1), await pairing("dev_c", 2)];
     const { errand, store, held } = await withJar(rows);

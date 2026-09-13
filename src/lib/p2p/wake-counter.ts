@@ -88,7 +88,11 @@ export const isStopped = (device: PairedDevice): boolean =>
  *
  * **A stopped pairing is not counted further.** It is no longer being touched,
  * so there is nothing for a wake to have produced, and a number that kept
- * climbing past K would be counting absences nobody looked for.
+ * climbing past K would be counting absences nobody looked for. **A revoked one
+ * is not counted at all**, for the same reason arriving sooner: the mark stops
+ * both lanes immediately (§11), so every wake after it would be unproductive by
+ * construction, and the row is only still here because the withdrawal needs the
+ * addresses on it.
  *
  * `keep` is {@link updatePairedDevice}'s guard in the app: a row severed while
  * a sync was in flight must not come back because a counter moved afterwards.
@@ -104,7 +108,7 @@ export function wakeCounter(
     for (const device of held()) {
       if (productive.includes(device.device_id)) {
         keep({ ...device, unproductive_wakes: 0, last_met: met });
-      } else if (!burned && !isStopped(device)) {
+      } else if (!burned && !isStopped(device) && !device.revoked) {
         keep({ ...device, unproductive_wakes: device.unproductive_wakes + 1 });
       }
     }

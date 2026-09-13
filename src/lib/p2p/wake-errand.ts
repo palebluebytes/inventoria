@@ -47,6 +47,7 @@ import {
   type WakeTuning,
 } from "./wake-cadence";
 import { convergeWithPeer, depositToPeer, type WakeLedger } from "./wake";
+import { withdrawRevoked } from "./unpair";
 
 /**
  * The ledger as a wake needs it: two operations, both already on the client.
@@ -76,22 +77,29 @@ const JAMMED =
  * What this device is paired with, as every deposit of this round states it
  * (ADR-0096 §6).
  *
- * **It is the whole list and it is read once.** Every row counts, whatever
- * state its lanes are in: a pairing whose peer has stopped collecting is still
- * a pairing, and §11's counter running out is exactly when the other end most
- * wants to see it named — the roster is the hunt list for mail stranded at a
- * lane nobody reads (§10). Reading it once rather than per lane is what makes
- * every deposit in one round say the same sentence.
+ * **It is read once, and it counts every row whose pairing still stands** —
+ * whatever state its lanes are in. A pairing whose peer has stopped collecting
+ * is still a pairing, and §11's counter running out is exactly when the other
+ * end most wants to see it named: the roster is the hunt list for mail
+ * stranded at a lane nobody reads (§10). Reading it once rather than per lane
+ * is what makes every deposit in one round say the same sentence.
+ *
+ * **A revoked pairing is the one row that is not named**, and it is the only
+ * kind of row §11's counter does not reach. The mark means the user has
+ * severed it, so stating it would be a claim this device no longer makes —
+ * the difference from a stopped pairing exactly: one is a pause a timer
+ * noticed, the other is an act the user took.
  *
  * **No name goes with it.** A name is typed locally, about the peer, after the
  * act, and it never leaves this device; an id resolves to one at the far end
  * exactly where a name is wanted (§6, §9).
  */
 const localRoster = (held: PairedDevice[]): string[] =>
-  held.map((paired) => paired.device_id);
+  held.filter((paired) => !paired.revoked).map((paired) => paired.device_id);
 
 /**
- * The pairings a sync actually serves: every one that has not run out.
+ * The pairings a sync actually serves: every one that has neither run out nor
+ * been severed.
  *
  * **A stopped pairing is skipped here and named in the roster above**, which is
  * the whole of §11's _stops touching that pairing's keys_. The two readings of
@@ -99,9 +107,13 @@ const localRoster = (held: PairedDevice[]): string[] =>
  * harm is a key touched on every wake, and being *named* touches nothing, while
  * §10 makes the roster the hunt list for mail stranded at exactly this kind of
  * lane.
+ *
+ * **A revoked pairing is skipped by both**, and immediately: depositing and
+ * collecting stop at the mark, before any delete has left this device (§11).
+ * The row is still here only because the withdrawal needs the addresses on it.
  */
 const stillServed = (held: PairedDevice[]): PairedDevice[] =>
-  held.filter((paired) => !isStopped(paired));
+  held.filter((paired) => !isStopped(paired) && !paired.revoked);
 
 /**
  * What one full sync did, which is the cadence's {@link WakeRound} plus the one
@@ -269,6 +281,11 @@ export function openAppWake(
   return openWake(
     {
       converge: async () => {
+        // A pending revocation is retried on any later open, and this is that
+        // retry (§11). It runs before the lanes are served rather than after,
+        // because a withdrawal that lands takes its row with it and the loop
+        // below then has one fewer pairing to skip. It never throws.
+        await withdrawRevoked(store);
         const round = await convergeWithPeers(store);
         counted(round.productive);
         return round;

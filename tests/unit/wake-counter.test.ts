@@ -60,6 +60,7 @@ const pairing = (
   peer_roster: null,
   unproductive_wakes: 0,
   last_met: null,
+  revoked: false,
   ...over,
 });
 
@@ -301,6 +302,31 @@ async function withJar(rows: Record<string, unknown>[]) {
   const errand = await import("../../src/lib/p2p/wake-errand");
   return { errand, store: watched, reached };
 }
+
+describe("a severed pairing is not counted at all", () => {
+  it("burns no wake on a row the user has revoked", () => {
+    // The mark stops both lanes immediately, so every wake after it would be
+    // unproductive by construction: the row is here only until the withdrawal
+    // lands, and a counter climbing on it would be measuring the act itself.
+    const { count, row } = counting([pairing("dev_b", { revoked: true })]);
+
+    count([]);
+
+    expect(row("dev_b").unproductive_wakes).toBe(0);
+  });
+
+  it("still burns the wake for a live pairing beside it", () => {
+    const { count, row } = counting([
+      pairing("dev_b", { revoked: true }),
+      pairing("dev_c"),
+    ]);
+
+    count([]);
+
+    expect(row("dev_b").unproductive_wakes).toBe(0);
+    expect(row("dev_c").unproductive_wakes).toBe(1);
+  });
+});
 
 describe("a stopped pairing has neither of its keys touched", () => {
   it("serves the pairing beside it and not the one at K", async () => {

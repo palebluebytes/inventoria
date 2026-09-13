@@ -107,6 +107,7 @@ function device(
       peer_roster: null,
       unproductive_wakes: 0,
       last_met: "2026-09-13",
+      revoked: false,
     },
     ledger: {
       oldestAbove: async (after, budgetBytes, above) =>
