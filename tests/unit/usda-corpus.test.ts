@@ -230,13 +230,13 @@ describe("the bundled search index", () => {
         171434,
         "Margarine-like, vegetable oil spread, approximately 37% fat, unspecified oils, with salt",
       ],
-      [172205, "Milk, reduced fat, fluid, 2% milkfat"],
+      [172205, "Milk, cow, reduced fat, 2% milkfat"],
       // The parenthetical survives, and it has to: USDA wrote no comma before
       // it, so a part-exact strip would have taken the gloss with the phrase.
       // `skim` is a word ADR-0049's `skimmed milk` key expands to, and this is
       // the only row in the corpus that carries it.
-      [173432, "Milk, nonfat, fluid (fat free or skim)"],
-      [173441, "Milk, fluid, 1% fat"],
+      [173432, "Milk, cow, nonfat (fat free or skim)"],
+      [173441, "Milk, cow, lowfat, 1% milkfat"],
     ]);
   });
 
@@ -246,7 +246,7 @@ describe("the bundled search index", () => {
     // the corpus carrying `skim` as a word is the one whose parenthetical the
     // fortification strip had to step around.
     expect(descriptionsFor("skim milk")[0]).toBe(
-      "Milk, nonfat, fluid (fat free or skim)"
+      "Milk, cow, nonfat (fat free or skim)"
     );
   });
 
@@ -389,7 +389,7 @@ describe("the bundled search index", () => {
     // What the alias loop is skipped for, which is the whole reason
     // `bestNameKey` costs nothing on most rows.
     expect(index.foods.filter((row) => !(row.also ?? []).length).length).toBe(
-      2374
+      2371
     );
     // And what `SEARCH_RESULT_LIMIT` is a ceiling ON. Measured after ADR-0062
     // §1, because that is the set the list would have to render.
@@ -1257,7 +1257,7 @@ describe("searchIndexRows", () => {
     // stated rather than assumed: eleven of the thirteen rows it used to return
     // were a food some whole milk went into, and both survivors are milk.
     expect(descriptionsFor("whole milk")).toEqual([
-      "Milk, whole, 3.7% milkfat",
+      "Milk, cow, whole, 3.7% milkfat",
       "Milk, buttermilk, fluid, whole",
     ]);
   });
@@ -1273,37 +1273,44 @@ describe("searchIndexRows", () => {
     // Nine cow-and-other-animal milks, four plant milks USDA files under their
     // own names, a coconut and a rice milk reached through a shelf label, and
     // the two milkfish ADR-0062 §4 declines to chase.
+    // One swap, and only one: 171266 moved from second to first when the
+    // `canonical` roster gained it. The eight rows below it hold the order they
+    // had — which is the check that matters here, because a species key would
+    // have reordered all four of the other animals' milks too.
     expect(idsFor("milk")).toEqual([
-      170882, 171266, 171278, 171280, 171302, 172225, 173441, 172205, 173432,
+      171266, 170882, 171278, 171280, 171302, 172225, 173441, 172205, 173432,
       1999630, 1999631, 2257045, 2257046, 170172, 171942, 173675,
     ]);
   });
 
-  it("leads `milk` with sheep milk, which is the decision and not a defect", () => {
-    // Pinned so the next reader does not "fix" it. ADR-0062 §4 designed a
-    // species key that would put cow's milk here, measured it, and refused it:
-    // `Milk, sheep`, `Milk, goat` and `Milk, indian buffalo` name an animal
-    // where cow's milk does not, which is a real convention — but no species
-    // roster exists anywhere in this codebase and these rows carry no
-    // `scientificName`, so the only implementable form is a hand-list of animal
-    // words. That is the name-shaped rule ADR-0055 §7 and #143 have refused
-    // three times, and here it would be bought for one position in one query.
-    // The alternative derivation, "a row stating a fat level outranks one that
-    // does not", separates the same rows and is reverse-engineered from the
-    // answer it was asked to produce.
+  it("leads `milk` with cow's milk, without the species key §4 refused", () => {
+    // This expectation used to read "leads with sheep milk, which is the
+    // decision and not a defect", and it asked any change to argue with
+    // ADR-0062 §4 first. Here is the argument.
     //
-    // So a change that moves whole cow's milk to the top is proposing the fourth
-    // refusal of a name-shaped rule, and owes ADR-0062 §4 an argument before it
-    // edits this expectation. Whole milk is the row directly beneath it either
-    // way, which is what makes the cost one position rather than an answer.
+    // §4 designed and refused a SPECIES KEY: a ranking rule reading animal
+    // words out of descriptions. The refusal was right and still stands —
+    // nothing in this codebase holds a roster of animals, these rows carry no
+    // `scientificName`, so the only implementable form was a hand-list of words
+    // consulted by a predicate, applied corpus-wide with unmeasurable reach.
+    // That is the name-shaped rule #143 and ADR-0055 §7 have refused three
+    // times, and no fourth refusal is being proposed: there is still no species
+    // key, and goat, sheep and buffalo milk keep every position relative to
+    // each other.
     //
-    // By identity like the pin above it, and here the reason is sharper than
-    // convention: 171266 is the row `ADJUDICATED_NAMES` renamed, so a pin on its
-    // description would break on a naming change for a reason that has nothing
-    // to do with which milk leads.
+    // What moved the lead is two things that are not rules at all. The first is
+    // a RENAME: 171266 ships as `Milk, cow, whole, 3.7% milkfat`, stating the
+    // species in the data, in the same place USDA already states it for the
+    // other three. Four hand-written rows, each checked against its published
+    // name by a guard. The second is `canonical`, a roster keyed by `fdcId` and
+    // two entries long, which cannot fire on a row nobody listed.
+    //
+    // And the rename does what a ranking key could not have done: `cow milk`
+    // returned ZERO rows before it. The lead was one position; the retrieval
+    // hole was the whole food.
     expect(idsFor("milk").slice(0, 2)).toEqual([
+      171266, // Milk, cow, whole, 3.7% milkfat
       170882, // Milk, sheep, fluid
-      171266, // Milk, whole, 3.7% milkfat
     ]);
   });
 
@@ -2278,7 +2285,10 @@ describe("the twin merge's discarded names, as search aliases", () => {
     // why this test no longer says "only where USDA held a second name": what
     // mints an alias is a name this row answered to and no longer ships under,
     // whoever discarded it.
-    expect(aliased).toHaveLength(70);
+    // 70 to 73: naming the cow on the three fat-level milks leaves each of
+    // their published names behind as an alias, the same way the eggs' and the
+    // 3.7% row's renames do.
+    expect(aliased).toHaveLength(73);
     // Never the row's own name back to it, and never a name it already reads as.
     for (const food of aliased)
       expect(food.also).not.toContain(food.description);

@@ -325,9 +325,27 @@ export const ADJUDICATED_NAMES: readonly AdjudicatedName[] = [
     "The yolk of the row above, under the same name for the same reason.",
   ],
   [
+    172205,
+    "Milk, reduced fat, fluid, 2% milkfat, without added vitamin A and vitamin D",
+    "Milk, cow, reduced fat, 2% milkfat",
+    "The same unmarked-default problem as the eggs, in a head phrase that makes it worse. USDA names three animals under `Milk` — `Milk, sheep, fluid`, `Milk, goat, fluid`, `Milk, indian buffalo, fluid` — and then files cow's milk by its fat content, so the milk almost every search means was the only one that never said which animal it came from. Typing `cow milk` returned nothing at all, and `milk` led with sheep.",
+  ],
+  [
+    173432,
+    "Milk, nonfat, fluid, without added vitamin A and vitamin D (fat free or skim)",
+    "Milk, cow, nonfat (fat free or skim)",
+    "The skimmed one of the four, under the same name for the same reason.",
+  ],
+  [
+    173441,
+    "Milk, fluid, 1% fat, without added vitamin A and vitamin D",
+    "Milk, cow, lowfat, 1% milkfat",
+    "The 1% one of the four, under the same name for the same reason.",
+  ],
+  [
     171266,
     "Milk, producer, fluid, 3.7% milkfat",
-    "Milk, whole, 3.7% milkfat",
+    "Milk, cow, whole, 3.7% milkfat",
     "`producer` is USDA's word for raw bulk-tank milk before standardisation — the supply chain rather than the food — and this is the row ADR-0061 §5 keeps as full-fat cow's milk, both 3.25% rows having gone. 3.7% is nearer the UK compositional figure than 3.25%, and a shopper looking for whole milk types `whole`. The rename is safe only because those two rows leave: under the corpus that preceded ADR-0061 it would have collided with `Milk, whole, 3.25% milkfat`, which is the order ADR-0062 §3 calls load-bearing.",
   ],
 ];

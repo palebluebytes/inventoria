@@ -144,7 +144,7 @@ describe("applyShippedNames — the hand-adjudicated names (ADR-0061 §5)", () =
     const shipped = (fdcId: number) =>
       applied.survivors.find((s: Survivor) => s.food.fdcId === fdcId)?.food
         .description;
-    expect(shipped(171266)).toBe("Milk, whole, 3.7% milkfat");
+    expect(shipped(171266)).toBe("Milk, cow, whole, 3.7% milkfat");
     expect(applied.adjudicated).toBe(ADJUDICATED_NAMES.length);
   });
 

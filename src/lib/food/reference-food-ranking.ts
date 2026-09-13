@@ -949,6 +949,10 @@ export const CANONICAL_ROWS: ReadonlyMap<number, string> = new Map([
     748967,
     "the hen's egg, against four birds USDA named and one it filed by grade",
   ],
+  [
+    171266,
+    "cow's whole milk, against three animals USDA named and one it filed by fat",
+  ],
 ]);
 
 export interface RowRank {

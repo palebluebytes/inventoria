@@ -659,13 +659,14 @@ describe("the roster", () => {
 });
 
 describe("ADJUDICATED_NAMES — the names no rule reaches (ADR-0061 §5)", () => {
-  it("holds four entries, and states the name each was read against", () => {
-    // Four, and the count is the assertion: everything else in this module is a
+  it("holds seven entries, and states the name each was read against", () => {
+    // Seven, and the count is the assertion: everything else in this module is a
     // positional rule that fires wherever a roster phrase occupies a whole
     // qualifier part. A hand list growing past a handful would mean a rule was
     // missed, which is a measurement rather than another entry.
     //
-    // The three eggs are one entry three times over, and they are here rather
+    // The three eggs are one entry three times over, and the four milks one
+    // entry four times over, and they are here rather
     // than in a rule because there IS no rule: USDA named four birds and then
     // filed the fifth by its retail grade, so nothing in the description says
     // which bird laid it. That is knowledge about shoppers, not about the food,
@@ -690,9 +691,27 @@ describe("ADJUDICATED_NAMES — the names no rule reaches (ADR-0061 §5)", () =>
         expect.any(String),
       ],
       [
+        172205,
+        "Milk, reduced fat, fluid, 2% milkfat, without added vitamin A and vitamin D",
+        "Milk, cow, reduced fat, 2% milkfat",
+        expect.stringContaining("cow"),
+      ],
+      [
+        173432,
+        "Milk, nonfat, fluid, without added vitamin A and vitamin D (fat free or skim)",
+        "Milk, cow, nonfat (fat free or skim)",
+        expect.any(String),
+      ],
+      [
+        173441,
+        "Milk, fluid, 1% fat, without added vitamin A and vitamin D",
+        "Milk, cow, lowfat, 1% milkfat",
+        expect.any(String),
+      ],
+      [
         171266,
         "Milk, producer, fluid, 3.7% milkfat",
-        "Milk, whole, 3.7% milkfat",
+        "Milk, cow, whole, 3.7% milkfat",
         expect.stringContaining("producer"),
       ],
     ]);
