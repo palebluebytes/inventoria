@@ -55,10 +55,18 @@ export const ENTITY_PREFIXES = TRACKED_DOMAINS.flatMap((d) => d.entityPrefixes);
 export const FACETS = ${JSON.stringify(facets, null, 2)};
 `;
 
-/** One minting site, so check 3 is satisfied by everything but the prefactor. */
+/**
+ * A minting site for every prefix these cases declare, so check 3 is satisfied
+ * and the biconditional is the only thing a case can fail on.
+ *
+ * `deletion:` is here because #402 minted it: the prefactor exemption #392
+ * earned is spent, so the Jar domain's prefix is now an ordinary declared
+ * prefix with an ordinary minting site.
+ */
 const MINTS = `
 import { mintEntity } from "./facets/entity-id";
 export const one = () => mintEntity("gtin:", 1);
+export const two = (key) => mintEntity("deletion:", key);
 `;
 
 const run = () => {
@@ -134,34 +142,35 @@ describe("the views/Facet biconditional (ADR-0096 §13)", () => {
   });
 });
 
-describe("a prefix declared ahead of the code that mints it (#392)", () => {
-  it("says so on every run, so the exemption cannot outlive its ticket", () => {
-    // `deletion:` is a prefactor: the registry lands first so #402 is about the
-    // wipe rather than about the registry. Check 3 would otherwise read it as
-    // the rot it exists to catch, so the exemption is printed rather than
-    // silent.
-    write("src/lib/facets/registry.ts", registry([FOOD, JAR], [ROOT]));
-
-    const { status, output } = run();
-
-    expect(output).toContain('"deletion:" is declared ahead of its mint');
-    expect(output).toContain("#402");
-    expect(status).toBe(0);
-  });
-
-  it("fails once the mint arrives, so the entry is deleted with it", () => {
+describe("the prefactor exemption is spent (#392, #402)", () => {
+  // `deletion:` was declared ahead of the code that minted it, so check 3 would
+  // have read it as the rot it exists to catch. #402 mints it, the entry in
+  // `DECLARED_BEFORE_ITS_MINT` went with the ticket that earned it, and what is
+  // left is check 3 holding the Jar domain's prefix to the same rule as every
+  // other one.
+  it("refuses a declared prefix with no minting site again", () => {
     write("src/lib/facets/registry.ts", registry([FOOD, JAR], [ROOT]));
     write(
-      "src/lib/facets/wipe.ts",
+      "src/lib/mints.ts",
       `
-import { mintEntity } from "./entity-id";
-export const record = (key: string) => mintEntity("deletion:", key);
+import { mintEntity } from "./facets/entity-id";
+export const one = () => mintEntity("gtin:", 1);
 `
     );
 
     const { status, output } = run();
 
-    expect(output).toContain("DECLARED_BEFORE_ITS_MINT is spent");
+    expect(output).toContain("declared but minted nowhere");
+    expect(output).toContain("deletion:");
     expect(status).not.toBe(0);
+  });
+
+  it("names no exemption at all on a passing run", () => {
+    write("src/lib/facets/registry.ts", registry([FOOD, JAR], [ROOT]));
+
+    const { status, output } = run();
+
+    expect(output).not.toContain("declared ahead of its mint");
+    expect(status).toBe(0);
   });
 });

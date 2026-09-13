@@ -36,12 +36,22 @@ violates one does not merge.
   undone by appending an `uncompleted` datom (see `getActiveExecutions` in
   `src/lib/habits/habits.ts`), never by removing the original.
 - The only sanctioned table-level destructive operations are `resetLedgerSchema`
-  (the user-initiated `clear`), the one-shot ADR-0020 migration, and
+  (the user-initiated `clear`), the one-shot ADR-0020 migration,
   `deleteDatomsByEntityPrefix` — the **ledger half** of the Facet-scoped wipe
-  behind "Delete all my food data". All three live in `src/lib/db/db.core.ts`;
-  do not add others. That wipe's other half takes the Facet's `localStorage`
-  records and is `src/lib/facets/facet-wipe.ts`'s, which is where its predicate
-  is derived from the registry rather than authored (ADR-0079 §2, §3).
+  behind "Delete all my food data" — and `applyCarriedDeletions`, which is that
+  same wipe arriving from one of your own devices (ADR-0096 §12). All four live
+  in `src/lib/db/db.core.ts`; do not add others. That wipe's other half takes the
+  Facet's `localStorage` records and is `src/lib/facets/facet-wipe.ts`'s, which
+  is where its predicate is derived from the registry rather than authored
+  (ADR-0079 §2, §3).
+- **The fourth is the third arriving, and that is why it is allowed.** A
+  **Carried deletion** is a datom naming the prefix list the wiping device froze
+  and the stamp it acted at, and `applyCarriedDeletions` hands both straight to
+  `deleteDatomsByEntityPrefix` — the same function under the same predicate, so
+  it is the same act rather than a re-enactment of it, and it inherits the
+  closure proof below instead of asking for an exemption of its own. It runs on
+  **every** batch a convergence writes and on **no** batch a user-chosen import
+  writes, because a peer's payload arrives and a file is chosen (ADR-0067 §1).
 - **A partial deletion is sanctioned only where its rows are closed under
   reference** (ADR-0079 §1). The first two exceptions are safe because they are
   total: afterwards no fold can produce a wrong answer, because there is nothing
@@ -52,7 +62,7 @@ violates one does not merge.
   same does not get a wipe. Closure is a property of the **ledger**, not of the
   screens: `ACQUISITION_LIBRARY` had to stop promoting food twins (#280) before
   this could ship, even though no datom referenced one.
-- **A `VACUUM` is not a fourth.** `vacuumLedger` rewrites the whole file, in the
+- **A `VACUUM` is not a fifth.** `vacuumLedger` rewrites the whole file, in the
   same module, and is still not one of these: it hands back the pages a
   sanctioned deletion has already freed, reading every surviving row and writing
   it back, so no argument of it can lose a datom. ADR-0079 §4 requires it — a

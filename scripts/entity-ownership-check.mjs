@@ -209,13 +209,12 @@ const NEVER_MINTED_BARE = new Set(["twin:"]);
  * outlives its ticket is exactly the rot ADR-0014's stale list was. A prefactor
  * is the only thing it is for — a prefix declared so that the ticket which uses
  * it is about the thing rather than about the registry (#392).
+ *
+ * **It is empty**, and that is the healthy state. It held one entry, `deletion:`,
+ * and #402 minted it, so the entry went with the ticket that earned it exactly
+ * as the arm below insists it must.
  */
-const DECLARED_BEFORE_ITS_MINT = new Map([
-  [
-    "deletion:",
-    "#402 mints it, one entity per Facet-scoped wipe (ADR-0096 §13)",
-  ],
-]);
+const DECLARED_BEFORE_ITS_MINT = new Map();
 
 const unminted = [...owners.keys()].filter(
   (p) =>
