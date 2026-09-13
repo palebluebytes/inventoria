@@ -162,6 +162,39 @@ const ROOT_FACET = facetOf("root");
 /** The root's manifest, built from the roster like every other Facet's. */
 const ROOT_MANIFEST = manifestFor(ROOT_FACET);
 
+/**
+ * What the root actually installs as: its manifest plus the one member no
+ * Facet's roster entry carries.
+ *
+ * A share target is a **hand-off**, and who owns one is ADR-0084 §1's question
+ * rather than a fact about what a Facet is called. The root owns this one
+ * because what it carries is a URL to a physical item, and Rations' hand-off is
+ * a fragment rather than a share target (ADR-0084 §5) — so a `shareTarget`
+ * field on the roster would have exactly one filled entry and would invite the
+ * other Facet to fill it, which the spec forbids anyway: an action outside the
+ * manifest's own scope is dropped
+ * (docs/research/269-two-installable-apps-one-origin.md §5).
+ *
+ * It is one object rather than two spellings because two places ask for it —
+ * `VitePWA` writes it into the build, and `facetManifests` serves it in dev,
+ * where there is no build to write into — and a manifest that says different
+ * things depending on which server answered is a thing that cannot be tested.
+ */
+const ROOT_INSTALL_MANIFEST = {
+  ...ROOT_MANIFEST,
+  icons: [...ROOT_MANIFEST.icons],
+  share_target: {
+    action: ROOT_FACET.startUrl,
+    method: "GET" as const,
+    enctype: "application/x-www-form-urlencoded" as const,
+    params: {
+      title: "title",
+      text: "text",
+      url: "url",
+    },
+  },
+};
+
 /** Every Facet the root is not, which is the one asymmetry ADR-0078 §3 turns on. */
 const FOREIGN_FACETS = FACETS.filter((f) => f.id !== ROOT_FACET.id);
 
@@ -410,9 +443,25 @@ const facetManifests = (): Plugin => {
     // plugins the array position decides, which is why this sits after VitePWA.
     enforce: "post",
     configureServer(server) {
-      const routes = new Map(
-        FOREIGN_FACETS.map((f) => [manifestUrlOf(f), bodyOf(f)])
-      );
+      // Every Facet in dev, the root included — which is one more than the
+      // build emits. `VitePWA` writes the root's manifest as a build artifact
+      // and serves it in dev only under `devOptions`, which this app does not
+      // turn on because the rest of that switch is a dev service worker and
+      // registration here is hand-rolled (`injectRegister: false`). So in dev
+      // the root's `<link rel="manifest">` pointed at a URL no middleware
+      // answered, Vite's SPA fallback returned `index.html` for it, and every
+      // load of `/` logged `Manifest: Line: 1, column: 1, Syntax error` — the
+      // browser parsing `<!doctype html>` as JSON. Dev-only: the built file was
+      // always correct, which is why no gate saw it.
+      const routes = new Map([
+        [
+          manifestUrlOf(ROOT_FACET),
+          JSON.stringify(ROOT_INSTALL_MANIFEST, null, 2),
+        ],
+        ...FOREIGN_FACETS.map(
+          (f) => [manifestUrlOf(f), bodyOf(f)] as [string, string]
+        ),
+      ]);
       server.middlewares.use((req, res, next) => {
         const body = routes.get((req.url || "").split("?")[0]);
         if (!body) return next();
@@ -494,34 +543,10 @@ const facetPwa = (facet: Facet) => {
     // by `facetManifests` above, from the same builder, because
     // `transformIndexHtml` is entry-blind and a second instance would put both
     // links into both pages.
-    manifest: isRoot
-      ? {
-          // The root's identity comes off the same roster and through the same
-          // builder as Rations' (#305), so the two manifests cannot describe the
-          // same registry differently. What is added here rather than there is
-          // the share target: it is a **hand-off**, and who owns one is ADR-0084
-          // §1's question rather than a fact about what a Facet is called. The
-          // root owns this one because what it carries is a URL to a physical
-          // item, and Rations' hand-off is a fragment rather than a share target
-          // (ADR-0084 §5) — so a `shareTarget` field on the roster would have
-          // exactly one filled entry and would invite the other Facet to fill
-          // it, which the spec forbids anyway: an action outside the manifest's
-          // own scope is dropped
-          // (docs/research/269-two-installable-apps-one-origin.md §5).
-          ...ROOT_MANIFEST,
-          icons: [...ROOT_MANIFEST.icons],
-          share_target: {
-            action: ROOT_FACET.startUrl,
-            method: "GET",
-            enctype: "application/x-www-form-urlencoded",
-            params: {
-              title: "title",
-              text: "text",
-              url: "url",
-            },
-          },
-        }
-      : false,
+    // The root's identity comes off the same roster and through the same
+    // builder as Rations' (#305), so the two manifests cannot describe the same
+    // registry differently. What the root adds to it is above.
+    manifest: isRoot ? ROOT_INSTALL_MANIFEST : false,
     workbox: {
       // Two assets sit far above workbox's 2 MiB default: the Loro CRDT WASM
       // (~4.2 MB), so the root's Notes works offline on first load, and the USDA
