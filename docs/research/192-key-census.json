@@ -3,9 +3,9 @@
   "schema_version": 1,
   "ticket": "https://github.com/palebluebytes/inventoria/issues/192",
   "map": "https://github.com/palebluebytes/inventoria/issues/186",
-  "ruler": "sweepQueries over the shipped corpus — 2647 queries, pinned and used against both corpora",
+  "ruler": "sweepQueries over the shipped corpus — 2644 queries, pinned and used against both corpora",
   "corpora": {
-    "shipped": "public/usda/search-index.json sha256:6969d24701e00d7d"
+    "shipped": "public/usda/search-index.json sha256:58238ef9940f71d6"
   },
   "gold_sets": {
     "143": "19 of 50 adjudicated heads carry verdict \"correct\" — the leads ADR-0055 §2 protects",
@@ -15,6 +15,7 @@
     "tier",
     "recent",
     "frequent",
+    "canonical",
     "raw",
     "head",
     "accounted",
@@ -33,21 +34,21 @@
   "runs": [
     {
       "label": "shipped",
-      "rows": 2452,
-      "names": 2521,
-      "queries": 2647,
-      "answered": 2647,
+      "rows": 2444,
+      "names": 2517,
+      "queries": 2644,
+      "answered": 2644,
       "empty": 0,
       "plain_sibling": {
-        "carried": 427,
-        "derived": 427,
+        "carried": 423,
+        "derived": 423,
         "stale": 0
       },
       "gold_leads_held": 19,
       "ablations": [
         {
           "key": "tier",
-          "moved": 77,
+          "moved": 76,
           "gold_leads_broken": 0,
           "c1_lost": 1,
           "examples": [
@@ -93,8 +94,41 @@
           "examples": []
         },
         {
+          "key": "canonical",
+          "moved": 5,
+          "gold_leads_broken": 0,
+          "c1_lost": 1,
+          "examples": [
+            {
+              "query": "chicken egg",
+              "shipped": "Egg, chicken, whole, fresh",
+              "without": "Egg, chicken, white, fresh"
+            },
+            {
+              "query": "egg",
+              "shipped": "Egg, chicken, whole, fresh",
+              "without": "Egg, duck, whole, fresh"
+            },
+            {
+              "query": "eggs",
+              "shipped": "Egg, chicken, whole, fresh",
+              "without": "Egg, chicken, white, fresh"
+            },
+            {
+              "query": "fresh",
+              "shipped": "Egg, chicken, whole, fresh",
+              "without": "Pork, fresh, composite of trimmed leg, loin, shoulder, and spareribs, (includes cuts to be cured), separable lean and fat"
+            },
+            {
+              "query": "fresh egg",
+              "shipped": "Egg, chicken, whole, fresh",
+              "without": "Egg, chicken, white, fresh"
+            }
+          ]
+        },
+        {
           "key": "raw",
-          "moved": 75,
+          "moved": 72,
           "gold_leads_broken": 0,
           "c1_lost": 1,
           "examples": [
@@ -127,7 +161,7 @@
         },
         {
           "key": "head",
-          "moved": 21,
+          "moved": 20,
           "gold_leads_broken": 0,
           "c1_lost": 0,
           "examples": [
@@ -160,7 +194,7 @@
         },
         {
           "key": "accounted",
-          "moved": 9,
+          "moved": 8,
           "gold_leads_broken": 0,
           "c1_lost": 1,
           "examples": [
@@ -193,7 +227,7 @@
         },
         {
           "key": "position",
-          "moved": 194,
+          "moved": 193,
           "gold_leads_broken": 0,
           "c1_lost": 0,
           "examples": [
@@ -226,7 +260,7 @@
         },
         {
           "key": "plainSibling",
-          "moved": 60,
+          "moved": 59,
           "gold_leads_broken": 0,
           "c1_lost": 0,
           "examples": [
@@ -358,7 +392,7 @@
         },
         {
           "key": "raw+plain",
-          "moved": 107,
+          "moved": 104,
           "gold_leads_broken": 1,
           "c1_lost": 2,
           "examples": [
@@ -424,7 +458,7 @@
         },
         {
           "key": "head+accounted",
-          "moved": 30,
+          "moved": 28,
           "gold_leads_broken": 0,
           "c1_lost": 1,
           "examples": [
@@ -457,7 +491,7 @@
         },
         {
           "key": "plain+plainSibling",
-          "moved": 93,
+          "moved": 92,
           "gold_leads_broken": 0,
           "c1_lost": 1,
           "examples": [

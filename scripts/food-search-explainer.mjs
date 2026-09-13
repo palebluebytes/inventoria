@@ -78,6 +78,7 @@ const STAGE_ORDER = ["food_kind", "variant", "name"];
 const RULE_ORDER = [
   "brand_specific",
   "processed",
+  "reconstituted_drink",
   "prepared",
   "adjudicated_dish",
   "cooked_form",
@@ -119,6 +120,10 @@ const RULE_BLURB = {
   adjudicated_dish: [
     "A dish, read one row at a time",
     "USDA files nine composite dishes under a category the prepared-food filter cannot take without deleting 120 real ingredients with them.",
+  ],
+  reconstituted_drink: [
+    "A powder made up into a drink",
+    "Both halves are needed and each alone is wrong: <em>prepared with</em> on its own reaches tofu naming its coagulant and soy sauce naming its grain, and <em>powder</em> on its own reaches the spice rack. Together they name a mix that has been made up, which is a drink rather than an ingredient. Brewed coffee and tea say <em>brewed</em> and are untouched.",
   ],
   cooked_form: [
     "Somebody cooked it",
@@ -523,6 +528,10 @@ const KEY_BLURB = [
     "frequent",
     "How often you have logged it, decayed so that forty times last year weighs less than five times this week.",
   ],
+  [
+    "canonical",
+    "A hand-written roster, one entry long: where rows tie all the way down, name the one the query actually means.",
+  ],
   ["raw", "Prefer a raw food to a prepared one."],
   ["head", "How completely your query fills the head phrase."],
   [
@@ -897,7 +906,7 @@ ${funnelRow("Rows that are the beef you meant", "80/20 mince, past the cap", 0, 
           <tbody>
             <tr><td><strong>When</strong></td><td>Once, when the artifact is generated</td><td>Every keystroke, in your browser</td></tr>
             <tr><td><strong>Question</strong></td><td>Is this a food a person logs?</td><td>Does this word reach it, and how well?</td></tr>
-            <tr><td><strong>Instrument</strong></td><td>${RULE_ORDER.length} drop rules + 4 name rosters</td><td>6 tier rungs + 10 ordering keys</td></tr>
+            <tr><td><strong>Instrument</strong></td><td>${RULE_ORDER.length} drop rules + 4 name rosters</td><td>6 tier rungs + 11 ordering keys</td></tr>
             <tr><td><strong>Failure</strong></td><td>A food is gone and nothing says so</td><td>A food is there but buried</td></tr>
             <tr><td><strong>Recoverable?</strong></td><td>No &mdash; you cannot scroll to a row that never shipped</td><td>Yes &mdash; by scrolling</td></tr>
           </tbody>
@@ -1092,7 +1101,7 @@ ${KEY_BLURB.map(
           <div class="kstep"><span class="ord">${at + 1}</span><span class="nm">${esc(name)}</span><span class="ds">${blurb}</span><span class="mv"><b>${n(movedLeads(name))}</b></span></div>`
 ).join("")}
         </div>
-        <p class="caption">Counts are read from <code>192-key-census.json</code>, measured by ablation over a ${n(keyCensus.runs[0].queries)}-query sweep built from every head phrase and head word in the corpus. Four of these read the <em>row</em> rather than its name &mdash; the two frecency keys, <span class="rec">plainSibling</span> and <span class="rec">designated</span> &mdash; which is why a careless measuring harness loses them silently. <strong><span class="rec">recent</span> and <span class="rec">frequent</span> measure zero here because this corpus has no ledger behind it</strong>; on a device that has logged nothing they tie on every row and the ranking is exactly the ten-key one it was.</p>
+        <p class="caption">Counts are read from <code>192-key-census.json</code>, measured by ablation over a ${n(keyCensus.runs[0].queries)}-query sweep built from every head phrase and head word in the corpus. Six of these read the <em>row</em> rather than its name &mdash; the two frecency keys, <span class="rec">canonical</span>, <span class="rec">raw</span>, <span class="rec">plainSibling</span> and <span class="rec">designated</span> &mdash; which is why a careless measuring harness loses them silently. <strong><span class="rec">recent</span> and <span class="rec">frequent</span> measure zero here because this corpus has no ledger behind it</strong>; on a device that has logged nothing they tie on every row, and what is left is the eleven-key ranking everyone who has logged nothing gets.</p>
       </div>
 
       <h3>Why each of them exists</h3>
@@ -1317,13 +1326,17 @@ ${shippedWords
         </details>
 
         <details>
-          <summary>Why does <span class="rec">egg</span> lead with a duck egg?</summary>
-          <p>Because <span class="rec">Egg, duck, whole, fresh, raw</span> reaches tier 50 exactly as a hen's egg does &mdash; the head phrase <em>is</em> your query in both &mdash; and the keys below tier cannot tell a common food from a rare one. There is no prevalence key, on purpose: the same key that would sink duck eggs would sink somebody's actual dinner.</p>
+          <summary>Why did <span class="rec">egg</span> used to lead with a duck egg?</summary>
+          <p>It no longer does, and the way it stopped is worth reading, because the obvious fix was not the one that worked.</p>
+          <p>USDA names four birds &mdash; <span class="rec">Egg, duck, whole, fresh</span>, goose, quail, turkey &mdash; and then files a hen's egg under its retail grade, as <span class="rec">Eggs, Grade A, Large, egg whole</span>. So the one egg nearly everybody means was the only one whose name never said which bird laid it, and it lost on two keys at once: the plural <span class="rec">Eggs</span> filled the head phrase less completely than <span class="rec">Egg</span>, and USDA never wrote <em>raw</em> on a graded egg, so a box of fresh eggs scored 0 on a key the duck scored 1 on.</p>
+          <p><strong>Renaming it was necessary and not sufficient.</strong> Shipped as <span class="rec">Egg, chicken, whole, fresh</span> the row matches its four siblings exactly &mdash; and that is the problem: same tier, same head, same everything the keys can read. All five tied to the bottom of the comparator, where the sort fell through to corpus order and the duck's lower record number won. Nothing about that was a judgement.</p>
+          <p>So the tie is broken by <span class="rec">canonical</span>, a hand-written roster with one entry in it, sitting just below the two frecency keys. Below them on purpose: <strong>if you log duck eggs, duck leads</strong>. A roster rather than a rule because there is no rule to write &mdash; the names differ only in the bird, and which bird is the default is knowledge about shoppers, not about food composition. It moves ${n(movedLeads("canonical"))} leads across the whole sweep, and it can never remove a row: every egg is still there, in the order the next key down would have put them.</p>
         </details>
 
         <details>
           <summary>Why is there no &ldquo;popularity&rdquo; ranking?</summary>
-          <p>Nothing leaves the device, so there is no usage data to rank on. Ranking by <em>assumed</em> prevalence was considered and refused as a drop rule; it survives only as tie-breakers that fire on an exact tie in every earlier key. The standing principle is that prevalence may rank a food and may never drop one.</p>
+          <p>Nothing leaves the device, so there is no <em>shared</em> usage data to rank on. What ranking there is comes from two places, and both obey the same standing principle &mdash; prevalence may rank a food and may never drop one.</p>
+          <p>The first is your own log: <span class="rec">recent</span> and <span class="rec">frequent</span> are computed on this device from what you have actually eaten, and they sit above every other ordering key. The second is <span class="rec">canonical</span>, one hand-written entry, which fires only on rows that tie in every earlier key. Ranking by assumed prevalence as a <em>drop</em> rule was considered and refused outright.</p>
         </details>
 
         <details>

@@ -427,3 +427,116 @@ too: `(may contain additives to retain moisture)` hedges about what is IN the
 shrimp, and added water is a claim about the panel rather than about the journey.
 
 Corpus 2,475 → **2,452**.
+
+## Amendment (2026-09-13): a made-up drink, and naming the bird on the eggs
+
+Two questions asked of the shipped corpus, each of which turned out to be a
+different shape from the one it looked like.
+
+### 1. Why `Beverages, Eggnog-flavor mix, powder, prepared with whole milk`
+
+### survived
+
+Because nothing was looking for it. `powder` is not a processed marker — the
+corpus is full of powders that ARE ingredients: cocoa, curry, garlic, tomato,
+baobab — and `Beverages` is deliberately not one of ADR-0042's prepared
+categories, precisely so that generic coffee, tea and water survive. Between
+those two decisions a glass of eggnog walked through.
+
+**The blanket rule is wrong, and the sweep is the argument.** `prepared with`,
+`made from` and `made with` reach 45 rows, and most of them are foods that
+have to stay:
+
+| row                                                  | what the phrase is doing  |
+| ---------------------------------------------------- | ------------------------- |
+| `Tofu, firm, prepared with calcium sulfate`          | naming its coagulant      |
+| `Soy sauce made from soy and wheat`                  | naming its grain          |
+| four gluten-free breads                              | naming their flours       |
+| `Beverages, coffee, brewed, prepared with tap water` | the row ADR-0042 protects |
+
+So the rule reads **two** things, and each one alone is wrong: `powder` or
+`mix`, AND `prepared with`. Together they name a mix that has been made up into
+a drink. Brewed coffee and tea say `brewed` and are untouched — all 15 of them,
+asserted.
+
+`isReconstitutedDrink` fires on **20 archive records**, of which **12 were
+already dropped** by another marker inside `isPreparedProduct`. Its new reach is
+therefore **8 shipped rows**: the eggnog, carob, strawberry and cocoa mixes, a
+cocoa mix with aspartame, a lemonade, a cereal-grain coffee substitute and a
+whiskey sour.
+
+**It shrank a hand-written list, which is the direction these rosters should
+move.** `ADJUDICATED_VARIANTS` named six chocolate drink rows by fdcId; four of
+them are now taken by shape, a stage earlier, and the group is down to two — an
+almond milk that is shelf-stable rather than reconstituted, and the DRY mix,
+which says `powder` and never says it was prepared. Both are still drink
+products, so they keep their hand-written entry. 44 rows → 40.
+
+The drop census asks the drink rule **before** `isPreparedProduct`, which is not
+cosmetic. Filed under the general rule, ablation reports these eight rows'
+cause as the word `with` — minimal, sufficient, and useless to a reader, who
+learns that a preposition dropped a food.
+
+### 2. Naming the bird, and why the rename could not do the job alone
+
+USDA names four birds — `Egg, duck, whole, fresh`, goose, quail, turkey — and
+then files a hen's egg under its retail grade, as `Eggs, Grade A, Large, egg
+whole`. The one egg nearly every search means was the only one whose name never
+said which bird laid it, and it lost twice over: the plural `Eggs` fills the
+head phrase less completely than `Egg`, and USDA never wrote _raw_ on a graded
+egg, so a box of fresh eggs scored 0 on a row fact the duck scored 1 on. §6's
+`raw` is read off USDA's description, and USDA's description is what is missing
+the word.
+
+Three `ADJUDICATED_NAMES` entries ship them as `Egg, chicken, whole / white /
+yolk, fresh`. The published name carries `, raw` — **load-bearing, not
+decoration**: the row fact is read at that point, before the strip takes the
+word three passes later. Without it, a box of eggs still ranks below a drum of
+pasteurised liquid egg.
+
+**And the rename is still not enough.** Renamed, the row matches its four
+siblings exactly — same tier, same head, same `raw`, same everything the keys
+can read. All five tie to the bottom of `compareRelevance`, the sort falls
+through to corpus order, and the duck's 172189 beats the hen's 748967. That is
+not a judgement; it is a record number.
+
+So a twelfth key, `canonical`, reads a hand-written roster with **one entry**
+in it. ADR-0055 §1 is what permits it — _prevalence may rank a food and may
+never drop one_ — and it ranks: every egg is still in the corpus, in the order
+the next key down would have given them.
+
+**Placed below `recent` and `frequent`, above everything else.** Below the two
+frecency keys because a food you actually eat outranks a food someone
+hand-picked: **log duck eggs and duck leads**, which is the entire point of
+#165. Above the rest because the tie it breaks runs through every remaining key.
+
+**A roster and not a rule, because there is no rule to write.** The names differ
+only in the bird, and the corpus holds no fact saying which bird is the default
+— that is knowledge about shoppers, not about food composition. Inferring it
+from nutrients, category or word frequency would be a denylist in a predicate's
+clothing, which §4 refuses. The bar for another entry is deliberately high: the
+rows must tie all the way down, AND one of them must be what a shopper typing
+the head phrase means.
+
+Measured by ablation over the 2,644-query sweep: **5 leads moved, 0 of #143's
+gold cases broken.** Three are in the head-phrase-and-word sweep and can be
+named — `egg`, `eggs`, and `fresh`. The third is worth stating plainly rather
+than burying: `fresh` is a qualifier nearly every row carries, so every answer
+to it is a tie, and the lead moved from a pork composite to a chicken egg.
+Neither answer means anything, because `fresh` is not a food.
+
+### 3. A rename now leaves the old name behind as an alias
+
+Found by a test, and it was a real loss rather than a re-pin. The graded egg
+name was reachable only as the row's description, so renaming the row made it
+unreachable by **the only name printed on the box** — silently, with every
+other test still green.
+
+`applyShippedNames` now pushes the published name into `also`, exactly as the
+twin merge does with a name it discarded. A hand rename and a merge are the same
+event from a searcher's side: the row still exists, and the words they know it
+by have stopped being its description. ADR-0061 §5's milk gets the same
+treatment, so `Milk, producer, fluid, 3.7% milkfat` is retrievable again by the
+jargon term the rename exists to stop _displaying_. Aliased rows 69 → 70.
+
+Corpus 2,452 → **2,444**.
