@@ -344,3 +344,51 @@ severity a reader sees on a record, not which records exist or what any counter 
 
 Whoever next has a reason to tell the two apart owns both halves: a fifth error class in
 `open-food-facts.ts`, and a fifth `ScanOutcome` with its own row in ADR-0092 §5.2.
+
+## Amendment (2026-09-13): the hole was a property of two directories, and the second one faced outward
+
+The section above closed §4's hole on 2026-09-05 and ended: "The hole was a property of
+one directory rather than of §4, and it is that directory the allowlist covers."
+
+That last clause was wrong, and
+[#382](https://github.com/palebluebytes/inventoria/issues/382) is what found it. Four
+refusals in `src/lib/p2p/meal-reader.ts` interpolated an entity id, and
+`MEAL_TWIN_PREFIXES` makes `gtin:<barcode>` one a meal legitimately carries. #227's
+enumerating grep — `throw new [A-Za-z]*Error(\`` — could not see them, because they
+`throw`a custom subclass. Widening the sweep to every`…Error`construction,`super(…)`call and`+` concatenation found two more the ticket's own hand-reading had also missed:
+a fifth entity id, and an echo of the payload's **attribute**, which is not an entity id
+at all and which a fix scoped to entity ids would have left standing.
+
+**The second directory was the worse of the two, and §4's amendment above had already
+named why.** The hole it describes is a barcode arriving "inside a string somebody else
+built". Under `src/lib/db/` that was a figure of speech — the string was built by this
+app, about this user's own data. On the receive path somebody else literally built it:
+the payload is another device's, `receive-words.ts` carries the refusal's message through
+as `cause`, and `EndingLine.svelte` renders it verbatim behind "show why". There is no
+`describeImportFailure` between the two, so unlike the import screen the receive door had
+no second bound. A barcode off the sender's shopping reached the receiver's screen.
+
+**What the refusals say now, and what paid for the entity id.** Nothing of the payload's.
+The clause that fired is carried by the sentence and the failing line by
+`MealPayloadRefusedError.lineNumber`, which the two reachability refusals gained here —
+they had no line number before, and naming the entity was how they had been identifying
+themselves. The ticket asked whether an entity id earns `describeMarker`'s exemption. It
+does not, and the reason is that a **meal refusal is atomic**: the first failure refuses
+the whole payload and nothing lands, so naming the entity never bought the receiver a
+decision, because there is no per-food choice to make. `describeMarker`'s exemption was
+argued from the opposite fact — two readers that refuse each other _by name_ — and that
+argument does not reach here.
+
+**Length was a second axis, and independent of the barcode.** #227 granted
+`describeMarker` its exemption together with `MARKER_MAX_CHARS`, never on its own. A
+5,000-character entity id produced a 5,093-character refusal; an unbounded echo of a
+payload the app has just rejected is a hostile sender's to compose. Saying nothing of the
+payload disposes of this without its needing a cap of its own.
+
+**The allowlist now covers both directories**, and the sweep is what holds them: it is
+what found the two sites hand-reading missed, which is the argument for running it over a
+directory rather than over a list somebody wrote down. The same widened grammar is now
+what `tests/unit/db-error-messages.test.ts` uses, so a fifth site costs a reviewer writing
+down why it is safe. What it still cannot see is stated there: a message assembled into a
+variable, one reached through a helper, and a bare expression passed as the whole message
+rather than built into one.

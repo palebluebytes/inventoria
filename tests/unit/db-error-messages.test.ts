@@ -107,10 +107,22 @@ describe("describeMarker", () => {
  *
  * **What this does not claim.** It reads the syntax, not the data, so a message
  * assembled into a variable and thrown a few lines later is invisible to it —
- * as is anything reached through a helper. It is a gate on the shape #227 was,
- * not a proof about every string that can become an error. It also holds only
- * this directory, which is the one the ticket's acceptance names; the same
- * grammar in `src/lib/p2p/meal-reader.ts` is pinned by that module's own tests.
+ * as is anything reached through a helper, and as is a bare expression passed
+ * as the whole message rather than built into one
+ * (`deposit-store.ts`'s `StoreUnreachableError` is the live example). It is a
+ * gate on the shape #227 was, not a proof about every string that can become an
+ * error.
+ *
+ * It swept only `src/lib/db/` until [#382](https://github.com/palebluebytes/inventoria/issues/382),
+ * on the grounds that "the same grammar in `src/lib/p2p/meal-reader.ts` is
+ * pinned by that module's own tests". It was not: four refusals there
+ * interpolated an entity id, which on the scan path is `gtin:<barcode>`, and
+ * that module's tests asserted on the leaked id as their way of telling the
+ * clauses apart — so they held the defect in place rather than catching it.
+ * #227's own enumerating grep could not see them either, because they `throw` a
+ * custom subclass. The sweep is what found the two sites the ticket's
+ * hand-reading missed, which is the argument for running it over a directory
+ * rather than over a list somebody wrote down.
  */
 const ALLOWED_INTERPOLATIONS: Record<string, Record<string, string>> = {
   "src/lib/db/db.core.ts": {
@@ -140,6 +152,39 @@ const ALLOWED_INTERPOLATIONS: Record<string, Record<string, string>> = {
     schema_version: "a format version, already typechecked as a number",
     reads: "the versions this reader supports, from a constant",
     field: "a field name, from a literal in this module",
+  },
+  // #382. These are read on the **receiver's** screen, off a payload another
+  // device built, so the question is not only "is this the user's data" but
+  // "is this anybody's". Nothing below comes off the payload.
+  "src/lib/p2p/meal-reader.ts": {
+    lineNumber: "which line of the payload, a number",
+    reason: "a refusal built in this module out of its own sentences",
+    "row.attribute":
+      "necessarily one of `OMITTED_ATTRIBUTES`' three constants, so this is this app's own vocabulary rather than the payload's",
+    "describeBytes(bytes)": "a size, from this reader's own byte count",
+    "describeBytes(ceilingBytes)": "this app's own ceiling, a constant",
+    "describeMarker(raw.artifact)":
+      "the marker while it is marker-sized, its shape when it is not",
+    "JSON.stringify(MEAL_PAYLOAD_ARTIFACT)": "this app's own constant",
+    schema_version: "a format version, already typechecked as a number",
+    reads: "the versions this reader supports, from a constant",
+  },
+  "src/lib/p2p/deposit-store.ts": {
+    "response.status": "an HTTP status, a number",
+    verb: "an HTTP method, from a literal at each call site",
+  },
+  "src/lib/p2p/pairing-act.ts": {
+    "secret.length": "how many bytes the caller passed, a number",
+    PAIRING_SECRET_BYTES: "this app's own constant",
+  },
+  "src/lib/p2p/relay-room.ts": {
+    "error instanceof Error ? error.message : error":
+      "whatever this browser said about a socket that would not open — local, and never the payload",
+    closeCode: "a WebSocket close code, a number",
+  },
+  "src/lib/p2p/room-code.ts": {
+    "bytes.length": "how many bytes the caller passed, a number",
+    ROOM_KEY_BYTES: "this app's own constant",
   },
 };
 
@@ -198,14 +243,25 @@ function messageInterpolations(code: string, name: string): string[] {
   return [...found.values()];
 }
 
-describe("what a message in src/lib/db may say", () => {
-  const files = readdirSync(new URL("../../src/lib/db", import.meta.url))
-    .filter((name) => name.endsWith(".ts"))
-    .map((name) => `src/lib/db/${name}`);
+/**
+ * The directories a message is read on screen from. `src/lib/db/` reaches the
+ * import screen; `src/lib/p2p/` reaches the receive door, which renders a
+ * refusal's message verbatim behind its "show why" (`EndingLine.svelte`) and
+ * has no `describeImportFailure` between the two.
+ */
+const SWEPT = ["src/lib/db", "src/lib/p2p"];
 
-  it("finds the directory it is meant to be reading", () => {
+describe("what a message in a swept directory may say", () => {
+  const files = SWEPT.flatMap((dir) =>
+    readdirSync(new URL(`../../${dir}`, import.meta.url))
+      .filter((name) => name.endsWith(".ts"))
+      .map((name) => `${dir}/${name}`)
+  );
+
+  it("finds the directories it is meant to be reading", () => {
     expect(files.length).toBeGreaterThan(5);
     expect(files).toContain("src/lib/db/db.core.ts");
+    expect(files).toContain("src/lib/p2p/meal-reader.ts");
   });
 
   it.each(files)("%s interpolates nothing a datom said", (path) => {
@@ -224,6 +280,12 @@ describe("what a message in src/lib/db may say", () => {
     expect(
       messageInterpolations(readSource("src/lib/db/db.core.ts"), "db.core.ts")
     ).toContain("complaint");
+    expect(
+      messageInterpolations(
+        readSource("src/lib/p2p/meal-reader.ts"),
+        "meal-reader.ts"
+      )
+    ).toContain("describeMarker(raw.artifact)");
     expect(
       files.flatMap((path) => messageInterpolations(readSource(path), path))
         .length
