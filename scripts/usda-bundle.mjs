@@ -158,6 +158,7 @@ export const BUNDLE_DATASETS = ["Foundation Foods", "SR Legacy"];
  * @property {(description: string) => boolean} isBrandSpecific
  * @property {(description: string) => boolean} isProcessedProduct
  * @property {(foodCategory: string | undefined, description: string) => boolean} isPreparedProduct
+ * @property {(foodCategory: string | undefined, description: string) => boolean} isCookedForm
  * @property {(description: string) => boolean} isDryBasisRecord
  * @property {(description: string) => boolean} isManufacturingInput
  * @property {(rows: { fdcId: number, description: string }[]) => ReadonlyMap<number, string>} resolveVariantDrops
@@ -179,6 +180,8 @@ export const BUNDLE_DATASETS = ["Foundation Foods", "SR Legacy"];
  * @property {(index: object) => { foods: object[] }} buildSearchCorpus
  * @property {(corpus: object, query: string) => { hits: { row: { description: string } }[] }} searchIndexRows
  * @property {(rows: { fdcId: number, description: string, panelFields?: number }[]) => { renamed: ReadonlyMap<number, string>, dropped: ReadonlyMap<number, string> }} resolveShippedNames
+ * @property {(rows: { fdcId: number, description: string }[]) => ReadonlyMap<number, string>} dropUncontestedQualifiers
+ * @property {(rows: { fdcId: number, description: string }[]) => { renamed: ReadonlyMap<number, string>, dropped: ReadonlySet<number> }} stripEnrichment
  * @property {(description: string) => string} stripNonNamingQualifiers
  * @property {readonly TwinLedgerEntry[]} TWIN_LEDGER
  * @property {ReadonlySet<number>} SPLIT_TWIN_NDB_NUMBERS
@@ -350,6 +353,7 @@ export function buildCorpus(groups, app) {
     brand_specific: 0,
     processed: 0,
     prepared: 0,
+    cooked_form: 0,
     dry_basis: 0,
     manufacturing_input: 0,
     no_energy: 0,
@@ -357,6 +361,10 @@ export function buildCorpus(groups, app) {
   };
   let twinned = 0;
   let twinned_survivors = 0;
+  // Which written drops actually removed a row, as opposed to naming one an
+  // earlier rule had already taken. Only the first kind can delete a food, and
+  // only the first kind is what `assertSupersededSurvive` binds.
+  const supersededFired = new Set();
 
   for (const group of groups.values()) {
     if (group.length > 1) twinned++;
@@ -371,6 +379,14 @@ export function buildCorpus(groups, app) {
     }
     if (app.isPreparedProduct(food.foodCategory, food.description)) {
       dropped.prepared++;
+      continue;
+    }
+    // A record USDA cooked before it measured it. Asked here, after the dish
+    // filter above, so what reaches it is an INGREDIENT with a method written on
+    // it rather than a meal — and before the two below, because a cooked food is
+    // not a food this corpus carries whether or not its panel is complete.
+    if (app.isCookedForm(food.foodCategory, food.description)) {
+      dropped.cooked_form++;
       continue;
     }
     // A dry-basis assay is not a food (ADR-0048 §5) — a food-kind judgement of
@@ -392,6 +408,7 @@ export function buildCorpus(groups, app) {
     // — only knowing that napa cabbage and pe-tsai are one vegetable does.
     if (app.SUPERSEDED_FDC_IDS.has(food.fdcId)) {
       dropped.superseded++;
+      supersededFired.add(food.fdcId);
       continue;
     }
     // A record with no energy cannot be logged, so it does not ship. The app
@@ -425,6 +442,7 @@ export function buildCorpus(groups, app) {
   return {
     survivors,
     dropped,
+    supersededFired,
     twinned,
     twinned_survivors,
     identities: groups.size,
@@ -565,11 +583,21 @@ export function assertTwinLedgerCovers(groups, app) {
  * without touching the first — leaving the food gone entirely, which is exactly
  * what ADR-0055 §1 forbids. Checked over the FINISHED corpus for that reason,
  * and against the description the verdict was reached by reading.
+ *
+ * **Only entries that actually FIRED are checked**, and the distinction is the
+ * whole of what this asserts. An entry binds when its own row reached the
+ * superseded rule and was removed by it — then the survivor must ship, or the
+ * list has deleted a food. An entry whose row an earlier rule had already taken
+ * removed nothing, so it cannot have deleted anything, and holding it to a
+ * survivor is asking a question about a drop that did not happen. The cooked-form
+ * rule made that concrete: `Cabbage, napa, cooked` and the pe-tsai row it defers
+ * to are both cooked and both leave, so the entry is inert and the food is gone
+ * for a reason that has its own record rather than for this one's.
  */
-export function assertSupersededSurvive(survivors, app) {
+export function assertSupersededSurvive(survivors, supersededFired, app) {
   const shipped = new Set(survivors.map((s) => s.food.description));
   for (const [fdcId, superseded, survivor] of app.SUPERSEDED_RECORDS)
-    if (!shipped.has(survivor))
+    if (supersededFired.has(fdcId) && !shipped.has(survivor))
       throw new Error(
         `"${superseded}" (${fdcId}) is dropped as a second copy of ` +
           `"${survivor}", and that row is not in the corpus. A drop list that ` +
@@ -764,6 +792,7 @@ async function main() {
     twinned,
     twinned_survivors,
     identities,
+    supersededFired,
   } = buildCorpus(groups, app);
   // The drops come before both name rules, which ADR-0062 §3 calls load-bearing:
   // four of the five collisions the fortification strip would cause are milk
@@ -778,7 +807,7 @@ async function main() {
   );
   // Asked of USDA's own names, so it has to come before the rename (ADR-0056 §4).
   const twinNames = assertTwinNamesRetrieve(groups, filtered, app);
-  const superseded = assertSupersededSurvive(filtered, app);
+  const superseded = assertSupersededSurvive(filtered, supersededFired, app);
   const {
     survivors,
     renamed,
@@ -828,7 +857,8 @@ async function main() {
     `\n${identities.toLocaleString("en-GB")} food identities across ${archives.length} archives, ` +
       `${twinned} twinned; ${survivors.length.toLocaleString("en-GB")} survive the filters ` +
       `(${dropped.brand_specific} brand-specific, ${dropped.processed} packaged or processed, ` +
-      `${dropped.prepared} prepared or composite, ${dropped.dry_basis} dry-basis, ` +
+      `${dropped.prepared} prepared or composite, ${dropped.cooked_form} cooked, ` +
+      `${dropped.dry_basis} dry-basis, ` +
       `${dropped.manufacturing_input} manufacturing inputs, ` +
       `${dropped.no_energy} reporting no energy, ` +
       `${dropped.superseded} superseded dropped)`

@@ -89,6 +89,7 @@ export const FOOD_KIND_EXPORTS = [
   "isBrandSpecific",
   "isProcessedProduct",
   "isPreparedProduct",
+  "isCookedForm",
   "isDryBasisRecord",
   "isManufacturingInput",
 ];
@@ -173,6 +174,8 @@ export const CORPUS_EXPORTS = ["buildSearchCorpus", "searchIndexRows"];
 export const SHIPPED_NAME_EXPORTS = [
   "resolveShippedNames",
   "stripNonNamingQualifiers",
+  "dropUncontestedQualifiers",
+  "stripEnrichment",
   "ADJUDICATED_NAMES",
 ];
 

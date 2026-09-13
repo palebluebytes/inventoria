@@ -384,6 +384,80 @@ export function isPreparedProduct(
 }
 
 /**
+ * The words USDA writes on a record it cooked before it measured it.
+ *
+ * Whole words, never substrings, and the reason is not hypothetical: fourteen
+ * corpus rows say `uncooked`, and a `/cooked/` that reads them as cooked deletes
+ * `Quinoa, uncooked`, `Teff, uncooked`, `Spelt, uncooked` and
+ * `Apricots, dried, sulfured, uncooked`. That is ADR-0100 §10's standing warning
+ * — `Caraway` and `Strawberries` both contain the literal string `raw` — and the
+ * measurement that produced this record's predecessor fell into it, which is why
+ * the boundary is stated here rather than assumed.
+ */
+const COOKING_METHOD =
+  /\b(cooked|boiled|roasted|baked|fried|broil|broiled|grilled|braised|steamed|stewed|simmered|poached|microwaved|toasted|blanched|sauteed|heated|parboiled)\b/i;
+
+/**
+ * The two cooking words that also name a food as it is SOLD, and the category
+ * where that is true.
+ *
+ * The test is the **whole-foods shop**: a food you could scoop out of a bin and
+ * carry home in a paper bag, with no label on it, is an ingredient. Roasted
+ * peanuts and toasted sunflower seeds are sold exactly that way and nobody
+ * roasts their own macadamias; parboiled rice is not, which is why `parboiled`
+ * is in the list above and these two words are not. It is the same line that
+ * keeps dried apricots — the cooking happened before the purchase and the thing
+ * you buy is the roasted nut.
+ *
+ * Fifty rows of `Nut and Seed Products` say `roasted` or `toasted`:
+ * `Peanuts, all types, dry-roasted`, `Seeds, sunflower seed kernels, toasted`,
+ * `Nuts, almonds, honey roasted`.
+ *
+ * Scoped to the category and to those two words together, because neither alone
+ * is safe: `roasted` outside this category is 374 rows of meat, and `boiled`
+ * inside it is a chestnut somebody cooked. The six nut and seed rows naming any
+ * other method — boiled chestnuts, boiled breadfruit seeds — are cooked and go.
+ */
+const BOUGHT_ROASTED_CATEGORY = "Nut and Seed Products";
+const BOUGHT_ROASTED = /\b(roasted|toasted)\b/i;
+const OTHER_METHOD =
+  /\b(cooked|boiled|braised|fried|grilled|broiled|baked|steamed|stewed|simmered|poached|microwaved|blanched|sauteed)\b/i;
+
+/**
+ * True when a record measures a food somebody cooked, rather than the food.
+ *
+ * The corpus is ingredients as bought, and cooking is the one thing that happens
+ * after the purchase and changes the number. A food-kind judgement of the same
+ * species as {@link isPreparedProduct} and {@link isDryBasisRecord} beside it,
+ * asked in the same place and for the same reason — except that this one is
+ * asked AFTER `isPreparedProduct`, so a cooked dish is already gone and what
+ * reaches here is an ingredient with a method written on it.
+ *
+ * **It removes foods the corpus cannot replace, and that is the accepted cost.**
+ * Where USDA published only a cooked assay the food leaves entirely — turkey
+ * breast, mutton, brown rice among them — and where a food is sold dry and eaten
+ * wet the corpus is left holding only the dry figure. Both are recorded rather
+ * than hidden: every casualty is in `docs/research/usda-drop-census.json` under
+ * this rule, and the foods left with no row at all are listed in the ADR.
+ *
+ * Exported for the same reason its neighbours are: `scripts/usda-bundle.mjs`
+ * applies it at generation time and must not restate it (ADR-0047 §4).
+ */
+export function isCookedForm(
+  foodCategory: string | undefined,
+  description: string
+): boolean {
+  if (!COOKING_METHOD.test(description)) return false;
+  if (
+    foodCategory === BOUGHT_ROASTED_CATEGORY &&
+    BOUGHT_ROASTED.test(description) &&
+    !OTHER_METHOD.test(description)
+  )
+    return false;
+  return true;
+}
+
+/**
  * The basis USDA marks on a record measured against zero water — a laboratory
  * assay expressed per 100 g of dry matter, published so cultivars can be
  * compared. Anchored on the parenthesised marker rather than on the word, because
