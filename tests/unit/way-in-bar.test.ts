@@ -12,7 +12,11 @@ import { describe, it, expect, vi, afterEach } from "vitest";
 import { render } from "svelte/server";
 import { decl, ruleOf, rulesOf, styleOf } from "./support/stylesheet";
 import { BREAKPOINTS } from "../../src/lib/ui/breakpoints";
-import { MEAL_TYPES, type MealType } from "../../src/lib/food/meal-type";
+import {
+  mealNearest,
+  MEAL_TYPES,
+  type MealType,
+} from "../../src/lib/food/meal-type";
 import { WAYS_IN, wayInCaption, wayInLabel } from "../../src/lib/food/ways-in";
 import WayInBar from "../../src/lib/views/food/WayInBar.svelte";
 import WayInRail from "../../src/lib/views/food/WayInRail.svelte";
@@ -90,28 +94,32 @@ describe("the rail is the panel, which is what makes this a tab list (§1)", () 
 });
 
 describe("the meal is chosen and never inferred (§2)", () => {
-  const opensOn = (hour: number) => {
+  // The boundaries themselves are `food/meal-type.ts`'s and are swept there,
+  // over a function that takes the moment rather than reading a clock. What is
+  // this bar's to prove is that it consults them, once, and that what comes back
+  // is the tab bits-ui marks active — so a change of heart about when lunch
+  // starts cannot quietly stop reaching the control it decides.
+  it("opens on the meal nearest the clock, and on that one only", () => {
     vi.useFakeTimers();
-    vi.setSystemTime(new Date(2026, 8, 13, hour, 0, 0));
-    return activeTabOf(bar());
-  };
+    vi.setSystemTime(new Date(2026, 8, 13, 12, 30, 0));
 
-  it("starts on the meal nearest the clock", () => {
-    // A starting value, never a later change: nothing moves under you once the
-    // screen is up, and only a tab moves the target afterwards. Being wrong
-    // costs one tap, which is the trade §2 refuses to dodge by inferring.
-    expect(opensOn(8)).toBe("breakfast");
-    expect(opensOn(12)).toBe("lunch");
-    expect(opensOn(19)).toBe("dinner");
-    expect(opensOn(23)).toBe("snack");
+    const body = bar();
+    expect(activeTabOf(body)).toBe(mealNearest(new Date()));
+    // Scoped to the tabs: the panel behind the selected one carries the same
+    // `data-state`, so an unscoped count is two and says nothing.
+    expect(body.match(/role="tab" data-state="active"/g)).toHaveLength(1);
   });
 
-  it("covers the whole clock, so no hour opens on nothing", () => {
-    // The four bounds are hand-picked rather than derived, so what this catches
-    // is an off-by-one at a boundary leaving an hour with no meal.
-    for (let hour = 0; hour < 24; hour++) {
-      expect(MEAL_TYPES).toContain(opensOn(hour));
-    }
+  it("is a starting value and not a subscription", () => {
+    // §2's actual claim: nothing moves under you once the screen is up. The
+    // clock is read at mount and never again, so a bar rendered before noon is
+    // still on breakfast at one — only a tab moves the target.
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date(2026, 8, 13, 9, 0, 0));
+    const morning = bar();
+
+    vi.setSystemTime(new Date(2026, 8, 13, 13, 0, 0));
+    expect(activeTabOf(morning)).toBe("breakfast");
   });
 });
 
