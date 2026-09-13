@@ -447,20 +447,8 @@ const ADJUDICATED_VARIANT_GROUPS: readonly AdjudicatedVariantGroup[] = [
     ],
   },
   {
-    why: "A chocolate milk drink filed under `Beverages`. Six rows name themselves one, and they leave with the seven chocolate milks so that `chocolate milk` returns nothing rather than returning a malted drink powder.",
+    why: "A chocolate milk drink filed under `Beverages`. They leave with the seven chocolate milks so that `chocolate milk` returns nothing rather than returning a drink powder. This group listed six rows and now lists two: `isReconstitutedDrink` takes the other four — 171874, 171879, 173184 and 174160, each of them a powder the description says was made up with milk — and takes them a stage earlier, so naming them here would strand the verdict. The two left are the two the rule is right not to reach: an almond milk that is shelf-stable rather than reconstituted, and the DRY mix, which says `powder` and never says it was prepared. Both are still drink products, which is what this group is for, and the shrinkage is the argument for the rule: a hand-written list of six was doing by name what one shape now does.",
     rows: [
-      [
-        171874,
-        "Beverages, chocolate malt powder, prepared with 1% milk, fortified",
-      ],
-      [
-        171879,
-        "Beverages, chocolate-flavor beverage mix, powder, prepared with whole milk",
-      ],
-      [
-        173184,
-        "Beverages, chocolate malt, powder, prepared with fat free milk",
-      ],
       [
         173187,
         "Beverages, chocolate almond milk, unsweetened, shelf-stable, fortified with vitamin D2 and E",
@@ -468,10 +456,6 @@ const ADJUDICATED_VARIANT_GROUPS: readonly AdjudicatedVariantGroup[] = [
       [
         174159,
         "Beverages, chocolate-flavor beverage mix for milk, powder, with added nutrients",
-      ],
-      [
-        174160,
-        "Beverages, chocolate-flavor beverage mix for milk, powder, with added nutrients, prepared with whole milk",
       ],
     ],
   },

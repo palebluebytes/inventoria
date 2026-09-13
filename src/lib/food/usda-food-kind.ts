@@ -368,6 +368,7 @@ export function isPreparedProduct(
   if (STEW_DISH.test(description) && !STEW_AS_CUT_USE.test(description))
     return true;
   if (DESSERT_TOPPING.test(description)) return true;
+  if (isReconstitutedDrink(description)) return true;
   if (!foodCategory) return false;
   if (PREPARED_CATEGORIES.has(foodCategory)) return true;
   if (foodCategory === "Sweets")
@@ -455,6 +456,47 @@ export function isCookedForm(
   )
     return false;
   return true;
+}
+
+/**
+ * A powder made up into a drink, which is a drink and not an ingredient.
+ *
+ * `Beverages, Eggnog-flavor mix, powder, prepared with whole milk` is a glass of
+ * eggnog. Nothing else reached it: `powder` is not a processed marker because
+ * the corpus is full of powders that ARE ingredients — cocoa, curry, garlic,
+ * tomato, baobab — and ADR-0042 deliberately keeps `Beverages` out of the
+ * dropped categories so that generic coffee, tea and water survive.
+ *
+ * **Both halves are required and each one alone is wrong.** `prepared with`
+ * alone reaches 45 rows and most are foods: `Tofu, firm, prepared with calcium
+ * sulfate` names its coagulant, `Soy sauce made from soy and wheat` names its
+ * grain, and four gluten-free breads name their flours. `powder` alone reaches
+ * the spice rack. Together they name a mix reconstituted into a drink, which is
+ * eight rows: the eggnog, carob, strawberry and cocoa mixes, a lemonade, a
+ * cereal-grain coffee substitute and a whiskey sour.
+ *
+ * **Brewed coffee and tea are untouched**, which is the point of reading
+ * `powder` rather than `prepared with`. `Beverages, coffee, brewed, prepared
+ * with tap water` says `brewed`, and it is exactly the row ADR-0042's
+ * prepared-food comment protects.
+ */
+const RECONSTITUTED_DRINK_POWDER = /\b(powder|mix)\b/i;
+const RECONSTITUTED_FROM = /\bprepared with\b/i;
+
+/**
+ * True when a record is a drink mix made up rather than a food.
+ *
+ * Read by {@link isPreparedProduct} above the category tests, because it is that
+ * judgement: a composite the category signal cannot reach, since `Beverages` is
+ * a category the corpus keeps on purpose. Exported so the drop census can name
+ * it as a cause in its own right rather than filing eight drinks under a
+ * category that did not decide them.
+ */
+export function isReconstitutedDrink(description: string): boolean {
+  return (
+    RECONSTITUTED_DRINK_POWDER.test(description) &&
+    RECONSTITUTED_FROM.test(description)
+  );
 }
 
 /**

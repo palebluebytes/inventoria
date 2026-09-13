@@ -177,6 +177,16 @@ export function censusFoodKind(groups, app) {
       fires: (food) => app.isProcessedProduct(food.description),
       ablate: (d) => app.isProcessedProduct(d),
     },
+    // Ahead of `prepared`, which would otherwise swallow it: the drink rule
+    // lives INSIDE `isPreparedProduct`, so asking the general rule first files
+    // all eight of these under it and ablation then reports their cause as the
+    // word `with` — true, minimal, and useless to a reader, who learns that a
+    // preposition dropped a food. Asked first, they are named by their shape.
+    {
+      name: "reconstituted_drink",
+      fires: (food) => app.isReconstitutedDrink(food.description),
+      ablate: (d) => app.isReconstitutedDrink(d),
+    },
     {
       name: "prepared",
       fires: (food) =>
