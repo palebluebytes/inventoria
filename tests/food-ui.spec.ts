@@ -2222,7 +2222,9 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
 
     // Recipe builder open, seeded with oats 50 g + banana 150 g = 323 kcal.
     await selectTwoAndBuild(page);
-    await expect(page.locator(".ing-head .fl")).toHaveText("Ingredients (2)");
+    await expect(page.locator(".ing-head .section-head")).toHaveText(
+      "Ingredients (2)"
+    );
     await expect(
       page.locator('[data-testid="recipe-figures"] .nutrient-calories strong')
     ).toContainText("323 kcal");
@@ -2240,7 +2242,9 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     // The sheet closes and the add sticks: still one Oats row (no duplicate),
     // its amount folded 50 g + 50 g → 100 g, and the total reflects the merge.
     await expect(addSheet).toBeHidden();
-    await expect(page.locator(".ing-head .fl")).toHaveText("Ingredients (2)");
+    await expect(page.locator(".ing-head .section-head")).toHaveText(
+      "Ingredients (2)"
+    );
     const oatsRow = page.locator(".recipe-ingredient", {
       hasText: "Mock Oats",
     });
