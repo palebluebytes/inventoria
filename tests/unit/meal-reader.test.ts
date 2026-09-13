@@ -243,7 +243,7 @@ describe("the closure roots the envelope declares", () => {
       oneFoodMeal()
     );
 
-    expect(refusal(payload).message).toContain("event:consume_missing");
+    expect(refusal(payload).message).toContain("root that no line carries");
   });
 
   it("refuses a root that is not a Consumption Event, which would make the closure whatever the sender declared", () => {
@@ -252,7 +252,7 @@ describe("the closure roots the envelope declares", () => {
       [row("settings:global", "settings/food/targets", { calories: 1 })]
     );
 
-    expect(refusal(payload).message).toContain("settings:global");
+    expect(refusal(payload).message).toContain("not a Consumption Event");
   });
 
   it("reads the prefix off the format rather than off a literal", () => {
@@ -274,25 +274,25 @@ describe("an entity reachable from no declared root", () => {
   it("refuses settings riding along inside a meal", () => {
     expect(
       ridingAlong(row("settings:global", "food/name", "Not a food")).message
-    ).toContain("settings:global");
+    ).toContain("is not a food");
   });
 
   it("refuses a habit riding along inside a meal", () => {
     expect(
       ridingAlong(row("habit:water", "food/name", "Not a food")).message
-    ).toContain("habit:water");
+    ).toContain("is not a food");
   });
 
   it("refuses a notes op riding along inside a meal", () => {
     expect(
       ridingAlong(row("notes:op_1", "food/name", "Not a food")).message
-    ).toContain("notes:op_1");
+    ).toContain("is not a food");
   });
 
   it("refuses a food no event in the meal points at", () => {
     expect(
       ridingAlong(row("fdc:99", "food/name", "A food nobody ate")).message
-    ).toContain("fdc:99");
+    ).toContain("reachable from no declared root");
   });
 
   it("refuses settings a reference reaches, which reachability alone would admit", () => {
@@ -304,7 +304,7 @@ describe("an entity reachable from no declared root", () => {
       ]
     );
 
-    expect(refusal(payload).message).toContain("settings:global");
+    expect(refusal(payload).message).toContain("is not a food");
   });
 
   it("refuses a habit an instantiation ingredient reaches", () => {
@@ -320,7 +320,7 @@ describe("an entity reachable from no declared root", () => {
       ]
     );
 
-    expect(refusal(payload).message).toContain("habit:water");
+    expect(refusal(payload).message).toContain("is not a food");
   });
 
   it("refuses a notes op a recipe ingredient reaches", () => {
@@ -333,7 +333,7 @@ describe("an entity reachable from no declared root", () => {
       ]
     );
 
-    expect(refusal(payload).message).toContain("notes:op_1");
+    expect(refusal(payload).message).toContain("is not a food");
   });
 
   it.each([...MEAL_TWIN_PREFIXES])(
@@ -386,8 +386,7 @@ describe("a reference that does not resolve inside the payload", () => {
       [row("event:consume_a", "event/target", "fdc:gone")]
     );
 
-    expect(refusal(payload).message).toContain("fdc:gone");
-    expect(refusal(payload).message).toContain("event/target");
+    expect(refusal(payload).message).toContain("did not come with it");
   });
 
   it("refuses an instantiation whose based_on did not come with it", () => {
@@ -401,7 +400,7 @@ describe("a reference that does not resolve inside the payload", () => {
       ]
     );
 
-    expect(refusal(payload).message).toContain("recipe:gone");
+    expect(refusal(payload).message).toContain("did not come with it");
   });
 
   it("refuses an instantiation ingredient that did not come with it", () => {
@@ -416,7 +415,7 @@ describe("a reference that does not resolve inside the payload", () => {
       ]
     );
 
-    expect(refusal(payload).message).toContain("fdc:gone");
+    expect(refusal(payload).message).toContain("did not come with it");
   });
 
   it("refuses a recipe ingredient that did not come with it", () => {
@@ -430,7 +429,7 @@ describe("a reference that does not resolve inside the payload", () => {
       ]
     );
 
-    expect(refusal(payload).message).toContain("fdc:gone");
+    expect(refusal(payload).message).toContain("did not come with it");
   });
 
   it("names the line the unresolvable reference sat on", () => {
@@ -490,15 +489,21 @@ describe("an attribute from a domain a meal has no business carrying", () => {
   // two ride a properly reachable food twin straight into a library of things
   // the recipient never acquired or watched.
   it("refuses a physical-item attribute the Acquisition projection would read", () => {
-    expect(onALegitimateTwin("item/name").message).toContain("item/name");
+    expect(onALegitimateTwin("item/name").message).toContain(
+      "belongs to no namespace"
+    );
   });
 
   it("refuses a media attribute the Media projection would read", () => {
-    expect(onALegitimateTwin("media/title").message).toContain("media/title");
+    expect(onALegitimateTwin("media/title").message).toContain(
+      "belongs to no namespace"
+    );
   });
 
   it("refuses a habit attribute", () => {
-    expect(onALegitimateTwin("habit/name").message).toContain("habit/name");
+    expect(onALegitimateTwin("habit/name").message).toContain(
+      "belongs to no namespace"
+    );
   });
 
   it.each([...MEAL_ATTRIBUTE_NAMESPACES])(
@@ -598,5 +603,138 @@ describe("the ceiling on decoded bytes", () => {
     await expect(
       decodeMealPayload(new Uint8Array([1, 2, 3, 4, 5]))
     ).rejects.toThrow(MealPayloadRefusedError);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// #382: what a refusal may say, when the payload is somebody else's
+// ---------------------------------------------------------------------------
+
+/**
+ * A refusal here is read on the **receiver's** screen, and the payload it is
+ * refusing was built by another device. So the bound #227 put on `src/lib/db/`
+ * is not enough on its own: those messages showed a person their own data, and
+ * these show one person's data to another. ADR-0071 §4's amendment names the
+ * shape exactly — a barcode arriving "inside a string somebody else built" —
+ * and `MEAL_TWIN_PREFIXES` makes `gtin:<barcode>` an entity a meal legitimately
+ * carries, so the interpolation and the identifier meet here by construction.
+ *
+ * The refusal is **atomic**: the first failure refuses the whole payload and
+ * nothing lands. So naming the entity was never buying the receiver a decision
+ * — there is no per-food choice to make — and what the reader actually needs is
+ * which clause fired, which the sentence carries, and which line, which the
+ * line number carries. Neither is the payload's to say.
+ */
+describe("a refusal describes the payload and never quotes it", () => {
+  const BARCODE = "5000159407236";
+
+  /** Every refusal a hostile payload can reach, with bait in every field. */
+  const baited: [string, string][] = [
+    [
+      "a root that is not a Consumption Event",
+      payloadOf(
+        [`gtin:${BARCODE}`],
+        [row("event:consume_a", "event/type", "x")]
+      ),
+    ],
+    [
+      "a declared root no line carries",
+      payloadOf(
+        [`${MEAL_ROOT_PREFIX}${BARCODE}`],
+        [row("event:consume_a", "event/type", "x")]
+      ),
+    ],
+    [
+      "a reference that did not come with it",
+      payloadOf(
+        ["event:consume_a"],
+        [
+          row("event:consume_a", "event/type", "ConsumeAction"),
+          row("event:consume_a", "event/target", `gtin:${BARCODE}`),
+        ]
+      ),
+    ],
+    [
+      "an entity that is not a food",
+      payloadOf(
+        ["event:consume_a"],
+        [
+          row("event:consume_a", "event/type", "ConsumeAction"),
+          row("event:consume_a", "event/target", `note:${BARCODE}`),
+          row(`note:${BARCODE}`, "food/name", "x"),
+        ]
+      ),
+    ],
+    [
+      "an entity reachable from no root",
+      payloadOf(
+        ["event:consume_a"],
+        [
+          row("event:consume_a", "event/type", "ConsumeAction"),
+          row(`gtin:${BARCODE}`, "food/name", "x"),
+        ]
+      ),
+    ],
+    [
+      "an attribute from no namespace a meal carries",
+      payloadOf(
+        ["event:consume_a"],
+        [row("event:consume_a", `x/${BARCODE}`, "1")]
+      ),
+    ],
+  ];
+
+  it.each(baited)(
+    "%s: the barcode does not reach the message",
+    (_what, payload) => {
+      expect(refusal(payload).message).not.toContain(BARCODE);
+    }
+  );
+
+  // Length is a second axis, and independent of the barcode: #227 granted
+  // `describeMarker` its exemption *together with* a cap, never on its own. An
+  // unbounded echo of a payload the app has just rejected is a hostile sender's
+  // to compose, so the bound is asserted over the message rather than over the
+  // one field somebody remembered to think about.
+  it.each(baited)(
+    "%s: the message stays the reader's own sentence",
+    (_what, payload) => {
+      expect(refusal(payload).message.length).toBeLessThan(200);
+    }
+  );
+
+  it("stays bounded when every field of the payload is enormous", () => {
+    const huge = "N".repeat(20_000);
+
+    const said = refusal(
+      payloadOf(
+        ["event:consume_a"],
+        [
+          row("event:consume_a", "event/type", "ConsumeAction"),
+          row(`note:${huge}`, `food/${huge}`, "x"),
+        ]
+      )
+    ).message;
+
+    expect(said).not.toContain("NNN");
+    expect(said.length).toBeLessThan(200);
+  });
+
+  // The refusal still has to be diagnosable, and this is what pays for the
+  // entity id: the clause is in the sentence and the line is in the number, so
+  // nothing was traded away except the part that was the sender's.
+  it("still says which clause fired and which line", () => {
+    const err = refusal(
+      payloadOf(
+        ["event:consume_a"],
+        [
+          row("event:consume_a", "event/type", "ConsumeAction"),
+          row(`gtin:${BARCODE}`, "food/name", "x"),
+        ]
+      )
+    );
+
+    expect(err.message).toContain("reachable from no declared root");
+    expect(err.lineNumber).toBe(3);
   });
 });

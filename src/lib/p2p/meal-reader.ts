@@ -201,7 +201,10 @@ export function readMealPayload(ndjson: string): ReceivedMealPayload {
 
   const envelope = readMealEnvelope(lines[0].text);
   const rows: LedgerRow[] = [];
-  const carried = new Set<string>();
+  // Keyed by the line each entity first appeared on, which is what the two
+  // reachability refusals say instead of naming it (#382): the payload is
+  // another device's, and `gtin:<barcode>` is an entity a meal may carry.
+  const carried = new Map<string, number>();
   const references: PayloadReference[] = [];
 
   for (const line of lines.slice(1)) {
@@ -224,12 +227,12 @@ export function readMealPayload(ndjson: string): ReceivedMealPayload {
       )
     ) {
       throw new MealPayloadRefusedError(
-        `"${row.attribute}" belongs to no namespace a meal carries, and a meal carries its events, its foods, their nutrition and their recipes.`,
+        "this line's attribute belongs to no namespace a meal carries, and a meal carries its events, its foods, their nutrition and their recipes.",
         line.lineNumber
       );
     }
     rows.push(row);
-    carried.add(row.entity);
+    if (!carried.has(row.entity)) carried.set(row.entity, line.lineNumber);
     for (const ref of referencesOf(row)) {
       references.push({
         entity: row.entity,
@@ -246,7 +249,7 @@ export function readMealPayload(ndjson: string): ReceivedMealPayload {
   for (const root of roots) {
     if (!carried.has(root)) {
       throw new MealPayloadRefusedError(
-        `line one declares the root "${root}", and no line carries it.`
+        "line one declares a closure root that no line carries."
       );
     }
   }
@@ -258,7 +261,7 @@ export function readMealPayload(ndjson: string): ReceivedMealPayload {
   for (const reference of references) {
     if (!carried.has(reference.ref)) {
       throw new MealPayloadRefusedError(
-        `"${reference.attribute}" on "${reference.entity}" points at "${reference.ref}", which did not come with it.`,
+        "this line points at an entity that did not come with it.",
         reference.lineNumber
       );
     }
@@ -275,18 +278,20 @@ export function readMealPayload(ndjson: string): ReceivedMealPayload {
   // — so both halves are checked.
   const reached = reachableFrom(roots, references);
   const declared = new Set(roots);
-  for (const entity of carried) {
+  for (const [entity, lineNumber] of carried) {
     if (
       !declared.has(entity) &&
       !MEAL_TWIN_PREFIXES.some((prefix) => entity.startsWith(prefix))
     ) {
       throw new MealPayloadRefusedError(
-        `"${entity}" is not a food, and a meal carries its Consumption Events and the foods they point at.`
+        "this line's entity is not a food, and a meal carries its Consumption Events and the foods they point at.",
+        lineNumber
       );
     }
     if (!reached.has(entity)) {
       throw new MealPayloadRefusedError(
-        `"${entity}" is reachable from no declared root, so it is not part of this meal.`
+        "this line's entity is reachable from no declared root, so it is not part of this meal.",
+        lineNumber
       );
     }
   }
@@ -352,7 +357,7 @@ function readRoots(raw: unknown): string[] {
   for (const root of raw) {
     if (typeof root !== "string" || !root.startsWith(MEAL_ROOT_PREFIX)) {
       throw new MealPayloadRefusedError(
-        `line one declares ${JSON.stringify(root)} as a closure root, and a meal's roots are Consumption Events.`
+        "line one declares a closure root that is not a Consumption Event."
       );
     }
     roots.push(root);
