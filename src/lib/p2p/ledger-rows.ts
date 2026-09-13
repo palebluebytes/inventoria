@@ -11,7 +11,7 @@
  * the narrowing is still declared in exactly one place — and honouring it in the
  * `WHERE` is what keeps a full-resolution label photo from crossing the worker
  * boundary only to be dropped on the other side. It cannot change the closure:
- * `referencesOf` reads four attributes and none of them is on the list.
+ * `referencesOf` reads three attributes and none of them is on the list.
  */
 
 import { dbClient } from "../db/db.client";
