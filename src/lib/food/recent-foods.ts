@@ -1,4 +1,5 @@
 import type { ConsumptionEvent } from "./consumption-state";
+import { byFrecency, frecencyOf } from "./frecency";
 import { parseLoggedQuantity } from "./recipe-ingredient";
 import type { AmountUnit, MeasuredUnit } from "./nutrition";
 import type { MealType } from "./meal-type";
@@ -36,7 +37,25 @@ export interface RecentCandidate {
 }
 
 /**
- * Every distinct food logged at `meal_type`, newest first.
+ * Every distinct food logged at `meal_type`, the habitual ones first (#165).
+ *
+ * **Ordered by frecency, not by recency**, and that is the whole of #165. Strict
+ * newest-first is the right key for a chronology and a weak one for a
+ * prediction: it offers the sardines logged once yesterday above the banana
+ * logged forty times, and a meal default is a prediction. `frecency.ts` carries
+ * the model — `prescient.el`'s, recency then decayed frequency, never a blended
+ * score — and the two keys are read in that order here for its reason: what you
+ * ate this morning is evidence about today, what you ate forty times is evidence
+ * about you, and when they disagree today is the better guess.
+ *
+ * **Frecency is computed over THIS MEAL's events alone.** A food eaten at every
+ * dinner is not evidence about breakfast, and counting it would let the meal
+ * scope #128 established leak straight back out through the ordering. So the
+ * banana that leads breakfast leads it on breakfasts.
+ *
+ * The twelve-slot cap the caller applies is what makes the order matter. Under
+ * recency the cap dropped whatever was oldest; under frecency it drops whatever
+ * is least likely, which is the same cap doing a different and better job.
  *
  * Uncapped by design. A meal's default cannot be computed from the newest N
  * events, because the N+1th may hold the only breakfast in the history — which
@@ -57,8 +76,12 @@ export function recentCandidatesForMeal(
   const candidates: RecentCandidate[] = [];
 
   // Copied before sorting: the caller passes the consumption store's own array.
-  for (const event of [...events].sort((a, b) => b.time - a.time)) {
-    if (event.meal_type !== meal_type) continue;
+  const atThisMeal = events.filter((event) => event.meal_type === meal_type);
+
+  // The unit still comes off the NEWEST log of each food, whatever the ordering
+  // below does. It is the amount control's seed — what this food was last logged
+  // in — and the most-recent log is the only event that can answer that.
+  for (const event of [...atThisMeal].sort((a, b) => b.time - a.time)) {
     if (!event.target || seen.has(event.target)) continue;
     seen.add(event.target);
     candidates.push({
@@ -67,7 +90,9 @@ export function recentCandidatesForMeal(
     });
   }
 
-  return candidates;
+  return candidates.sort(
+    byFrecency(frecencyOf(atThisMeal), (candidate) => candidate.target)
+  );
 }
 
 /**

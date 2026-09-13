@@ -390,3 +390,69 @@ describe("recentCandidatesForMeal over a synthetic ledger", () => {
     expect(scopedPerCall).toBeLessThan(cappedPerCall * 4);
   });
 });
+
+// #165: the meal default is a PREDICTION, so it is ordered by frecency rather
+// than by recency. Strict newest-first offers the sardines logged once yesterday
+// above the banana logged forty times, which is the defect the ticket names.
+describe("recentCandidatesForMeal is ordered by frecency (#165)", () => {
+  it("offers the habitual food above yesterday's one-off", () => {
+    const events = [
+      ...Array.from({ length: 40 }, () => ate("fdc:banana", "breakfast")),
+      ate("fdc:sardines", "breakfast"),
+      // Two more breakfasts after the sardines, so the sardines are no longer
+      // the newest thing and recency stops carrying them.
+      ate("fdc:banana", "breakfast"),
+      ate("fdc:banana", "breakfast"),
+    ];
+    expect(targets(recentCandidatesForMeal(events, "breakfast"))).toEqual([
+      "fdc:banana",
+      "fdc:sardines",
+    ]);
+  });
+
+  it("still lets the newest food lead, because recency outranks frequency", () => {
+    // prescient's order, and the reason for it: what you ate this morning is
+    // evidence about today, what you ate forty times is evidence about you.
+    const events = [
+      ...Array.from({ length: 40 }, () => ate("fdc:banana", "breakfast")),
+      ate("fdc:sardines", "breakfast"),
+    ];
+    expect(targets(recentCandidatesForMeal(events, "breakfast"))).toEqual([
+      "fdc:sardines",
+      "fdc:banana",
+    ]);
+  });
+
+  it("counts frequency at THIS meal only, so dinner cannot order breakfast", () => {
+    // The oats are eaten once at breakfast and forty times at dinner. Letting
+    // the dinner count speak here would leak the meal scope straight back out
+    // through the ordering.
+    const events = [
+      ate("fdc:oats", "breakfast"),
+      ...Array.from({ length: 40 }, () => ate("fdc:oats", "dinner")),
+      ate("fdc:toast", "breakfast"),
+      ate("fdc:toast", "breakfast"),
+      ate("fdc:toast", "breakfast"),
+    ];
+    expect(targets(recentCandidatesForMeal(events, "breakfast"))).toEqual([
+      "fdc:toast",
+      "fdc:oats",
+    ]);
+  });
+
+  it("still reads the unit off the newest log, whatever the order does", () => {
+    // The ordering key moved; the amount seed did not. `rememberedAmount` opens
+    // the control on what this food was last logged in, and only the most recent
+    // log can answer that.
+    const events = [
+      ate("fdc:oats", "breakfast", "40g"),
+      ...Array.from({ length: 10 }, () =>
+        ate("fdc:milk", "breakfast", "200ml")
+      ),
+      ate("fdc:oats", "breakfast", "60g"),
+    ];
+    const candidates = recentCandidatesForMeal(events, "breakfast");
+    expect(candidates[0].target).toBe("fdc:oats");
+    expect(candidates[0].unit).toBe(parseLoggedQuantity("60g").unit);
+  });
+});
