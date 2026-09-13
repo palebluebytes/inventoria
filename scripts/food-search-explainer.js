@@ -5,7 +5,7 @@
  * page is a single file somebody opens from disk or from a review link — there
  * is nothing to fetch from.
  *
- * It renders a window rather than all 3,736 rows: a filter that redraws four
+ * It renders a window rather than every row at once: a filter that redraws five
  * thousand nodes on every keystroke is unusable on a phone. The count line
  * always states the true total, so the window never hides how much matched —
  * the rule this repo learned from a search list that quietly cut its own tail.
