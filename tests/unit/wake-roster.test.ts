@@ -21,6 +21,7 @@ import { base64url } from "../../src/lib/p2p/room-code";
 import { openDeposit } from "../../src/lib/p2p/sealed-deposit";
 import { storeOverFetch, type Store } from "../../src/lib/p2p/deposit-store";
 import type { WakeLedger } from "../../src/lib/p2p/wake";
+import { UNPRODUCTIVE_WAKE_LIMIT } from "../../src/lib/p2p/wake-counter";
 
 const ORIGIN = "https://app.example";
 
@@ -62,6 +63,8 @@ async function pairing(
     peer_vector: {},
     deposit_standing: null,
     peer_roster: null,
+    unproductive_wakes: 0,
+    last_met: null,
     ...over,
   };
 }
@@ -128,13 +131,15 @@ describe("every deposit of a round states the whole list", () => {
   });
 
   it("names a pairing that has stopped at the counter rather than omitting it", async () => {
-    // A pairing whose peer has stopped collecting: its deposit lane is frozen
-    // at an index nobody acknowledges, with an object outstanding. It is still
-    // a pairing, and it is exactly the one the other end wants named — §10's
-    // hunt list for mail stranded at a lane nobody reads.
+    // A pairing whose peer stopped collecting long enough to reach §11's K:
+    // its own keys are no longer touched, and it is still a pairing. It is
+    // exactly the one the other end wants named — §10's hunt list for mail
+    // stranded at a lane nobody reads — so no pairing's health is looked at on
+    // this path.
     const rows = [
       await pairing("dev_b", 1),
       await pairing("dev_stopped", 2, {
+        unproductive_wakes: UNPRODUCTIVE_WAKE_LIMIT,
         deposit_standing: { etag: "outstanding", brings: {} },
       }),
     ];

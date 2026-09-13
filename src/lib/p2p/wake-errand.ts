@@ -38,6 +38,7 @@ import {
   updatePairedDevice,
   type PairedDevice,
 } from "../stores/paired-devices";
+import { isStopped, wakeCounter } from "./wake-counter";
 import { appStore, type Store } from "./deposit-store";
 import {
   openWake,
@@ -90,6 +91,19 @@ const localRoster = (held: PairedDevice[]): string[] =>
   held.map((paired) => paired.device_id);
 
 /**
+ * The pairings a sync actually serves: every one that has not run out.
+ *
+ * **A stopped pairing is skipped here and named in the roster above**, which is
+ * the whole of §11's _stops touching that pairing's keys_. The two readings of
+ * the same list are deliberate rather than an inconsistency: the addressing
+ * harm is a key touched on every wake, and being *named* touches nothing, while
+ * §10 makes the roster the hunt list for mail stranded at exactly this kind of
+ * lane.
+ */
+const stillServed = (held: PairedDevice[]): PairedDevice[] =>
+  held.filter((paired) => !isStopped(paired));
+
+/**
  * Converge with every paired device, once.
  *
  * **Pairings run one after another rather than at once.** Each one's work is a
@@ -112,7 +126,7 @@ export async function convergeWithPeers(
   let owed = false;
   const held = readPairedDevices();
   const roster = localRoster(held);
-  for (const paired of held) {
+  for (const paired of stillServed(held)) {
     try {
       const outcome = await convergeWithPeer(paired, store, ledger, {
         keep: updatePairedDevice,
@@ -150,7 +164,7 @@ export async function depositToPeers(
 ): Promise<void> {
   const held = readPairedDevices();
   const roster = localRoster(held);
-  for (const paired of held) {
+  for (const paired of stillServed(held)) {
     try {
       const outcome = await depositToPeer(paired, store, ledger, {
         keep: updatePairedDevice,
@@ -216,14 +230,26 @@ function onHide(hidden: () => void): () => void {
 /**
  * Opens this app's wake, wired to the real store, the real ledger and the real
  * browser. Closing it ends every trigger it started.
+ *
+ * **This is where §11's counter is a wake.** One {@link wakeCounter} is made
+ * per open and every sync of that open reports through it, so a session that
+ * polls eight times against an absent peer burns one wake and not eight. It is
+ * folded here rather than inside {@link convergeWithPeers}, which cannot see
+ * how many times it has been called, and not at {@link OpenWake.close}, which a
+ * discarded tab never reaches.
  */
 export function openAppWake(
   store: Store = appStore,
   tuning?: WakeTuning
 ): OpenWake {
+  const counted = wakeCounter(readPairedDevices, updatePairedDevice);
   return openWake(
     {
-      converge: () => convergeWithPeers(store),
+      converge: async () => {
+        const round = await convergeWithPeers(store);
+        counted(round.productive);
+        return round;
+      },
       deposit: () => depositToPeers(store),
       onLedgerGrowth,
       onHide,

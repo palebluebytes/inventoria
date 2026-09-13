@@ -248,7 +248,7 @@ describe("a collection is a floor rather than a schedule", () => {
 });
 
 describe("a wake is one wake however many syncs it runs", () => {
-  it("stays unproductive through eight polls against an absent peer", async () => {
+  it("polls eight times against an absent peer and is still one wake", async () => {
     const bench = wakeBench();
     open = openWake(bench.work);
     await drain();
@@ -258,24 +258,11 @@ describe("a wake is one wake however many syncs it runs", () => {
       await vi.advanceTimersByTimeAsync(COLLECTION_FLOOR_MS);
     }
 
-    // §11's counter is in wakes and never in syncs: eight fruitless polls are
-    // one unproductive wake, or K = 200 quietly becomes K = 25.
+    // §11's counter is in wakes and never in syncs, or K = 200 quietly becomes
+    // K = 25. This module's half of that is that one `openWake` is one wake
+    // however many syncs run through it; `wake-counter.test.ts` holds the
+    // other, which is that those nine syncs burn one wake between them.
     expect(bench.tally.converge).toBe(9);
-    expect([...open.productive]).toEqual([]);
-  });
-
-  it("names a pairing once, however often it produced something", async () => {
-    const bench = wakeBench();
-    bench.answer({ productive: ["dev_b"], owed: false });
-    bench.answer({ productive: ["dev_b"], owed: false });
-    open = openWake(bench.work);
-    await drain();
-
-    bench.grow();
-    await vi.advanceTimersByTimeAsync(COLLECTION_FLOOR_MS);
-
-    expect(bench.tally.converge).toBe(2);
-    expect([...open.productive]).toEqual(["dev_b"]);
   });
 });
 

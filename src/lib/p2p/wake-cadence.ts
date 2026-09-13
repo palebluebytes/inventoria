@@ -66,10 +66,11 @@
  * ### What this module is not
  *
  * It holds no store, no ledger and no pairing list: `wake-errand.ts` is where
- * those come from, and `wake.ts` is what a sync actually does. And it counts
- * nothing — §11's K is #399's, and the one thing kept for it here is
- * {@link OpenWake.productive}, which is per **wake** because a session that
- * polls eight times against an absent peer is one unproductive wake.
+ * those come from, and `wake.ts` is what a sync actually does. And **it counts
+ * nothing**: §11's K is `wake-counter.ts`'s, folded in `wake-errand.ts` where
+ * one counter is made per open and handed every sync of it. This module's part
+ * of _K is counted in wakes, never in syncs_ is that one {@link openWake} is
+ * one wake however many times it reaches {@link WakeWork.converge}.
  */
 
 /**
@@ -130,17 +131,6 @@ export interface WakeTuning {
 }
 
 export interface OpenWake {
-  /**
-   * The pairings this **wake** has produced something for, folded across every
-   * sync it ran.
-   *
-   * It is here rather than in a counter because §11's K is counted in wakes and
-   * never in syncs — a session that polls eight times against an absent peer is
-   * one unproductive wake, or K = 200 quietly becomes K = 25 and _about seven
-   * months of daily use_ is wrong by an order of magnitude. #399 is what reads
-   * it.
-   */
-  readonly productive: ReadonlySet<string>;
   /** Ends the wake: both timers and both signals go. */
   close(): void;
 }
@@ -159,7 +149,6 @@ export function openWake(
     collectionFloorMs = COLLECTION_FLOOR_MS,
   }: WakeTuning = {}
 ): OpenWake {
-  const productive = new Set<string>();
   let changed = false;
   let owed = false;
   let closed = false;
@@ -182,7 +171,6 @@ export function openWake(
       // local change, and so is a meal logged while it is in flight.
       changed = false;
       const round = await work.converge();
-      for (const device_id of round.productive) productive.add(device_id);
       owed = round.owed;
     });
 
@@ -228,9 +216,6 @@ export function openWake(
   collect();
 
   return {
-    get productive(): ReadonlySet<string> {
-      return productive;
-    },
     close(): void {
       if (closed) return;
       closed = true;

@@ -1,5 +1,6 @@
 import { writable } from "svelte/store";
 import { readVersionVector, type VersionVector } from "../db/version-vector";
+import { writeDate } from "../p2p/send-date";
 import {
   CHAIN_STATE_BYTES,
   ratchetLane,
@@ -153,6 +154,33 @@ export interface PairedDevice {
    * years ago forever. Only a device can say it is **still** paired.
    */
   peer_roster: string[] | null;
+  /**
+   * How many consecutive **wakes** this pairing has produced nothing in
+   * (ADR-0096 §11). At K = 200 the pairing stops; `wake-counter.ts` holds K
+   * and the rule that reads it.
+   *
+   * It is in wakes and never in syncs, which is why nothing here moves it: a
+   * session that polls eight times against an absent peer is one unproductive
+   * wake, and `wake-counter.ts` is the one thing that folds a whole wake into
+   * this number.
+   */
+  unproductive_wakes: number;
+  /**
+   * The day this pairing last produced something, coarsened to the calendar
+   * date it happened on (ADR-0096 §9 and §11).
+   *
+   * **The coarsening is what is stored, not how it is drawn.** The record holds
+   * `YYYY-MM-DD` and no hour, no minute and no zone, so a stolen jar says which
+   * day two devices met and cannot say when in it. {@link metOn} is the only
+   * thing that writes one and {@link readMet} the only thing that reads one
+   * back.
+   *
+   * **`null` is a record written before this version**, which is a healthy
+   * record and says nothing at all: an absent date is not a claim that the
+   * devices have never met. A first sync is a meeting, so a pairing made by
+   * this version always has one.
+   */
+  last_met: string | null;
 }
 
 /**
@@ -178,6 +206,28 @@ function jar(): Storage | null {
 }
 
 const b64 = (bytes: Uint8Array) => btoa(String.fromCharCode(...bytes));
+
+/**
+ * An instant as {@link PairedDevice.last_met} keeps it: the calendar day it
+ * fell on, and nothing finer.
+ *
+ * **The calendar is the local one**, read off the date's own parts rather than
+ * through `toISOString`, for `send-date.ts`'s reason: a wake at half past
+ * eleven at night is not tomorrow's.
+ */
+export const metOn = (at: Date): string => writeDate(at, "YYYY-MM-DD");
+
+/**
+ * A kept day back as a date, for the one surface that writes it out.
+ *
+ * It builds a **local** midnight rather than letting `new Date(string)` parse
+ * it, which would read `YYYY-MM-DD` as UTC and draw the day before in every
+ * zone behind it.
+ */
+export function readMet(last_met: string): Date {
+  const [year, month, day] = last_met.split("-").map(Number);
+  return new Date(year, month - 1, day);
+}
 
 const unb64 = (text: string) =>
   Uint8Array.from(atob(text), (character) => character.charCodeAt(0));
@@ -229,6 +279,8 @@ const filled = (device: PairedDevice): PairedDevice => ({
   ...device,
   deposit_standing: device.deposit_standing ?? null,
   peer_roster: device.peer_roster ?? null,
+  unproductive_wakes: device.unproductive_wakes ?? 0,
+  last_met: device.last_met ?? null,
 });
 
 /**
@@ -286,7 +338,11 @@ function isPairedDevice(row: unknown): row is PairedDevice {
       isDepositStanding(
         "deposit_standing" in row ? row.deposit_standing : null
       ) &&
-      isPeerRoster("peer_roster" in row ? row.peer_roster : null)
+      isPeerRoster("peer_roster" in row ? row.peer_roster : null) &&
+      isWakeCount(
+        "unproductive_wakes" in row ? row.unproductive_wakes : undefined
+      ) &&
+      isMetDay("last_met" in row ? row.last_met : null)
     )
   ) {
     return false;
@@ -340,6 +396,34 @@ function isPeerRoster(roster: unknown): roster is string[] | null {
     Array.isArray(roster) &&
     roster.every((id) => typeof id === "string" && id.length > 0)
   );
+}
+
+/**
+ * §11's counter, checked to the standard it is used at: a whole number of
+ * wakes that only ever goes up by one or back to zero.
+ *
+ * **Absent reads as none burned**, because a record written before there was a
+ * counter is a pairing that has not been measured rather than one that has run
+ * out — and reading it as anything else would stop a healthy pairing on the
+ * first wake after an upgrade. {@link filled} is what turns the absence into
+ * the field.
+ */
+function isWakeCount(wakes: unknown): wakes is number {
+  if (wakes === undefined || wakes === null) return true;
+  return typeof wakes === "number" && Number.isSafeInteger(wakes) && wakes >= 0;
+}
+
+/**
+ * The last-met day, checked to the standard {@link readMet} reads it at: the
+ * `YYYY-MM-DD` {@link metOn} writes, and nothing else.
+ *
+ * **Absent reads as `null`** — a record written before the date existed has
+ * not forgotten when the devices met, it never kept it, and the section draws
+ * nothing rather than a claim.
+ */
+function isMetDay(last_met: unknown): last_met is string | null {
+  if (last_met === null || last_met === undefined) return true;
+  return typeof last_met === "string" && /^\d{4}-\d{2}-\d{2}$/.test(last_met);
 }
 
 function isStoredLane(lane: unknown): lane is StoredLane {
@@ -401,11 +485,10 @@ export interface CompletedPairing {
  * that: it is what bounds what the store can accumulate, and it is what makes a
  * fresh pairing cost a live session rather than a whole-ledger upload.
  */
-export function rememberPairedDevice({
-  device_id,
-  chains,
-  peer_vector,
-}: CompletedPairing): PairedDevice {
+export function rememberPairedDevice(
+  { device_id, chains, peer_vector }: CompletedPairing,
+  at: Date = new Date()
+): PairedDevice {
   const held = readPairedDevices();
   const remembered: PairedDevice = {
     device_id,
@@ -423,6 +506,14 @@ export function rememberPairedDevice({
     // nuisance; the roster is the peer's statement, and the peer has not made
     // one down this pairing. Its first deposit restates it whole.
     peer_roster: null,
+    // A fresh pairing has burned no wakes, and a pairing made again starts its
+    // count over: the act is exactly the reversal §11 leaves to the user.
+    unproductive_wakes: 0,
+    // **A first sync is a meeting**, and the loudest one there is — the two
+    // devices were in a room together. Without this a pairing made today would
+    // show no date at all until its first productive wake, on the one screen
+    // whose job is to say when they last met.
+    last_met: metOn(at),
   };
   keep([
     ...held.filter((device) => device.device_id !== device_id),

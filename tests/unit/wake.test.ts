@@ -105,6 +105,8 @@ function device(
       peer_vector: {},
       deposit_standing: null,
       peer_roster: null,
+      unproductive_wakes: 0,
+      last_met: "2026-09-13",
     },
     ledger: {
       oldestAbove: async (after, budgetBytes, above) =>

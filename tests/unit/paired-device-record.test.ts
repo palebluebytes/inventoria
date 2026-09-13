@@ -368,6 +368,101 @@ describe("the record holds the peer's last-stated roster (ADR-0096 §6)", () => 
   });
 });
 
+describe("the record carries K's counter and the last-met date (§11)", () => {
+  beforeEach(async () => {
+    records.rememberPairedDevice(
+      { device_id: "dev_b", chains: await chainsFrom(7), peer_vector: {} },
+      new Date("2026-09-13T23:40:00")
+    );
+  });
+
+  it("starts a fresh pairing with no wakes burned", () => {
+    expect(records.readPairedDevices()[0].unproductive_wakes).toBe(0);
+  });
+
+  it("dates the pairing itself, because a first sync is a meeting", () => {
+    // The loudest meeting there is — the two devices were in a room together —
+    // and without it the one screen whose job is to say when they last met
+    // would say nothing until the first productive wake.
+    expect(records.readPairedDevices()[0].last_met).toBe("2026-09-13");
+  });
+
+  it("keeps the day and no hour of it, off the local calendar", () => {
+    // Twenty to midnight is not tomorrow, which is `send-date.ts`'s reason for
+    // reading the parts rather than going through `toISOString`.
+    expect(records.readPairedDevices()[0].last_met).not.toContain("T");
+  });
+
+  it("starts the count over when a pairing is made again", async () => {
+    const [held] = records.readPairedDevices();
+    stubLocalStorage({
+      seed: {
+        inventoria_paired_devices: JSON.stringify([
+          { ...held, unproductive_wakes: 200 },
+        ]),
+      },
+    });
+
+    records.rememberPairedDevice({
+      device_id: "dev_b",
+      chains: await chainsFrom(9),
+      peer_vector: {},
+    });
+
+    // Pairing again is the reversal §11 leaves to the user, so the act that
+    // makes a pairing cannot inherit the count that stopped the last one.
+    expect(records.readPairedDevices()[0].unproductive_wakes).toBe(0);
+  });
+
+  it("reads a record written before either field existed", () => {
+    const [sound] = records.readPairedDevices();
+    const { unproductive_wakes: _wakes, last_met: _met, ...older } = sound;
+    stubLocalStorage({
+      seed: { inventoria_paired_devices: JSON.stringify([older]) },
+    });
+
+    // A pairing that has not been measured rather than one that has run out,
+    // and a date never kept rather than a claim the devices never met.
+    expect(records.readPairedDevices()[0]).toMatchObject({
+      unproductive_wakes: 0,
+      last_met: null,
+    });
+  });
+
+  it("drops a row whose count is not a whole number of wakes", () => {
+    const [sound] = records.readPairedDevices();
+    stubLocalStorage({
+      seed: {
+        inventoria_paired_devices: JSON.stringify([
+          { ...sound, unproductive_wakes: -1 },
+        ]),
+      },
+    });
+
+    expect(records.readPairedDevices()).toEqual([]);
+  });
+
+  it("drops a row whose last-met date is not a day", () => {
+    const [sound] = records.readPairedDevices();
+    stubLocalStorage({
+      seed: {
+        inventoria_paired_devices: JSON.stringify([
+          { ...sound, last_met: 1789291734233 },
+        ]),
+      },
+    });
+
+    expect(records.readPairedDevices()).toEqual([]);
+  });
+
+  it("reads a kept day back as the local day it was written on", () => {
+    const back = records.readMet("2026-09-13");
+    expect([back.getFullYear(), back.getMonth() + 1, back.getDate()]).toEqual([
+      2026, 9, 13,
+    ]);
+  });
+});
+
 describe("a name is typed locally, about the peer, after the act", () => {
   beforeEach(async () => {
     records.rememberPairedDevice({
