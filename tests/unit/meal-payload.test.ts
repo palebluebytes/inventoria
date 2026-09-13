@@ -14,6 +14,7 @@ import {
   winningRows,
 } from "../../src/lib/p2p/meal-payload";
 import { LEDGER_EXPORT_ARTIFACT } from "../../src/lib/db/ledger-export";
+import { ownerOfEntity } from "../../src/lib/facets/registry";
 import type { LedgerRow } from "../../src/lib/db/db.core";
 import { row } from "./support/ledger-rows";
 import {
@@ -28,6 +29,9 @@ import {
  * allowed to carry, and which attributes hold an entity reference.
  */
 const REGISTRY = readFileSync("docs/eavt-vocabulary.md", "utf8");
+
+/** How the registry writes an attribute-namespace heading: ``### `food/` ``. */
+const NAMESPACE_HEADING = /^### `([a-z_]+)\/`$/;
 
 /** The read seam over a fixed ledger, remembering what it was asked for. */
 function ledgerOf(rows: LedgerRow[]) {
@@ -444,9 +448,9 @@ describe("the registry a meal's two allow-lists are read against", () => {
   });
 
   it("accounts for every attribute namespace the registry lists", () => {
-    const declared = [...REGISTRY.matchAll(/^### `([a-z_]+\/)`$/gm)].map(
-      (m) => m[1]
-    );
+    const declared = [
+      ...REGISTRY.matchAll(new RegExp(NAMESPACE_HEADING, "gm")),
+    ].map((m) => `${m[1]}/`);
 
     expect(declared.sort()).toEqual(
       [...MEAL_ATTRIBUTE_NAMESPACES, ...NOT_A_MEALS_BUSINESS].sort()
@@ -474,27 +478,39 @@ describe("the registry a meal's two allow-lists are read against", () => {
  */
 describe("the reference attributes the registry marks", () => {
   /**
-   * Marked references `referencesOf` deliberately does not read.
+   * Marked references `referencesOf` deliberately does not read, each declared
+   * with the entity kinds at its two ends.
    *
    * An entry is admissible only where the reference **resolves inside the
    * Tracked Domain of the row holding it**, because that is the property
    * ADR-0103 §7 needs: a lane scoped to one Facet then cannot ship a row
-   * pointing outside its own scope. `event/replaced_by` is a Consumption Event
-   * naming the Consumption Event that corrected it (`calorie.store.ts`), so
-   * both ends are food's; `habit/replaces` is the Habit Lineage link, `habit:`
-   * to `habit:`, so both ends are habits'. Neither is a closure edge either: a
-   * meal crosses as it stands, not as the corrections that produced it
-   * (ADR-0073 §1).
+   * pointing outside its own scope. The ends are declared rather than described
+   * so that criterion is a claim the third test reads through `ownerOfEntity`
+   * instead of a sentence nothing checks, which is the failure ADR-0078 §8 is
+   * about, one level up.
+   *
+   * Neither is a closure edge either: a meal crosses as it stands, not as the
+   * corrections that produced it (ADR-0073 §1).
    */
-  const RESOLVES_IN_ITS_OWN_DOMAIN = ["event/replaced_by", "habit/replaces"];
+  const RESOLVES_IN_ITS_OWN_DOMAIN: Record<string, [string, string]> = {
+    // A Consumption Event naming the one that corrected it, `calorie.store.ts`.
+    "event/replaced_by": ["event:consume_", "event:consume_"],
+    // The Habit Lineage link, `habits.store.ts`.
+    "habit/replaces": ["habit:", "habit:"],
+  };
 
-  /** The marker the registry's "Attribute namespaces" preamble documents. */
-  const MARKER = /\*\*\(reference\)\*\*/g;
+  /**
+   * The mark the registry's "Attribute namespaces" preamble documents. Bold,
+   * and reserved for an attribute bullet: the preamble names it in a code span
+   * rather than writing one, so the last test can count every occurrence.
+   */
+  const MARK = String.raw`\*\*\(reference\)\*\*`;
+  const MARKED_BULLET = new RegExp(String.raw`^- \`([a-z_]+)\` ` + MARK);
 
   /**
    * Every attribute the registry marks as holding an entity reference, as
    * `namespace/name`. The namespace comes from the enclosing `###` heading and
-   * is cleared by any other one, so a marker outside an attribute section is
+   * is cleared by any other one, so a mark outside an attribute section is
    * dropped rather than credited to the section above it.
    */
   function markedReferences(): string[] {
@@ -502,9 +518,9 @@ describe("the reference attributes the registry marks", () => {
     let namespace: string | null = null;
     for (const line of REGISTRY.split("\n")) {
       if (line.startsWith("### ")) {
-        namespace = line.match(/^### `([a-z_]+)\/`$/)?.[1] ?? null;
+        namespace = line.match(NAMESPACE_HEADING)?.[1] ?? null;
       }
-      const name = line.match(/^- `([a-z_]+)` \*\*\(reference\)\*\*/)?.[1];
+      const name = line.match(MARKED_BULLET)?.[1];
       if (name && namespace) found.push(`${namespace}/${name}`);
     }
     return found;
@@ -512,18 +528,37 @@ describe("the reference attributes the registry marks", () => {
 
   it("accounts for every marked reference, as walked or as named", () => {
     expect(markedReferences().sort()).toEqual(
-      [...REFERENCE_ATTRIBUTES, ...RESOLVES_IN_ITS_OWN_DOMAIN].sort()
+      [
+        ...REFERENCE_ATTRIBUTES,
+        ...Object.keys(RESOLVES_IN_ITS_OWN_DOMAIN),
+      ].sort()
     );
   });
 
+  it("keeps both ends of every named reference in one Tracked Domain", () => {
+    for (const [attribute, [from, to]] of Object.entries(
+      RESOLVES_IN_ITS_OWN_DOMAIN
+    )) {
+      const holder = ownerOfEntity(from);
+      expect(
+        holder,
+        `${attribute} is held by an unowned entity`
+      ).not.toBeNull();
+      expect(
+        ownerOfEntity(to)?.id,
+        `${attribute} points out of its domain`
+      ).toBe(holder?.id);
+    }
+  });
+
   /**
-   * Without this the partition above is only as honest as the parser: a marker
-   * on a line the bullet grammar misses would be silently absent from both
-   * sides, and the check would pass by not seeing the thing it is for.
+   * Without this the partition above is only as honest as the parser: a mark on
+   * a line the bullet grammar misses would be silently absent from both sides,
+   * and the check would pass by not seeing the thing it is for.
    */
-  it("credits every marker on the page to an attribute bullet", () => {
+  it("credits every mark on the page to an attribute bullet", () => {
     expect(markedReferences()).toHaveLength(
-      (REGISTRY.match(MARKER) ?? []).length
+      (REGISTRY.match(new RegExp(MARK, "g")) ?? []).length
     );
   });
 });

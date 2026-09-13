@@ -240,7 +240,7 @@ const REFERENCE_READERS = new Map<string, (value: unknown) => string[]>([
           ]
         : [],
   ],
-  ["recipe/ingredients", (value) => refsIn(value)],
+  ["recipe/ingredients", refsIn],
 ]);
 
 /**

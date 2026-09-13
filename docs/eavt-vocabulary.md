@@ -158,12 +158,14 @@ The attributes listed below are representative, not exhaustive; the source under
 `src/` is the complete list.
 
 An attribute whose value names another **entity** is marked with a bold `(reference)`
-after its name, and that set alone is exhaustive. It is gated rather than descriptive: every
-marked attribute is either read by `referencesOf` (`src/lib/p2p/meal-payload.ts`) or
-named in `tests/unit/meal-payload.test.ts` as one whose reference stays inside the
-Tracked Domain of the row holding it, and an attribute in neither fails
-`pnpm test:unit`. A Facet-scoped sync lane rests on that set being complete on every
-wake, where the Facet-scoped wipe rested on it once
+after its name, and that mark is the one thing on this page you must add rather than
+may. Every marked attribute is either read by `referencesOf`
+(`src/lib/p2p/meal-payload.ts`) or named in `tests/unit/meal-payload.test.ts` as one
+whose reference stays inside the Tracked Domain of the row holding it, and an attribute
+in neither fails `pnpm test:unit`. The check runs that way only: it holds the marked set
+to the code and cannot see a reference nobody marked, so marking one is the author's
+obligation and accounting for it is the gate's. A Facet-scoped sync lane rests on the
+marked set being complete on every wake, where the Facet-scoped wipe rested on it once
 ([ADR-0103](adr/0103-a-pairing-is-scoped-to-the-facet-its-act-ran-in.md) §7).
 
 ### `food/`
