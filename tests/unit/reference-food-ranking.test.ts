@@ -17,9 +17,17 @@ import type { RelevanceKey } from "../../src/lib/food/reference-food-ranking";
 const rank = (query: string, description: string) =>
   compileReferenceFoodQuery(query)(readReferenceFoodName(description));
 
-/** A name key completed with the two ROW keys a pair of rows can tie on. */
+/**
+ * A name key completed with the ROW keys a pair of rows can tie on.
+ *
+ * The two frecency keys (#165) are 0 here, which is what they are for every row
+ * on a device that has logged nothing — so these cases go on measuring the name
+ * keys alone, which is what they are about.
+ */
 const tiedOnRowKeys = (key: ReturnType<typeof rank>): RelevanceKey => ({
   ...key,
+  recent: 0,
+  frequent: 0,
   plainSibling: 1,
   designated: 1,
 });
@@ -500,6 +508,8 @@ describe("compareRelevance", () => {
     // #143 until ADR-0055.
     const key = (over: Partial<RelevanceKey>): RelevanceKey => ({
       tier: 20,
+      recent: 0,
+      frequent: 0,
       named: true,
       raw: 1,
       head: -1,

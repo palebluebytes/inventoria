@@ -1,5 +1,6 @@
 import type { EntityPayload } from "../ingestion/ingest";
 import { mintEntity } from "../facets/entity-id";
+import { NEVER_LOGGED, type Frecency } from "./frecency";
 import {
   PER_100G,
   NUTRITION_INFO_ATTR,
@@ -410,11 +411,17 @@ export interface IndexSearch extends SearchedPhrases {
  */
 function bestNameKey(
   rank: ReferenceFoodQuery,
-  food: SearchableFood
+  food: SearchableFood,
+  frecency: Frecency
 ): RelevanceKey {
-  let best: RelevanceKey = { ...rank(food.name), ...food.rank };
+  // Spread LAST, over the zeros `buildSearchCorpus` baked in. The other two row
+  // keys are facts about the artifact and are read once at load; these two are
+  // facts about this device's ledger and change with every meal logged, so they
+  // cannot be baked and are handed in per search instead.
+  const row = { ...food.rank, ...frecency };
+  let best: RelevanceKey = { ...rank(food.name), ...row };
   for (const alias of food.also) {
-    const key: RelevanceKey = { ...rank(alias), ...food.rank };
+    const key: RelevanceKey = { ...rank(alias), ...row };
     if (compareRelevance(key, best) < 0) best = key;
   }
   return best;
@@ -448,7 +455,8 @@ function bestNameKey(
  */
 function rankAgainst(
   foods: SearchableFood[],
-  phrases: string[]
+  phrases: string[],
+  frecency: ReadonlyMap<string, Frecency>
 ): { row: UsdaIndexRow; phrase: string }[] {
   const kept = new Map<
     UsdaIndexRow,
@@ -459,7 +467,11 @@ function rankAgainst(
     const scored: { row: UsdaIndexRow; phrase: string; key: RelevanceKey }[] =
       [];
     for (const food of foods) {
-      const key = bestNameKey(rank, food);
+      const key = bestNameKey(
+        rank,
+        food,
+        frecency.get(mintEntity("fdc:", food.row.fdcId)) ?? NEVER_LOGGED
+      );
       if (key.tier > 0) scored.push({ row: food.row, phrase, key });
     }
     for (const hit of withoutStrayMentions(scored)) {
@@ -495,10 +507,11 @@ function rankAgainst(
  */
 export function searchIndexRows(
   corpus: Pick<SearchCorpus, "foods" | "vocabulary">,
-  query: string
+  query: string,
+  frecency: ReadonlyMap<string, Frecency> = new Map()
 ): IndexSearch {
   if (!query.trim()) return { phrases: [], hits: [] };
-  const literal = rankAgainst(corpus.foods, [query]);
+  const literal = rankAgainst(corpus.foods, [query], frecency);
   if (literal.length > 0)
     return { phrases: [query], hits: literal.map(({ row }) => ({ row })) };
   const expanded = expandThroughVocabulary(corpus.vocabulary, query);
@@ -512,10 +525,12 @@ export function searchIndexRows(
   const phrases = [query, ...expanded.map((e) => e.phrase)];
   return {
     phrases,
-    hits: rankAgainst(corpus.foods, phrases).map(({ row, phrase }) => ({
-      row,
-      alias: aliasOf.get(phrase),
-    })),
+    hits: rankAgainst(corpus.foods, phrases, frecency).map(
+      ({ row, phrase }) => ({
+        row,
+        alias: aliasOf.get(phrase),
+      })
+    ),
   };
 }
 
@@ -691,11 +706,12 @@ export interface UsdaSearch extends SearchedPhrases {
  */
 export async function searchUsdaCorpus(
   query: string,
-  load: () => Promise<SearchCorpus> = loadSearchCorpus
+  load: () => Promise<SearchCorpus> = loadSearchCorpus,
+  frecency: ReadonlyMap<string, Frecency> = new Map()
 ): Promise<UsdaSearch> {
   if (!query.trim())
     return { phrases: [], foods: [], rescued_by_vocabulary: false };
-  const { phrases, hits } = searchIndexRows(await load(), query);
+  const { phrases, hits } = searchIndexRows(await load(), query, frecency);
   return {
     phrases,
     foods: hits.map(({ row, alias }) => mapIndexRowToPayload(row, alias)),

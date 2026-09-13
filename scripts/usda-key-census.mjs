@@ -82,7 +82,12 @@ const ACCOUNT = join(ROOT, "docs", "research", "192-key-census.json");
 const COLLAPSED = process.env.USDA_COLLAPSED_PATH ?? null;
 
 /**
- * The ten terms {@link compareRelevance} reads, in its order.
+ * The twelve terms {@link compareRelevance} reads, in its order.
+ *
+ * `recent` and `frequent` are #165's frecency keys, and over a corpus with no
+ * ledger behind it they are 0 on every row and tie uniformly — so this census
+ * measures them at zero moved leads by construction, which is the property that
+ * made them safe to adopt rather than a finding about them.
  *
  * A restatement, and the only one in this file. It exists because an ablation
  * has to remove one term and the shipped comparator takes no argument that could
@@ -94,6 +99,8 @@ const COLLAPSED = process.env.USDA_COLLAPSED_PATH ?? null;
  */
 const KEYS = [
   "tier",
+  "recent",
+  "frequent",
   "raw",
   "head",
   "accounted",

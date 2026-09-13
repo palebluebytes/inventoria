@@ -14,6 +14,8 @@
   },
   "keys": [
     "tier",
+    "recent",
+    "frequent",
     "raw",
     "head",
     "accounted",
@@ -77,6 +79,20 @@
               "without": "Margarine-like, vegetable oil spread, approximately 37% fat, unspecified oils, with salt"
             }
           ]
+        },
+        {
+          "key": "recent",
+          "moved": 0,
+          "gold_leads_broken": 0,
+          "c1_lost": 0,
+          "examples": []
+        },
+        {
+          "key": "frequent",
+          "moved": 0,
+          "gold_leads_broken": 0,
+          "c1_lost": 0,
+          "examples": []
         },
         {
           "key": "raw",
@@ -550,6 +566,20 @@
               "without": "Margarine-like, vegetable oil spread, approximately 37% fat, unspecified oils, with salt"
             }
           ]
+        },
+        {
+          "key": "recent",
+          "moved": 0,
+          "gold_leads_broken": 0,
+          "c1_lost": 0,
+          "examples": []
+        },
+        {
+          "key": "frequent",
+          "moved": 0,
+          "gold_leads_broken": 0,
+          "c1_lost": 0,
+          "examples": []
         },
         {
           "key": "raw",

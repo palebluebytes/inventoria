@@ -2602,3 +2602,84 @@ describe("loadSearchCorpus", () => {
     vi.restoreAllMocks();
   });
 });
+
+// #165's frecency keys, over the real corpus. They sit directly under `tier` in
+// `compareRelevance`, so they reorder rows that answer a query equally well and
+// can never promote a row that answers it worse.
+describe("frecency lifts a food you actually eat (#165)", () => {
+  const logged = (description: string) => {
+    const row = index.foods.find((f) => f.description === description);
+    if (!row) throw new Error(`no such row: ${description}`);
+    return `fdc:${row.fdcId}`;
+  };
+
+  it("changes nothing at all on a device that has logged nothing", () => {
+    // The self-gating property the keys were adopted on: both are 0 for every
+    // row, so they tie uniformly and the ranking is exactly the ten-key one.
+    for (const query of ["beef", "milk", "apple", "olive oil", "grape"])
+      expect(
+        searchIndexRows(corpus, query, new Map()).hits.map((h) => h.row.fdcId)
+      ).toEqual(searchIndexRows(corpus, query).hits.map((h) => h.row.fdcId));
+  });
+
+  it("promotes the row you logged over a row it used to tie with", () => {
+    const before = descriptionsFor("apple");
+    // A row on the SAME tier as the lead — another `Apples, …` — because `tier`
+    // outranks frecency and a lower-tier row could not be promoted however often
+    // it was logged. That is the next case, asserted deliberately.
+    const head = (d: string) => d.split(",")[0].toLowerCase();
+    const climber = before.slice(1).find((d) => head(d) === head(before[0]))!;
+    const frecency = new Map([[logged(climber), { recent: 100, frequent: 5 }]]);
+    const after = searchIndexRows(corpus, "apple", frecency).hits.map(
+      ({ row }) => row.description
+    );
+    expect(before[0]).not.toBe(climber);
+    expect(after[0]).toBe(climber);
+  });
+
+  it("cannot promote a row that answers the query worse", () => {
+    // `tier` still outranks both frecency keys, so a food logged a thousand
+    // times whose name merely mentions the word cannot take the lead from a row
+    // whose head phrase IS the word. This is the whole reason they sit under
+    // `tier` rather than over it.
+    const lead = descriptionsFor("grape")[0];
+    const mentions = descriptionsFor("grape").find(
+      (d) => !/^grapes?\b/i.test(d)
+    )!;
+    const frecency = new Map([
+      [logged(mentions), { recent: 100, frequent: 1000 }],
+    ]);
+    expect(
+      searchIndexRows(corpus, "grape", frecency).hits[0].row.description
+    ).toBe(lead);
+  });
+
+  it("reads recency before frequency, as prescient does", () => {
+    const rows = descriptionsFor("apple");
+    const recentOne = rows[2];
+    const frequentOne = rows[4];
+    const frecency = new Map([
+      [logged(recentOne), { recent: 100, frequent: 1 }],
+      [logged(frequentOne), { recent: 50, frequent: 900 }],
+    ]);
+    const after = searchIndexRows(corpus, "apple", frecency).hits.map(
+      ({ row }) => row.description
+    );
+    expect(after.indexOf(recentOne)).toBeLessThan(after.indexOf(frequentOne));
+  });
+
+  it("does not change WHICH rows are retrieved, only their order", () => {
+    const frecency = new Map(
+      index.foods
+        .slice(0, 50)
+        .map((row) => [`fdc:${row.fdcId}`, { recent: 100, frequent: 10 }])
+    );
+    const before = searchIndexRows(corpus, "cheese").hits.map(
+      (h) => h.row.fdcId
+    );
+    const after = searchIndexRows(corpus, "cheese", frecency).hits.map(
+      (h) => h.row.fdcId
+    );
+    expect([...after].sort()).toEqual([...before].sort());
+  });
+});

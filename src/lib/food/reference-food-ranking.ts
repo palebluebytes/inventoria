@@ -661,6 +661,21 @@ const HEAD_UNMATCHED = -1e6;
  * corpus head phrase and head word, placing it last rather than immediately
  * after `position` changes the same two leads and no others.
  *
+ * **The two frecency keys sit directly under `tier` and nowhere else** (#165).
+ * `prescient.el`, the model they are taken from, puts recency above everything
+ * it sorts; here `tier` keeps the top slot, because it is the test of whether a
+ * name answers what was typed at all and every other key is a question asked of
+ * rows that already do. Above it, a banoffee pie logged this morning would lead
+ * a typed `ban` over every banana in the corpus, which is not a ranking but a
+ * different search. Below it and above everything else is the claim actually
+ * being made: among rows that answer the query equally well, the food you eat is
+ * the better default.
+ *
+ * They cost nothing where there is nothing to say. Both are 0 for a food never
+ * logged, so on a fresh install every candidate ties and this comparator is
+ * exactly the ten-key one it was — which is why adopting them broke none of the
+ * leads `docs/research/143-gold-set.json` measures correct.
+ *
  * {@link NameKey.named} is deliberately absent: it decides what a query
  * RETRIEVES (ADR-0062 §1) and nothing about the order of what it retrieved.
  * Measured as a key it moves 20 leads from under `tier` and 42 from above it,
@@ -670,6 +685,8 @@ const HEAD_UNMATCHED = -1e6;
 export function compareRelevance(a: RelevanceKey, b: RelevanceKey): number {
   return (
     b.tier - a.tier ||
+    b.recent - a.recent ||
+    b.frequent - a.frequent ||
     b.raw - a.raw ||
     b.head - a.head ||
     b.accounted - a.accounted ||
@@ -918,6 +935,27 @@ const DESIGNATED_POPULATION_CATEGORY = "American Indian/Alaska Native Foods";
  */
 export interface RowRank {
   /**
+   * How recently this food was logged on THIS device, larger being more recent,
+   * and 0 for a food never logged (#165, `frecency.ts`).
+   *
+   * A row fact rather than a name fact, and the reason it sits in this interface
+   * with the other two: it cannot be read off a description, only off the
+   * ledger. It arrives the way `plainSibling` does — spread into the key by the
+   * one caller that has it — because this module imports nothing and is not
+   * entitled to reach a store (it is inside the log facility's closure, which
+   * `scripts/log-egress-check.mjs` enforces).
+   */
+  recent: number;
+  /**
+   * The decayed count of times this food has been logged here, 0 for never.
+   *
+   * Both frecency keys are 0 on a device that has logged nothing, so they tie
+   * uniformly and the order is exactly what it was without them. That
+   * self-gating is what lets them sit this high without touching a measured
+   * lead, and it is the same property ADR-0055 §4 relies on for `accounted`.
+   */
+  frequent: number;
+  /**
    * 0 when a plainer twin of this food exists elsewhere in the corpus — see
    * {@link plainSiblingsOf}, which decides it once at generation time.
    */
@@ -983,11 +1021,16 @@ export function plainSiblingsOf(descriptions: readonly string[]): boolean[] {
  * Structurally typed rather than taking a `UsdaIndexRow`, so this module still
  * imports nothing.
  */
-export function readRowRank(row: {
-  foodCategory?: string;
-  plain_sibling?: boolean;
-}): RowRank {
+export function readRowRank(
+  row: {
+    foodCategory?: string;
+    plain_sibling?: boolean;
+  },
+  frecency: { recent: number; frequent: number } = { recent: 0, frequent: 0 }
+): RowRank {
   return {
+    recent: frecency.recent,
+    frequent: frecency.frequent,
     plainSibling: row.plain_sibling ? 0 : 1,
     designated: row.foodCategory === DESIGNATED_POPULATION_CATEGORY ? 0 : 1,
   };
