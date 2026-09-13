@@ -530,7 +530,7 @@ const KEY_BLURB = [
   ],
   [
     "canonical",
-    "A hand-written roster, one entry long: where rows tie all the way down, name the one the query actually means.",
+    "A hand-written roster, two entries long: where rows tie all the way down, name the one the query actually means.",
   ],
   ["raw", "Prefer a raw food to a prepared one."],
   ["head", "How completely your query fills the head phrase."],
@@ -1330,13 +1330,20 @@ ${shippedWords
           <p>It no longer does, and the way it stopped is worth reading, because the obvious fix was not the one that worked.</p>
           <p>USDA names four birds &mdash; <span class="rec">Egg, duck, whole, fresh</span>, goose, quail, turkey &mdash; and then files a hen's egg under its retail grade, as <span class="rec">Eggs, Grade A, Large, egg whole</span>. So the one egg nearly everybody means was the only one whose name never said which bird laid it, and it lost on two keys at once: the plural <span class="rec">Eggs</span> filled the head phrase less completely than <span class="rec">Egg</span>, and USDA never wrote <em>raw</em> on a graded egg, so a box of fresh eggs scored 0 on a key the duck scored 1 on.</p>
           <p><strong>Renaming it was necessary and not sufficient.</strong> Shipped as <span class="rec">Egg, chicken, whole, fresh</span> the row matches its four siblings exactly &mdash; and that is the problem: same tier, same head, same everything the keys can read. All five tied to the bottom of the comparator, where the sort fell through to corpus order and the duck's lower record number won. Nothing about that was a judgement.</p>
-          <p>So the tie is broken by <span class="rec">canonical</span>, a hand-written roster with one entry in it, sitting just below the two frecency keys. Below them on purpose: <strong>if you log duck eggs, duck leads</strong>. A roster rather than a rule because there is no rule to write &mdash; the names differ only in the bird, and which bird is the default is knowledge about shoppers, not about food composition. It moves ${n(movedLeads("canonical"))} leads across the whole sweep, and it can never remove a row: every egg is still there, in the order the next key down would have put them.</p>
+          <p>So the tie is broken by <span class="rec">canonical</span>, a hand-written roster with two entries in it, sitting just below the two frecency keys. Below them on purpose: <strong>if you log duck eggs, duck leads</strong>. A roster rather than a rule because there is no rule to write &mdash; the names differ only in the bird, and which bird is the default is knowledge about shoppers, not about food composition. It moves ${n(movedLeads("canonical"))} leads across the whole sweep, and it can never remove a row: every egg is still there, in the order the next key down would have put them.</p>
+        </details>
+
+        <details>
+          <summary>Why did <span class="rec">cow milk</span> used to find nothing?</summary>
+          <p>The same shape as the eggs, one step worse. USDA names three animals under the head phrase <span class="rec">Milk</span> &mdash; <span class="rec">Milk, sheep, fluid</span>, <span class="rec">Milk, goat, fluid</span>, <span class="rec">Milk, indian buffalo, fluid</span> &mdash; and then files cow's milk by its fat content. So the milk almost every search means was the only one that never said which animal it came from, <span class="rec">milk</span> led with sheep, and <span class="rec">cow milk</span> returned zero rows.</p>
+          <p>The four fluid milks now say it: <span class="rec">Milk, cow, whole, 3.7% milkfat</span> and its 2%, 1% and skimmed siblings. Evaporated milk and buttermilk are cow's milk too and are deliberately left alone &mdash; nobody says &ldquo;cow buttermilk&rdquo;, and the word only earns its place where an animal is genuinely in question.</p>
+          <p><strong>This is a rename, not a species rule.</strong> A ranking key that read animal words out of descriptions was designed, measured and refused, and that refusal stands: there is no roster of animals anywhere in the search, and goat, sheep and buffalo milk hold every position they had relative to each other. What changed is that the corpus now states the species in the data, in the same place USDA already states it for the other three &mdash; which is also the only thing that could fix the retrieval, since no ordering key can return a row that the words never reach.</p>
         </details>
 
         <details>
           <summary>Why is there no &ldquo;popularity&rdquo; ranking?</summary>
           <p>Nothing leaves the device, so there is no <em>shared</em> usage data to rank on. What ranking there is comes from two places, and both obey the same standing principle &mdash; prevalence may rank a food and may never drop one.</p>
-          <p>The first is your own log: <span class="rec">recent</span> and <span class="rec">frequent</span> are computed on this device from what you have actually eaten, and they sit above every other ordering key. The second is <span class="rec">canonical</span>, one hand-written entry, which fires only on rows that tie in every earlier key. Ranking by assumed prevalence as a <em>drop</em> rule was considered and refused outright.</p>
+          <p>The first is your own log: <span class="rec">recent</span> and <span class="rec">frequent</span> are computed on this device from what you have actually eaten, and they sit above every other ordering key. The second is <span class="rec">canonical</span>, two hand-written entries, which fire only on rows that tie in every earlier key. Ranking by assumed prevalence as a <em>drop</em> rule was considered and refused outright.</p>
         </details>
 
         <details>

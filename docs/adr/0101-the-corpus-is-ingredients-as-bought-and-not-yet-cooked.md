@@ -540,3 +540,73 @@ treatment, so `Milk, producer, fluid, 3.7% milkfat` is retrievable again by the
 jargon term the rename exists to stop _displaying_. Aliased rows 69 → 70.
 
 Corpus 2,452 → **2,444**.
+
+## Amendment (2026-09-14): cow's milk, and why this is not ADR-0062 §4's species key
+
+The eggs' problem again, one step worse. USDA names three animals under the
+head phrase `Milk` — `Milk, sheep, fluid`, `Milk, goat, fluid`, `Milk, indian
+buffalo, fluid` — and then files cow's milk by its fat content. So the milk
+almost every search means was the only one that never said which animal it came
+from.
+
+Two things followed, and the second is the serious one:
+
+1. `milk` led with **sheep's milk**. Every key was identical across all six rows
+   under that head, so the sort fell through to `fdcId`, where sheep's 170882 is
+   simply the smallest number.
+2. **`cow milk` returned zero rows.** Not a bad answer — no answer.
+
+`ADJUDICATED_NAMES` gains four entries, one per fluid drinking milk:
+
+| fdcId  | ships as                               |
+| ------ | -------------------------------------- |
+| 171266 | `Milk, cow, whole, 3.7% milkfat`       |
+| 172205 | `Milk, cow, reduced fat, 2% milkfat`   |
+| 173432 | `Milk, cow, nonfat (fat free or skim)` |
+| 173441 | `Milk, cow, lowfat, 1% milkfat`        |
+
+Evaporated milk and buttermilk are cow's milk too and are **deliberately left
+alone**. Nobody says "cow buttermilk"; the word earns its place only where an
+animal is genuinely in question, which is under this head phrase and beside
+these three named animals.
+
+`canonical` gains its second entry, 171266, so `milk` leads with whole cow's
+milk. Re-measured: **6 leads moved, 0 of #143's gold cases broken.**
+
+### The argument ADR-0062 §4 is owed
+
+A test in `usda-corpus.test.ts` pinned the sheep lead as _the decision and not a
+defect_, and required any change to argue with §4 before editing it. §4 designed
+a **species key** — a ranking rule reading animal words out of descriptions —
+measured it and refused it, because no roster of animals exists in this codebase
+and these rows carry no `scientificName`, so the only implementable form was a
+hand-list of words consulted by a predicate, corpus-wide, with reach nobody
+could bound. That is the name-shaped rule #143 and ADR-0055 §7 have refused
+three times.
+
+**That refusal stands, and this is not a fourth proposal of it.** There is still
+no species key. Goat, sheep and buffalo milk hold every position they had
+relative to each other, and the pinned seventeen-row answer for `milk` shows
+exactly one swap.
+
+What moved the lead is two things that are not rules:
+
+- **A rename.** The corpus states the species _in the data_, in the same place
+  USDA already states it for the other three. Four hand-written rows, each
+  checked against its published name by the guard — which earned its keep
+  immediately, refusing three wrong published names in a row before it accepted
+  the fourth. Every one of those milks survives as the `without added vitamin A
+and vitamin D` half of a fortification pair, which is not guessable.
+- **`canonical`**, keyed by `fdcId` and two entries long. It cannot fire on a
+  row nobody listed, and it makes no claim to derive anything, which is what
+  separates it from §4's rejected fallback ("a row stating a fat level outranks
+  one that does not") — that was reverse-engineered from the answer it was asked
+  to produce.
+
+And the rename does what no ranking key could have: **`cow milk` now returns the
+four cow milks, whole first.** The lead was one position; the retrieval hole was
+the whole food. An ordering key cannot return a row the words never reach.
+
+Corpus 2,444 — unchanged, because a rename drops nothing. Aliased rows 70 → 73:
+each published name stays reachable, so `milk nonfat fluid` still finds the
+skimmed one.
