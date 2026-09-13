@@ -7,7 +7,7 @@
 **Amends:** [ADR-0075](0075-your-own-devices-converge-on-a-version-vector-read-off-the-ledger.md) (§6's version vector is re-keyed by originating device **and Tracked Domain**; it stays a read of `datoms` and its argument against a scalar watermark survives, widened to a second axis)  
 **Amends:** [ADR-0080](0080-a-facet-carries-a-jar-wide-control-only-where-losing-it-loses-data.md) (§9's _a food-only user therefore has no p2p at all_ is now false in both halves; §2's table gains a Paired devices row)  
 **Amends:** [ADR-0072](0072-a-meal-crosses-through-a-relay-that-cannot-read-it.md) (§7's refusal to let a sender learn anything about the recipient's device is stated not to govern own-device pairing, which it was never written about)  
-**Implemented:** #420 — §7's gate alone. `docs/eavt-vocabulary.md` now marks every attribute that holds an entity reference, `referencesOf`'s edge set is data rather than `case` labels and is exported from `src/lib/p2p/meal-payload.ts`, and `tests/unit/meal-payload.test.ts` holds the one to the other under `pnpm test:unit`. The documented set is **five** attributes and not the three §7 names, so what shipped is a partition rather than the containment asked for, and the Amendment at the foot of this record carries that argument. Nothing else here is built: the scope (§1 to §4) is #421, the vector's second axis (§5, §6) is #419, the wakes (§9) are #422 and the surface (§8, §10) is #423.
+**Implemented:** #420 — §7's gate alone. `docs/eavt-vocabulary.md` now marks every attribute that holds an entity reference, `referencesOf`'s edge set is data rather than `case` labels and is exported from `src/lib/p2p/meal-payload.ts`, and `tests/unit/meal-payload.test.ts` holds the one to the other under `pnpm test:unit`. The documented set is **five** attributes and not the three §7 names, so what shipped is a partition rather than the containment asked for, and the first Amendment at the foot of this record carries that argument. **#419 — §5 and §6.** `src/lib/db/version-vector.ts` is keyed by `(device_id, Tracked Domain)`, `domainsOfRow` there is the attribution rule and `CONTENT_DOMAINS` in `src/lib/facets/registry.ts` is the axis roster; the query and the `WHERE` share one registry-derived predicate, and `tests/unit/version-vector.test.ts` holds that predicate to `domainsOfRow` one row at a time through the real engine. The second Amendment carries what §5 left to the implementer. Not yet built: the scope (§1 to §4) is #421, the wakes (§9) are #422 and the surface (§8, §10) is #423.
 
 ## Context
 
@@ -437,3 +437,38 @@ because the reader recomputes reachability from `referencesOf` and never sees th
 Nothing sends one today, since a send picks a day's live events and a live event holds no
 correction link. That is a hole in ADR-0073's self-containment rather than in this record's,
 and closing it would widen what a meal carries, so it is left open here.
+
+## Amendment (2026-09-14): §5's rule reads one axis per row, and the empty vector matches one row fewer than "everything"
+
+§5 states the filter as _a row crosses if the peer's mark for **(its originating
+device, its domain)** is absent or below its stamp_ — one domain, singular. §6 then
+gives a Carried deletion **several**. Building it ([#419](https://github.com/palebluebytes/inventoria/issues/419))
+had to settle what the two together mean, and the answer is forced rather than chosen:
+a row crosses while **any** axis it stands on is absent or behind. The peer holds a
+deletion only if it holds every domain that deletion is about up to the deletion's own
+stamp, so requiring all of them is what "the peer has it" means, and requiring only one
+would withhold a deletion from a device missing half of what it deletes.
+
+§5's other sentence — _the empty vector still matches everything_ — is then true of
+every row **that stands on an axis**, and of no other. That is not a second rule: it is
+§5's own next paragraph, _an entity with no owning domain has no vector entry and can
+cross no lane_, holding on a first sync as well as on a later one. The two sentences
+read literally disagree about one row, and the second is the one that survives —
+otherwise an unowned entity would cross exactly once, on a pairing's first exchange, and
+never again, which is the silent asymmetry the second axis exists to remove.
+
+**And §5's reason for calling that harmless is wrong.** _That is a `pnpm check:entities`
+failure, not a runtime case_ holds for a row this build could mint and for no other.
+`scripts/entity-ownership-check.mjs` reads minting sites under `src/`; its check 3 fails
+a declared prefix that has no minting site, so a **retired** prefix is pushed out of the
+registry while its rows stay in `datoms` forever. ADR-0086 §3 retired six of them —
+`sku:`, `asin:`, `url:`, `url:temp_`, `did:` and `gs1:`, all scraper-minted item twins —
+and on a ledger old enough to hold one, that row crossed a sync before #419 and crosses
+no lane after it. Narrower than ADR-0075 §6's scalar watermark and the same shape:
+withheld permanently, with nothing said. #419 built §5 as written and
+[#425](https://github.com/palebluebytes/inventoria/issues/425) carries the choice that
+was never actually made — a reserved axis for what no content domain owns, or the loss
+accepted with the six prefixes named.
+
+Three wake suites were minting `event:` bare in their fixtures, which no minting site
+may do, and they now name a declared prefix.
