@@ -605,13 +605,13 @@ describe("the committed vocabulary", () => {
       );
     });
 
-    it("is the eight entries its own prose and CONTEXT.md both count", () => {
+    it("is the seven entries its own prose and CONTEXT.md both count", () => {
       // The number is written down in three places a reader meets separately —
       // the module header, the `LOCAL_VOCABULARY` doc, and the Vocabulary map
       // entry in CONTEXT.md — and it is the kind of number that goes stale
       // silently. A ninth entry is meant to be a deliberate act, so it fails
       // here and the author updates the prose in the same change (#177).
-      expect(LOCAL_VOCABULARY).toHaveLength(8);
+      expect(LOCAL_VOCABULARY).toHaveLength(7);
     });
 
     it("is reached by the generator alone, never by the app", () => {

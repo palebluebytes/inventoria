@@ -184,9 +184,42 @@ export function stripDesignationTag(description: string): string {
 }
 
 /** Every qualifier part that is removed from a name, whatever its reason. */
+/**
+ * The two words for "nobody has done anything to this yet".
+ *
+ * They are noise in a corpus that ships only uncooked foods. Before that rule
+ * they were load-bearing — `raw` was the one thing on screen separating
+ * `Lentils, raw` at 352 kcal from `Lentils, cooked` at 116 — and stripping them
+ * alone would have been the harm that rule's own record concedes it accepts.
+ * With no cooked row left to be confused with, the word distinguishes nothing
+ * and says nothing, and `Bananas, ripe and slightly ripe` reads as a food.
+ *
+ * **All five spellings, because USDA uses all five and leaving one behind is
+ * worse than leaving them all.** The corpus says `raw` 1,416 times, `unheated`
+ * 42, `uncooked` 13, `unprepared` 5 and `raw or unheated` twice. Stripping only
+ * `raw` hands every `unheated` row an unearned lift on the `raw` ranking key,
+ * which is not hypothetical: it moved `gammon` from a ham centre slice to
+ * `Pork, cured, ham, patties, unheated`, and the hand-written vocabulary entry's
+ * own guard is what caught it.
+ *
+ * Exact whole segments only, which the positional strip already guarantees and
+ * which matters here more than elsewhere. Six rows write the state with a
+ * parenthetical after it, and in two of them the parenthetical IS the food:
+ * `raw (liquid expressed from grated meat)` is coconut cream, not a raw
+ * anything. Those keep their names whole.
+ */
+export const STATE_QUALIFIERS: ReadonlySet<string> = new Set([
+  "raw",
+  "uncooked",
+  "unheated",
+  "unprepared",
+  "raw or unheated",
+]);
+
 const STRIPPED_QUALIFIERS: ReadonlySet<string> = new Set([
   ...ORIGIN_QUALIFIERS,
   ...CATALOGUE_QUALIFIERS,
+  ...STATE_QUALIFIERS,
 ]);
 
 /**
@@ -400,12 +433,38 @@ const namedParts = (description: string): NamedPart[] => {
  * by passing through a splitter. The kept parts are read off USDA's own text
  * for the same reason, which is what {@link namedParts} is.
  */
+/**
+ * USDA's note that a record also covers the ration boxes it distributes.
+ *
+ * `Apples, with skin (Includes foods for USDA's Food Distribution Program)` is
+ * an apple. The phrase says which of USDA's own programmes the assay serves and
+ * nothing whatever about the food, which is the same kind of thing
+ * {@link CATALOGUE_QUALIFIERS} names - except that USDA writes it as a
+ * parenthetical welded to the last qualifier rather than as a comma-part, so no
+ * roster over whole segments can reach it.
+ *
+ * Removed FIRST, before the positional strip, and that ordering is the point.
+ * Six of the sixteen rows carrying it read `raw (Includes ...)` or
+ * `unprepared (Includes ...)`, so while the gloss is attached the part is not
+ * `raw` and the state roster walks past it. Taking the gloss off first exposes
+ * the word to the strip that was always meant to have it - the same composition
+ * the designation tag needed, and the same bug when it is missing.
+ */
+const FOOD_DISTRIBUTION_GLOSS =
+  /\s*\(includes foods for usda[''\u2019]s food distribution program\)/i;
+
 export function stripNonNamingQualifiers(description: string): string {
-  const parts = namedParts(description);
+  const glossed = description.replace(FOOD_DISTRIBUTION_GLOSS, "");
+  const parts = namedParts(glossed);
   const keep = parts.map(
     ({ lookup }, index) => index === 0 || !STRIPPED_QUALIFIERS.has(lookup)
   );
-  if (keep.every(Boolean)) return description;
+  // Byte-for-byte when there is nothing to do, which is why the gloss is tested
+  // rather than assumed: `qualifiersOf` lowercases and collapses whitespace, and
+  // a row nobody is renaming must not have USDA's own text quietly rewritten by
+  // passing through a splitter.
+  if (keep.every(Boolean))
+    return glossed === description ? description : glossed;
   return parts
     .filter((_, index) => keep[index])
     .map(({ text }) => text)
@@ -633,8 +692,17 @@ export function resolveShippedNames(
   //    Panel completeness is a claim about the record, which is the only kind
   //    ADR-0055 §1 admits, and it does not systematically delete anybody's food.
   const survivors = rows.filter((row) => !dropped.has(row.fdcId));
+  // The strip runs AGAIN, after the tag comes off, and the order is the whole
+  // point. USDA writes the designation inside the last qualifier —
+  // `Moose, meat, raw (Alaska Native)` — so while the tag is still attached that
+  // part is `raw (alaska native)`, which no roster matches. Removing the tag
+  // exposes a bare `raw` that step 2 has already walked past. Composing the two
+  // here is what stopped 41 designated rows shipping with a state word every
+  // other row had lost.
   const nameOf = (row: ShippedNameRow) =>
-    stripDesignationTag(renamed.get(row.fdcId) ?? row.description);
+    stripNonNamingQualifiers(
+      stripDesignationTag(renamed.get(row.fdcId) ?? row.description)
+    );
   const byUntagged = new Map<string, ShippedNameRow[]>();
   for (const row of survivors) {
     const key = stemmedName(nameOf(row));
@@ -713,4 +781,247 @@ export function resolveShippedNames(
   }
 
   return { renamed, dropped, fortification };
+}
+
+// ---------------------------------------------------------------------------
+// A qualifier that contrasts with nothing names nothing
+// ---------------------------------------------------------------------------
+
+/**
+ * The qualifiers a row can lose because no other row in the corpus disagrees
+ * with them.
+ *
+ * USDA qualifies a food against the alternatives IT publishes, and the corpus
+ * does not ship all of them. `Rice, white, long-grain, regular, enriched` says
+ * `regular` to mean NOT PARBOILED and `enriched` to mean NOT UNENRICHED - and
+ * once the parboiled and unenriched rows leave, the reader is being told this
+ * rice is not two things the corpus has never heard of. The words are answering
+ * a question nobody can ask.
+ *
+ * **The test is positional and contrastive, never lexical.** A qualifier is
+ * removable when blanking it leaves a row no other row matches: when nothing in
+ * the corpus differs from this row at only that position. It is the question a
+ * reader is really asking of a qualifier, "as opposed to what?".
+ *
+ * That is what stops it eating the names it must not. `Apples, red delicious,
+ * with skin` keeps `red delicious`, because `Apples, golden delicious, with
+ * skin` differs from it at exactly that position and the word is the whole of
+ * what separates them. No word list is consulted and none could do this job:
+ * `regular` is noise on a rice and load-bearing on a beer, and only the corpus
+ * around it knows which.
+ *
+ * Two limits, both deliberate:
+ *
+ * - **Rows of different SHAPES do not contest each other.** A row with four
+ *   qualifiers is never compared against one with five, because a food written
+ *   to a different depth is not the same food varying on one axis. It makes the
+ *   rule see fewer contests than a human would, so it removes a little more than
+ *   the strictest reading, which is why the collision guard is not optional.
+ * - **A reduction that collides is refused outright, for every row in the
+ *   collision.** Two rows can each hold a removable qualifier and reduce onto one
+ *   another; where they do, both keep their names whole. Shipping one under a
+ *   name that is now ambiguous would be worse than shipping both long.
+ */
+/**
+ * Words whose only content is the denial of an alternative.
+ *
+ * Each names no property of the food. `regular` means NOT the other kind USDA
+ * publishes - not parboiled on a rice, not light on a beer - and `all types`
+ * and `all grades` say the record averages over a distinction rather than
+ * making one. Read on its own, none of them tells a reader anything; read
+ * beside a sibling, each is the whole of what separates two rows.
+ *
+ * Small and hand-written on purpose. The contrastive test below is sharp enough
+ * to be dangerous and the roster is what aims it: no computation can tell that
+ * `regular` describes nothing while `long grain` describes something, because
+ * the difference is in the English rather than in the corpus.
+ */
+const COMPARATIVE_QUALIFIERS: ReadonlySet<string> = new Set([
+  "regular",
+  "all types",
+  "all grades",
+  "all varieties",
+]);
+
+export function dropUncontestedQualifiers(
+  rows: readonly { fdcId: number; description: string }[]
+): ReadonlyMap<number, string> {
+  const parts = new Map(
+    rows.map((row) => [row.fdcId, namedParts(row.description)])
+  );
+
+  /** The row with position `at` blanked - what "differs only here" is asked of. */
+  const blanked = (row: NamedPart[], at: number): string =>
+    row.map(({ lookup }, index) => (index === at ? " " : lookup)).join("|");
+
+  // How many rows sit at each blanked key. A count of one means nothing in the
+  // corpus contests that qualifier.
+  const contests = new Map<string, number>();
+  for (const row of rows) {
+    const named = parts.get(row.fdcId) as NamedPart[];
+    for (let at = 1; at < named.length; at++) {
+      const key = blanked(named, at);
+      contests.set(key, (contests.get(key) ?? 0) + 1);
+    }
+  }
+
+  const reduced = new Map<number, string>();
+  for (const row of rows) {
+    const named = parts.get(row.fdcId) as NamedPart[];
+    // The head phrase is the food's identity and is never a qualifier, and a
+    // qualifier goes only if it is BOTH comparative and uncontested. The second
+    // condition alone was built first and is far too strong: on a corpus this
+    // sparse most qualifiers are unique in their position, so it reduced
+    // `Rice, brown, long grain` to `Rice, brown` and `Apples, red delicious,
+    // with skin` to `Apples`. Uniqueness is not meaninglessness. What makes
+    // `regular` droppable is that it is a word whose whole job is to deny an
+    // alternative, so with no alternative left it says nothing at all - where
+    // `long grain` and `with skin` describe the food whether or not anything
+    // else in the corpus disagrees.
+    const keep = named.map(
+      (part, at) =>
+        at === 0 ||
+        !COMPARATIVE_QUALIFIERS.has(part.lookup) ||
+        (contests.get(blanked(named, at)) ?? 0) > 1
+    );
+    if (keep.every(Boolean)) continue;
+    reduced.set(
+      row.fdcId,
+      named
+        .filter((_, at) => keep[at])
+        .map(({ text }) => text)
+        .join(", ")
+    );
+  }
+
+  // Every name the finished corpus would carry, so a reduction cannot land on a
+  // name another row already answers to, reduced or not.
+  const claimants = new Map<string, number[]>();
+  for (const row of rows) {
+    const name = punctuationBlind(reduced.get(row.fdcId) ?? row.description);
+    const held = claimants.get(name);
+    if (held) held.push(row.fdcId);
+    else claimants.set(name, [row.fdcId]);
+  }
+  for (const held of claimants.values()) {
+    if (held.length < 2) continue;
+    for (const fdcId of held) reduced.delete(fdcId);
+  }
+
+  return reduced;
+}
+
+/**
+ * The two words for whether the B vitamins and iron milling removed were put
+ * back.
+ *
+ * Handled apart from {@link FORTIFICATION_QUALIFIERS} because the rule for them
+ * is ASYMMETRIC and that roster's is not. The vitamin A and D phrases refuse
+ * together: where two rows would land on one name, neither moves, because
+ * nothing chooses between them. These two do choose. Enrichment is what the
+ * ordinary bag of rice or flour has, so `enriched` is the unmarked state and
+ * takes the plain name, and `unenriched` keeps its word to say it is the
+ * exception.
+ *
+ * Where the two meet, the unenriched row does not merely yield its name - it
+ * LEAVES. Enrichment puts back what milling took out, so the pair differ by a
+ * handful of B vitamins and iron on an otherwise identical food, and nobody
+ * writing a food diary is choosing between them. One row, under the plain name.
+ *
+ * That is a drop, so it is held to ADR-0055 section 1's terms: it is relational,
+ * it fires only where the twin PROVABLY ships, and the survivor is the row that
+ * took the name. Measured over the corpus, all twelve rows carrying `unenriched`
+ * as a whole segment have such a twin, so the rule removes twelve duplicates and
+ * no food. A row with no twin keeps its row and simply loses the word.
+ */
+const ENRICHMENT: ReadonlySet<string> = new Set(["enriched", "unenriched"]);
+
+/**
+ * A name with USDA's punctuation normalised away, for asking whether two rows
+ * are the same name.
+ *
+ * USDA's spelling of one thing is not stable: it writes `Rice, white,
+ * long-grain` and `Rice, white, long grain` for the same rice, and #191 found
+ * the same hyphen drift across `Beef` - `top round steak` against `top round,
+ * steak`, `97% lean meat / 3% fat` against `97% lean meat /3% fat`.
+ *
+ * Only commas, hyphens, slashes and repeated whitespace go, which is #191's
+ * clause verbatim, and it is safe for its reason: it merges strings ALREADY
+ * identical apart from punctuation, so it costs no judgement and cannot fuse two
+ * foods. It decides comparisons only - the shipped text keeps USDA's own
+ * spelling, because a row is renamed by a rule that means something, never by a
+ * key.
+ */
+const punctuationBlind = (name: string): string =>
+  name
+    .toLowerCase()
+    .replace(/[,\-/]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+/**
+ * The enrichment word taken off every name that can lose it.
+ *
+ * Three outcomes, and the middle one is the whole reason this is not a plain
+ * strip:
+ *
+ * - **Nothing else wants the name** - the word goes, whichever of the two it is.
+ * - **An enriched row and its unenriched twin want the same name** - the
+ *   enriched row takes it and the unenriched row keeps its word.
+ * - **A row that never carried the word already holds the name** - nobody moves,
+ *   because a rename may not take a name a row answers to already (ADR-0056 §4).
+ */
+export function stripEnrichment(
+  rows: readonly { fdcId: number; description: string }[]
+): { renamed: ReadonlyMap<number, string>; dropped: ReadonlySet<number> } {
+  const proposed = new Map<number, string>();
+  const carries = new Map<number, string>();
+  for (const row of rows) {
+    const parts = namedParts(row.description);
+    const at = parts.findIndex(
+      (part, index) => index > 0 && ENRICHMENT.has(part.lookup)
+    );
+    if (at === -1) continue;
+    carries.set(row.fdcId, parts[at].lookup);
+    proposed.set(
+      row.fdcId,
+      parts
+        .filter((_, index) => index !== at)
+        .map(({ text }) => text)
+        .join(", ")
+    );
+  }
+
+  // Who would answer to each name if every proposal were made.
+  const claimants = new Map<string, number[]>();
+  for (const row of rows) {
+    const name = punctuationBlind(proposed.get(row.fdcId) ?? row.description);
+    const held = claimants.get(name);
+    if (held) held.push(row.fdcId);
+    else claimants.set(name, [row.fdcId]);
+  }
+
+  const renamed = new Map<number, string>();
+  const dropped = new Set<number>();
+  for (const [fdcId, name] of proposed) {
+    const held = claimants.get(punctuationBlind(name)) ?? [];
+    if (held.length === 1) {
+      renamed.set(fdcId, name);
+      continue;
+    }
+    // Contested. Only an `enriched` row may take the name, and only where every
+    // other claimant is an `unenriched` row - which is a row that will leave.
+    // A claimant carrying no enrichment word at all is leaving nothing, and
+    // then nobody moves and nobody goes.
+    if (
+      carries.get(fdcId) !== "enriched" ||
+      !held.every((id) => id === fdcId || carries.get(id) === "unenriched")
+    )
+      continue;
+    renamed.set(fdcId, name);
+    // The survivor is this row, and it is in the corpus by construction: it is
+    // being renamed rather than removed, two lines above.
+    for (const id of held) if (id !== fdcId) dropped.add(id);
+  }
+  return { renamed, dropped };
 }

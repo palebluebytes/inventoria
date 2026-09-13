@@ -24,7 +24,7 @@ describe("stripNonNamingQualifiers", () => {
       stripNonNamingQualifiers(
         "Lamb, New Zealand, imported, loin chop, separable lean and fat, raw"
       )
-    ).toBe("Lamb, loin chop, separable lean and fat, raw");
+    ).toBe("Lamb, loin chop, separable lean and fat");
   });
 
   it("preserves USDA's casing in the parts it keeps", () => {
@@ -34,7 +34,7 @@ describe("stripNonNamingQualifiers", () => {
       stripNonNamingQualifiers(
         "Beef, Australian, imported, Wagyu, external fat, Aust. marble score 4/5, raw"
       )
-    ).toBe("Beef, Wagyu, external fat, Aust. marble score 4/5, raw");
+    ).toBe("Beef, Wagyu, external fat, Aust. marble score 4/5");
   });
 
   it("strips a country that stands alone, without `imported` beside it", () => {
@@ -42,7 +42,7 @@ describe("stripNonNamingQualifiers", () => {
       stripNonNamingQualifiers(
         "Veal, Australian, rib, rib roast, separable lean only, raw"
       )
-    ).toBe("Veal, rib, rib roast, separable lean only, raw");
+    ).toBe("Veal, rib, rib roast, separable lean only");
   });
 
   it("never touches an origin word inside the head phrase", () => {
@@ -51,14 +51,23 @@ describe("stripNonNamingQualifiers", () => {
     // the corpus holds no `Spinach, raw` row, so a collision guard sees nothing
     // to collide with and would let the rename through. ADR-0055 §7 refused a
     // lexical place-word rule for exactly this case.
-    for (const description of [
-      "New Zealand spinach, raw",
-      "New Zealand spinach, cooked, boiled, drained, without salt",
-      "New zealand spinach, cooked, boiled, drained, with salt",
+    // The state word goes now, as it does everywhere. What is asserted is that
+    // `New Zealand` survives in the HEAD while the rest of the name is stripped
+    // around it - which is the positional rule doing its job, not a rename.
+    for (const [description, shipped] of [
+      ["New Zealand spinach, raw", "New Zealand spinach"],
+      [
+        "New Zealand spinach, cooked, boiled, drained, without salt",
+        "New Zealand spinach, cooked, boiled, drained, without salt",
+      ],
+      [
+        "New zealand spinach, cooked, boiled, drained, with salt",
+        "New zealand spinach, cooked, boiled, drained, with salt",
+      ],
     ]) {
       expect([description, stripNonNamingQualifiers(description)]).toEqual([
         description,
-        description,
+        shipped,
       ]);
     }
   });
@@ -68,15 +77,21 @@ describe("stripNonNamingQualifiers", () => {
     // need a second, lexical rule — the kind that broke the spinach.
     const description =
       "Beef, Wagyu, loin, top loin steak/roast, boneless, separable lean only, Aust. marble score 9, raw";
-    expect(stripNonNamingQualifiers(description)).toBe(description);
+    // The state word goes; `Aust. marble score 9` stays, which is the claim.
+    expect(stripNonNamingQualifiers(description)).toBe(
+      "Beef, Wagyu, loin, top loin steak/roast, boneless, separable lean only, Aust. marble score 9"
+    );
   });
 
   it("returns a name with no origin part byte-for-byte unchanged", () => {
     // Not merely equal after renormalising: a row that is not being renamed must
     // not have its whitespace quietly rewritten by passing through the splitter.
+    // None of these carries an origin, a catalogue word or a state word, so
+    // none is being renamed and each must come back as USDA wrote it - spaces
+    // before commas included.
     for (const description of [
-      "Grapes, red, seedless, raw",
-      "Game meat , bison, ground, raw",
+      "Grapes, red, seedless",
+      "Game meat , bison, ground",
       "Spinach, cooked, boiled, drained, without salt",
     ]) {
       expect([description, stripNonNamingQualifiers(description)]).toEqual([
@@ -95,7 +110,7 @@ describe("stripNonNamingQualifiers", () => {
       stripNonNamingQualifiers(
         "Beef, brisket, whole, separable lean only, all grades, raw"
       )
-    ).toBe("Beef, brisket, whole, separable lean only, raw");
+    ).toBe("Beef, brisket, whole, separable lean only");
     expect(
       stripNonNamingQualifiers("Chicken, liver, all classes, cooked, pan-fried")
     ).toBe("Chicken, liver, cooked, pan-fried");
@@ -103,17 +118,19 @@ describe("stripNonNamingQualifiers", () => {
       stripNonNamingQualifiers(
         "Turkey, all classes, breast, meat and skin, raw"
       )
-    ).toBe("Turkey, breast, meat and skin, raw");
+    ).toBe("Turkey, breast, meat and skin");
   });
 
   it("leaves a qualifier that names one grade rather than averaging them", () => {
     // The line between the two. `choice`, `select` and `Aust. marble score 9`
     // each pick a grade, so each still tells two rows apart; `all grades` picks
     // none. Removing a naming grade would fuse rows with different fat.
+    // Spelled without a state word, so what is asserted is the grade surviving
+    // and nothing else moving.
     for (const description of [
-      'Beef, chuck, arm pot roast, separable lean only, trimmed to 0" fat, choice, raw',
+      'Beef, chuck, arm pot roast, separable lean only, trimmed to 0" fat, choice',
       'Beef, rib, small end (ribs 10-12), separable lean only, trimmed to 0" fat, select, cooked, broiled',
-      "Beef, Wagyu, seam fat, Aust. marble score 4/5, raw",
+      "Beef, Wagyu, seam fat, Aust. marble score 4/5",
     ]) {
       expect([description, stripNonNamingQualifiers(description)]).toEqual([
         description,
@@ -130,7 +147,7 @@ describe("stripNonNamingQualifiers", () => {
       stripNonNamingQualifiers(
         "Beef, variety meats and by-products, liver, raw"
       )
-    ).toBe("Beef, liver, raw");
+    ).toBe("Beef, liver");
     expect(
       stripNonNamingQualifiers(
         "Pork, fresh, variety meats and by-products, chitterlings, cooked, simmered"
@@ -371,7 +388,7 @@ describe("resolveShippedNames", () => {
     ];
     const { renamed, dropped } = resolveShippedNames(pair);
     expect(dropped.get(2)).toBe("designation_collision");
-    expect(renamed.get(1)).toBe("Fish, Salmon, Chum, raw");
+    expect(renamed.get(1)).toBe("Fish, Salmon, Chum");
   });
 
   it("drops the import whose stripped name an existing row already carries", () => {
@@ -415,8 +432,11 @@ describe("resolveShippedNames", () => {
 
   it("neither renames nor drops a head-phrase origin", () => {
     const { dropped, renamed } = resolveShippedNames(rows);
+    // Never dropped, and renamed only by losing the state word every row loses.
+    // `New Zealand` survives in the head, which is the whole claim: the
+    // positional rule cannot reach an origin that is part of the food's name.
     expect(dropped.get(168440)).toBeUndefined();
-    expect(renamed.get(168440)).toBeUndefined();
+    expect(renamed.get(168440)).toBe("New Zealand spinach");
   });
 
   it("leaves a row with nothing to strip out of both verdicts", () => {
@@ -433,8 +453,8 @@ describe("resolveShippedNames", () => {
   it("renames a row that carries only the aisle label, and never drops it", () => {
     const { dropped, renamed } = resolveShippedNames(rows);
     expect(dropped.get(168625)).toBeUndefined();
-    expect(renamed.get(168625)).toBe("Beef, heart, raw");
-    expect(renamed.get(169449)).toBe("Beef, kidneys, raw");
+    expect(renamed.get(168625)).toBe("Beef, heart");
+    expect(renamed.get(169449)).toBe("Beef, kidneys");
   });
 
   it("decides a collision by origin even when both names changed", () => {
@@ -446,7 +466,7 @@ describe("resolveShippedNames", () => {
     const { dropped, renamed } = resolveShippedNames(rows);
     expect(dropped.get(174444)).toBe("collision");
     expect(dropped.get(172527)).toBeUndefined();
-    expect(renamed.get(172527)).toBe("Lamb, heart, raw");
+    expect(renamed.get(172527)).toBe("Lamb, heart");
   });
 
   it("follows a dropped import through USDA's `soaked and` preparations", () => {
@@ -464,7 +484,7 @@ describe("resolveShippedNames", () => {
     // name being taken, never the fact that a row was imported.
     const { dropped, renamed } = resolveShippedNames(rows);
     expect(dropped.get(172621)).toBeUndefined();
-    expect(renamed.get(172621)).toBe("Lamb, tongue - swiss cut, raw");
+    expect(renamed.get(172621)).toBe("Lamb, tongue - swiss cut");
   });
 
   it("never reports a row as both renamed and dropped", () => {

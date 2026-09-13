@@ -324,21 +324,21 @@ export const LOCAL_VOCABULARY: readonly LocalVocabularyEntry[] = [
   },
   {
     key: "gammon",
-    targets: ["pork cured ham"],
-    landsOn:
-      "Pork, cured, ham, center slice, country-style, separable lean only, raw",
-    why: "The British name for cured leg of pork sold raw, to be cooked at home; the American register calls the same cut ham.",
+    targets: ["pork cured ham whole"],
+    landsOn: "Pork, cured, ham, whole, separable lean and fat",
+    why: "The British name for cured leg of pork sold uncooked, to be cooked at home; the American register calls the same cut ham. Re-chosen when the corpus stopped carrying cooked foods: the bare `pork cured ham` then led with `Pork, cured, ham, patties`, the one formed product left standing once the 21 cooked patty rows went, and a patty is not a gammon. `whole` names the joint the word means.",
   },
-  {
-    key: "jacket potato",
-    targets: ["potatoes baked flesh and skin"],
-    landsOn: "Potatoes, baked, flesh and skin, without salt",
-    why: "The British name for a whole baked potato, on every pub menu and freezer aisle in the country. The target names the skin because a jacket potato is eaten with it; the bare `potatoes baked` leads with the flesh alone.",
-  },
+  // `jacket potato` was here and is REMOVED, and it is the plainest casualty of
+  // the corpus becoming uncooked. A jacket potato is a baked potato: it is the
+  // cooking that makes it one, so there is no uncooked row for the word to reach
+  // and no re-choosing available. Its target,
+  // `Potatoes, baked, flesh and skin, without salt`, left with every other baked
+  // row. A raw potato is in the corpus and answers `potato`; what the app no
+  // longer has is a figure for the thing on a pub menu.
   {
     key: "mange tout",
     targets: ["peas edible podded"],
-    landsOn: "Peas, edible-podded, raw",
+    landsOn: "Peas, edible-podded",
     why: "The British name, borrowed from French, for the flat pea eaten pod and all; USDA files it under the description rather than a name.",
   },
   {
@@ -350,7 +350,7 @@ export const LOCAL_VOCABULARY: readonly LocalVocabularyEntry[] = [
   {
     key: "plain flour",
     targets: ["all purpose flour"],
-    landsOn: "Flour, wheat, all-purpose, enriched, bleached",
+    landsOn: "Flour, wheat, all-purpose, bleached",
     why: "The British name for wheat flour with no raising agent, which is what all-purpose flour is. The target is deliberately not `wheat flour white all purpose`, which leads with the SELF-RISING row — #130 §6's case, still open.",
   },
   {
