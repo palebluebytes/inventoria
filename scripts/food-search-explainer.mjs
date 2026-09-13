@@ -567,6 +567,16 @@ const movedLeads = (key) => {
  * stubbing. Reached through esbuild from the PATH or through `nix shell`, the
  * same two attempts `usda-app-module.mjs` makes.
  */
+const BUNDLE_EXPORTS = [
+  "buildSearchCorpus",
+  "searchIndexRows",
+  "SEARCH_RESULT_LIMIT",
+  "compareRelevance",
+  "compileReferenceFoodQuery",
+  "readReferenceFoodName",
+  "readRowRank",
+];
+
 const bundleSearch = () => {
   const scratch = mkdtempSync(join(tmpdir(), "food-search-page-"));
   const entry = join(scratch, "search-entry.ts");
@@ -575,7 +585,7 @@ const bundleSearch = () => {
     entry,
     "export { buildSearchCorpus, searchIndexRows, SEARCH_RESULT_LIMIT } from " +
       JSON.stringify(join(ROOT, "src/lib/food/usda-corpus")) +
-      ";\nexport { compileReferenceFoodQuery, readReferenceFoodName, readRowRank } from " +
+      ";\nexport { compareRelevance, compileReferenceFoodQuery, readReferenceFoodName, readRowRank } from " +
       JSON.stringify(join(ROOT, "src/lib/food/reference-food-ranking")) +
       ";\n"
   );
@@ -596,6 +606,18 @@ const bundleSearch = () => {
     if (run.status === 0) {
       const code = readFileSync(out, "utf8");
       rmSync(scratch, { recursive: true, force: true });
+      // Every name `food-search-tryit.js` calls off the global, checked against
+      // what the bundle actually exports. The entry list above is a string, so a
+      // name can be dropped from it and the bundle still builds, still ships and
+      // still answers a search — the results path never touches the annotation's
+      // functions. That is how `compareRelevance` went missing once, past a
+      // verification that only ran queries.
+      for (const name of BUNDLE_EXPORTS)
+        if (!new RegExp(`\\b${name}\\b`).test(code))
+          throw new Error(
+            `the browser bundle does not export ${name}, which ` +
+              "scripts/food-search-tryit.js calls. Add it to the entry above."
+          );
       return code;
     }
   }
