@@ -10,3 +10,7 @@ pnpm-lock.yaml
 # changed, added and removed foods; Prettier would re-wrap 4.7 MB of them into
 # half a million lines and take the reviewable diff with it.
 public/usda/
+
+# The drop census (scripts/usda-drop-census.mjs), one drop per line for the same
+# reason public/usda/ is here: the unit of a reviewable diff is one food.
+docs/research/usda-drop-census.json

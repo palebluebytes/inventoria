@@ -28,6 +28,7 @@
     "usda:consolidation-bar": "node scripts/usda-consolidation-bar.mjs",
     "usda:beef-pilot": "node scripts/usda-beef-pilot.mjs",
     "usda:coverage": "node scripts/usda-coverage.mjs",
+    "usda:drop-census": "node scripts/usda-drop-census.mjs",
     "usda:key-census": "node scripts/usda-key-census.mjs",
     "usda:filter-census": "node scripts/usda-filter-census.mjs",
     "curated:check": "node scripts/curated-snapshot-check.mjs",
