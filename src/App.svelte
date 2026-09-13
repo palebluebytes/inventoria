@@ -9,6 +9,7 @@
   import ItemsView from "./lib/views/ItemsView.svelte";
   import ReloadPrompt from "./lib/ui/ReloadPrompt.svelte";
   import FacetExit from "./lib/layout/FacetExit.svelte";
+  import CarriedDeletionNotice from "./lib/views/CarriedDeletionNotice.svelte";
   // Notes is the only view whose CRDT (loro) carries a multi-megabyte WASM
   // payload. Importing it dynamically keeps that payload out of the entry chunk,
   // so a failure anywhere under Notes degrades Notes alone instead of stopping
@@ -16,6 +17,7 @@
   // views stay static.
   import { runStartupErrands } from "./lib/facets/startup";
   import { openAppWake } from "./lib/p2p/wake-errand";
+  import { watchCarriedDeletions } from "./lib/stores/carried-deletion-notice";
   import type { OpenWake } from "./lib/p2p/wake-cadence";
   import { facetOf, type Facet } from "./lib/facets/registry";
 
@@ -82,10 +84,19 @@
    * — that is the browser's own signal, and this is only the teardown.
    */
   let wake: OpenWake | null = null;
+  /**
+   * The listener for a peer's carried deletion, which has to be attached
+   * **before** the wake that applies one (ADR-0096 §12).
+   *
+   * It is not part of the wake: a first sync applies carried deletions too, and
+   * that runs off a pairing act in Settings rather than off this open.
+   */
+  let watching: (() => void) | null = null;
   let unmounted = false;
   onDestroy(() => {
     unmounted = true;
     wake?.close();
+    watching?.();
   });
 
   onMount(async () => {
@@ -114,10 +125,18 @@
       // (§7) — and after the ledger, because a wake is a read of it and an
       // import into it. Nothing is awaited: a wake is silent, and nothing on
       // the screen waits for one.
+      //
+      // The notice a carried deletion leaves is listened for first, because a
+      // broadcast nobody is listening to is a deletion the person is never told
+      // about (ADR-0096 §12).
+      watching = watchCarriedDeletions();
       wake = openAppWake();
       // The shell can be torn down inside the awaits above, in which case
       // `onDestroy` has already run and found nothing to close.
-      if (unmounted) wake.close();
+      if (unmounted) {
+        wake.close();
+        watching();
+      }
     } catch (e: any) {
       dbError = e.message ?? String(e);
     }
@@ -157,6 +176,10 @@
     <Sidebar bind:activeTab {dbReady} {dbError} />
 
     <main class="main">
+      <!-- Above every tab, because the act it reports is about the jar rather
+           than about whichever screen happens to be open (ADR-0096 §12). -->
+      <CarriedDeletionNotice />
+
       {#if activeTab === "food"}
         <!-- No `receiveLink`: a meal arrives at Rations and nowhere else
              (ADR-0084 §5), so there is none for this shell to hand down. The
