@@ -163,12 +163,12 @@ describe("walking the ledger oldest-first", () => {
 
   /** Two rows whose key order and whose stamp order disagree. */
   function crossed(): void {
-    // `event:aaa` sorts first by primary key and is stamped later.
+    // `event:occur_aaa` sorts first by primary key and is stamped later.
     wall = 900;
-    append([datom({ entity: "event:aaa", attribute: "event/kind" })]);
+    append([datom({ entity: "event:occur_aaa", attribute: "event/kind" })]);
     wall = 100;
     clock = createHlc("device_b", { wallClock: () => wall });
-    append([datom({ entity: "event:bbb", attribute: "event/kind" })]);
+    append([datom({ entity: "event:occur_bbb", attribute: "event/kind" })]);
   }
 
   const walk = (order: "key" | "stamp") => {
@@ -185,12 +185,15 @@ describe("walking the ledger oldest-first", () => {
 
   it("walks by primary key by default, which puts the later stamp first", () => {
     crossed();
-    expect(walk("key")).toEqual(["event:aaa@900", "event:bbb@100"]);
+    expect(walk("key")).toEqual(["event:occur_aaa@900", "event:occur_bbb@100"]);
   });
 
   it("walks by stamp when asked, so every prefix is downward-closed", () => {
     crossed();
-    expect(walk("stamp")).toEqual(["event:bbb@100", "event:aaa@900"]);
+    expect(walk("stamp")).toEqual([
+      "event:occur_bbb@100",
+      "event:occur_aaa@900",
+    ]);
   });
 
   it("reaches every row either way, and the same rows", () => {
@@ -202,10 +205,10 @@ describe("walking the ledger oldest-first", () => {
 
   it("narrows by vector and orders by stamp together", () => {
     crossed();
-    const above = { device_b: { hlc_ms: 100, hlc_ctr: 0 } };
+    const above = { device_b: { calendar: { hlc_ms: 100, hlc_ctr: 0 } } };
     const page = readLedgerPage(db, null, 1024, { above, order: "stamp" });
-    // `event:bbb` is device_b's own row at exactly that mark, so it is held.
-    expect(page.map((r) => r.entity)).toEqual(["event:aaa"]);
+    // `event:occur_bbb` is device_b's own row at exactly that mark, so it is held.
+    expect(page.map((r) => r.entity)).toEqual(["event:occur_aaa"]);
   });
 });
 

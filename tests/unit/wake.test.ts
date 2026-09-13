@@ -165,7 +165,7 @@ const deposit = (
 
 /** One row, stamped by hand: these tests are about crossing, not about writes. */
 const row = (over: Partial<LedgerRow> = {}): LedgerRow => ({
-  entity: "event:1",
+  entity: "event:consume_1",
   attribute: "event/kind",
   value: '"consume_food"',
   time: 1_000,
@@ -209,7 +209,7 @@ const collectAddress = async (who: Device) =>
 describe("a meal logged on one device reaches the other with it shut", () => {
   it("crosses on the peer's own open, and the peer's ledger holds it", async () => {
     const [a, b] = await pair();
-    hold(a, [row({ entity: "event:breakfast" })]);
+    hold(a, [row({ entity: "event:consume_breakfast" })]);
 
     // Device A is open, deposits, and is closed. Nothing waits for anybody.
     const left = await wake(a);
@@ -220,7 +220,9 @@ describe("a meal logged on one device reaches the other with it shut", () => {
     const taken = await wake(b);
 
     expect(taken.collected).toBe(1);
-    expect(rowsOf(b)).toEqual(["event:breakfast|event/kind|1000.0|dev_a"]);
+    expect(rowsOf(b)).toEqual([
+      "event:consume_breakfast|event/kind|1000.0|dev_a",
+    ]);
   });
 
   it("stops re-sending once the acknowledgement comes back", async () => {
@@ -242,8 +244,8 @@ describe("a meal logged on one device reaches the other with it shut", () => {
 
   it("carries a row each way without either side re-sending the other's", async () => {
     const [a, b] = await pair();
-    hold(a, [row({ entity: "event:a" })]);
-    hold(b, [row({ entity: "event:b", device_id: "dev_b" })]);
+    hold(a, [row({ entity: "event:consume_a" })]);
+    hold(b, [row({ entity: "event:consume_b", device_id: "dev_b" })]);
 
     await wake(a);
     await wake(b);
@@ -366,8 +368,8 @@ describe("a refused rewrite is answered by a recreate", () => {
 describe("an acknowledgement credits the rewrite the peer took", () => {
   it("does not credit a fuller recreate, or the rows only it carried are lost", async () => {
     const [a, b] = await pair();
-    const first = row({ entity: "event:1" });
-    const second = row({ entity: "event:2", hlc_ms: 2_000 });
+    const first = row({ entity: "event:consume_1" });
+    const second = row({ entity: "event:consume_2", hlc_ms: 2_000 });
     hold(a, [first]);
 
     // A deposits `first` and B takes it, but the acknowledgement does not reach
@@ -392,8 +394,10 @@ describe("an acknowledgement credits the rewrite the peer took", () => {
 describe("a pairing cannot freeze while both devices can reach the store", () => {
   it("survives a deposit that fails after the peer's object was taken", async () => {
     const [a, b] = await pair();
-    hold(a, [row({ entity: "event:a" })]);
-    hold(b, [row({ entity: "event:b", device_id: "dev_b", hlc_ms: 2_000 })]);
+    hold(a, [row({ entity: "event:consume_a" })]);
+    hold(b, [
+      row({ entity: "event:consume_b", device_id: "dev_b", hlc_ms: 2_000 }),
+    ]);
     const sulking: Store = {
       ...store,
       deposit: async () => {
@@ -504,7 +508,7 @@ describe("a collection that finds nothing is a normal outcome", () => {
 describe("the collector deletes only after the final chunk verifies", () => {
   it("leaves a truncated deposit where it is, and takes it on a later open", async () => {
     const [a, b] = await pair();
-    hold(a, [row({ entity: "event:one" })]);
+    hold(a, [row({ entity: "event:consume_one" })]);
     await wake(a);
 
     const address = await collectAddress(b);
@@ -529,7 +533,10 @@ describe("the ceiling drains rather than refusing", () => {
   it("empties a backlog one ceiling per round trip, with no one-sided state", async () => {
     const [a, b] = await pair();
     const many = Array.from({ length: 24 }, (_, n) =>
-      row({ entity: `event:${String(n).padStart(3, "0")}`, hlc_ms: 1_000 + n })
+      row({
+        entity: `event:consume_${String(n).padStart(3, "0")}`,
+        hlc_ms: 1_000 + n,
+      })
     );
     hold(a, many);
 
@@ -557,13 +564,13 @@ describe("the ceiling drains rather than refusing", () => {
 
   it("sends the oldest rows first, so a truncated deposit withholds nothing", async () => {
     const [a, b] = await pair();
-    // The primary key is entity-first, so `event:aaa` walks ahead of
-    // `event:bbb` while carrying the **later** stamp. A deposit truncated in
+    // The primary key is entity-first, so `event:consume_aaa` walks ahead of
+    // `event:consume_bbb` while carrying the **later** stamp. A deposit truncated in
     // key order would tell its peer it had been brought up to 900, and
-    // `event:bbb` — stamped 100 — would never be offered again.
+    // `event:consume_bbb` — stamped 100 — would never be offered again.
     hold(a, [
-      row({ entity: "event:aaa", hlc_ms: 900 }),
-      row({ entity: "event:bbb", hlc_ms: 100 }),
+      row({ entity: "event:consume_aaa", hlc_ms: 900 }),
+      row({ entity: "event:consume_bbb", hlc_ms: 100 }),
     ]);
 
     const narrow = { ceilingBytes: 340, chunkBudgetBytes: 1 };
@@ -632,13 +639,13 @@ async function leaveDeposit(
 describe("a deposit follows the data rather than the open", () => {
   it("lands every rewrite before a collection on the same address", async () => {
     const [a] = await pair();
-    hold(a, [row({ entity: "event:one" })]);
+    hold(a, [row({ entity: "event:consume_one" })]);
 
     const address = await depositAddress(a);
     await deposit(a);
-    hold(a, [row({ entity: "event:two" })]);
+    hold(a, [row({ entity: "event:consume_two" })]);
     await deposit(a);
-    hold(a, [row({ entity: "event:three" })]);
+    hold(a, [row({ entity: "event:consume_three" })]);
     const third = await deposit(a);
 
     // The whole affordability of depositing on every change: the index advances
@@ -653,9 +660,9 @@ describe("a deposit follows the data rather than the open", () => {
 
   it("carries the whole delta to a peer that opens once, afterwards", async () => {
     const [a, b] = await pair();
-    hold(a, [row({ entity: "event:one" })]);
+    hold(a, [row({ entity: "event:consume_one" })]);
     await deposit(a);
-    hold(a, [row({ entity: "event:two" })]);
+    hold(a, [row({ entity: "event:consume_two" })]);
     await deposit(a);
 
     expect((await wake(b)).collected).toBe(2);
@@ -671,7 +678,7 @@ describe("a deposit follows the data rather than the open", () => {
     // B deposits again inside the same open, with no collection between. The
     // word it says is the one it said on the wake: an acknowledgement is
     // re-asserted in every deposit, which is what heals a lost one.
-    hold(b, [row({ entity: "event:b", device_id: "dev_b" })]);
+    hold(b, [row({ entity: "event:consume_b", device_id: "dev_b" })]);
     const again = await deposit(b);
 
     expect(again.deposited).toBe(1);
@@ -693,7 +700,7 @@ describe("a deposit follows the data rather than the open", () => {
     await wake(b);
     expect(held.has(address)).toBe(false);
 
-    hold(a, [row({ entity: "event:two" })]);
+    hold(a, [row({ entity: "event:consume_two" })]);
     const again = await deposit(a);
 
     // The lane may not advance on a refusal — only a sealed acknowledgement

@@ -38,7 +38,9 @@ type Records = typeof import("../../src/lib/stores/paired-devices");
 const hex = (bytes: Uint8Array) =>
   [...bytes].map((b) => b.toString(16).padStart(2, "0")).join("");
 
-const A_VECTOR: VersionVector = { dev_b: { hlc_ms: 12, hlc_ctr: 3 } };
+const A_VECTOR: VersionVector = {
+  dev_b: { food: { hlc_ms: 12, hlc_ctr: 3 } },
+};
 
 /** A pairing act's chains, from a secret a test can still hold afterwards. */
 async function chainsFrom(fill: number): Promise<PairedChains> {

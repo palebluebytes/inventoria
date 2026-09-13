@@ -25,7 +25,8 @@ import { compareHlcMark, type Hlc, type HlcKey, type HlcMark } from "./hlc";
 import {
   foldVersionVector,
   vectorAboveMatch,
-  VERSION_VECTOR_SQL,
+  versionVectorQuery,
+  type VectorMark,
   type VersionVector,
 } from "./version-vector";
 
@@ -350,7 +351,8 @@ export function readLedgerSummary(
 }
 
 /**
- * What this ledger holds, per originating device (ADR-0075 §6).
+ * What this ledger holds, per originating device and Tracked Domain
+ * (ADR-0075 §6, re-keyed by ADR-0103 §5).
  *
  * The whole of the sync watermark, and it is a **read** rather than a record:
  * nothing is stored, so nothing can fall out of step with the table it
@@ -358,7 +360,8 @@ export function readLedgerSummary(
  * shape; this is the seam that runs it where SQLite lives.
  */
 export function readLedgerVersionVector(db: LedgerDb): VersionVector {
-  return foldVersionVector(execRows<HlcKey>(db, VERSION_VECTOR_SQL));
+  const { sql, bind } = versionVectorQuery();
+  return foldVersionVector(execRows<VectorMark>(db, sql, bind));
 }
 
 /** The position a paged read resumes from, taken off the row it stopped at. */

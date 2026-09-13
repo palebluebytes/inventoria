@@ -264,7 +264,7 @@ describe("two devices converge, and what crosses is what the peer lacks", () => 
     await converge(a, b);
 
     expect(readLedgerVersionVector(b.db)).toEqual({
-      device_a: { hlc_ms: 4_242, hlc_ctr: 9 },
+      device_a: { habits: { hlc_ms: 4_242, hlc_ctr: 9 } },
     });
   });
 });
@@ -321,7 +321,7 @@ describe("the closing exchange", () => {
 
     // B was empty when it opened. A's record must say B now holds A's row.
     expect(ended.a.peer_vector).toEqual({
-      device_a: { hlc_ms: 7_000, hlc_ctr: 0 },
+      device_a: { habits: { hlc_ms: 7_000, hlc_ctr: 0 } },
     });
     expect(ended.a.peer_vector).toEqual(readLedgerVersionVector(b.db));
     expect(ended.b.peer_vector).toEqual(readLedgerVersionVector(a.db));

@@ -46,7 +46,7 @@ import {
   type LedgerRow,
 } from "../../src/lib/db/db.core";
 import {
-  foldVersionVector,
+  vectorOfRows,
   type VersionVector,
 } from "../../src/lib/db/version-vector";
 import { storeOverFetch, type Store } from "../../src/lib/p2p/deposit-store";
@@ -165,7 +165,7 @@ async function carried(): Promise<LedgerRow[]> {
 
 /** What a peer that collected the object at the address would then hold. */
 const carriedVector = async (): Promise<VersionVector> =>
-  foldVersionVector(await carried());
+  vectorOfRows(await carried());
 
 // ---------------------------------------------------------------------------
 // A store that can hold one answer back after its write has landed
@@ -236,7 +236,7 @@ describe("two wakes at one origin leave the record agreeing with the store", () 
 
     // A deposit already stands at this index, so the next rewrite is
     // conditional and a refusal has somewhere to come from.
-    importLedgerRows(db, [logged("event:breakfast", 1_000)]);
+    importLedgerRows(db, [logged("event:consume_breakfast", 1_000)]);
     await wakeOver(store);
 
     const holding = holdNextDeposit();
@@ -246,7 +246,7 @@ describe("two wakes at one origin leave the record agreeing with the store", () 
     // A meal logged in the other window, after the first wake read the ledger
     // and before the second one does. This is the whole of what makes the two
     // deltas differ (#418).
-    importLedgerRows(db, [logged("event:lunch", 2_000)]);
+    importLedgerRows(db, [logged("event:consume_lunch", 2_000)]);
 
     // The second wake, run as far as it can get while the first is still
     // holding: to the back of the queue with a lock, and all the way through
@@ -274,8 +274,8 @@ describe("two wakes at one origin leave the record agreeing with the store", () 
     // never be offered again.
     expect(standing().brings).toEqual(await carriedVector());
     expect((await carried()).map((row) => row.entity).sort()).toEqual([
-      "event:breakfast",
-      "event:lunch",
+      "event:consume_breakfast",
+      "event:consume_lunch",
     ]);
   });
 
@@ -313,13 +313,13 @@ describe("a runtime that cannot give up the lock still wakes", () => {
     it(`deposits on the lane with ${runtime}`, async () => {
       stub();
       await paired();
-      importLedgerRows(db, [logged("event:breakfast", 1_000)]);
+      importLedgerRows(db, [logged("event:consume_breakfast", 1_000)]);
 
       await wakeOver(route);
 
       expect(bucket.held.has(await address())).toBe(true);
       expect((await carried()).map((row) => row.entity)).toEqual([
-        "event:breakfast",
+        "event:consume_breakfast",
       ]);
     });
   }
@@ -335,7 +335,7 @@ describe("a runtime that cannot give up the lock still wakes", () => {
         route.deposit(at, sealed, ifMatch)
       ),
     };
-    importLedgerRows(db, [logged("event:breakfast", 1_000)]);
+    importLedgerRows(db, [logged("event:consume_breakfast", 1_000)]);
 
     await wakeOver(counted);
 
@@ -345,10 +345,10 @@ describe("a runtime that cannot give up the lock still wakes", () => {
   it("keeps the record agreeing with the store across two errands", async () => {
     stubNoLockManager();
     await paired();
-    importLedgerRows(db, [logged("event:breakfast", 1_000)]);
+    importLedgerRows(db, [logged("event:consume_breakfast", 1_000)]);
 
     await wakeOver(route);
-    importLedgerRows(db, [logged("event:lunch", 2_000)]);
+    importLedgerRows(db, [logged("event:consume_lunch", 2_000)]);
     await wakeOver(route);
 
     expect(standing().etag).toBe(bucket.held.get(await address())!.etag);
