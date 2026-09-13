@@ -84,10 +84,13 @@
      * a box can only stick where it stands, which is the whole reason this is a
      * prop and not a sibling in `FoodView`.
      *
-     * Optional so nothing but the food screen has to know about a Selection;
-     * the day renders its slot either way.
+     * Required, not optional: the day has exactly one host and it always passes
+     * one. The snippet is empty while no Selection exists, which is where that
+     * condition belongs — a day with no bar to render is not a case this
+     * component has, and an `?` here would be an invariant papered over
+     * (CODING_STANDARDS §3.2).
      */
-    selectionBar?: Snippet;
+    selectionBar: Snippet;
     /** The line a partial copy left behind (ADR-0058 §11), or null after a
      *  clean one. The host only passes one that belongs to the day on screen. */
     copyNote?: CopyNote | null;
@@ -117,16 +120,17 @@
   // ride a fluid scale, so a spacer written as a sum of tokens would be a second
   // copy of that geometry and wrong for one of the four meals.
   //
-  // **The last UNFOLDED height is what the day keeps**, which is the reason
-  // these are two values rather than one. The bar collapses to nothing while a
-  // Selection is live (ADR-0101 §4), and letting the reserve collapse with it
-  // would shorten the page's scroll range at the exact moment the Selection bar
-  // arrives to stand in the same place at much the same height. The day reserves
-  // the foot of the screen for whichever bar is in it.
-  let wayInBarBox = $state(0);
-  let wayInBarHeight = $state(0);
+  // **The reserve is the last UNFOLDED measurement**, which is why these are two
+  // values rather than one. The bar collapses to nothing while a Selection is
+  // live (ADR-0101 §4), and letting the reserve collapse with it would shorten
+  // the page's scroll range at the exact moment the Selection bar arrives to
+  // stand in the same place at much the same height. The day reserves the foot
+  // of the screen for whichever bar is in it.
+  let wayInBarMeasured = $state(0);
+  let wayInBarReserve = $state(0);
   $effect(() => {
-    if (!selectionActive && wayInBarBox > 0) wayInBarHeight = wayInBarBox;
+    if (!selectionActive && wayInBarMeasured > 0)
+      wayInBarReserve = wayInBarMeasured;
   });
 
   // A long-press is followed by a synthetic click on release; without this the
@@ -403,7 +407,7 @@
   </section>
 
   <!-- Timeline & Logged Meals -->
-  <div class="timeline mt-6" style="--way-in-bar-h: {wayInBarHeight}px">
+  <div class="timeline mt-6" style="--way-in-bar-h: {wayInBarReserve}px">
     <!-- The slot the two bars share (ADR-0101 §4). Above 768 they STACK in one
          grid cell rather than following each other down the page, which is what
          lets a Selection cover the Way-in bar up here the way z-index covers it
@@ -419,13 +423,13 @@
         {dbReady}
         {mealHasPast}
         {onEnterMeal}
-        bind:height={wayInBarBox}
+        bind:height={wayInBarMeasured}
       />
       <!-- The Selection's own bar, in the Way-in bar's slot. The two never stand
            here together — the Way-in bar folds the moment a Selection exists,
            which is what `folded` above is — so the slot holds whichever one the
            screen is in. -->
-      {@render selectionBar?.()}
+      {@render selectionBar()}
     </div>
     {#each meal_types as meal_type}
       <div class="meal-section">

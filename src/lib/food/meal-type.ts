@@ -32,3 +32,28 @@ export function asMealType(
     ? (value as MealType)
     : fallback;
 }
+
+/**
+ * The meal nearest a moment on the clock.
+ *
+ * A domain rule rather than a presentation one, which is why it lives beside the
+ * four names rather than in the bar that consumes it: what counts as breakfast
+ * is a fact about meals, and a second screen asking the same question must get
+ * the same answer.
+ *
+ * The bounds are settled by hand and not derived from anything in the ledger —
+ * before 11 is breakfast, before 15 is lunch, before 21 is dinner, and the late
+ * hours are the snack. Nothing here reads a clock: the caller passes the moment,
+ * so the boundaries can be swept hour by hour without a fake timer.
+ *
+ * Its one use is a STARTING value for the day's Way-in bar (ADR-0101 §2), never
+ * a later change. Being wrong costs one tap on a tab, which is the trade §2
+ * refuses to dodge by inferring the meal from where the page is scrolled.
+ */
+export function mealNearest(at: Date): MealType {
+  const hour = at.getHours();
+  if (hour < 11) return "breakfast";
+  if (hour < 15) return "lunch";
+  if (hour < 21) return "dinner";
+  return "snack";
+}

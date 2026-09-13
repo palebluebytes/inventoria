@@ -87,12 +87,12 @@
     justify-content: center;
     gap: var(--space-3xs);
   }
-  /* Below the scale's floor deliberately: `--step-n3` is the smallest step and
-     this sits under it, because the caption is a label on a mark rather than
-     text to be read — the mark is what is being tapped and the word only says
-     which one it is. */
+  /* The scale's own floor, `--step-n4`, which nothing used until now. A caption
+     is a label on a mark rather than text to be read: the mark is what is being
+     tapped and the word only says which one it is, so it takes the smallest step
+     the scale has and not a literal between two of them. */
   .caption {
-    font-size: 0.5625rem;
+    font-size: var(--step-n4);
     font-weight: 700;
     letter-spacing: 0.06em;
     text-transform: uppercase;

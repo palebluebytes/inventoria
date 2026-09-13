@@ -1,6 +1,11 @@
 <script lang="ts">
   import { Tabs } from "bits-ui";
-  import { asMealType, MEAL_TYPES, type MealType } from "../../food/meal-type";
+  import {
+    asMealType,
+    mealNearest,
+    MEAL_TYPES,
+    type MealType,
+  } from "../../food/meal-type";
   import type { WayIn } from "../../food/ways-in";
   import WayInRail from "./WayInRail.svelte";
 
@@ -99,25 +104,11 @@
     height?: number;
   } = $props();
 
-  /**
-   * The meal nearest the clock. A starting value, never a later change — which
-   * is the whole of §2: nothing moves under you once the screen is up.
-   *
-   * The bounds are the ones a day divides on rather than a derivation from
-   * anything in the ledger: before 11 is breakfast, before 15 is lunch, before
-   * 21 is dinner, and the late hours are the snack. Being wrong costs one tap
-   * on a tab, which is the cost §2 accepts in exchange for the target holding
-   * still.
-   */
-  function nearestMeal(): MealType {
-    const hour = new Date().getHours();
-    if (hour < 11) return "breakfast";
-    if (hour < 15) return "lunch";
-    if (hour < 21) return "dinner";
-    return "snack";
-  }
-
-  let target = $state<MealType>(nearestMeal());
+  // The meal nearest the clock, read ONCE at mount. A starting value, never a
+  // later change, which is the whole of §2: nothing moves under you once the
+  // screen is up, and only a tab moves the target afterwards. Which meal an hour
+  // belongs to is `food/meal-type.ts`'s to say, not this bar's.
+  let target = $state<MealType>(mealNearest(new Date()));
 </script>
 
 <div class="way-in-bar" class:folded bind:offsetHeight={height}>
