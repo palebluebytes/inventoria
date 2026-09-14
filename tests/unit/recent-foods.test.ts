@@ -40,6 +40,34 @@ function ate(
   };
 }
 
+/**
+ * A Recipe Instantiation: a Consumption Event targeting a Recipe Twin and
+ * carrying the frozen `event/instantiation` snapshot that makes it one. Its
+ * quantity is a real serving count, because #424 stopped it being a literal.
+ */
+function cooked(target: string, meal_type: string): ConsumptionEvent {
+  const event = ate(target, meal_type, "2 servings");
+  return {
+    ...event,
+    instantiation: {
+      based_on: target,
+      yield: 1,
+      ingredients: [
+        {
+          ref: "fdc:1",
+          name: "Mock Oats",
+          amount: 200,
+          unit: "g",
+          calories: 200,
+          protein: 10,
+          fat: 4,
+          carbs: 20,
+        },
+      ],
+    },
+  };
+}
+
 /** The targets of `candidates`, in order — what most cases actually assert. */
 function targets(candidates: RecentCandidate[]): string[] {
   return candidates.map((c) => c.target);
@@ -454,5 +482,40 @@ describe("recentCandidatesForMeal is ordered by frecency (#165)", () => {
     const candidates = recentCandidatesForMeal(events, "breakfast");
     expect(candidates[0].target).toBe("fdc:oats");
     expect(candidates[0].unit).toBe(parseLoggedQuantity("60g").unit);
+  });
+});
+
+describe("Recipe Instantiations are not Recent candidates", () => {
+  it("offers the foods of a meal but not the recipes cooked in it", () => {
+    const events = [
+      ate("fdc:oats", "breakfast"),
+      cooked("recipe:dinner_combo", "breakfast"),
+      ate("gtin:milk", "breakfast", "200ml"),
+    ];
+    expect(targets(recentCandidatesForMeal(events, "breakfast"))).toEqual([
+      "gtin:milk",
+      "fdc:oats",
+    ]);
+  });
+
+  it("keeps a recipe out however much of it was weighed", () => {
+    // The exclusion used to ride on every instantiation writing the literal
+    // "1 serving", which sent the catalogue rule down its whole-serving arm. A
+    // weighed instantiation takes the measured arm, so the rule has to be about
+    // what a recipe is rather than about how its quantity was spelled.
+    const events = [cooked("recipe:dinner_combo", "lunch")];
+    expect(recentCandidatesForMeal(events, "lunch")).toEqual([]);
+  });
+
+  it("does not let a recipe's frecency order the foods around it", () => {
+    // The exclusion sits ahead of the frecency walk, so a recipe cooked forty
+    // times at a meal is not evidence about what gets eaten there.
+    const events = [
+      ...Array.from({ length: 40 }, () => cooked("recipe:combo", "dinner")),
+      ate("fdc:rice", "dinner"),
+    ];
+    expect(targets(recentCandidatesForMeal(events, "dinner"))).toEqual([
+      "fdc:rice",
+    ]);
   });
 });

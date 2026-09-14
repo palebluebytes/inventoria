@@ -76,7 +76,23 @@ export function recentCandidatesForMeal(
   const candidates: RecentCandidate[] = [];
 
   // Copied before sorting: the caller passes the consumption store's own array.
-  const atThisMeal = events.filter((event) => event.meal_type === meal_type);
+  // Recent offers FOODS. A Recipe Instantiation targets a Recipe Twin, which
+  // carries no `nutrition/info` panel for the amount control to open against and
+  // has its own way in, so it is neither a candidate nor evidence of what gets
+  // eaten at this meal — which is why it is dropped here, ahead of the frecency
+  // walk, rather than inside the loop below.
+  //
+  // This was enforced by accident until #424. Every instantiation wrote the
+  // literal quantity "1 serving", so the catalogue rule downstream
+  // (`isCatalogueFood`, ADR-0035 §6) took its whole-serving arm, looked for a
+  // reusable `food/manual_entry` on the recipe twin, found none, and dropped it.
+  // The moment an instantiation started recording what it actually weighed, that
+  // arm stopped being taken and every recipe appeared in the row — so the rule is
+  // stated here, where it is about what a recipe IS rather than about how one
+  // happened to be spelled.
+  const atThisMeal = events.filter(
+    (event) => event.meal_type === meal_type && !event.instantiation
+  );
 
   // The unit still comes off the NEWEST log of each food, whatever the ordering
   // below does. It is the amount control's seed — what this food was last logged

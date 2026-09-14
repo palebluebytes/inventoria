@@ -64,6 +64,11 @@
 
   let ingredients = $state<RecipeIngredient[]>([]);
   let recipeYield = $state<number | string>(1);
+  // How many servings this occasion is, owned by the editor below and read back
+  // here only to be said on the log. It is not a divisor by the time it arrives
+  // — the rows have already been scaled by it — and it is the fallback phrase
+  // for a list whose ingredients cannot be weighed into one measure.
+  let servings = $state<number | string>(1);
   let title = $state("Recipe");
   // The template this occasion is based on — carried onto the instantiation as
   // `based_on` (= event/target). For a correction it comes from the snapshot.
@@ -164,7 +169,8 @@
           resolve,
           resolveName,
           meal_type,
-          selectedDate
+          selectedDate,
+          sanitizeYield(servings)
         );
       } else {
         // Instantiate: purely additive — log and retract nothing.
@@ -175,7 +181,8 @@
           resolve,
           resolveName,
           meal_type,
-          selectedDate
+          selectedDate,
+          sanitizeYield(servings)
         );
       }
       onCommitted();
@@ -210,6 +217,7 @@
   <IngredientListEditor
     bind:ingredients
     bind:recipeYield
+    bind:servings
     servingsMode="portions"
   />
 {:else}

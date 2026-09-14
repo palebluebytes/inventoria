@@ -31,12 +31,20 @@
   let {
     ingredients = $bindable(),
     recipeYield = $bindable(),
+    servings = $bindable(1),
     servingsMode = "makes",
   }: {
     ingredients: RecipeIngredient[];
     /** schema.org recipeYield; held loosely so the field can be cleared while
      *  typing, sanitised to a positive number for the live derivation. */
     recipeYield: number | string;
+    /**
+     * `portions` mode only: how many servings this occasion is. Bound out so the
+     * saving surface can say it on the log (ADR-0105 §8). It is not a divisor by
+     * the time it leaves here — the rows have already been scaled by it — only
+     * the word for how big the occasion was.
+     */
+    servings?: number | string;
     /**
      * What the servings control means on this surface — the two verbs ask
      * genuinely different questions of the same number:
@@ -53,9 +61,6 @@
     servingsMode?: "makes" | "portions";
   } = $props();
 
-  // `portions` mode only: how many servings this occasion is, against which the
-  // seeded amounts are one. Held as text so the field can be cleared mid-type.
-  let servings = $state<number | string>(1);
   // The last APPLIED count — the basis each change scales from, so the amounts
   // move by the ratio between the two rather than accumulating from 1.
   let appliedServings = 1;
@@ -199,12 +204,19 @@
     />
   {:else}
     <label class="fl" for="recipe-servings">Servings</label>
+    <!-- A fraction of a serving is a thing people eat, and while this field
+         stepped in whole ones from a floor of 1 it was not sayable: the spinner
+         could not reach half a portion, and the keypad `inputmode="numeric"`
+         produces has no decimal point to type one with (ADR-0105 §6). A
+         non-positive count is still refused, by `changeServings` rather than by
+         the widget, which is where the refusal can say what it means. -->
     <input
       id="recipe-servings"
       class="tin yield-in"
       type="number"
-      inputmode="numeric"
-      min="1"
+      inputmode="decimal"
+      min="0"
+      step="any"
       value={servings}
       oninput={(e) => changeServings(e.currentTarget.value)}
     />

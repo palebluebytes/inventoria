@@ -597,6 +597,14 @@ export async function saveRecipe(
  * so a logged recipe's numbers are the true derivation, not hand-supplied.
  * `resolve` yields each referenced twin's panel and `resolveName` its display name
  * (both from the in-memory builder, or a test double) — read, never mutated.
+ *
+ * `servings` is how many servings the occasion was, and it reaches the ledger as
+ * the event's quantity rather than as a divisor: the caller has already scaled
+ * the rows, so the numbers are settled before this runs and the count is only
+ * there to be *said* (ADR-0105 §8). It is said through {@link quantityLabel},
+ * which ADR-0060 §4 makes the single site that spells an `event/quantity` — this
+ * one wrote the literal `"1 serving"` until #424, reporting every instantiation
+ * as one serving however many the cook had asked for.
  */
 export async function logRecipeConsumption(
   recipeId: string,
@@ -605,7 +613,8 @@ export async function logRecipeConsumption(
   resolve: (ref: string) => NutritionInfo | undefined,
   resolveName: (ref: string) => string | undefined,
   meal_type: string,
-  selectedDate: Date
+  selectedDate: Date,
+  servings = 1
 ): Promise<string> {
   const snapshot = deriveRecipeNutrition(ingredients, recipeYield, resolve);
   const instantiation = buildInstantiation(
@@ -617,7 +626,7 @@ export async function logRecipeConsumption(
   );
   return logFoodConsumption(
     recipeId,
-    "1 serving",
+    quantityLabel(servings, "serving"),
     meal_type,
     snapshot.calories,
     snapshot.protein,
@@ -648,7 +657,8 @@ export async function correctInstantiation(
   resolve: (ref: string) => NutritionInfo | undefined,
   resolveName: (ref: string) => string | undefined,
   meal_type: string,
-  selectedDate: Date
+  selectedDate: Date,
+  servings = 1
 ): Promise<string> {
   const newId = await logRecipeConsumption(
     based_on,
@@ -657,7 +667,8 @@ export async function correctInstantiation(
     resolve,
     resolveName,
     meal_type,
-    selectedDate
+    selectedDate,
+    servings
   );
   await retractConsumptionEvent(editId, newId);
   return newId;

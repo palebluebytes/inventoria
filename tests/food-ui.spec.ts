@@ -2312,6 +2312,49 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     );
   });
 
+  test("says how many servings the occasion was, fractions included", async ({
+    page,
+  }) => {
+    await page.goto("/?mem=1");
+    await waitForDbReady(page);
+    await setupApiKeys(page);
+
+    await buildDinnerCombo(page);
+
+    await openWayIn(page, "breakfast", "recipe");
+    await page.locator(".recipe-pick", { hasText: "Dinner Combo" }).click();
+
+    // The editor opens at one serving: oats 50 g + banana 150 g, 323 kcal.
+    const servings = page.locator("#recipe-servings");
+    const figures = page.locator(
+      '[data-testid="recipe-figures"] .nutrient-calories strong'
+    );
+    await expect(servings).toHaveValue("1");
+    await expect(figures).toContainText("323 kcal");
+
+    // Half a portion, which the field refused to hold while it stepped in whole
+    // servings from a floor of 1 (ADR-0105 §6).
+    await servings.fill("0.5");
+    await expect(figures).toContainText("161.5 kcal");
+    await expect(
+      page.locator(".recipe-ingredient", { hasText: "Mock Oats" })
+    ).toContainText("25g");
+
+    // And back up to two, which is what gets logged.
+    await servings.fill("2");
+    await expect(figures).toContainText("646 kcal");
+
+    // The day says what was eaten. It read "1 serving" for every instantiation
+    // however many the cook had asked for, because the quantity was a literal
+    // rather than a measurement (ADR-0105 §8).
+    await page.locator("#log-recipe-btn").click();
+    const breakfastSection = page.locator(
+      '.meal-section:has(.meal-title-btn:text-is("BREAKFAST"))'
+    );
+    await expect(breakfastSection).toContainText("2 servings");
+    await expect(breakfastSection).toContainText("646 kcal");
+  });
+
   test("corrects a past instantiation by supersession (retract-and-replace)", async ({
     page,
   }) => {
