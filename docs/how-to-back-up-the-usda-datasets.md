@@ -92,6 +92,18 @@ check is a thing somebody typed.
 them byte for byte with what the generator would write. A hand-edit, a reordering or
 a half-finished regeneration fails there rather than reaching a user.
 
+## Seeing what the corpus became
+
+`pnpm docs:food-search` regenerates [food-search.html](food-search.html), which is the
+readable account of the two files above: how a typed word reaches a row, which rules
+removed the other 5,530 records, and the cause of each removal derived by ablation
+rather than read off the rules. It embeds the whole corpus and the app's own ranking
+code, so it searches offline and shows the key vector that placed every result.
+
+It is generated, never edited by hand, and `pnpm check` fails when it has drifted from
+the corpus it describes — so regenerating the artifacts above and committing them
+without it is caught rather than merged.
+
 ## Notes on the commands
 
 `check` needs no credentials and exits non-zero when anything is behind, which is

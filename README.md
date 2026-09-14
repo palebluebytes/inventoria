@@ -62,6 +62,10 @@ search needs no key and no network
 need relaying is an arbitrary page you share in, which a small Cloudflare Worker
 fetches so the browser can sidestep cross-origin limits.
 
+Those two files hold 2,444 rows of the 7,974 records USDA publishes.
+[docs/food-search.html](docs/food-search.html) explains how the search narrows them and
+what it discarded, and carries the whole corpus so you can search it there.
+
 From there the rule is absolute: writes only append. When the worker commits a new
 datom it broadcasts a signal, and every Svelte store watching a folded view re-runs
 its query. The dashed path is the intended future, not something that exists yet.
@@ -146,17 +150,24 @@ held up by a slow browser run.
 
 ## Where the documentation lives
 
-| You want                                   | Read                                                                                 |
-| ------------------------------------------ | ------------------------------------------------------------------------------------ |
-| The words this project uses, precisely     | [CONTEXT.md](CONTEXT.md)                                                             |
-| The rules code is reviewed against         | [CODING_STANDARDS.md](CODING_STANDARDS.md)                                           |
-| Why a thing is the way it is               | [docs/adr/](docs/adr/)                                                               |
-| The storage layer and its schema           | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)                                         |
-| Entity prefixes and attribute keys         | [docs/eavt-vocabulary.md](docs/eavt-vocabulary.md)                                   |
-| Why the ledger is append-only              | [docs/append-only-ledger.md](docs/append-only-ledger.md)                             |
-| How to add a new tracked domain            | [docs/how-to-add-a-tracked-domain.md](docs/how-to-add-a-tracked-domain.md)           |
-| How the USDA data is backed up and bundled | [docs/how-to-back-up-the-usda-datasets.md](docs/how-to-back-up-the-usda-datasets.md) |
-| Rules for AI agents working here           | [AGENTS.md](AGENTS.md)                                                               |
+| You want                                          | Read                                                                                 |
+| ------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| The words this project uses, precisely            | [CONTEXT.md](CONTEXT.md)                                                             |
+| The rules code is reviewed against                | [CODING_STANDARDS.md](CODING_STANDARDS.md)                                           |
+| Why a thing is the way it is                      | [docs/adr/](docs/adr/)                                                               |
+| The storage layer and its schema                  | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)                                         |
+| Entity prefixes and attribute keys                | [docs/eavt-vocabulary.md](docs/eavt-vocabulary.md)                                   |
+| Why the ledger is append-only                     | [docs/append-only-ledger.md](docs/append-only-ledger.md)                             |
+| How to add a new tracked domain                   | [docs/how-to-add-a-tracked-domain.md](docs/how-to-add-a-tracked-domain.md)           |
+| How the USDA data is backed up and bundled        | [docs/how-to-back-up-the-usda-datasets.md](docs/how-to-back-up-the-usda-datasets.md) |
+| How food search works, and every food it discards | [docs/food-search.html](docs/food-search.html)                                       |
+| Rules for AI agents working here                  | [AGENTS.md](AGENTS.md)                                                               |
 
 Work is tracked as GitHub issues via the `gh` CLI. Superseded planning documents are
 kept under [docs/history/](docs/history/).
+
+[docs/food-search.html](docs/food-search.html) is generated rather than written, by
+`pnpm docs:food-search`, and `pnpm check` fails if it has drifted from the corpus it
+describes. Open it from a checkout rather than from GitHub, which serves a `.html`
+file as source: it carries the whole corpus and the app's own ranking code, so it
+searches offline and shows the keys that placed each row.
