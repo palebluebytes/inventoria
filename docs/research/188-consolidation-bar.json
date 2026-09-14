@@ -33,6 +33,13 @@
   "gold_set_amendments": [
     {
       "date": "2026-09-14",
+      "query": "(all)",
+      "what": "Human labels refreshed against the names the rows ship under. 35 of 56 were stale; no fdcId changed.",
+      "why": "The labels had drifted behind ADR-0101's renames - `Beef, ground, 80% lean meat / 20% fat, raw` against a row that now ships without the `raw`, `Eggs, Grade A, Large, egg whole` against `Egg, chicken, whole, fresh`. Every one of the 56 fdcIds still resolved, which is the point: this set was re-keyed onto fdcIds precisely so a rename could not be read as a missing row, and the drift arriving at 35 of 56 while costing nothing is that decision being vindicated rather than a fault.",
+      "not_a_goalpost_move": "C1 25/44 and C2 32/44 before the refresh and after it, measured both ways. A label cannot move a score because the bar never reads one - if either number had moved, the set would have been keyed on descriptions after all and the refresh would have been the bug rather than the fix."
+    },
+    {
+      "date": "2026-09-14",
       "query": "rice",
       "was": [2512381, "Rice, white, long grain, unenriched, raw"],
       "now": [168877, "Rice, white, long-grain"],
@@ -44,56 +51,56 @@
     {
       "query": "beef",
       "fdc_id": 2514744,
-      "description": "Beef, ground, 80% lean meat / 20% fat, raw"
+      "description": "Beef, ground, 80% lean meat / 20% fat"
     },
     {
       "query": "pork",
       "fdc_id": 167818,
-      "description": "Pork, fresh, loin, whole, separable lean and fat, raw"
+      "description": "Pork, fresh, loin, whole, separable lean and fat"
     },
     {
       "query": "chicken",
       "fdc_id": 2646170,
-      "description": "Chicken, breast, boneless, skinless, raw"
+      "description": "Chicken, breast, boneless, skinless"
     },
-    { "query": "lamb", "fdc_id": 2727570, "description": "Lamb, ground, raw" },
+    { "query": "lamb", "fdc_id": 2727570, "description": "Lamb, ground" },
     {
       "query": "bacon",
       "fdc_id": 168382,
-      "description": "Bacon, pre-sliced, reduced/low sodium, unprepared",
+      "description": "Bacon, pre-sliced, reduced/low sodium",
       "note": "The corpus ships no plain bacon; this is the nearest, and it leads today. A near-hole recorded rather than hidden."
     },
     {
       "query": "ham",
       "fdc_id": 167875,
-      "description": "Pork, cured, ham, whole, separable lean and fat, unheated",
+      "description": "Pork, cured, ham, whole, separable lean and fat",
       "note": "Typing `ham` returns ONE row (Ham, sliced, restaurant) while `gammon` returns 88, because ADR-0062's stray-mention rule drops rows the typed word reaches only past the food's own name. The cured hams ship and are unreachable by their own word."
     },
     {
       "query": "turkey",
       "fdc_id": 171093,
-      "description": "Turkey, breast, meat and skin, raw"
+      "description": "Turkey, breast, meat and skin"
     },
     {
       "query": "salmon",
       "fdc_id": 2684441,
-      "description": "Fish, salmon, Atlantic, farm raised, raw"
+      "description": "Fish, salmon, Atlantic, farm raised"
     },
     {
       "query": "tuna",
       "fdc_id": 175159,
-      "description": "Fish, tuna, fresh, yellowfin, raw",
+      "description": "Fish, tuna, fresh, yellowfin",
       "note": "No canned tuna ships, so the gold is the commonest fresh one."
     },
     {
       "query": "cod",
       "fdc_id": 171955,
-      "description": "Fish, cod, Atlantic, raw"
+      "description": "Fish, cod, Atlantic"
     },
     {
       "query": "milk",
       "fdc_id": 171266,
-      "description": "Milk, whole, 3.7% milkfat"
+      "description": "Milk, cow, whole, 3.7% milkfat"
     },
     { "query": "cheese", "fdc_id": 328637, "description": "Cheese, cheddar" },
     {
@@ -110,7 +117,7 @@
     {
       "query": "egg",
       "fdc_id": 748967,
-      "description": "Eggs, Grade A, Large, egg whole",
+      "description": "Egg, chicken, whole, fresh",
       "note": "The plain raw hen's egg, a Foundation row carrying `Egg, whole, raw, fresh` as an ADR-0050 twin alias. Present and correctly merged; it loses to duck, goose, quail and turkey."
     },
     {
@@ -122,7 +129,7 @@
     {
       "query": "pasta",
       "fdc_id": 169736,
-      "description": "Pasta, dry, enriched"
+      "description": "Pasta, dry"
     },
     {
       "query": "bread",
@@ -132,7 +139,7 @@
     {
       "query": "flour",
       "fdc_id": 789890,
-      "description": "Flour, wheat, all-purpose, enriched, bleached"
+      "description": "Flour, wheat, all-purpose, bleached"
     },
     {
       "query": "oats",
@@ -142,20 +149,20 @@
     {
       "query": "potato",
       "fdc_id": 2346401,
-      "description": "Potatoes, russet, without skin, raw"
+      "description": "Potatoes, russet, without skin"
     },
-    { "query": "onion", "fdc_id": 170000, "description": "Onions, raw" },
+    { "query": "onion", "fdc_id": 170000, "description": "Onions" },
     {
       "query": "carrot",
       "fdc_id": 2258586,
-      "description": "Carrots, mature, raw"
+      "description": "Carrots, mature"
     },
     {
       "query": "tomato",
       "fdc_id": 170457,
-      "description": "Tomatoes, red, ripe, raw, year round average"
+      "description": "Tomatoes, red, ripe, year round average"
     },
-    { "query": "broccoli", "fdc_id": 747447, "description": "Broccoli, raw" },
+    { "query": "broccoli", "fdc_id": 747447, "description": "Broccoli" },
     { "query": "spinach", "fdc_id": 1999633, "description": "Spinach, mature" },
     {
       "query": "mushroom",
@@ -166,43 +173,43 @@
     {
       "query": "cabbage",
       "fdc_id": 2346407,
-      "description": "Cabbage, green, raw"
+      "description": "Cabbage, green"
     },
-    { "query": "peas", "fdc_id": 170419, "description": "Peas, green, raw" },
+    { "query": "peas", "fdc_id": 170419, "description": "Peas, green" },
     {
       "query": "apple",
       "fdc_id": 1750341,
-      "description": "Apples, gala, with skin, raw",
+      "description": "Apples, gala, with skin",
       "note": "No plain `Apples, raw` ships; gala is the most-grown variety and stands in for it."
     },
     {
       "query": "banana",
       "fdc_id": 1105314,
-      "description": "Bananas, ripe and slightly ripe, raw"
+      "description": "Bananas, ripe and slightly ripe"
     },
     {
       "query": "orange",
       "fdc_id": 169097,
-      "description": "Oranges, raw, all commercial varieties"
+      "description": "Oranges, all commercial varieties"
     },
     {
       "query": "strawberry",
       "fdc_id": 2346409,
-      "description": "Strawberries, raw"
+      "description": "Strawberries"
     },
     { "query": "sugar", "fdc_id": 746784, "description": "Sugars, granulated" },
     { "query": "salt", "fdc_id": 173468, "description": "Salt, table" },
     {
       "query": "beans",
       "fdc_id": 173744,
-      "description": "Beans, kidney, red, mature seeds, raw",
+      "description": "Beans, kidney, red, dried",
       "note": "CONTESTABLE. `beans` has no single answer a diarist agrees on - baked, green and kidney are three different logs. Kidney is picked as the commonest pulse and the choice is recorded as arguable rather than presented as obvious."
     },
-    { "query": "lentils", "fdc_id": 172420, "description": "Lentils, raw" },
+    { "query": "lentils", "fdc_id": 172420, "description": "Lentils" },
     {
       "query": "almonds",
       "fdc_id": 2346393,
-      "description": "Nuts, almonds, whole, raw"
+      "description": "Nuts, almonds, whole"
     },
     {
       "query": "oil",
@@ -210,16 +217,16 @@
       "description": "Oil, olive, salad or cooking"
     },
     { "query": "honey", "fdc_id": 169640, "description": "Honey" },
-    { "query": "garlic", "fdc_id": 1104647, "description": "Garlic, raw" },
+    { "query": "garlic", "fdc_id": 1104647, "description": "Garlic" },
     {
       "query": "lettuce",
       "fdc_id": 2346388,
-      "description": "Lettuce, iceberg, raw"
+      "description": "Lettuce, iceberg"
     },
     {
       "query": "cucumber",
       "fdc_id": 2346406,
-      "description": "Cucumber, with peel, raw"
+      "description": "Cucumber, with peel"
     }
   ],
   "excluded": [
@@ -269,7 +276,7 @@
     {
       "query": "chicken breast",
       "fdc_id": 2646170,
-      "description": "Chicken, breast, boneless, skinless, raw"
+      "description": "Chicken, breast, boneless, skinless"
     },
     {
       "query": "olive oil",
@@ -279,12 +286,12 @@
     {
       "query": "brown rice",
       "fdc_id": 2512380,
-      "description": "Rice, brown, long grain, unenriched, raw"
+      "description": "Rice, brown, long grain"
     },
     {
       "query": "whole milk",
       "fdc_id": 171266,
-      "description": "Milk, whole, 3.7% milkfat"
+      "description": "Milk, cow, whole, 3.7% milkfat"
     },
     {
       "query": "cheddar cheese",
@@ -299,17 +306,17 @@
     {
       "query": "minced beef",
       "fdc_id": 2514744,
-      "description": "Beef, ground, 80% lean meat / 20% fat, raw"
+      "description": "Beef, ground, 80% lean meat / 20% fat"
     },
     {
       "query": "chicken thigh",
       "fdc_id": 2646171,
-      "description": "Chicken, thigh, boneless, skinless, raw"
+      "description": "Chicken, thigh, boneless, skinless"
     },
     {
       "query": "sweet potato",
       "fdc_id": 168482,
-      "description": "Sweet potato, raw, unprepared (Includes foods for USDA's Food Distribution Program)"
+      "description": "Sweet potato"
     },
     {
       "query": "peanut butter",
@@ -324,7 +331,7 @@
     {
       "query": "red pepper",
       "fdc_id": 2258590,
-      "description": "Peppers, bell, red, raw"
+      "description": "Peppers, bell, red"
     }
   ]
 }
