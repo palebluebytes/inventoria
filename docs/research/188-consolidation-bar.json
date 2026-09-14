@@ -29,6 +29,17 @@
     }
   },
   "gold_set_note": "Keyed by fdcId, with the description carried alongside as a human label only. Descriptions are NOT the key: ADR-0056's shipped-name work renames rows, so a description-keyed gold set would silently report a renamed row as missing - which is exactly the failure that produced three false 'not in corpus' readings while this set was being written.",
+  "gold_set_amendments_note": "A pre-registered bar loses its point if the gold set can be edited to make a result look better, so every change to it is recorded here with its reason, and the reason has to be that the FOOD moved rather than that the SCORE did.",
+  "gold_set_amendments": [
+    {
+      "date": "2026-09-14",
+      "query": "rice",
+      "was": [2512381, "Rice, white, long grain, unenriched, raw"],
+      "now": [168877, "Rice, white, long-grain"],
+      "why": "The pinned row left the corpus, and the bar reported a BROKEN BAR rather than a miss, which is the right behaviour and why it is being answered rather than ignored. It was not dropped: ADR-0101's enrichment rule collided it with `Rice, white, long-grain, regular, raw, unenriched` and kept one row for the two, which is a collapse leaving a survivor - the operation ADR-0100 permits, as against a drop, which it does not. 168877 IS that survivor, and it ships under the name a reader asked for in as many words.",
+      "not_a_goalpost_move": "C1 asks whether the row a diarist means is near the top. A diarist means long-grain white rice; that food is still in the corpus and still one row. Re-pinning to the survivor keeps the question the same - and it is worth saying plainly that this repin takes C1 from 24/44 to 25/44, so it is a change that FLATTERS the result and has to be read with that in mind. The alternative, leaving a pin on a row that no longer exists, measures nothing at all."
+    }
+  ],
   "one_word": [
     {
       "query": "beef",
@@ -104,8 +115,9 @@
     },
     {
       "query": "rice",
-      "fdc_id": 2512381,
-      "description": "Rice, white, long grain, unenriched, raw"
+      "fdc_id": 168877,
+      "description": "Rice, white, long-grain",
+      "repinned": "2026-09-14"
     },
     {
       "query": "pasta",
