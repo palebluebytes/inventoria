@@ -1,4 +1,4 @@
-# ADR 0105: A recipe occasion is sized by the weight you put on the scale
+# ADR 0106: A recipe occasion is sized by the weight you put on the scale
 
 **Status:** Accepted  
 **Date:** 2026-09-14  

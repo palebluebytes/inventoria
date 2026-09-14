@@ -315,7 +315,7 @@ Every logged Event.
   panel. A **Recipe Instantiation** has no panel either, and is sized by what the
   cook weighed rather than by its rows: the quantity is the portion's weight when
   the batch was weighed and the serving count when it was not
-  ([ADR-0105](adr/0105-a-recipe-occasion-is-sized-by-the-weight-you-put-on-the-scale.md)).
+  ([ADR-0105](adr/0106-a-recipe-occasion-is-sized-by-the-weight-you-put-on-the-scale.md)).
   It was the literal `"1 serving"` on every instantiation until #424, which is
   what those events still read.
 - `rating`: an optional 1 to 5 scale.

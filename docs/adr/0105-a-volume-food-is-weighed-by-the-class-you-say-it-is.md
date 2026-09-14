@@ -1,4 +1,4 @@
-# ADR 0104: A volume food is weighed by the class you say it is
+# ADR 0105: A volume food is weighed by the class you say it is
 
 **Status:** Accepted  
 **Date:** 2026-09-14  
@@ -79,7 +79,7 @@ the content as the authors' views rather than its own.
 
 ### The corpus this app already ships carries the measurement
 
-`public/usda/search-index.json` holds **1,219 volume portions across 896 foods**
+`public/usda/search-index.json` holds **942 volume portions across 636 foods**
 whose unit is exactly a volume word. ADR-0060 §2 has already ruled on what those
 are:
 
@@ -127,6 +127,9 @@ worst after dropping the polyol outlier: honey at 1.4265 against maple at 1.3420
 is a 6.3% gap between two of the three products anyone owns. **Spirits (0.94,
 n=10)** fails on CV at 2.63% and is likewise out. Neither is curated around; both
 take the typed override of §4.
+
+The figures above are measured against **schema 9** of the shipped corpus
+(2,437 foods). See the re-pin amendment at the foot of this record.
 
 The classes are wide by design. A class figure sits within 0.75% of the per-food
 figure for every common case measured, because the classes are tight — which is
@@ -395,3 +398,28 @@ return.
 - The 24% with no usable tags, and the 41% the classes do not name, are the
   standing case rather than the exception. §6's _"stays in millilitres and never
   blocks"_ carries more weight than it looked like it did when written.
+
+## Amendment (2026-09-14): re-pinned to schema 9, and §3 earned its keep early
+
+The corpus was regenerated between this record being written and any of it being
+built. `622c525a` collapsed **4,238 foods to 2,444** (schema 8 to 9, ADR-0104)
+and `a1fd1d70` then dropped seven made drinks, leaving **2,437**. With them, 1,219
+volume portions across 896 foods became **942 across 636**.
+
+Every class survived, and four of the five are unmoved. `oil` alone shifts, from
+42 foods (122 portions) at CV 1.04% to **41 (119) at CV 0.52%** — the collapse
+took `Fish oil, menhaden, fully hydrogenated`, which is solid at room temperature
+and was the class's only real outlier. The figures themselves are unchanged to
+two decimals, because what the collapse dropped was cooked and prepared records
+rather than reference liquids.
+
+`milk-like` sits at **n = 8, exactly on §2's floor**. One more collapse touching a
+milk row would fail its own bar, and that is the bar working rather than a
+problem to route around.
+
+This is §3's argument arriving sooner than expected. Had the figures been
+computed at build time, they would have moved between two releases with nobody
+deciding they should; had they been pinned with no gate, they would now be
+claiming a corpus that no longer exists. Pinned **and** gated, the regeneration is
+a build failure that a human answers — which is what happened here, by hand,
+before the gate was built.
