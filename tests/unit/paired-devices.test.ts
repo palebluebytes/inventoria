@@ -16,6 +16,9 @@ import ShowPairingCode from "../../src/lib/views/pairing/ShowPairingCode.svelte"
 import { writePairingCode } from "../../src/lib/p2p/pairing-code";
 import { mintRoomCode } from "../../src/lib/p2p/room-code";
 import { UNPAIRING_WORDS } from "../../src/lib/p2p/unpair";
+import { WHOLE_JAR } from "../../src/lib/p2p/lane-scope";
+import { TRACKED_DOMAINS } from "../../src/lib/facets/registry";
+import { listOf } from "../../src/lib/ui/words";
 
 /**
  * A jar holding one completed pairing, seeded the way one lands.
@@ -337,5 +340,82 @@ describe("the reader offers both carriers, and capability decides only one", () 
     const body = reader();
     expect(body).toContain("<video");
     expect(body).toContain("Or paste the code");
+  });
+});
+
+describe("every Devices row names what its lane carries (ADR-0103 §10)", () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  const withJar = async (over: Record<string, unknown>, facetId = "root") => {
+    stubLocalStorage({
+      seed: {
+        inventoria_paired_devices: JSON.stringify([{ ...PAIRING, ...over }]),
+      },
+    });
+    vi.resetModules();
+    const [{ render: renderFresh }, Section] = await Promise.all([
+      import("svelte/server"),
+      import("../../src/lib/views/pairing/PairedDevicesSection.svelte"),
+    ]);
+    return renderFresh(Section.default, { props: { facetId } }).body;
+  };
+
+  /** What the whole Jar reads as, built from the roster rather than typed. */
+  const everyDomain = listOf(TRACKED_DOMAINS.map((domain) => domain.name));
+
+  it("names food alone on a lane a Rations act scoped", async () => {
+    const body = await withJar({ scope: ["food"] }, "food");
+
+    // The only place the app can explain an absence the user would otherwise
+    // read as a sync failure: a food lane to the phone, a jar-wide one to the
+    // laptop, and no films on the phone.
+    expect(body).toContain("Carries Food.");
+  });
+
+  it("names every domain on a lane the root's act scoped", async () => {
+    const body = await withJar({ scope: WHOLE_JAR });
+    expect(body).toContain(`Carries ${everyDomain}.`);
+  });
+
+  it("reads a record written before the field as the whole Jar", async () => {
+    // `filled` is what turns the absence into the field, and the reading is the
+    // sound one: such a record predates the pairing surface leaving the root.
+    const body = await withJar({});
+    expect(body).toContain(`Carries ${everyDomain}.`);
+  });
+
+  it("takes the words from the Tracked Domains and not a second vocabulary", async () => {
+    // §10: the same words `FoodDataSection` prints in its *what stays* line.
+    // The expectation is built from the registry, so a hand-typed list in the
+    // markup fails the moment a domain is renamed there.
+    const body = await withJar({ scope: ["food", "media", "jar"] });
+    const named = TRACKED_DOMAINS.filter((domain) =>
+      ["food", "media", "jar"].includes(domain.id)
+    ).map((domain) => domain.name);
+    expect(body).toContain(`Carries ${listOf(named)}.`);
+  });
+
+  it("says so on a Rations row as loudly as on the root's", async () => {
+    // The section is one module and the line is not the caller's, so the Facet
+    // drawing it changes nothing about what a row says its lane carries.
+    const rations = await withJar({ scope: ["food"] }, "food");
+    const root = await withJar({ scope: ["food"] }, "root");
+    expect(rations).toContain("Carries Food.");
+    expect(root).toContain("Carries Food.");
+  });
+
+  it("claims nothing for a severed pairing, which carries nothing", async () => {
+    // A pending revocation has stopped both lanes, so a line saying what the
+    // lane carries would be a claim about a lane that is already shut.
+    const body = await withJar({ scope: ["food"], revoked: true });
+    expect(body).toContain(UNPAIRING_WORDS);
+    expect(body).not.toContain("Carries");
+  });
+
+  it("names nothing where the two ends agreed on nothing", async () => {
+    // An empty scope is a claim rather than an absence, and the honest reading
+    // of it is that this lane carries no rows at all.
+    const body = await withJar({ scope: [] });
+    expect(body).toContain("Carries nothing.");
   });
 });

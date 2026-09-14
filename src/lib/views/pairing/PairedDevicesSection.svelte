@@ -37,7 +37,7 @@
   } from "../../p2p/unpair";
   import { isStopped } from "../../p2p/wake-counter";
   import { scopeOfFacet } from "../../p2p/lane-scope";
-  import type { FacetId } from "../../facets/registry";
+  import { TRACKED_DOMAINS, type FacetId } from "../../facets/registry";
   import { writeDate } from "../../p2p/send-date";
 
   // **Paired devices**, and the act that makes one (ADR-0096 §8, ADR-0084 §6).
@@ -68,8 +68,30 @@
   // worked out from the URL (ADR-0076 §6). It is the whole of what ADR-0103 §1
   // needs from the surface: a pairing act carries the domains of the Facet it
   // ran in, so the section that draws the act is where that Facet is known.
-  // Today the root is the only caller (ADR-0084 §6); #423 is the second.
+  // There are two callers: the root's `SettingsView`, and Rations' settings
+  // sheet at #423 (ADR-0103 §10). On that sheet the literal is "food" in both
+  // shells, because every other Facet-scoped control there is food's in both —
+  // the wipe, the export and the log card — and the amendment at ADR-0103's
+  // foot carries the argument and what the reading costs.
   let { facetId }: { facetId: FacetId } = $props();
+
+  /**
+   * A DOM id for one of the two ways in, one per copy of this card.
+   *
+   * **Two copies can be live in one document.** The root renders `SettingsView`
+   * under every tab and merely hides it, so opening the food gear's sheet puts
+   * a second Paired devices card in the same page — and one id on two elements
+   * is an ambiguous selector rather than a duplicate that shows, which is the
+   * rule `LedgerImport` already follows (#335). Nothing else on this card
+   * carries an id, and the three `data-testid`s below are drawn only while an
+   * act is running, which is one card at a time.
+   *
+   * **The root keeps the unqualified spelling**, because it is the copy every
+   * selector already written names. That is a fact about what is written down
+   * rather than a case this card treats differently.
+   */
+  const wayInId = (way: "show" | "read") =>
+    facetId === "root" ? `pair-${way}-btn` : `${facetId}-pair-${way}-btn`;
 
   /** Which face is up: nothing, the code being shown, or the reader. */
   let act = $state<"none" | "showing" | "reading">("none");
@@ -229,6 +251,43 @@
       );
     }
     return `Also paired with ${listOf(named)}.`;
+  }
+
+  /**
+   * **What this pairing's lane carries**, in the Tracked Domains' own
+   * user-facing names (ADR-0103 §10).
+   *
+   * **It is the only place the app can explain an absence** the user would
+   * otherwise read as a sync failure: three devices, a jar-wide lane to the
+   * laptop and a food lane to the phone, and no films on the phone.
+   *
+   * **It reads the lane's scope and never the drawing Facet's.** §10's own
+   * follow-on sentence — *in Rations every row says the same thing* — is false,
+   * and the amendment at that record's foot says why: the Paired Device list is
+   * one jar-wide record (§8), so a pairing the root made shows here too, naming
+   * all seven. Computing the line from `scopeOfFacet(facetId)` instead would
+   * tell a Rations user that such a lane carries only food, which is the absence
+   * this line exists to explain, printed backwards.
+   *
+   * **The words are the registry's**, walked in its own order, so this is the
+   * same vocabulary `FoodDataSection`'s *what stays* line prints rather than a
+   * second way of saying what a domain is. A domain only the peer knows is
+   * inert here and therefore unnamed — no row on this device can belong to one
+   * (`lane-scope.ts`), so naming it would be a promise about rows that cannot
+   * exist.
+   *
+   * **An empty scope is a claim and not an absence** (`readLaneScope`): the two
+   * ends agreed on nothing, so the lane carries nothing, and the sentence says
+   * that rather than trailing off. An *absent* scope never reaches here — the
+   * store reads it as the whole Jar before this sees it.
+   */
+  function carriesLine(device: PairedDevice): string {
+    const named = TRACKED_DOMAINS.filter((domain) =>
+      device.scope.includes(domain.id)
+    ).map((domain) => domain.name);
+    return named.length === 0
+      ? "Carries nothing."
+      : `Carries ${listOf(named)}.`;
   }
 
   /**
@@ -413,6 +472,14 @@
                     </div>
                   </div>
                 {/if}
+                <!-- What this lane carries, before anything about the peer:
+                     it is a fact about rows rather than about the far device
+                     (ADR-0103 §2), and the one line that explains an absence
+                     the user would otherwise read as a sync failure. A severed
+                     pairing gets none, because both its lanes are already shut
+                     and a claim about what one carries would be a claim about a
+                     lane that is closed. -->
+                <p class="roster">{carriesLine(device)}</p>
                 <!-- Two devices' rosters disagreeing is legitimate under pairwise
                      pairing, so this is what *that* device said and is never
                      merged with the list it sits in (§6). -->
@@ -437,11 +504,11 @@
       </ul>
     {/if}
     <div class="pair-actions">
-      <Button id="pair-show-btn" onclick={() => begin("showing")}>
+      <Button id={wayInId("show")} onclick={() => begin("showing")}>
         Show a code
       </Button>
       <Button
-        id="pair-read-btn"
+        id={wayInId("read")}
         variant="secondary"
         onclick={() => begin("reading")}
       >
