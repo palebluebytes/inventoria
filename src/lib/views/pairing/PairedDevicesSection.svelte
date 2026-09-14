@@ -36,8 +36,8 @@
     UNPAIRING_WORDS,
   } from "../../p2p/unpair";
   import { isStopped } from "../../p2p/wake-counter";
-  import { scopeOfFacet } from "../../p2p/lane-scope";
-  import { TRACKED_DOMAINS, type FacetId } from "../../facets/registry";
+  import { domainsOfScope, scopeOfFacet } from "../../p2p/lane-scope";
+  import type { FacetId } from "../../facets/registry";
   import { writeDate } from "../../p2p/send-date";
 
   // **Paired devices**, and the act that makes one (ADR-0096 §8, ADR-0084 §6).
@@ -269,12 +269,12 @@
    * tell a Rations user that such a lane carries only food, which is the absence
    * this line exists to explain, printed backwards.
    *
-   * **The words are the registry's**, walked in its own order, so this is the
-   * same vocabulary `FoodDataSection`'s *what stays* line prints rather than a
-   * second way of saying what a domain is. A domain only the peer knows is
-   * inert here and therefore unnamed — no row on this device can belong to one
-   * (`lane-scope.ts`), so naming it would be a promise about rows that cannot
-   * exist.
+   * **The words are the registry's**, so this is the same vocabulary
+   * `FoodDataSection`'s *what stays* line prints rather than a second way of
+   * saying what a domain is. Which domains a scope names is `lane-scope.ts`'s
+   * own `domainsOfScope`, so the walk that drops a domain only the peer knows
+   * is written once: nothing here decides what a scope means, only how to say
+   * it.
    *
    * **An empty scope is a claim and not an absence** (`readLaneScope`): the two
    * ends agreed on nothing, so the lane carries nothing, and the sentence says
@@ -282,9 +282,7 @@
    * store reads it as the whole Jar before this sees it.
    */
   function carriesLine(device: PairedDevice): string {
-    const named = TRACKED_DOMAINS.filter((domain) =>
-      device.scope.includes(domain.id)
-    ).map((domain) => domain.name);
+    const named = domainsOfScope(device.scope).map((domain) => domain.name);
     return named.length === 0
       ? "Carries nothing."
       : `Carries ${listOf(named)}.`;
@@ -479,20 +477,20 @@
                      pairing gets none, because both its lanes are already shut
                      and a claim about what one carries would be a claim about a
                      lane that is closed. -->
-                <p class="roster">{carriesLine(device)}</p>
+                <p class="row-note">{carriesLine(device)}</p>
                 <!-- Two devices' rosters disagreeing is legitimate under pairwise
                      pairing, so this is what *that* device said and is never
                      merged with the list it sits in (§6). -->
                 {@const stated = rosterLine(device, $pairedDevices)}
                 {#if stated}
-                  <p class="roster">{stated}</p>
+                  <p class="row-note">{stated}</p>
                 {/if}
                 <!-- §11's two lines, and the whole of what this design says
                      about staleness. The date is on every row; the one-sided
                      state is on the rows that ran out. -->
                 {@const met = lastMetLine(device)}
                 {#if met}
-                  <p class="roster">{met}</p>
+                  <p class="row-note">{met}</p>
                 {/if}
                 {#if isStopped(device)}
                   <p class="one-sided">{ONE_SIDED}</p>
@@ -619,13 +617,17 @@
     display: flex;
     gap: var(--space-2xs);
   }
-  .roster {
+  /* The shared body line under a row's heading. Three different kinds of fact
+     sit on it — what the lane carries, what the peer says it is paired with,
+     and when the two last met — so it is named after the place rather than
+     after any one of them. */
+  .row-note {
     margin: var(--space-3xs) 0 0;
     padding-inline: var(--space-xs);
     color: var(--text-secondary);
     font-size: var(--step-n1);
   }
-  /* Louder than the roster beside it and quieter than an error, because it is
+  /* Louder than the body line beside it and quieter than an error, because it is
      news rather than a failure: nothing was lost and nothing is broken. */
   .one-sided {
     margin: var(--space-3xs) 0 0;

@@ -34,6 +34,7 @@ import {
   domainsOf,
   TRACKED_DOMAINS,
   type FacetId,
+  type TrackedDomain,
 } from "../facets/registry";
 
 /**
@@ -77,6 +78,24 @@ export function scopeOfFacet(facetId: FacetId): LaneScope {
 }
 
 /**
+ * The Tracked Domains a scope names, in the registry's own order.
+ *
+ * **The roster is what is walked, never the scope.** A scope is a list of ids
+ * off a wire or a `localStorage` record, so it can name a domain this build has
+ * never heard of and can spell the ones it does know in any order. Walking the
+ * roster answers both at once: an unknown id has no domain to yield, and what
+ * comes back is in the one order every reader of a scope sees.
+ *
+ * It is the shape {@link laneScope} intersects with and the shape a surface
+ * names a lane's contents from (ADR-0103 §10), which is why it is here rather
+ * than in either caller: the second copy of this walk is where an unknown id
+ * starts being dropped in one place and admitted in the other.
+ */
+export function domainsOfScope(scope: LaneScope): TrackedDomain[] {
+  return TRACKED_DOMAINS.filter((domain) => scope.includes(domain.id));
+}
+
+/**
  * The lane two sides agree on: the intersection of what each stated (§3).
  *
  * root↔root is the whole Jar, Rations↔Rations is food, Rations↔root is food —
@@ -91,9 +110,9 @@ export function scopeOfFacet(facetId: FacetId): LaneScope {
  * in the scope would be a promise about rows that cannot exist here.
  */
 export function laneScope(ours: LaneScope, theirs: LaneScope): LaneScope {
-  return TRACKED_DOMAINS.filter(
-    (domain) => ours.includes(domain.id) && theirs.includes(domain.id)
-  ).map((domain) => domain.id);
+  return domainsOfScope(ours)
+    .filter((domain) => theirs.includes(domain.id))
+    .map((domain) => domain.id);
 }
 
 /**

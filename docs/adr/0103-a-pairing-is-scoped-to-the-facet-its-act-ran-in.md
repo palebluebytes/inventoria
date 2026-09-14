@@ -643,7 +643,7 @@ arc's drift as they go — 67,165 B for the root and 55,910 B for Rations, from
 tickets that re-measured nothing. That is stated in `src/lib/facets/registry.ts`
 beside each number rather than attributed here.
 
-## Amendment (2026-09-14): in Rations the rows do not all say the same thing, because the list is the Jar's
+## Amendment (2026-09-14): in Rations the rows do not all say the same thing, and one row says nothing
 
 §10 gives the scope line its reason and then gives it a second, weaker one: _in
 Rations every row says the same thing, which is itself the honest statement that
@@ -691,6 +691,15 @@ device that caused it. The alternative would have put two identical jar-wide
 pairing cards in one root document, which is a duplicate control rather than a
 second reading of the rule.
 
+**A third row says nothing, and _every_ is what has to give.** §10 says every
+Devices row names what its lane carries; a row carrying a **pending revocation**
+does not. The mark is what stops both lanes (ADR-0096 §11), so from it onward
+the pairing carries nothing at all, and a line saying what it carries would be
+a claim about a lane that is already shut — beside the sentence on the same row
+saying the withdrawal has not landed yet. The row keeps the one statement that
+is still true. Read as _every row whose lane is open_, §10 holds; read
+literally, it does not.
+
 **One case §10 does not reach, decided rather than left.** A scope both ends
 agreed is empty — unreachable through `laneScope` on today's roster, and
 reachable through a hand-edited jar, which `isPairedDevice` admits because an
@@ -703,15 +712,15 @@ on the same rule `peer_roster` follows: a claim and a silence must not collapse.
 measured at #422 (+15,972 B); this is the surface's, and the two together are
 the whole of what §12 asked for.
 
-**+16,675 B (+16.3 KiB, +0.16%)**, against the ±5% band that is ~497 KiB wide
+**+16,696 B (+16.3 KiB, +0.16%)**, against the ±5% band that is ~497 KiB wide
 either side. Measured build to build with nothing else on the branch moving:
-Rations precaches 10,265,658 B with the pairing surface and 10,248,983 B without
+Rations precaches 10,265,679 B with the pairing surface and 10,248,983 B without
 it. §12's guess holds a second time — the camera, the symbol reader and the QR
 writer were already in this bundle for the barcode scanner and the meal
 hand-off, so what the surface adds is the section, the act around it and the two
 code faces.
 
-**The root's figure moves the other way, by −345 B.** It gains the scope line
+**The root's figure moves the other way, by −324 B.** It gains the scope line
 and a DOM id per copy of the card, and loses more than both to chunking: a second entry importing
 `src/lib/views/pairing/` turns modules the root used to inline into shared ones,
 whose wrappers are then emitted once rather than twice. A Facet paying slightly

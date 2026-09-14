@@ -499,9 +499,9 @@ describe("the pairing record stays the Jar's (ADR-0103 §8)", () => {
 
   it("leaves the device still paired, read back through the store's own guard", async () => {
     stubLocalStorage({ seed: { ...FOOD_KEYS, [PAIRINGS]: A_PAIRING } });
-    const [{ readPairedDevices }] = await Promise.all([
-      freshModule(() => import("../../src/lib/stores/paired-devices")),
-    ]);
+    const { readPairedDevices } = await freshModule(
+      () => import("../../src/lib/stores/paired-devices")
+    );
     await import("../../src/lib/logs/channels");
 
     wipeFacetStorage("food");

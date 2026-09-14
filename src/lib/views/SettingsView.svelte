@@ -214,7 +214,9 @@
      screen ADR-0075 §4 used to name. It is **no longer here because a pairing
      must carry the whole jar**: ADR-0103 §1 scopes a lane to the Facet the act
      ran in, so this one says which Facet it is and the root's answer is the
-     whole jar. Rations gains a surface of its own at #423. -->
+     whole jar. Rations draws this same module on its own settings sheet under
+     `facetId="food"` (#423), which is a shared component rather than a
+     crossing — ADR-0078 §1 binds screens. -->
 <PairedDevicesSection facetId="root" />
 
 <!-- The jar-wide card: the root holds all six content domains, so it lists every

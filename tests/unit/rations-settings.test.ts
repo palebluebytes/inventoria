@@ -246,14 +246,20 @@ describe("Rations carries the whole pairing surface (ADR-0103 §10)", () => {
     // ADR-0095, and ADR-0078 §1 is what permits it: the rule binds *screens*,
     // and a shared component is not a crossing. A copy under the food tree is
     // exactly what that record exists to refuse, so the population is
-    // discovered rather than named — a second file anywhere under `src/` fails
-    // here whatever it is called.
-    const copies = trackedSvelteFiles().filter((file) =>
-      file.endsWith("/PairedDevicesSection.svelte")
-    );
-    expect(copies).toEqual([
+    // discovered rather than named.
+    //
+    // **The sweep is keyed on what the card says, not on what it is called.**
+    // A filename filter passes a copy renamed on its way into the food tree,
+    // which is the shape a copy actually arrives in; the two ways in are this
+    // card's own words and nothing else in `src/` draws them.
+    const drawsTheAct = trackedSvelteFiles().filter((file) => {
+      const source = readSource(file);
+      return source.includes("Show a code") && source.includes("Read a code");
+    });
+    expect(drawsTheAct).toEqual([
       "src/lib/views/pairing/PairedDevicesSection.svelte",
     ]);
+    // And both callers reach that one file rather than a sibling beside them.
     expect(SHEET).toContain(
       'import PairedDevicesSection from "../pairing/PairedDevicesSection.svelte"'
     );
@@ -343,5 +349,18 @@ describe("Rations carries the whole pairing surface (ADR-0103 §10)", () => {
       props: { facetId: "food" },
     });
     expect(body).not.toContain("<a ");
+    // The rendered markup alone would pass a button that navigated by script,
+    // and `pnpm check:facets` does not reach this: `checkViewContainment`
+    // counts `views/pairing/` among the jar-wide modules no domain owns, so the
+    // new Rations-to-root-view edge is *unjudged* rather than approved. These
+    // three files are the whole of what that edge brought in, and none of them
+    // names a route out.
+    for (const file of [
+      "src/lib/views/pairing/PairedDevicesSection.svelte",
+      "src/lib/views/pairing/ShowPairingCode.svelte",
+      "src/lib/views/pairing/ReadPairingCode.svelte",
+    ]) {
+      expect(readCode(file)).not.toMatch(/href|window\.open|location\s*[.=]/);
+    }
   });
 });
