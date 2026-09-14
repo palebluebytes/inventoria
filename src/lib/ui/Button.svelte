@@ -59,7 +59,18 @@
     /* The floor a finger sets, on the primitive rather than at the fifty-three
        call sites (ADR-0098 §2). Every size drew under it on padding alone —
        `sm` 28px, `md` 40 — and a caller that squares this button off with its
-       own `height` keeps the floor, because `min-height` outranks it. */
+       own `height` keeps the floor, because `min-height` outranks it.
+
+       **On both axes, since #390.** A floor on one axis is half a floor, and
+       the half that was missing is the one a button holding a single mark
+       needs: content-sized width means a `✕` or a `↺` draws a 30x48 target.
+       Every other member that can be content-sized declares both — `ui/Row`,
+       `ui/BottomSheet`, `ui/ToggleGroup`, `ui/Disclosure` — and this was the
+       one that did not. Nothing in the sweep could say so: `narrowness()`
+       convicts a *declared* width under the floor, and a box declaring none at
+       all reads as unbounded, which is why #316 shipped a 21.6x48 ⓘ and a
+       screenshot found it rather than a test. */
+    min-width: var(--tap-min);
     min-height: var(--tap-min);
     font-family: inherit;
     font-weight: 600;

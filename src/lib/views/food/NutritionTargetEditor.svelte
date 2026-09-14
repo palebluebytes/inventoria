@@ -37,6 +37,7 @@
     defaultNutrientTargets,
   } from "../../food/nutrition-targets";
   import { onDestroy } from "svelte";
+  import Button from "../../ui/Button.svelte";
   import Checkbox from "../../ui/Checkbox.svelte";
   import Disclosure from "../../ui/Disclosure.svelte";
   import NutrientCard from "./NutrientCard.svelte";
@@ -385,16 +386,17 @@
           aria-label="{label} target"
         />
         <span class="card-unit">{unit}</span>
-        <button
-          type="button"
+        <Button
+          variant="ghost"
+          size="sm"
           class="card-reset"
           data-reset={key}
           disabled={food_targets[key] === undefined}
           onclick={() => resetTarget(key)}
           aria-label="Reset {label} to default"
         >
-          ↺
-        </button>
+          <span class="reset-mark">↺</span>
+        </Button>
       </span>
       {#if isOptedOut(key)}
         <span class="card-optout">hidden — no meter</span>
@@ -425,16 +427,17 @@
           aria-label="{label} limit"
         />
         <span class="card-unit">{unit}</span>
-        <button
-          type="button"
+        <Button
+          variant="ghost"
+          size="sm"
           class="card-reset"
           data-reset-limit={key}
           disabled={food_limits[key] === undefined}
           onclick={() => resetLimit(key)}
           aria-label="Reset {label} to default"
         >
-          ↺
-        </button>
+          <span class="reset-mark">↺</span>
+        </Button>
       </span>
       {#if isLimitOptedOut(key)}
         <span class="card-optout">no limit</span>
@@ -830,55 +833,44 @@
   }
   /* Reset-to-default control: a bare ↺ glyph, disabled (and muted) whenever the
      card is already at its baked default so "custom vs default" reads from the
-     enabled state alone. */
-  .card-reset {
+     enabled state alone. It is `ui/Button` since #390; what is left here is the
+     mark it draws and the one line the row it sits in needs.
+
+     ADR-0098 §3's recipe lived here — the box carried the floor, a `::before`
+     drew the 1.75rem square with `z-index: -1` behind the glyph, `isolation`
+     kept the pseudo inside the button, and hover, focus and disabled were all
+     relocated onto it. That recipe exists **only** because the mark was drawn
+     in CSS instead of passed as content. A button that takes children and
+     carries the floor on both axes has nothing to centre absolutely and nothing
+     to relocate, and the square stays the 1.75rem it always was rather than
+     becoming the 48px one a button's own frame would draw. */
+  .card-allowance :global(.card-reset) {
     flex-shrink: 0;
+    padding: 0;
+  }
+  .reset-mark {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    /* Mark and target, apart: the 1.75rem square is a ::before and the button's
-       own box carries the floor, so a 28px control gains a 48px target without
-       drawing a 48px square (ADR-0098 §3). `isolation` keeps the pseudo's
-       `z-index: -1` inside the button, behind its glyph. */
-    position: relative;
-    isolation: isolate;
-    min-width: var(--tap-min);
-    min-height: var(--tap-min);
-    padding: 0;
-    border: none;
-    background: none;
-    color: var(--ink);
-    font-size: var(--step-0);
-    line-height: 1;
-    cursor: pointer;
-  }
-  .card-reset::before {
-    content: "";
-    position: absolute;
-    inset: 0;
-    margin: auto;
-    z-index: -1;
     width: 1.75rem;
     height: 1.75rem;
     border: var(--edge);
     background: var(--paper);
+    color: var(--ink);
+    font-size: var(--step-0);
+    line-height: 1;
   }
-  .card-reset:hover:not(:disabled)::before {
+  /* The whole floored button inverts the square, not the 1.75rem square itself,
+     so the hover target is the box a finger lands on. The mark is this file's
+     element and carries its scoping hash; the button is `ui/Button`'s and wears
+     the class as a prop, so only that half goes through `:global`. */
+  .card-allowance :global(.card-reset:hover:not(:disabled) .reset-mark) {
     background: var(--ink);
-  }
-  .card-reset:hover:not(:disabled) {
     color: var(--paper);
   }
-  .card-reset:focus-visible {
-    outline: 2px solid var(--ink);
-    outline-offset: 2px;
-  }
-  .card-reset:disabled::before {
+  .card-allowance :global(.card-reset:disabled .reset-mark) {
     border-color: var(--border-subtle, var(--border));
-  }
-  .card-reset:disabled {
     color: var(--border-subtle, var(--border));
-    cursor: default;
   }
 
   /* Whole-number toggle: the label + its help text stacked, with a container

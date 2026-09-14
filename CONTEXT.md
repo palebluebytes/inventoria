@@ -810,8 +810,15 @@ _Avoid_: Chip, pill, tag, label
 **Button**:
 The canonical interactive frame primitive (`ui/Button.svelte`). A control that toggles
 a selection is a Button whose variant reflects the selected state, not a new
-primitive. See ADR-0039 and ADR-0040.
-_Avoid_: Selected chip, toggle button (as a distinct component)
+primitive. It carries the tap floor on **both** axes, which matters for a button whose
+whole content is a mark: `variant="ghost"` plus a mark element is what a bare icon
+control is, and there is deliberately no `IconButton` — "icon" names the mark, and a
+control you press is a Button (ADR-0100 §6). Where a mark can be **content**, it is; the
+`::before` recipe in ADR-0098 §3 is for a mark with no element to hang on, and its last
+four wearers left at #316 and #390.
+See ADR-0039, ADR-0040, ADR-0098 §2 and ADR-0100.
+_Avoid_: Selected chip, toggle button (as a distinct component), IconButton, and the
+four bespoke mark buttons it replaced — two `.info-btn`, `.card-reset`, `.nudge-reset`
 
 **Card**:
 The canonical container frame primitive (`ui/Card.svelte`), carrying the ADR-0038

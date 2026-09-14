@@ -2,6 +2,7 @@
   import { untrack } from "svelte";
   import BottomSheet from "../../ui/BottomSheet.svelte";
   import FieldCaption from "../../ui/FieldCaption.svelte";
+  import Button from "../../ui/Button.svelte";
   import Segmented from "../../ui/Segmented.svelte";
   import {
     computeEnergyAndMacros,
@@ -343,14 +344,17 @@
             />
             <span class="unit">kcal</span>
           </span>
-          <button
-            type="button"
+          <Button
+            variant="ghost"
+            size="sm"
             class="nudge-reset"
             data-nudge-reset
             disabled={nudgeKcal === null}
             onclick={resetNudge}
-            aria-label="Reset calories to the computed value">↺</button
+            aria-label="Reset calories to the computed value"
           >
+            <span class="reset-mark">↺</span>
+          </Button>
         </div>
         {#if floored}
           <p class="hint floor-note" data-floor-note>
@@ -525,50 +529,40 @@
   .nudge .num {
     width: 6rem;
   }
-  .nudge-reset {
+  /* The reset is `ui/Button` since #390; what is left here is the mark it draws
+     and the one line the row it sits in needs.
+
+     ADR-0098 §3's recipe lived here — a `::before` drew the 1.75rem square with
+     `z-index: -1` behind the glyph, `isolation` kept the pseudo inside the
+     button, and hover and disabled were relocated onto it. That recipe exists
+     **only** because the mark was drawn in CSS instead of passed as content. A
+     button that takes children and carries the floor on both axes has nothing
+     to centre absolutely and nothing to relocate. */
+  .nudge :global(.nudge-reset) {
     flex-shrink: 0;
-    /* Mark and target, apart: the 1.75rem square is a ::before and the button's
-       own box carries the floor, so a 28px control gains a 48px target without
-       drawing a 48px square (ADR-0098 §3). `isolation` keeps the pseudo's
-       `z-index: -1` inside the button, behind its glyph. */
-    position: relative;
-    isolation: isolate;
-    min-width: var(--tap-min);
-    min-height: var(--tap-min);
     padding: 0;
+  }
+  .reset-mark {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    border: none;
-    background: none;
-    color: var(--ink);
-    font-size: var(--step-0);
-    line-height: 1;
-    cursor: pointer;
-  }
-  .nudge-reset::before {
-    content: "";
-    position: absolute;
-    inset: 0;
-    margin: auto;
-    z-index: -1;
     width: 1.75rem;
     height: 1.75rem;
     border: var(--edge);
     background: var(--paper);
+    color: var(--ink);
+    font-size: var(--step-0);
+    line-height: 1;
   }
-  .nudge-reset:hover:not(:disabled)::before {
+  /* The whole floored button inverts the square, not the 1.75rem square itself,
+     so the hover target is the box a finger lands on. */
+  .nudge :global(.nudge-reset:hover:not(:disabled) .reset-mark) {
     background: var(--ink);
-  }
-  .nudge-reset:hover:not(:disabled) {
     color: var(--paper);
   }
-  .nudge-reset:disabled::before {
+  .nudge :global(.nudge-reset:disabled .reset-mark) {
     border-color: var(--border-subtle, var(--border));
-  }
-  .nudge-reset:disabled {
     color: var(--border-subtle, var(--border));
-    cursor: default;
   }
   .floor-note {
     color: var(--ink);

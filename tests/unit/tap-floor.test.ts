@@ -931,6 +931,16 @@ describe("the floor, swept", () => {
    * plain `<button>` opening a sheet rather than a disclosure, so that key
    * stays too. A key here is a distinct box, not a call site — which is the
    * same reason #416 moved this figure by one when it looked like two.
+   *
+   * Then 131 → 129 at #390, and this one is a plain subtraction: `.card-reset`
+   * and `.nudge-reset` are `ui/Button` now, and a `ui/Button` is counted once,
+   * at the primitive. What is worth noticing is that the primitive it moved to
+   * grew a `min-width` in the same change. `ui/Button` declared the floor on
+   * one axis only, which is the half a button holding a single mark needs, and
+   * nothing here could say so: `narrowness()` convicts a *declared* width under
+   * the floor and a box declaring none reads as unbounded. So these two boxes
+   * leaving the count is the smaller half of #390; the larger half is 69 call
+   * sites gaining a floor this file was never able to check.
    */
   it("carries most of them on a declared floor, not on arithmetic", () => {
     const how = { declared: 0, drawn: 0, sanctioned: 0 };
@@ -941,7 +951,7 @@ describe("the floor, swept", () => {
       else if (b.kind === "drawn") how.drawn++;
     }
 
-    expect(how).toEqual({ declared: 131, drawn: 26, sanctioned: 6 });
+    expect(how).toEqual({ declared: 129, drawn: 26, sanctioned: 6 });
     // Every box lands in exactly one column. Without this the two figures above
     // could both be right while a box fell out of the sweep between them.
     expect(how.declared + how.drawn + how.sanctioned).toBe(SWEEP.groups.size);
