@@ -2293,6 +2293,34 @@ describe("the twin merge's discarded names, as search aliases", () => {
     for (const food of aliased)
       expect(food.also).not.toContain(food.description);
   });
+
+  it("never lets a discarded name into the name a food is logged under", () => {
+    // The invariant, over every aliased row rather than an example. An `also`
+    // entry is RETRIEVAL SCAFFOLDING — a name the row used to ship under, or the
+    // half of a twin merge that lost — and it is not another name FOR the food.
+    // `aubergine` is; `Eggs, Grade A, Large, egg whole` is not, and a person who
+    // reached the row by typing USDA's filing must not find that filing sitting
+    // in their food diary forever.
+    //
+    // This is the distinction `searchResultName` draws, and it draws it by
+    // omission: the vocabulary alias is passed in, an `also` match is not, so
+    // there is nothing to assert on the mapper's signature. An invariant over
+    // the real corpus is the only thing that would notice the day someone plumbs
+    // the matched `also` through "for consistency" — which is one line of work
+    // and would silently rewrite names in the ledger.
+    for (const food of index.foods) {
+      for (const alias of food.also ?? []) {
+        const hit = searchIndexRows(corpus, alias).hits[0];
+        // It still has to RETRIEVE — an invisible alias that reaches nothing is
+        // a different bug, and this test would otherwise pass on one.
+        expect([alias, hit !== undefined]).toEqual([alias, true]);
+        const name = mapIndexRowToPayload(hit.row, hit.alias).attributes[
+          "food/name"
+        ];
+        expect([alias, name]).toEqual([alias, hit.row.description]);
+      }
+    }
+  });
 });
 
 describe("mapIndexRowToPayload", () => {
