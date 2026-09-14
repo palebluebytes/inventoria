@@ -226,7 +226,7 @@ function refsIn(value: unknown): string[] {
  * somebody else checks: `docs/eavt-vocabulary.md` marks every attribute that
  * holds a reference, and `tests/unit/meal-payload.test.ts` partitions that set
  * against these keys, so a new reference attribute has to be decided about at
- * the moment it is coined (ADR-0103 §7). A `case` label is not data; this is.
+ * the moment it is coined (ADR-0105 §7). A `case` label is not data; this is.
  */
 const REFERENCE_READERS = new Map<string, (value: unknown) => string[]>([
   ["event/target", (value) => (typeof value === "string" ? [value] : [])],

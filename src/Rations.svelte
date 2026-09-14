@@ -128,7 +128,7 @@
   /**
    * This open's wake, kept so its triggers can be dropped with the app.
    *
-   * **Rations wakes** (ADR-0103 §9, amending ADR-0096 §7). A wake is an open of
+   * **Rations wakes** (ADR-0105 §9, amending ADR-0096 §7). A wake is an open of
    * a Facet rather than an open of the root, and this Facet's scope is food —
    * so this open serves every lane it meets, collects whatever a peer left, and
    * deposits food and its deletions and nothing else. That last clause is what

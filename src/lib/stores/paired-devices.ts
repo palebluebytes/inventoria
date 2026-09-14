@@ -122,7 +122,7 @@ export interface PairedDevice {
   collect: StoredLane;
   /**
    * The Tracked Domains this pairing carries, agreed by intersection at the
-   * act (ADR-0103 §1 and §3).
+   * act (ADR-0105 §1 and §3).
    *
    * **It is a fact about rows and never about the peer** (§2). Nothing here is
    * the far device's install roster: a food lane says *this pairing carries
@@ -547,7 +547,7 @@ export interface CompletedPairing {
   device_id: string;
   chains: PairedChains;
   peer_vector: VersionVector;
-  /** What the act's two Facets agreed this lane carries (ADR-0103 §3). */
+  /** What the act's two Facets agreed this lane carries (ADR-0105 §3). */
   scope: LaneScope;
 }
 
@@ -577,7 +577,7 @@ export function rememberPairedDevice(
     name: held.find((device) => device.device_id === device_id)?.name ?? null,
     deposit: storedLane(chains.deposit),
     collect: storedLane(chains.collect),
-    // **Pairing again re-scopes the lane** (ADR-0103 §4), which is why the
+    // **Pairing again re-scopes the lane** (ADR-0105 §4), which is why the
     // scope is taken from the act rather than carried across like the name: the
     // act that just ran is what decides what this pairing carries, and a
     // pairing made from Rations after one made from the root is a narrowing the

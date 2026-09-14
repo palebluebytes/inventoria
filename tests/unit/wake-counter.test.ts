@@ -82,7 +82,7 @@ function counting(rows: PairedDevice[], day = "2026-09-13") {
   return {
     /**
      * One sync's round, with **every pairing served** unless the test says
-     * otherwise. Which lanes a wake meets is ADR-0103 §9's and is exercised
+     * otherwise. Which lanes a wake meets is ADR-0105 §9's and is exercised
      * where a Facet is named; this half is the arithmetic over the record.
      */
     count: (
@@ -317,7 +317,7 @@ async function withJar(rows: Record<string, unknown>[]) {
 describe("a pairing this wake did not serve is not counted at all", () => {
   it("burns nothing on a lane the waking Facet's scope does not meet", () => {
     // A wake is an open of a Facet and serves the lanes that Facet's scope
-    // meets (ADR-0103 §9). Nothing looked at this one, so there is nothing for
+    // meets (ADR-0105 §9). Nothing looked at this one, so there is nothing for
     // the wake to have produced on it — and a count that climbed here would
     // stop a pairing the other Facet's wakes are converging perfectly well.
     const { count, row } = counting([pairing("dev_b"), pairing("dev_c")]);

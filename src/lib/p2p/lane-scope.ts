@@ -1,6 +1,6 @@
 /**
  * A lane's scope: the Tracked Domains a pairing carries, and nothing else
- * (ADR-0103 §1, §2 and §3).
+ * (ADR-0105 §1, §2 and §3).
  *
  * **A pairing carries the rows of the Tracked Domains held by the Facet the
  * pairing act ran in, and the root Facet's scope is the whole Jar.** One rule,
@@ -64,7 +64,7 @@ export const WHOLE_JAR: LaneScope = TRACKED_DOMAINS.map((domain) => domain.id);
  * A Facet's own domains are its content domains; what a Facet holding *every*
  * content domain gains with them is the **Jar domain**, which no Facet declares
  * and which owns the `deletion:` rows a Carried deletion is written as. That
- * follows from ADR-0103 §6 rather than being asserted beside it: a deletion
+ * follows from ADR-0105 §6 rather than being asserted beside it: a deletion
  * crosses a lane only where its frozen prefix list is a subset of the lane's,
  * and a lane covering every content domain covers every list a Facet-scoped
  * wipe can freeze. A narrower lane covers only some, so it does not carry the
@@ -87,7 +87,7 @@ export function scopeOfFacet(facetId: FacetId): LaneScope {
  * comes back is in the one order every reader of a scope sees.
  *
  * It is the shape {@link laneScope} intersects with and the shape a surface
- * names a lane's contents from (ADR-0103 §10), which is why it is here rather
+ * names a lane's contents from (ADR-0105 §10), which is why it is here rather
  * than in either caller: the second copy of this walk is where an unknown id
  * starts being dropped in one place and admitted in the other.
  */

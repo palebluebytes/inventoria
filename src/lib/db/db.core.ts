@@ -353,7 +353,7 @@ export function readLedgerSummary(
 
 /**
  * What this ledger holds, per originating device and Tracked Domain
- * (ADR-0075 §6, re-keyed by ADR-0103 §5).
+ * (ADR-0075 §6, re-keyed by ADR-0105 §5).
  *
  * The whole of the sync watermark, and it is a **read** rather than a record:
  * nothing is stored, so nothing can fall out of step with the table it
@@ -394,7 +394,7 @@ export interface LedgerPageNarrowing {
   /** One Facet's rows, for a Facet-scoped export (ADR-0079 §6). */
   entityPrefixes?: readonly string[];
   /**
-   * What one lane carries, by Tracked Domain id (ADR-0103 §1 and §6).
+   * What one lane carries, by Tracked Domain id (ADR-0105 §1 and §6).
    *
    * **It and `entityPrefixes` are never both given.** They are two narrowings
    * of one concern for two callers — an export names a Facet's prefixes, a sync
@@ -831,7 +831,7 @@ function entityPrefixMatch(
 
 /**
  * The rows one lane carries: its domains' entities, and the Carried deletions
- * that reach no further than it does (ADR-0103 §1 and §6).
+ * that reach no further than it does (ADR-0105 §1 and §6).
  *
  * **Two arms, because a deletion is not described by its own entity.** A
  * content row belongs to the domain that owns its prefix, which is §1's

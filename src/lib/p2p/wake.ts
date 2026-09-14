@@ -159,7 +159,7 @@ export interface WakeLedger {
    *
    * The two narrowings are independent and both apply, exactly as they do on a
    * first sync: `above` is what the peer already holds, and `scope` is what
-   * this wake may carry down this lane (ADR-0103 §9) — the lane's own scope
+   * this wake may carry down this lane (ADR-0105 §9) — the lane's own scope
    * where the root is awake, and the intersection with the Facet's where
    * Rations is. A partial deposit is sound rather than clever because the
    * vector has an axis per Tracked Domain: what goes out raises only the marks
@@ -277,7 +277,7 @@ export interface WakeOptions {
    */
   roster: readonly string[];
   /**
-   * The Tracked Domains **this wake** may carry down **this lane** (ADR-0103
+   * The Tracked Domains **this wake** may carry down **this lane** (ADR-0105
    * §9): the waking Facet's scope intersected with the lane's own.
    *
    * A wake serves a lane its Facet's scope meets, and deposits only the domains
@@ -612,7 +612,7 @@ interface DepositWork {
   chunkBudgetBytes: number;
   draw: RandomBytes;
   roster: readonly string[];
-  /** What this wake may carry down this lane (ADR-0103 §9). */
+  /** What this wake may carry down this lane (ADR-0105 §9). */
   scope: LaneScope;
   /** The index this deposit acknowledges, from {@link takeFromPeer}. */
   acknowledges: number | null;
@@ -727,7 +727,7 @@ async function depositLane(
  * makes a partial deposit one narrowing of one read rather than a second kind
  * of deposit: `brings` below is folded from the rows that actually went, so a
  * wake that carried one Facet's domains raises only those domains' marks and
- * leaves the rest for the wake that holds them (ADR-0103 §5 and §9).
+ * leaves the rest for the wake that holds them (ADR-0105 §5 and §9).
  *
  * **The ceiling drains rather than refuses.** A delta larger than one deposit
  * leaves its oldest chunks now; the collector takes them and acknowledges this

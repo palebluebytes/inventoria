@@ -1,5 +1,5 @@
 /**
- * A lane's scope, and the intersection that agrees one (ADR-0103 §1–§3).
+ * A lane's scope, and the intersection that agrees one (ADR-0105 §1–§3).
  *
  * Everything here is pure: what a Facet's pairing act scopes its lane to, what
  * two such statements agree on, and what an older peer's silence is read as.
@@ -20,7 +20,7 @@ import {
   TRACKED_DOMAINS,
 } from "../../src/lib/facets/registry";
 
-describe("a Facet's pairing act scopes its lane (ADR-0103 §1)", () => {
+describe("a Facet's pairing act scopes its lane (ADR-0105 §1)", () => {
   it("gives the root the whole Jar, the Jar domain included", () => {
     // §1: *the root Facet's scope is the whole Jar*. The Jar domain is in no
     // Facet's `domains`, so a scope that were merely the Facet's own list would
@@ -57,7 +57,7 @@ describe("a Facet's pairing act scopes its lane (ADR-0103 §1)", () => {
   });
 });
 
-describe("the two sides agree the scope by intersection (ADR-0103 §3)", () => {
+describe("the two sides agree the scope by intersection (ADR-0105 §3)", () => {
   const root = scopeOfFacet("root");
   const rations = scopeOfFacet("food");
 
@@ -92,7 +92,7 @@ describe("the two sides agree the scope by intersection (ADR-0103 §3)", () => {
   });
 });
 
-describe("a scope arriving off the wire (ADR-0103 §3, §11)", () => {
+describe("a scope arriving off the wire (ADR-0105 §3, §11)", () => {
   it("reads a peer that stated nothing as the whole Jar", () => {
     // The forward-compatibility argument §11 makes for a vector: a build that
     // states no domains predates this one, and before this one the pairing

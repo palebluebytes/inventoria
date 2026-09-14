@@ -489,7 +489,7 @@ export const FACETS = [
     // Re-measured at #422, which put a Facet's own wake behind each shell. Build
     // to build, not against the figure this line used to hold: HEAD already
     // weighed 9,483,696 B before #422 touched anything, so this number also
-    // takes up 67,165 B of drift from the rest of the ADR-0103 arc, which
+    // takes up 67,165 B of drift from the rest of the ADR-0105 arc, which
     // re-measured nothing. #422's own cost to the root is +363 B, because the
     // root already carried the whole p2p stack.
     //
@@ -503,7 +503,7 @@ export const FACETS = [
     // sharing looks like from this side.
     //
     // Re-measured again when §1's reading was settled on the **shell** (the
-    // amendment at ADR-0103's foot): the card is drawn under Rations alone, and
+    // amendment at ADR-0105's foot): the card is drawn under Rations alone, and
     // the per-copy DOM id scheme that a second card in one document had needed
     // is deleted with it. **−52 B**, on both Facets, because what went is a
     // helper in the one module they share.
@@ -586,7 +586,7 @@ export const FACETS = [
     // open, so a later drop puts this back under its floor; the band is ±5%,
     // which is 383 KiB either side at this weight.
     //
-    // Re-measured at #422, and this is the number ADR-0103 §12 says the
+    // Re-measured at #422, and this is the number ADR-0105 §12 says the
     // implementing ticket owes before anything claims the p2p stack fits.
     // Build to build: HEAD already weighed 10,233,011 B before #422 touched
     // anything, so this figure also takes up 55,910 B of drift from the rest of
@@ -597,7 +597,7 @@ export const FACETS = [
     // through the meal hand-off, so what a wake adds is the cadence, the errand,
     // the counter and the lock.
     //
-    // Re-measured at #423, which is ADR-0103 §10's surface: Rations mounts the
+    // Re-measured at #423, which is ADR-0105 §10's surface: Rations mounts the
     // root's own `PairedDevicesSection`, and with it the code reader, the code
     // writer and the two §11 states. Build to build with nothing else on the
     // branch moving, so there is no drift to take up this time.
@@ -608,7 +608,7 @@ export const FACETS = [
     // adds is the section itself and the act around it.
     //
     // Re-measured again when §1's reading was settled on the **shell** (the
-    // amendment at ADR-0103's foot): the card is drawn under Rations alone, and
+    // amendment at ADR-0105's foot): the card is drawn under Rations alone, and
     // the per-copy DOM id scheme that a second card in one document had needed
     // is deleted with it. **−52 B**, on both Facets, because what went is a
     // helper in the one module they share.
@@ -690,7 +690,7 @@ export type ContentDomainId = ContentDomain["id"];
  *
  * It exists for the readers that need each domain's **prefixes** rather than
  * only its id: the version vector has one axis per content domain and none for
- * the Jar domain (ADR-0103 §5), and it builds both the query that computes a
+ * the Jar domain (ADR-0105 §5), and it builds both the query that computes a
  * vector and the `WHERE` that filters by one out of what each domain owns.
  */
 export const CONTENT_DOMAINS: readonly ContentDomain[] = TRACKED_DOMAINS.filter(
@@ -755,7 +755,7 @@ export function entityPrefixesOf(facetId: string): string[] {
  *
  * The same derivation {@link entityPrefixesOf} reads through a Facet's own
  * list, reached directly by the one caller whose domains are not a Facet's: a
- * lane's scope is the **intersection** of two Facets' domain sets (ADR-0103
+ * lane's scope is the **intersection** of two Facets' domain sets (ADR-0105
  * §3), so it can be narrower than either Facet and there is no `facetId` to
  * ask. One function is what keeps a wipe's predicate and a lane's from being
  * two lists of the same thing (ADR-0079 §3).

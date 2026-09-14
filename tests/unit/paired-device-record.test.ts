@@ -184,7 +184,7 @@ describe("pairing is keyed by device, and pairing again replaces", () => {
   });
 
   it("re-scopes the lane, because the act that just ran decides what it carries", async () => {
-    // ADR-0103 §4: one pairing per device pair, and pairing again replaces it
+    // ADR-0105 §4: one pairing per device pair, and pairing again replaces it
     // **and re-scopes it**. A user who paired from the root and later pairs the
     // same phone from Rations has narrowed the lane, and the record is where
     // that lands.
@@ -483,7 +483,7 @@ describe("the record carries K's counter and the last-met date (§11)", () => {
       seed: { inventoria_paired_devices: JSON.stringify([older]) },
     });
 
-    // ADR-0103 §1: a record written before this field predates the pairing
+    // ADR-0105 §1: a record written before this field predates the pairing
     // surface leaving the root, and the root's lane is the whole Jar. Reading
     // it as anything narrower would withhold rows from a healthy pairing.
     expect(records.readPairedDevices()[0].scope).toEqual(

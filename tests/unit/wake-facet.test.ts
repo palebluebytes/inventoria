@@ -1,5 +1,5 @@
 /**
- * Which wakes serve which lanes, and what each one deposits (ADR-0103 §9).
+ * Which wakes serve which lanes, and what each one deposits (ADR-0105 §9).
  *
  * > **A wake serves a lane if the waking Facet's scope meets it, and deposits
  * > only the domains the waking Facet holds.**
@@ -149,7 +149,7 @@ async function atDevice<T>(who: Device, act: () => Promise<T>): Promise<T> {
  * app's own writer.
  *
  * `rememberPairedDevice` is what a first sync calls, and it takes the scope
- * from the act (ADR-0103 §4), so a lane at any scope is made here the way the
+ * from the act (ADR-0105 §4), so a lane at any scope is made here the way the
  * app makes one rather than by writing a different record literal.
  */
 async function pairUp(
@@ -496,7 +496,7 @@ describe("a pairing served by both Facets burns one wake per wake", () => {
   it("counts a root open and a Rations open as two wakes, not four", async () => {
     // One number on one record, whoever woke. A counter split per Facet would
     // have a pairing served by both count toward 200 twice — which is what
-    // ADR-0103 §9 pays for here by keeping the counter blind to the Facet.
+    // ADR-0105 §9 pays for here by keeping the counter blind to the Facet.
     const phone = device("dev_phone");
     const laptop = device("dev_laptop");
     await pairUp(phone, laptop, 10, WHOLE_JAR);

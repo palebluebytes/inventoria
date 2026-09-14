@@ -6,7 +6,7 @@
  * this exact lambda: the **oldest** rows a holder of the peer's vector lacks,
  * inside what this wake carries, in stamp order. It is one function here
  * because a harness whose narrowing has drifted from the app's proves the
- * wrong thing quietly — ADR-0103 §9 added the fourth argument and four copies
+ * wrong thing quietly — ADR-0105 §9 added the fourth argument and four copies
  * had to learn about it at once.
  *
  * **The write half stays with each suite**, and that is not an oversight: what

@@ -133,7 +133,7 @@ interface WakeAdjustments {
    */
   roster?: readonly string[];
   /**
-   * What this wake may carry down this lane (ADR-0103 §9). The default is the
+   * What this wake may carry down this lane (ADR-0105 §9). The default is the
    * lane's own scope, which is what a **root** wake hands over: the root's
    * scope is the whole Jar, so it contains every lane's and narrows nothing.
    * Which wakes serve which lanes is `wake-facet.test.ts`'s.

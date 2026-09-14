@@ -1,4 +1,4 @@
-# ADR 0103: A pairing is scoped to the Facet its act ran in, and the root's scope is the whole Jar
+# ADR 0105: A pairing is scoped to the Facet its act ran in, and the root's scope is the whole Jar
 
 **Status:** Accepted  
 **Date:** 2026-09-13  
@@ -791,3 +791,35 @@ is a helper in the one module they share — which is the amendment above read
 from the bundler, one ticket later. The two figures it recorded (+16,696 B and
 −324 B) stand as what the surface itself cost; this is the reading's own change
 on top of them.
+
+## Amendment (2026-09-14): this record is ADR-0105, and §12's figures are re-taken against the base it landed on
+
+**The number in the header changed after the arc was written.** This record was
+drafted as ADR-0103 and built under that name for its whole arc. While it was in
+flight, the food-search branch reached `main` first and renumbered its own two
+records into 0103 and 0104, so the number was taken by the time this branch came
+to land. It is now **0105**, and every reference in the arc's code, tests and
+sibling records moved with it. Nothing in the argument changed; the commit
+messages from the arc still say 0103, which is what a number taken by whoever
+lands first costs.
+
+**§12's owed figures are re-measured, and the per-ticket ones are kept as
+history rather than corrected.** Each ticket measured its own cost build to
+build, which is what ADR-0077's band asks for. Those builds were against a base
+56 commits behind the one this arc landed on — main had meanwhile cut the USDA
+corpus from 4,238 rows to 2,484 and moved both bands to match. So the per-ticket
+figures are true statements about what each ticket cost on the base it was
+measured on, and they stay in place; the registry's numbers are the arc's cost
+on the base it actually ships from:
+
+| Facet      | main (`dec25f50`) | this arc    | delta                             |
+| ---------- | ----------------- | ----------- | --------------------------------- |
+| Inventoria | 8,747,291 B       | 8,750,995 B | **+3,704 B (+0.042%)**            |
+| Rations    | 7,659,060 B       | 7,693,893 B | **+34,833 B (+34.0 KiB, +0.45%)** |
+
+Rations' figure is 2,217 B larger than the three tickets' own figures add up to
+(+32,616 B). The difference is **chunking, not new code**: this arc arrives into
+a bundle main reshaped, so what the two entries share is not what they shared
+when each ticket was weighed. A per-ticket figure that cannot be added to its
+neighbours is the ordinary case for a shared-chunk build, and naming it here is
+cheaper than leaving a reader to find the 2 KiB themselves.

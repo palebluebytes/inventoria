@@ -50,7 +50,7 @@ interface Device {
   db: LedgerDb;
   clock: Hlc;
   ledger: FirstSyncLedger;
-  /** The domains the Facet this device pairs from holds (ADR-0103 §1). */
+  /** The domains the Facet this device pairs from holds (ADR-0105 §1). */
   scope: LaneScope;
   /** Every stamp a chunk advanced this device's clock to, in order. */
   advanced: HlcMark[];
@@ -80,7 +80,7 @@ function device(device_id: string, facetId: FacetId = "root"): Device {
       vector: async () => readLedgerVersionVector(db),
       // `sync-ledger.ts`' own two narrowings, against a real ledger rather
       // than through the worker: what the peer lacks, inside what the lane
-      // carries (ADR-0103 §1 and §6). The scope goes in whole, because the
+      // carries (ADR-0105 §1 and §6). The scope goes in whole, because the
       // prefixes it derives describe every row but one — a Carried deletion,
       // which crosses only where its frozen list is a subset of this lane's.
       page: async (after, budgetBytes, above, scope) =>
@@ -572,7 +572,7 @@ describe("an attempt that does not finish", () => {
 });
 
 // ---------------------------------------------------------------------------
-// The lane's scope (ADR-0103 §1–§4)
+// The lane's scope (ADR-0105 §1–§4)
 // ---------------------------------------------------------------------------
 
 /**
@@ -595,7 +595,7 @@ const entitiesOf = (held: Device) =>
     ...new Set(readLedgerPage(held.db, null, 1024 * 1024).map((r) => r.entity)),
   ].sort();
 
-describe("a pairing carries its Facet's domains and nothing else (ADR-0103 §1)", () => {
+describe("a pairing carries its Facet's domains and nothing else (ADR-0105 §1)", () => {
   it("lands food and no other domain on a device that paired from Rations", async () => {
     const a = device("device_a");
     const b = device("dev_b", "food");
@@ -653,7 +653,7 @@ describe("a pairing carries its Facet's domains and nothing else (ADR-0103 §1)"
   });
 });
 
-describe("the two sides agree the scope by intersection (ADR-0103 §3)", () => {
+describe("the two sides agree the scope by intersection (ADR-0105 §3)", () => {
   // All four pairings, agreed on the wire rather than in a pure function: each
   // side states its own Facet's domains in the opening frame, and both ends
   // have to come out of the act holding one scope.
@@ -678,7 +678,7 @@ describe("the two sides agree the scope by intersection (ADR-0103 §3)", () => {
   }
 });
 
-describe("pairing again re-scopes the lane, both ways (ADR-0103 §4)", () => {
+describe("pairing again re-scopes the lane, both ways (ADR-0105 §4)", () => {
   it("treats a widened lane's new domains as a first sync of them", async () => {
     const a = device("device_a");
     const b = device("dev_b", "food");
@@ -687,7 +687,7 @@ describe("pairing again re-scopes the lane, both ways (ADR-0103 §4)", () => {
     await converge(a, b);
     expect(entitiesOf(b)).toEqual(FOOD_ROWS);
     // The marks the narrow lane never raised: absent, which is the empty-vector
-    // case and is exactly why a widening needs no path of its own (ADR-0103 §5).
+    // case and is exactly why a widening needs no path of its own (ADR-0105 §5).
     expect(readLedgerVersionVector(b.db).device_a.media).toBeUndefined();
 
     // The user installs the root on that phone and pairs again.

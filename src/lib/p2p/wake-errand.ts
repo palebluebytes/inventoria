@@ -10,9 +10,9 @@
  * app went away.
  *
  * **A wake is an open of *a* Facet, and it serves every lane its Facet's scope
- * meets** (ADR-0103 §9, amending §7). ADR-0096 §7 had a wake be an open of the
+ * meets** (ADR-0105 §9, amending §7). ADR-0096 §7 had a wake be an open of the
  * root and left _a Rations-only user never converges_ stated rather than
- * repaired; ADR-0103 answers its two reasons and this module is where the
+ * repaired; ADR-0105 answers its two reasons and this module is where the
  * answer is spent. {@link openAppWake} is called from `App.svelte` and from
  * `Rations.svelte`, each naming its own Facet, and still not from
  * `facets/startup.ts` — a wake is an open of a Facet, so which Facet it is has
@@ -70,7 +70,7 @@ import { underWakeLock } from "./wake-lock";
  * first time a backlog drained.
  */
 export const appWakeLedger: WakeLedger = {
-  // `laneScope` is what this wake may carry down this lane (ADR-0103 §9), and
+  // `laneScope` is what this wake may carry down this lane (ADR-0105 §9), and
   // it is handed over as the domain ids it is: `readLedgerPage` derives the
   // prefixes from the registry, and reads the same list a second time for the
   // one row whose entity cannot say what it is about — a Carried deletion,
@@ -382,7 +382,7 @@ export function openAppWake(
           // because a withdrawal that lands takes its row with it and the loop
           // below then has one fewer pairing to skip. It never throws.
           //
-          // **It is not narrowed by the waking Facet, and that is ADR-0103
+          // **It is not narrowed by the waking Facet, and that is ADR-0105
           // §8**: a Paired Device record belongs to the Jar rather than to the
           // Facet its lane is scoped to, so a withdrawal the user asked for is
           // finished by whichever Facet is next opened.

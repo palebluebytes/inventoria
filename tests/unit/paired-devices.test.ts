@@ -317,7 +317,7 @@ describe("the reader offers both carriers, and capability decides only one", () 
   });
 });
 
-describe("every Devices row names what its lane carries (ADR-0103 §10)", () => {
+describe("every Devices row names what its lane carries (ADR-0105 §10)", () => {
   afterEach(() => vi.unstubAllGlobals());
 
   /** What the whole Jar reads as, built from the roster rather than typed. */

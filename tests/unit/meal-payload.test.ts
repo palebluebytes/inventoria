@@ -463,7 +463,7 @@ describe("the registry a meal's two allow-lists are read against", () => {
 });
 
 /**
- * ADR-0103 §7. A Facet-scoped sync lane is sanctioned only where the Facet's
+ * ADR-0105 §7. A Facet-scoped sync lane is sanctioned only where the Facet's
  * rows have no reference leaving them, and what proves that is `referencesOf`
  * being the ledger's whole reference vocabulary rather than an enumeration
  * somebody kept current. ADR-0079 §1's wipe rested on the same property
@@ -483,7 +483,7 @@ describe("the reference attributes the registry marks", () => {
    *
    * An entry is admissible only where the reference **resolves inside the
    * Tracked Domain of the row holding it**, because that is the property
-   * ADR-0103 §7 needs: a lane scoped to one Facet then cannot ship a row
+   * ADR-0105 §7 needs: a lane scoped to one Facet then cannot ship a row
    * pointing outside its own scope. The ends are declared rather than described
    * so that criterion is a claim the third test reads through `ownerOfEntity`
    * instead of a sentence nothing checks, which is the failure ADR-0078 §8 is

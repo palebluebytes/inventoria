@@ -12,7 +12,7 @@
  * your photos is not a second copy of your ledger, it is a lossy one, so
  * nothing here excludes an attribute and nothing here skips a superseded fact.
  *
- * What ADR-0103 §1 adds is one narrowing of a different kind: a lane carries
+ * What ADR-0105 §1 adds is one narrowing of a different kind: a lane carries
  * the rows of the **Tracked Domains** its two ends agreed on. The scope is
  * handed to `readLedgerPage` as the domain ids it is, and the predicate is
  * **derived** there — `entityPrefixesOfDomains` over the scope, the same

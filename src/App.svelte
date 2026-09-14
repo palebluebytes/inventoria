@@ -121,7 +121,7 @@
       // deposited to, on this open of the root Facet and then as often as there
       // is reason to — a deposit whenever the ledger grows, a collection no
       // more than hourly. Here rather than in `runStartupErrands` because a
-      // wake is an open of **a Facet** and names which one (ADR-0103 §9), so
+      // wake is an open of **a Facet** and names which one (ADR-0105 §9), so
       // the one list both entry points share is the wrong place to say it —
       // and after the ledger, because a wake is a read of it and an import into
       // it. Nothing is awaited: a wake is silent, and nothing on the screen

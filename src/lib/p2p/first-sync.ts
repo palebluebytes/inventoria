@@ -34,7 +34,7 @@
  *     domain set of the Facet this act is running in. The `device_id` is what
  *     the peer keys its record by, and ADR-0096 §8 is explicit that it *is not
  *     learned until the act is spent* — which is why "Pair again" can promise
- *     nothing about which row it replaces. The domain set is ADR-0103 §3's one
+ *     nothing about which row it replaces. The domain set is ADR-0105 §3's one
  *     new statement on the wire, and **the lane's scope is the intersection**
  *     of the two.
  *   - **`chunk`** carries the datom lines a holder of the peer's vector lacks,
@@ -52,14 +52,14 @@
  * first sync. There is exactly one live session left in this design, so the fix
  * is needed in one place instead of everywhere.
  *
- * **The domain set rides `open` and not `close`, which is where ADR-0103 §3
+ * **The domain set rides `open` and not `close`, which is where ADR-0105 §3
  * puts it.** A scope agreed at the close cannot narrow the chunks that crossed
  * before it, and §1 is that the chunks are what a scope binds: the two sides
  * have to hold the intersection before either pages its ledger, because each
  * filters `above` with it. The record is still written on receipt of the peer's
  * closing vector, so what §3 was pointing at — the exchange that completes the
  * act — is unchanged; only the frame the statement rides is. The foot of
- * ADR-0103 carries the correction.
+ * ADR-0105 carries the correction.
  *
  * **The scope is spent where rows are read and not where they are written**,
  * on both ends: each side pages its own ledger inside the agreed scope, and
@@ -154,7 +154,7 @@ export interface FirstSyncLedger {
    * the walk is done.
    *
    * The two narrowings are independent and both apply: `above` is what the peer
-   * already holds, and `scope` is what this lane carries at all (ADR-0103 §1).
+   * already holds, and `scope` is what this lane carries at all (ADR-0105 §1).
    * The scope is a parameter rather than something the seam was built with,
    * because it is not known until the peer has stated its own domains.
    */
@@ -179,7 +179,7 @@ export interface FirstSyncProgress {
 
 export interface FirstSyncOptions {
   /**
-   * The Tracked Domains **this** side's Facet holds (ADR-0103 §1).
+   * The Tracked Domains **this** side's Facet holds (ADR-0105 §1).
    *
    * It is this device's own statement and not yet the lane's scope, which is
    * why it is spelled the way the wire spells it: the scope is what the two
@@ -206,7 +206,7 @@ export interface FirstSyncResult extends FirstSyncProgress {
   peer_vector: VersionVector;
   /**
    * What this lane carries: the two Facets' domain sets, intersected
-   * (ADR-0103 §3).
+   * (ADR-0105 §3).
    *
    * It is here because it is the pairing's from now on rather than this
    * session's — every later deposit and collection is narrowed by it, and
@@ -416,7 +416,7 @@ function readOpening(body: string): StatedOpening {
     return {
       device_id,
       vector: readVersionVector(raw.vector),
-      // A peer that states no domains predates ADR-0103 and paired from the
+      // A peer that states no domains predates ADR-0105 and paired from the
       // root, whose scope is the whole Jar — `readLaneScope` is where that
       // reading lives, beside the forward-compatible one §11 gives a vector.
       domains: readLaneScope(raw.domains),

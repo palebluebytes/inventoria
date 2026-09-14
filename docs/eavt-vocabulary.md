@@ -166,7 +166,7 @@ in neither fails `pnpm test:unit`. The check runs that way only: it holds the ma
 to the code and cannot see a reference nobody marked, so marking one is the author's
 obligation and accounting for it is the gate's. A Facet-scoped sync lane rests on the
 marked set being complete on every wake, where the Facet-scoped wipe rested on it once
-([ADR-0103](adr/0103-a-pairing-is-scoped-to-the-facet-its-act-ran-in.md) §7).
+([ADR-0105](adr/0105-a-pairing-is-scoped-to-the-facet-its-act-ran-in.md) §7).
 
 ### `food/`
 

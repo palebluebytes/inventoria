@@ -260,7 +260,7 @@ describe("reading one Facet's rows a page at a time", () => {
 });
 
 // A lane carries the rows of the Tracked Domains its two ends agreed on
-// (ADR-0103 §1), and a **Carried deletion** crosses it only where the prefix
+// (ADR-0105 §1), and a **Carried deletion** crosses it only where the prefix
 // list it froze is a subset of that lane's (§6). The second half is what §1's
 // predicate cannot express on its own: a deletion's entity is `deletion:`, so
 // its own prefix says nothing about what it deletes.

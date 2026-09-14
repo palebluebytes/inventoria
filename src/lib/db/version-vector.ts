@@ -1,7 +1,7 @@
 /**
  * The version vector: what this device holds, per originating device **and per
  * Tracked Domain**, read straight off `datoms` (ADR-0075 §6, re-keyed by
- * ADR-0103 §5).
+ * ADR-0105 §5).
  *
  * **The watermark is not stored, it is queried.** Every datom carries the
  * `device_id` that minted it, and a device's own stamps are strictly monotonic
@@ -27,12 +27,12 @@
  * lane that carries a domain carries **all** of it above the peer's mark — a
  * wide lane by containing it, a narrow lane by being it. So the vector is keyed
  * by (originating device, Tracked Domain), and a lane may be narrowed
- * (ADR-0103 §1) without the vector lying about what crossed.
+ * (ADR-0105 §1) without the vector lying about what crossed.
  *
  * **A row's domain is the domain it is *about*.** For a content row that is
  * `ownerOfEntity`; for a **Carried deletion** it is the domains its frozen
  * prefix list names, and never the Jar domain that owns its entity — which is
- * why the Jar domain gets no axis here at all (ADR-0103 §6). Attributing a
+ * why the Jar domain gets no axis here at all (ADR-0105 §6). Attributing a
  * deletion to `jar` would give that domain one mark a narrow lane raises while
  * skipping the deletions it may not carry, reopening inside the vector the very
  * hole the second axis closes. {@link domainsOfRow} is the rule.
@@ -109,7 +109,7 @@ export interface AttributedRow {
 export type StampedRow = HlcKey & AttributedRow;
 
 /**
- * The Tracked Domains one row is *about*, in roster order (ADR-0103 §6).
+ * The Tracked Domains one row is *about*, in roster order (ADR-0105 §6).
  *
  * A content row stands on one axis, its owner's. A **Carried deletion** stands
  * on one axis per domain its frozen prefix list names — plural, because a wipe
@@ -117,7 +117,7 @@ export type StampedRow = HlcKey & AttributedRow;
  * the Jar domain that owns its entity.
  *
  * **An entity no domain owns stands on no axis and can cross no lane.** That is
- * a `pnpm check:entities` failure rather than a runtime case (ADR-0103 §5), and
+ * a `pnpm check:entities` failure rather than a runtime case (ADR-0105 §5), and
  * it is the empty list here so that the gate's absence is never read as a
  * silence.
  *
@@ -274,7 +274,7 @@ export function vectorOfRows(rows: readonly StampedRow[]): VersionVector {
  * ignores, where overstating it would withhold a row permanently.
  *
  * **A partial deposit is now expressible, and that is what the second axis
- * buys** (ADR-0103 §9): a wake that carried one Facet's rows raises only the
+ * buys** (ADR-0105 §9): a wake that carried one Facet's rows raises only the
  * marks for the domains it carried, where under a per-device scalar it would
  * have claimed the peer held everything below the greatest stamp it sent.
  */
@@ -345,7 +345,7 @@ function keepGreater(
  * An empty vector matches every row that stands on an axis at all, which is the
  * first sync, and is why there is no separate first-sync path anywhere above
  * this. A row standing on no axis matches nothing, here and on a first sync
- * alike — ADR-0103 §5's *an entity with no owning domain can cross no lane*,
+ * alike — ADR-0105 §5's *an entity with no owning domain can cross no lane*,
  * which `pnpm check:entities` is what keeps hypothetical.
  */
 export function vectorAboveMatch(vector: VersionVector): {
@@ -393,7 +393,7 @@ export function vectorAboveMatch(vector: VersionVector): {
  * sealed.
  *
  * **A vector in ADR-0075 §6's older shape is read as this one**, by assigning
- * its whole-stamp entry to every content domain (ADR-0103 §11). Sound, and
+ * its whole-stamp entry to every content domain (ADR-0105 §11). Sound, and
  * provably: an old-shape vector can only have been produced by an unfiltered
  * lane, so the peer genuinely holds every domain below that mark. Refusing it
  * would pay a visible failure for nothing.

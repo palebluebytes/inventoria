@@ -59,7 +59,7 @@
      *
      * The sheet is Rations' settings screen whichever shell draws it — the
      * title below says so — but one control on it is not a fact about food, and
-     * that is the pairing surface: ADR-0103 §1 scopes a pairing to the Facet
+     * that is the pairing surface: ADR-0105 §1 scopes a pairing to the Facet
      * the act ran in, and an act performed in the root's Food tab ran in the
      * root. So the card is drawn under Rations and nowhere else, and the root
      * keeps the one pairing surface it already has on its own Settings screen.
@@ -204,7 +204,7 @@
        second enumeration of Facets. -->
   <FoodDataSection {dbReady} />
 
-  <!-- **Paired devices, entire** (ADR-0103 §10): the pairing act, the list, the
+  <!-- **Paired devices, entire** (ADR-0105 §10): the pairing act, the list, the
        naming, the two-phase unpair and ADR-0096 §11's pending-revocation and
        stopped-at-K states. It is the root's own module, reached by reference
        rather than copied (ADR-0095) — ADR-0078 §1 permits exactly that, because
@@ -212,7 +212,7 @@
        gains a screen of its own and no link to the root's.
 
        It carries the Facet its acts run in as a literal (ADR-0076 §6), which is
-       the whole of what ADR-0103 §1 needs: a pairing carries the domains of the
+       the whole of what ADR-0105 §1 needs: a pairing carries the domains of the
        Facet the act ran in, so a pairing made here is a food lane.
 
        **Which is why the root does not draw it.** This sheet is Rations'

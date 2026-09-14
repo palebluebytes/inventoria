@@ -84,7 +84,7 @@ export const isStopped = (device: PairedDevice): boolean =>
  *
  * **Two lists rather than one**, because a wake no longer reaches every
  * pairing. A wake is an open of a Facet and serves the lanes that Facet's scope
- * meets (ADR-0103 §9), so a pairing it never served has had no absence looked
+ * meets (ADR-0105 §9), so a pairing it never served has had no absence looked
  * for at it — and a counter that climbed on one would stop a pairing the other
  * Facet's wakes are converging perfectly well.
  *
@@ -119,7 +119,7 @@ export interface CountedRound {
  * arrives.
  *
  * **A pairing the sync did not serve is not counted at all**, which is the
- * same argument as the two below arriving from ADR-0103 §9: nothing looked, so
+ * same argument as the two below arriving from ADR-0105 §9: nothing looked, so
  * there is nothing for the wake to have produced.
  *
  * **A stopped pairing is not counted further.** It is no longer being touched,

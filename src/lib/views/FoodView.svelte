@@ -150,7 +150,7 @@
      * draws the whole of this screen in its Food tab without being Rations.
      * Required rather than defaulted, because both shells are two lines apart
      * and the settings sheet below decides which Facet an act performed on it
-     * runs in (ADR-0103 §1).
+     * runs in (ADR-0105 §1).
      */
     shell: FacetId;
   } = $props();

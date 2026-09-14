@@ -233,7 +233,7 @@ describe("the persistence badge goes and the usage figure does not (ADR-0080 §2
   });
 });
 
-describe("Rations carries the whole pairing surface (ADR-0103 §10)", () => {
+describe("Rations carries the whole pairing surface (ADR-0105 §10)", () => {
   it("mounts it as the Facet its acts run in", () => {
     // §1: a pairing carries the domains of the Facet the pairing act ran in,
     // and the section is where that Facet is known. The literal is the whole of

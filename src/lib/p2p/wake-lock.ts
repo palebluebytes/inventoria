@@ -8,7 +8,7 @@
  * `wake-cadence.ts` already queues every trigger of **one** open onto one
  * chain, and that is not enough: a root browser tab beside the installed root
  * is two opens over one `localStorage` jar and one ledger, and nothing above
- * this module serialises them. ADR-0103 §9 makes the pair routine rather than
+ * this module serialises them. ADR-0105 §9 makes the pair routine rather than
  * accidental — a root tab beside an installed Rations — which is why #418 is
  * repaired before it rather than by it.
  *

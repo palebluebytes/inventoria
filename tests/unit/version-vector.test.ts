@@ -1,6 +1,6 @@
 /**
  * The version vector, against the real sqlite-wasm build (ADR-0075 §6, re-keyed
- * by ADR-0103 §5 and §6).
+ * by ADR-0105 §5 and §6).
  *
  * It is tested against the engine rather than a fake because the claims that
  * matter are SQL's: that the greatest `(hlc_ms, hlc_ctr)` per device and domain
@@ -14,7 +14,7 @@
  * came from a device the peer has never heard of — the bug a scalar watermark
  * would make invisible and permanent. And a row of a domain the peer has never
  * heard from a device it *has* heard from still crosses — the same bug reached
- * along the second axis, which is the whole of ADR-0103 §5.
+ * along the second axis, which is the whole of ADR-0105 §5.
  */
 import { describe, it, expect, beforeEach } from "vitest";
 import sqlite3InitModule from "@sqlite.org/sqlite-wasm";
@@ -144,7 +144,7 @@ describe("the vector is a read of the ledger", () => {
     });
   });
 
-  // ADR-0103 §5's *an entity with no owning domain has no vector entry*, which
+  // ADR-0105 §5's *an entity with no owning domain has no vector entry*, which
   // `pnpm check:entities` is what keeps hypothetical.
   it("gives an entity no domain owns no entry at all", () => {
     hold([row({ entity: "nobody:1", attribute: "x/1" })]);
@@ -243,7 +243,7 @@ describe("what crosses is what the peer lacks", () => {
     expect(sent[0]).toMatchObject({ device_id: "dev_b", hlc_ms: 40 });
   });
 
-  // The same refutation along the second axis, which is ADR-0103 §5's whole
+  // The same refutation along the second axis, which is ADR-0105 §5's whole
   // argument: the peer took this device's food up to 9,000 over a food lane and
   // has never held a Media row from it. A per-device mark of 9,000 would
   // withhold the Media row at 40 permanently and silently.
@@ -384,7 +384,7 @@ describe("two sound statements about one peer are merged, not replaced", () => {
     });
   });
 
-  // ADR-0103 §9: a Rations wake deposits food and leaves the other five to the
+  // ADR-0105 §9: a Rations wake deposits food and leaves the other five to the
   // root's. The marks it raises are the domains it carried and no others, which
   // is the statement a per-device scalar could not make.
   it("raises only the domains a partial deposit carried", () => {
@@ -479,7 +479,7 @@ describe("a vector that arrived from somewhere else is checked", () => {
 // ---------------------------------------------------------------------------
 
 /**
- * ADR-0103 §11, both directions, and the second one is why the first is safe.
+ * ADR-0105 §11, both directions, and the second one is why the first is safe.
  *
  * The older build is quoted rather than described: `oldBuildRead` is the body
  * `readVersionVector` had before #419, copied verbatim, so what the reverse

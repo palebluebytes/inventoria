@@ -449,7 +449,7 @@ describe("one run of the wipe", () => {
   });
 });
 
-describe("the pairing record stays the Jar's (ADR-0103 §8)", () => {
+describe("the pairing record stays the Jar's (ADR-0105 §8)", () => {
   /** One completed pairing, as the jar holds it. */
   const PAIRINGS = "inventoria_paired_devices";
   const A_PAIRING = JSON.stringify([

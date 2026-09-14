@@ -65,11 +65,11 @@
   // show nothing at all; this is the one case that does.
 
   // **Which Facet this surface is**, named by the caller as a literal and never
-  // worked out from the URL (ADR-0076 §6). It is the whole of what ADR-0103 §1
+  // worked out from the URL (ADR-0076 §6). It is the whole of what ADR-0105 §1
   // needs from the surface: a pairing act carries the domains of the Facet it
   // ran in, so the section that draws the act is where that Facet is known.
   // There are two callers, one per Facet and one card per document: the root's
-  // `SettingsView`, and Rations' settings sheet at #423 (ADR-0103 §10). That
+  // `SettingsView`, and Rations' settings sheet at #423 (ADR-0105 §10). That
   // sheet draws this card only under Rations' own shell, because an act
   // performed in the root's Food tab ran in the root — so no document ever
   // holds two of these, and the two ways in below keep the unqualified ids
@@ -146,7 +146,7 @@
       reach = "sync";
       syncing = { rows_sent: 0, rows_received: 0 };
       const converged = await runFirstSync(room, acting, chains, ledger, {
-        // **The lane is scoped to the Facet this act ran in** (ADR-0103 §1),
+        // **The lane is scoped to the Facet this act ran in** (ADR-0105 §1),
         // and the Facet is the surface's rather than something worked out at
         // runtime — the same rule `LogSettingsSection` follows, and ADR-0076
         // §6's reason for it.
@@ -238,7 +238,7 @@
 
   /**
    * **What this pairing's lane carries**, in the Tracked Domains' own
-   * user-facing names (ADR-0103 §10).
+   * user-facing names (ADR-0105 §10).
    *
    * **It is the only place the app can explain an absence** the user would
    * otherwise read as a sync failure: three devices, a jar-wide lane to the
@@ -455,7 +455,7 @@
                 {/if}
                 <!-- What this lane carries, before anything about the peer:
                      it is a fact about rows rather than about the far device
-                     (ADR-0103 §2), and the one line that explains an absence
+                     (ADR-0105 §2), and the one line that explains an absence
                      the user would otherwise read as a sync failure. A severed
                      pairing gets none, because both its lanes are already shut
                      and a claim about what one carries would be a claim about a

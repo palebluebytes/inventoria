@@ -212,7 +212,7 @@
 <!-- Your own devices, and the act that pairs one (ADR-0096 §8). ADR-0084 §6 puts
      the list here, and it expands in place rather than opening the Devices
      screen ADR-0075 §4 used to name. It is **no longer here because a pairing
-     must carry the whole jar**: ADR-0103 §1 scopes a lane to the Facet the act
+     must carry the whole jar**: ADR-0105 §1 scopes a lane to the Facet the act
      ran in, so this one says which Facet it is and the root's answer is the
      whole jar. Rations draws this same module on its own settings sheet under
      `facetId="food"` (#423), which is a shared component rather than a
