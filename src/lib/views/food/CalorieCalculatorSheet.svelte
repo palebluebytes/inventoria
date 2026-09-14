@@ -554,15 +554,28 @@
     font-size: var(--step-0);
     line-height: 1;
   }
-  /* **The states are the primitive's, and that is the adoption.** `ui/Button`
-     defines hover and disabled per variant — `ghost` lifts an accent glow, and
-     `:disabled` mutes at `opacity: 0.6` — and the bespoke rules these buttons
-     carried did the same two jobs differently: the square inverted to ink on
-     paper, and disabled recoloured the border rather than fading it. Keeping
-     either would be a caller styling the primitive, which is the one thing its
-     contract refuses. If the glow reads badly behind a 1.75rem mark in a 48px
-     box, that is an argument about `ghost` or about which variant this is, made
-     on its merits — not a rule at two call sites. */
+  /* **The mark responds to the button's state, and that is the caller's to
+     say.** `ui/Button` owns its own box — the floor, the frame, the focus ring,
+     `ghost`'s glow, and the `opacity: 0.6` it mutes a disabled control with. It
+     does not own `.reset-mark`, which is content this file passes in, so keying
+     that element's look off `:disabled` is not overriding the primitive; it is
+     the caller deciding what its own content looks like in a state the
+     primitive announces. Same shape as `.info-mark` under `ui/Disclosure`
+     (#316).
+
+     The disabled rule is load-bearing rather than decorative: the affordance
+     these buttons carry is that a card already at its baked default reads as
+     default from the muted control alone. Fading a hard `--edge` border to 60%
+     leaves it reading as a live box against the value field beside it, which is
+     what the rebaseline showed. */
+  .nudge :global(.nudge-reset:hover:not(:disabled) .reset-mark) {
+    background: var(--ink);
+    color: var(--paper);
+  }
+  .nudge :global(.nudge-reset:disabled .reset-mark) {
+    border-color: var(--border-subtle, var(--border));
+    color: var(--border-subtle, var(--border));
+  }
   .floor-note {
     color: var(--ink);
     font-weight: 600;
