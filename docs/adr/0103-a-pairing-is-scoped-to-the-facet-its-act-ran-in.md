@@ -671,7 +671,8 @@ about: a pairing act run in Rations scopes its lane to food, so its row says
 _Carries Food._ wherever it is drawn. The sentence that does not survive is the
 one about the surface.
 
-**A second sentence of §1 needed reading, and the reading is the surface's.**
+**§1's _the Facet the pairing act ran in_ needed reading, and the reading is
+the surface's.**
 _The Facet the pairing act ran in_ has two candidates on this sheet, because the
 root draws _Rations settings_ too, from its Food tab (ADR-0080 §7). The **shell**
 reading would make an act started there jar-wide; the **surface** reading makes it
@@ -710,8 +711,8 @@ writer were already in this bundle for the barcode scanner and the meal
 hand-off, so what the surface adds is the section, the act around it and the two
 code faces.
 
-**The root's figure moves the other way, by −345 B.** It gains the scope line and
-nothing else, and loses more than that to chunking: a second entry importing
+**The root's figure moves the other way, by −345 B.** It gains the scope line
+and a DOM id per copy of the card, and loses more than both to chunking: a second entry importing
 `src/lib/views/pairing/` turns modules the root used to inline into shared ones,
 whose wrappers are then emitted once rather than twice. A Facet paying slightly
 less because its sibling started reading the same code is the shape of ADR-0095

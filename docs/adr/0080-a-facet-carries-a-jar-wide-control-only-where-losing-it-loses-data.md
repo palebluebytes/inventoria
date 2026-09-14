@@ -362,7 +362,7 @@ five domains its user cannot see. The scoping is the whole of the difference.
 first half is the placement: _the answer §1 gives today is root-only_. Its
 second is the consequence: _a food-only user therefore has no p2p at all_. Meal
 send and receive went to Rations first, and own-device pairing follows, so a
-food-only user now has both. The bullet's other two — the raw ledger view, the
+food-only user now has both. §9's other two bullets — the raw ledger view, the
 storage usage figure and Developer Options; and the jar-wide wipe — stand
 unrevised.
 
