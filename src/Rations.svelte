@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount } from "svelte";
+  import { onDestroy, onMount } from "svelte";
   import { dbClient } from "./lib/db/db.client";
   import { runStartupErrands } from "./lib/facets/startup";
   import type { Facet } from "./lib/facets/registry";
@@ -9,6 +9,9 @@
     type ReceiveOpening,
   } from "./lib/p2p/receive-link";
   import { isIosSafariTab } from "./lib/p2p/safari-tab";
+  import { openAppWake } from "./lib/p2p/wake-errand";
+  import type { OpenWake } from "./lib/p2p/wake-cadence";
+  import { watchCarriedDeletions } from "./lib/stores/carried-deletion-notice";
   import Badge from "./lib/ui/Badge.svelte";
   import FoodView from "./lib/views/FoodView.svelte";
   import CodeHandover from "./lib/views/food/CodeHandover.svelte";
@@ -122,6 +125,43 @@
   // instead of racing an unset worker and rejecting with "not initialized".
   const initPromise = handover ? null : dbClient.init("/inventoria.db");
 
+  /**
+   * This open's wake, kept so its triggers can be dropped with the app.
+   *
+   * **Rations wakes** (ADR-0103 §9, amending ADR-0096 §7). A wake is an open of
+   * a Facet rather than an open of the root, and this Facet's scope is food —
+   * so this open serves every lane it meets, collects whatever a peer left, and
+   * deposits food and its deletions and nothing else. That last clause is what
+   * closes
+   * [#415](https://github.com/palebluebytes/inventoria/issues/415): a
+   * Facet-scoped wipe performed in this install now deposits its Carried
+   * deletion on this open instead of waiting for the root to be opened.
+   *
+   * **It is not a way out of this Facet** (ADR-0078). It reaches no root
+   * screen, mounts no root view module and draws nothing; the pairing surface
+   * is #423's, and until it lands the act still lives only on the root's
+   * Settings.
+   */
+  let wake: OpenWake | null = null;
+  /**
+   * The listener for a peer's Carried deletion, attached **before** the wake
+   * that applies one (ADR-0096 §12): the worker announces it once, so a
+   * broadcast with nobody listening is a deletion the person is never told
+   * about.
+   *
+   * Rations draws no notice — `CarriedDeletionNotice` is the root's screen —
+   * and this is still Rations', because the record it writes is `localStorage`
+   * and waits to be read. Without it a deletion applied under a Rations-only
+   * open would be lost rather than deferred.
+   */
+  let watching: (() => void) | null = null;
+  let unmounted = false;
+  onDestroy(() => {
+    unmounted = true;
+    wake?.close();
+    watching?.();
+  });
+
   onMount(async () => {
     // A page that is handing the code over opens nothing and asks for nothing
     // (ADR-0082 §8): no database, no persistence request, no corpus fetch and
@@ -141,6 +181,14 @@
     try {
       await initPromise;
       dbReady = true;
+      watching = watchCarriedDeletions();
+      wake = openAppWake("food");
+      // The shell can be torn down inside the awaits above, in which case
+      // `onDestroy` has already run and found nothing to close.
+      if (unmounted) {
+        wake.close();
+        watching();
+      }
     } catch (e) {
       dbError = e instanceof Error ? e.message : String(e);
     }

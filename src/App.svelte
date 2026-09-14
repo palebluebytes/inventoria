@@ -118,19 +118,23 @@
       }
 
       // The Wake (ADR-0096 §3): every paired device is collected from and
-      // deposited to, on this open of the **root** Facet and then as often as
-      // there is reason to — a deposit whenever the ledger grows, a collection
-      // no more than hourly. Here rather than in `runStartupErrands` because
-      // both entry points run that list and a Rations-only user never converges
-      // (§7) — and after the ledger, because a wake is a read of it and an
-      // import into it. Nothing is awaited: a wake is silent, and nothing on
-      // the screen waits for one.
+      // deposited to, on this open of the root Facet and then as often as there
+      // is reason to — a deposit whenever the ledger grows, a collection no
+      // more than hourly. Here rather than in `runStartupErrands` because a
+      // wake is an open of **a Facet** and names which one (ADR-0103 §9), so
+      // the one list both entry points share is the wrong place to say it —
+      // and after the ledger, because a wake is a read of it and an import into
+      // it. Nothing is awaited: a wake is silent, and nothing on the screen
+      // waits for one.
+      //
+      // The root's scope is the whole Jar, so this wake serves every lane
+      // wholly, which is §9's second row and is unchanged by that record.
       //
       // The notice a carried deletion leaves is listened for first, because a
       // broadcast nobody is listening to is a deletion the person is never told
       // about (ADR-0096 §12).
       watching = watchCarriedDeletions();
-      wake = openAppWake();
+      wake = openAppWake("root");
       // The shell can be torn down inside the awaits above, in which case
       // `onDestroy` has already run and found nothing to close.
       if (unmounted) {
