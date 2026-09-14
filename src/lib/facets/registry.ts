@@ -492,6 +492,15 @@ export const FACETS = [
     // takes up 67,165 B of drift from the rest of the ADR-0103 arc, which
     // re-measured nothing. #422's own cost to the root is +363 B, because the
     // root already carried the whole p2p stack.
+    //
+    // Re-measured at #423, which gave Rations the pairing surface. Build to
+    // build with nothing else on the branch moving, and the root **loses
+    // 345 B** (−0.004%). It gains one line on a Devices row and nothing else,
+    // and that is outweighed by what a second entry importing `views/pairing/`
+    // does to the chunking: modules this entry used to inline are now shared,
+    // so their wrappers are emitted once rather than twice. A Facet paying
+    // slightly *less* because its sibling started reading the same code is what
+    // sharing looks like from this side.
     precacheBytes: 8_747_292,
     status: "built",
   },
@@ -581,6 +590,16 @@ export const FACETS = [
     // and already reached the store, the lane chain and the sealed deposit
     // through the meal hand-off, so what a wake adds is the cadence, the errand,
     // the counter and the lock.
+    //
+    // Re-measured at #423, which is ADR-0103 §10's surface: Rations mounts the
+    // root's own `PairedDevicesSection`, and with it the code reader, the code
+    // writer and the two §11 states. Build to build with nothing else on the
+    // branch moving, so there is no drift to take up this time.
+    // **#423's own cost is +16,675 B (+16.3 KiB, +0.16%)**, against the same
+    // ±5% band that is 497 KiB wide either side. Small for the same reason
+    // #422's was: the camera, the symbol reader and the QR writer were already
+    // here for the barcode scanner and the meal hand-off, so what the surface
+    // adds is the section itself and the act around it.
     precacheBytes: 7_659_061,
     // Installability is definitional (ADR-0076 §1) and #305 is where Rations
     // gets a manifest of its own, so this is the ticket that flips it.

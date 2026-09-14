@@ -11,6 +11,7 @@
   import SecretField from "../../ui/SecretField.svelte";
   import NutritionTargetEditor from "./NutritionTargetEditor.svelte";
   import FoodDataSection from "./FoodDataSection.svelte";
+  import PairedDevicesSection from "../pairing/PairedDevicesSection.svelte";
   import LogSettingsSection from "../logs/LogSettingsSection.svelte";
   import ScanSessionsCard from "../logs/ScanSessionsCard.svelte";
   import { facetOf } from "../../facets/registry";
@@ -185,6 +186,23 @@
        button each, which is the launcher ADR-0076 refuses and would need a
        second enumeration of Facets. -->
   <FoodDataSection {dbReady} />
+
+  <!-- **Paired devices, entire** (ADR-0103 §10): the pairing act, the list, the
+       naming, the two-phase unpair and ADR-0096 §11's pending-revocation and
+       stopped-at-K states. It is the root's own module, reached by reference
+       rather than copied (ADR-0095) — ADR-0078 §1 permits exactly that, because
+       the rule binds *screens* and a shared component is not a crossing. Rations
+       gains a screen of its own and no link to the root's.
+
+       It carries the Facet its acts run in as a literal (ADR-0076 §6), which is
+       the whole of what ADR-0103 §1 needs: a pairing carries the domains of the
+       Facet the act ran in, so a pairing made here is a food lane.
+
+       It sits directly under "Your data" because the wipe above it is the
+       control §8 is about: "Delete all my food data" takes food's rows and
+       food's `localStorage` and **unpairs nothing**, and the two being one
+       screen apart is what makes that legible rather than merely true. -->
+  <PairedDevicesSection facetId="food" />
 
   <!-- What the barcode scan has been doing (ADR-0071 §6). Rations' surface and
        not the root's, because the reading belongs to the domain that writes the

@@ -1,8 +1,11 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { render } from "svelte/server";
 import LogSettingsSection from "../../src/lib/views/logs/LogSettingsSection.svelte";
+import PairedDevicesSection from "../../src/lib/views/pairing/PairedDevicesSection.svelte";
 import { facetOf } from "../../src/lib/facets/registry";
 import { readCode, readSource } from "./support/source";
+import { trackedSvelteFiles } from "./support/markup";
+import { stubLocalStorage } from "./support/local-storage";
 
 /**
  * Rations settings (#310): the food gear's one named, full-height surface, and
@@ -227,5 +230,118 @@ describe("the persistence badge goes and the usage figure does not (ADR-0080 §2
     expect(DATA).toMatch(/refreshPersistenceState\(\)/);
     expect(DATA).not.toMatch(/\bshown\b/);
     expect(BADGE).not.toMatch(/\bshown\b/);
+  });
+});
+
+describe("Rations carries the whole pairing surface (ADR-0103 §10)", () => {
+  it("mounts it as the Facet its acts run in", () => {
+    // §1: a pairing carries the domains of the Facet the pairing act ran in,
+    // and the section is where that Facet is known. The literal is the whole of
+    // what the surface needs, and it is never worked out from the URL
+    // (ADR-0076 §6).
+    expect(SHEET).toMatch(/<PairedDevicesSection[^>]*facetId="food"/);
+  });
+
+  it("reaches the root's module by reference, and is not a second copy", () => {
+    // ADR-0095, and ADR-0078 §1 is what permits it: the rule binds *screens*,
+    // and a shared component is not a crossing. A copy under the food tree is
+    // exactly what that record exists to refuse, so the population is
+    // discovered rather than named — a second file anywhere under `src/` fails
+    // here whatever it is called.
+    const copies = trackedSvelteFiles().filter((file) =>
+      file.endsWith("/PairedDevicesSection.svelte")
+    );
+    expect(copies).toEqual([
+      "src/lib/views/pairing/PairedDevicesSection.svelte",
+    ]);
+    expect(SHEET).toContain(
+      'import PairedDevicesSection from "../pairing/PairedDevicesSection.svelte"'
+    );
+    expect(readSource("src/lib/views/SettingsView.svelte")).toContain(
+      'import PairedDevicesSection from "./pairing/PairedDevicesSection.svelte"'
+    );
+  });
+
+  it("renders the act, the list and both of §11's states under either Facet", async () => {
+    // The states are not chrome: a pending revocation is the half that stops
+    // the lanes and retries its withdrawal on a later open, and under ADR-0078
+    // §7 Rations has no route to the root's copy of either.
+    const jar = JSON.stringify([
+      {
+        device_id: "dev_b0c1d2e3f4",
+        name: null,
+        deposit: {
+          direction: "a2b",
+          state: "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+          index: 0,
+        },
+        collect: {
+          direction: "b2a",
+          state: "AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE=",
+          index: 0,
+        },
+        peer_vector: {},
+        scope: ["food"],
+        unproductive_wakes: 200,
+      },
+    ]);
+    stubLocalStorage({ seed: { inventoria_paired_devices: jar } });
+    try {
+      // The store reads the jar when its module is first imported, so the
+      // section is re-imported here — and `svelte/server` with it, because a
+      // reset graph gives the component a different Svelte instance from the
+      // one this file imported and rendering across the two leaves the SSR
+      // context empty.
+      vi.resetModules();
+      const [{ render: renderFresh }, Section] = await Promise.all([
+        import("svelte/server"),
+        import("../../src/lib/views/pairing/PairedDevicesSection.svelte"),
+      ]);
+      for (const facetId of ["food", "root"] as const) {
+        const { body } = renderFresh(Section.default, { props: { facetId } });
+        expect(body).toContain("Show a code");
+        expect(body).toContain("Read a code");
+        expect(body).toContain("Rename");
+        expect(body).toContain("Unpair");
+        expect(body).toContain("Carries Food.");
+        // §11's stopped-at-K state, which has to say so somewhere the user can
+        // reach — and on Rations that is here or nowhere.
+        expect(body).toContain("one-sided");
+      }
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("gives the two ways in a DOM id per copy, because both can be live at once", () => {
+    // The root renders `SettingsView` under every tab and merely hides it, so
+    // opening the food gear's sheet puts a second Paired devices card in the
+    // same document. One id on two elements is an ambiguous selector rather
+    // than a duplicate that shows — the rule `LedgerImport` already follows
+    // (#335).
+    const ids = (facetId: "food" | "root") =>
+      [
+        ...render(PairedDevicesSection, { props: { facetId } }).body.matchAll(
+          /id="([^"]+)"/g
+        ),
+      ].map(([, id]) => id);
+
+    const food = ids("food");
+    const root = ids("root");
+    expect(food.length).toBeGreaterThan(0);
+    expect(food).toHaveLength(root.length);
+    expect(food.filter((id) => root.includes(id))).toEqual([]);
+    // The root keeps the unqualified spelling, because it is the copy every
+    // selector already written names.
+    expect(root).toContain("pair-show-btn");
+    expect(root).toContain("pair-read-btn");
+  });
+
+  it("takes nobody anywhere, so the Facet still contains no way out", () => {
+    // ADR-0078 §1: Rations gains a screen of its own and no link to the root's.
+    const { body } = render(PairedDevicesSection, {
+      props: { facetId: "food" },
+    });
+    expect(body).not.toContain("<a ");
   });
 });
