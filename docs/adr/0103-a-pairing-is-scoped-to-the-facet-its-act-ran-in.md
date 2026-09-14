@@ -436,7 +436,8 @@ reads the **closure's**, which is a smaller thing, and the two were conflated.
 because the reader recomputes reachability from `referencesOf` and never sees that edge.
 Nothing sends one today, since a send picks a day's live events and a live event holds no
 correction link. That is a hole in ADR-0073's self-containment rather than in this record's,
-and closing it would widen what a meal carries, so it is left open here.
+and closing it would widen what a meal carries, so it is left open here and carried by
+[#427](https://github.com/palebluebytes/inventoria/issues/427).
 
 ## Amendment (2026-09-14): §5's rule reads one axis per row, and the empty vector matches one row fewer than "everything"
 
