@@ -501,7 +501,12 @@ export const FACETS = [
     // so their wrappers are emitted once rather than twice. A Facet paying
     // slightly *less* because its sibling started reading the same code is what
     // sharing looks like from this side.
-
+    //
+    // Re-measured again when §1's reading was settled on the **shell** (the
+    // amendment at ADR-0103's foot): the card is drawn under Rations alone, and
+    // the per-copy DOM id scheme that a second card in one document had needed
+    // is deleted with it. **−52 B**, on both Facets, because what went is a
+    // helper in the one module they share.
     precacheBytes: 8_747_292,
     status: "built",
   },
@@ -601,7 +606,12 @@ export const FACETS = [
     // #422's was: the camera, the symbol reader and the QR writer were already
     // here for the barcode scanner and the meal hand-off, so what the surface
     // adds is the section itself and the act around it.
-
+    //
+    // Re-measured again when §1's reading was settled on the **shell** (the
+    // amendment at ADR-0103's foot): the card is drawn under Rations alone, and
+    // the per-copy DOM id scheme that a second card in one document had needed
+    // is deleted with it. **−52 B**, on both Facets, because what went is a
+    // helper in the one module they share.
     precacheBytes: 7_659_061,
     // Installability is definitional (ADR-0076 §1) and #305 is where Rations
     // gets a manifest of its own, so this is the ticket that flips it.

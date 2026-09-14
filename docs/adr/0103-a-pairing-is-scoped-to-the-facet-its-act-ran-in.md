@@ -727,3 +727,66 @@ whose wrappers are then emitted once rather than twice. A Facet paying slightly
 less because its sibling started reading the same code is the shape of ADR-0095
 seen from the bundler, and it is the opposite of what a reader would guess from
 "Rations grows".
+
+## Amendment (2026-09-14): §1's Facet is the install, so the root's Food tab draws no pairing card
+
+The amendment four above read §1's _the Facet the pairing act ran in_ as the
+**surface**, and shipped the pairing card on Rations' settings sheet under both
+shells. Reviewed with #423 in hand, that reading is withdrawn and the **shell**
+reading takes its place: the card is drawn under Rations' own shell and nowhere
+else.
+
+**The reason the surface reading gave is not about Facets.** It observed that
+every other Facet-scoped control on that sheet reads "food" in both shells — the
+wipe, the export, the log card — and concluded a pairing act should too. But
+those controls are scoped by **the data they touch**, and food's data is food's
+whoever is asking. A pairing's scope is fixed by **which Facet the act ran in**,
+and ADR-0076 §1 makes a Facet an _installable face_: an install, not a tab. An
+act performed in the root's Food tab ran in the root. The two controls read
+alike and are answering different questions.
+
+**What the surface reading cost was the part that settled it.** §4 has a second
+pairing with the same device replace the first and re-scope the lane, so a root
+user who already had a jar-wide lane and tapped _Show a code_ on the food gear
+narrowed it — habits, media, notes and the rest stop crossing — from a screen
+whose every other control is about food's data. §5 makes that sound and §10's
+row makes it legible _afterwards_; neither makes it something the user asked
+for. A rule whose misfire has to be explained by a line printed after the fact
+is worse than a rule that cannot misfire.
+
+**The duplicate-card objection dissolves rather than being paid.** The surface
+reading's alternative was said to be "two identical jar-wide pairing cards in
+one root document". That is only true of a third reading, in which the root
+draws the card _and_ scopes it to the shell. The root already carries the whole
+pairing surface on its own Settings screen, so the card on the food sheet was
+never the root's only way in — it was a second one. Removing it leaves each
+Facet exactly one.
+
+**§10 is unaffected, because §10 is about Rations.** _Rations carries the whole
+pairing surface_ is a claim about the Rations install, and the Rations install
+still carries it entire: the act, the list, the naming, the two-phase unpair and
+ADR-0096 §11's two states. What the root does in its Food tab was never what
+§10 asked about, and ADR-0078 §7 is untouched — Rations still has no route to
+the root's copy.
+
+**One thing built for the surface reading is deleted with it.** Two cards in one
+root document made `#pair-show-btn` an ambiguous selector, so #423 gave each
+copy its own id. With one card per document the scheme is unreachable, and an
+unreachable branch no rule and no spec drives is the shape ADR-0097 deletes. The
+two ways in keep the unqualified ids every selector already written names, and a
+test pins that they are the same under either Facet.
+
+**What the shell says is threaded, not sniffed.** `FoodView` and
+`FoodSettingsSheet` take the Facet drawing them from their entry point, as
+`hasPages` already is (ADR-0091 §5) and for the reason that prop gives from the
+other side: a screen cannot ask what mounted it. It is required rather than
+defaulted, because there are two callers two lines apart and a default would
+make the quieter failure the one that ships.
+
+**Measured, since the amendment above pinned a figure that includes it.** Both
+Facets lose **52 B**: Rations precaches 10,265,627 B and the root 9,483,683 B,
+build to build with nothing else moving. The same number twice because what went
+is a helper in the one module they share — which is the amendment above read
+from the bundler, one ticket later. The two figures it recorded (+16,696 B and
+−324 B) stand as what the surface itself cost; this is the reading's own change
+on top of them.
