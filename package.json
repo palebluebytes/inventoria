@@ -37,7 +37,6 @@
     "test:e2e:offline": "playwright test --config playwright.offline.config.ts",
     "prepare": "husky || true",
     "usda:ranking-audit": "node scripts/usda-ranking-audit.mjs",
-    "prototype:food-forms": "vite --config vite.forms-prototype.config.ts",
     "usda:ranking-ties": "node scripts/usda-ranking-ties.mjs"
   },
   "devDependencies": {
