@@ -3,7 +3,8 @@
 **Status:** Accepted  
 **Date:** 2026-09-14  
 **Amends:** [ADR-0060](0060-an-amount-is-entered-in-its-panels-unit.md) §1 (the unit stops being unchoosable on a food that carries a density), §2 (the refusal is lifted for a class the user asserts) and §6 (a portion may now be offered in either unit); [ADR-0045](0045-usda-stays-the-base-food-composition-authority.md) §5 (what may cross from one source to another, answering #242); [ADR-0041](0041-nova-processing-badge.md) §3 (the client-side inference ban gains a second carve-out)  
-**Charted by:** #428. Nothing here is built yet.
+**Charted by:** #428  
+**Implemented:** §2 and §3 (the class table and the gate that proves its figures) — #429. §1 and §4 to §12 are not built.
 
 ## Context
 
@@ -128,10 +129,10 @@ is a 6.3% gap between two of the three products anyone owns. **Spirits (0.94,
 n=10)** fails on CV at 2.63% and is likewise out. Neither is curated around; both
 take the typed override of §4.
 
-The figures above are the charting measurement, against schema 8. Four of the
-five survive **schema 9** of the shipped corpus (2,437 foods) unmoved; `oil` is
-now 41 foods (119 portions) at CV 0.52%. See the re-pin amendment at the foot of
-this record.
+The figures above are as charted, and two of the rows have since been corrected:
+`oil` reads 41 foods (119 portions) at a spread of 3.7% and a CV of 0.52%, and
+`beer/wine` selects its 43 by excluding one member the pattern reaches. See the
+amendments at the foot of this record.
 
 The classes are wide by design. A class figure sits within 0.75% of the per-food
 figure for every common case measured, because the classes are tight — which is
@@ -425,3 +426,61 @@ deciding they should; had they been pinned with no gate, they would now be
 claiming a corpus that no longer exists. Pinned **and** gated, the regeneration is
 a build failure that a human answers — which is what happened here, by hand,
 before the gate was built.
+
+## Amendment (2026-09-14): the patterns, and two rows that disagreed with themselves
+
+Building §2 and §3 (#429) needed the thing §2 requires every entry to record —
+the exact match pattern that selected a class's members — and no pattern was
+written down anywhere. They were reconstructed by searching for patterns that
+reproduce the charted figures, which is a strong test: a class has to land on its
+foods, its portions, its figure, its spread and its CV at once.
+
+Five rows do, exactly: `water-like` at 15 (23), 4.7%, 1.20%; `milk-like` at
+8 (16), 0.8%, 0.28%; `juice` at 9 (17), 2.6%, 0.80%; and both refusals, `syrup`
+at 10 (19), 44.4%, 8.99% and `spirits` at 10 (18), 7.2%, 2.63%. Two did not, and
+in both cases the row was internally inconsistent rather than the reconstruction
+being wrong.
+
+**`oil` was never one set.** Its n and CV describe a class that includes
+`Fish oil, menhaden, fully hydrogenated`; its spread describes the same class
+without it. With that food in, the class is 42 foods (122 portions), spread 9.3%,
+CV 1.04%. Without it, 41 (119), 3.7%, 0.52%. No membership yields the charted
+combination. It is excluded, and the class is pinned at the second: a fully
+hydrogenated oil is solid at room temperature, so it cannot be poured and cannot
+be what someone asserting _"this is an oil"_ means. It was also the class's only
+real outlier, at 0.8665 against a class that otherwise spans 0.9130 to 0.9468.
+
+**`beer/wine` selects 44, not 43.** The charted spread and CV are the 44-food
+set's. Six single-food removals reproduce the charted row exactly, and five of
+them are an arbitrary pick among five identical white table wines at 0.9907. The
+sixth is `Alcoholic beverage, malt beer, hard lemonade`, a flavoured malt cooler
+that is neither beer nor wine, and it is pinned on that ground rather than on
+being one of six ways to reach a number.
+
+### The re-pin amendment above attributed this to the corpus, and that was wrong
+
+It states that the schema 8 to 9 collapse _"took `Fish oil, menhaden, fully
+hydrogenated`"_. It did not. That row is in the shipped corpus, fdcId 172342,
+with the same three volume portions it always had.
+
+Measured against both corpus versions, **every class and both refusals are
+identical**: the regeneration moved nothing at all. What moved between §2's table
+and that amendment was which of the two `oil` memberships was being reported, and
+the amendment read a membership decision as a corpus change. So "four of the five
+are unmoved" understates it — all five are, because what the collapse dropped was
+cooked and prepared records and no class member. Its other two claims stand: the
+population really is 942 volume portions across 636 foods, and `milk-like` really
+does sit at exactly §2's floor of eight, which was already true before the
+collapse.
+
+The reasoning it drew from this survives its own premise, which is why it is
+amended rather than struck. Pinned and gated is what turns a figure into a
+decision; the illustration was simply not the one it thought it had.
+
+### Where the patterns live now
+
+`src/lib/food/density-class.ts` holds the five classes, the bar, both refusals
+and the pattern that selects each, and `scripts/density-class-check.mjs`
+re-selects from those patterns on every `pnpm check`. §2's requirement that an
+entry record its match pattern is discharged by the table, not by this record: a
+pattern written in prose would be a second copy to drift.
