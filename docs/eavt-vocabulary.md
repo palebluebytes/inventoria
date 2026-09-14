@@ -312,7 +312,12 @@ Every logged Event.
   ([ADR-0060](adr/0060-an-amount-is-entered-in-its-panels-unit.md)). Forward-only:
   a receipt keeps the string it was written with, so a drink logged before that
   record still reads `"330g"` and is never re-rendered from its twin's current
-  panel.
+  panel. A **Recipe Instantiation** has no panel either, and is sized by what the
+  cook weighed rather than by its rows: the quantity is the portion's weight when
+  the batch was weighed and the serving count when it was not
+  ([ADR-0105](adr/0105-a-recipe-occasion-is-sized-by-the-weight-you-put-on-the-scale.md)).
+  It was the literal `"1 serving"` on every instantiation until #424, which is
+  what those events still read.
 - `rating`: an optional 1 to 5 scale.
 - `season`, `episode`, `review`, `pages_read`, `instrument_used`, `slot_id`,
   `metadata`.
