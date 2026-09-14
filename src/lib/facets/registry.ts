@@ -473,7 +473,19 @@ export const FACETS = [
     // `DailyDashboard` in its Food tab and therefore builds it, and it paid
     // only the component, because `habits` already carried
     // `@internationalized/date` into this bundle (ADR-0091, Consequences).
-    precacheBytes: 9_416_531,
+    // Re-measured against the corpus consolidation that landed on main while
+    // the UI-vocabulary branch was in flight (ADR-0101): 4,238 rows became
+    // 2,484, and `1cd5b006` was still dropping more when this was taken. It is
+    // **not** this branch's arc — the gate asks for the number to move in the
+    // commit that removed the weight, and that commit landed without it, so
+    // both Facets were below their floor and every build since has been red.
+    //
+    // −669,239 B (−653.6 KiB, −7.11%). The root precaches the search index and
+    // neither of the other two USDA artifacts (ADR-0077 §5), so it only feels
+    // that file: 1,715,082 B → 981,462 B, which is −733,620. The 64,381 B
+    // difference is growth the other way — main's own new food-search code and
+    // this branch's four `ui/` primitives.
+    precacheBytes: 8_747_292,
     status: "built",
   },
   {
@@ -538,7 +550,20 @@ export const FACETS = [
     // to this bundle the way `@internationalized/date` was new at #344
     // (+58,485 B, +0.58%). The three readings themselves are folds over events
     // the app already had and cost almost nothing.
-    precacheBytes: 10_177_101,
+    // Re-measured for the same corpus consolidation as the root above, and
+    // Rations feels nearly four times as much of it, for the reason its
+    // `precache` list states: it owes all three artifacts whole (ADR-0047 §11,
+    // ADR-0077 §4) where the root takes only the index.
+    //
+    // −2,518,040 B (−2.40 MiB, −24.74%). The two precached artifacts account
+    // for −2,574,389 of it — `nutrient-store.json` 4,015,520 B → 2,174,751 B
+    // and `search-index.json` 1,715,082 B → 981,462 B — against 56,349 B of
+    // growth the other way.
+    //
+    // **This number will move again.** The arc that shrank the corpus is still
+    // open, so a later drop puts this back under its floor; the band is ±5%,
+    // which is 383 KiB either side at this weight.
+    precacheBytes: 7_659_061,
     // Installability is definitional (ADR-0076 §1) and #305 is where Rations
     // gets a manifest of its own, so this is the ticket that flips it.
     status: "built",
