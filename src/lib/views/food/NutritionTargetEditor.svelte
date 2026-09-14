@@ -860,18 +860,15 @@
     font-size: var(--step-0);
     line-height: 1;
   }
-  /* The whole floored button inverts the square, not the 1.75rem square itself,
-     so the hover target is the box a finger lands on. The mark is this file's
-     element and carries its scoping hash; the button is `ui/Button`'s and wears
-     the class as a prop, so only that half goes through `:global`. */
-  .card-allowance :global(.card-reset:hover:not(:disabled) .reset-mark) {
-    background: var(--ink);
-    color: var(--paper);
-  }
-  .card-allowance :global(.card-reset:disabled .reset-mark) {
-    border-color: var(--border-subtle, var(--border));
-    color: var(--border-subtle, var(--border));
-  }
+  /* **The states are the primitive's, and that is the adoption.** `ui/Button`
+     defines hover and disabled per variant — `ghost` lifts an accent glow, and
+     `:disabled` mutes at `opacity: 0.6` — and the bespoke rules these buttons
+     carried did the same two jobs differently: the square inverted to ink on
+     paper, and disabled recoloured the border rather than fading it. Keeping
+     either would be a caller styling the primitive, which is the one thing its
+     contract refuses. If the glow reads badly behind a 1.75rem mark in a 48px
+     box, that is an argument about `ghost` or about which variant this is, made
+     on its merits — not a rule at two call sites. */
 
   /* Whole-number toggle: the label + its help text stacked, with a container
      context so the row's font ramp resolves against this block rather than the
