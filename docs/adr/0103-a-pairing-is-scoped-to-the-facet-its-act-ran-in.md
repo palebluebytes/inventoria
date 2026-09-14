@@ -549,6 +549,18 @@ record and `wake-counter.ts` had never seen a Facet. Nothing had to change for a
 pairing served by both to carry one count rather than two. The second list is the
 opposite direction and is unmentioned.
 
+**That clause reads two ways, and the reading it does not pay for is real.** The
+shape is right — one wake burns at most one, whichever Facet it is. The **rate**
+is not: a person who opens the root and Rations on the same day against an absent
+peer now burns two of that pairing's 200, where before this record only the
+root's opens burned any, so K's reach in days roughly halves for a two-Facet
+user. It is not repairable inside §9, because a wake **is** an open and two opens
+are two wakes, so every candidate repair changes something ADR-0096 §11 decided —
+a burn coarsened to the calendar day, a jar-wide mark the second Facet's open
+reads, a larger K, or the argument that 200 was generous enough to absorb a
+factor of two. That choice is §11's and is
+[#426](https://github.com/palebluebytes/inventoria/issues/426).
+
 **The skip cannot fire on today's roster**, and is built rather than deferred for
 the reason `wake-errand.ts`'s other unreachable guard is kept: both Facets hold
 food, so every lane a pairing act can mint meets both, and the day one does not

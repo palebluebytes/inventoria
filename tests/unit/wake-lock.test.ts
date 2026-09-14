@@ -41,7 +41,6 @@ import {
   createLedgerSchema,
   importConvergedRows,
   importLedgerRows,
-  readLedgerPage,
   type LedgerDb,
   type LedgerRow,
 } from "../../src/lib/db/db.core";
@@ -68,6 +67,7 @@ import { depositToPeers, openAppWake } from "../../src/lib/p2p/wake-errand";
 import { underWakeLock, WAKE_LOCK_NAME } from "../../src/lib/p2p/wake-lock";
 import { stubLocalStorage } from "./support/local-storage";
 import { fakeBucket, routeOver } from "./support/store-bucket";
+import { oldestAbove } from "./support/wake-ledger";
 import { pairedWith } from "./support/paired-device";
 import {
   stubLockManager,
@@ -103,12 +103,7 @@ beforeEach(async () => {
   db = new sqlite3.oo1.DB();
   createLedgerSchema(db);
   ledger = {
-    oldestAbove: async (after, budgetBytes, above, scope) =>
-      readLedgerPage(db, after, budgetBytes, {
-        above,
-        laneScope: scope,
-        order: "stamp",
-      }),
+    oldestAbove: oldestAbove(db),
     write: async (rows) => importConvergedRows(db, rows).outcome.rowsAdded,
   };
   bucket = fakeBucket();

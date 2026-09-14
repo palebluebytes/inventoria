@@ -96,6 +96,11 @@ export interface CountedRound {
   /**
    * The `device_id` of every pairing this sync served — the lanes the waking
    * Facet's scope met, whatever the sync then managed on them.
+   *
+   * **A lane that was reached and failed on is served**, which is the reading
+   * that was here before this list existed: a peer whose store call failed is
+   * an absence somebody looked for, and it is the one the counter has always
+   * burned. What is new is only the lane nobody reached.
    */
   served: readonly string[];
   /**

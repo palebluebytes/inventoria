@@ -32,8 +32,10 @@ import {
 import { createHlc, type Hlc } from "../../src/lib/db/hlc";
 import { entityPrefixesOf, type FacetId } from "../../src/lib/facets/registry";
 import { storeOverFetch, type Store } from "../../src/lib/p2p/deposit-store";
-import { derivePairingChains } from "../../src/lib/p2p/pairing-chain";
-import { laneAddress } from "../../src/lib/p2p/pairing-chain";
+import {
+  derivePairingChains,
+  laneAddress,
+} from "../../src/lib/p2p/pairing-chain";
 import { WHOLE_JAR, type LaneScope } from "../../src/lib/p2p/lane-scope";
 import {
   laneChainOf,
@@ -54,6 +56,7 @@ import {
   type FakeLocalStorage,
 } from "./support/local-storage";
 import { fakeBucket, routeOver } from "./support/store-bucket";
+import { oldestAbove } from "./support/wake-ledger";
 
 const ORIGIN = "https://app.example";
 
@@ -103,13 +106,8 @@ interface Device {
 }
 
 /**
- * One device, with `sync-ledger.ts`' own seam against a real ledger rather than
- * through the worker: what the peer lacks, inside what this wake carries.
- *
- * The scope goes into `readLedgerPage` whole, exactly as `appWakeLedger` hands
- * it over — a harness that derived prefixes here instead would be proving its
- * own narrowing rather than the app's, and §6's deletion rule is the half a
- * prefix list cannot state.
+ * One device: a ledger read through `appWakeLedger`'s own seam, and the list of
+ * pairings its jar holds.
  */
 function device(device_id: string): Device {
   const db: LedgerDb = new sqlite3.oo1.DB();
@@ -120,12 +118,7 @@ function device(device_id: string): Device {
     clock: createHlc(device_id, { wallClock: () => 1_000 }),
     rows: [],
     ledger: {
-      oldestAbove: async (after, budgetBytes, above, scope) =>
-        readLedgerPage(db, after, budgetBytes, {
-          above,
-          laneScope: scope,
-          order: "stamp",
-        }),
+      oldestAbove: oldestAbove(db),
       // The converging write path, which is the one `db.worker.ts` takes for a
       // batch that *arrived*: every carried deletion this ledger holds is
       // applied to it (ADR-0096 §12).

@@ -56,6 +56,7 @@ import {
 } from "../../src/lib/p2p/wake";
 import type { LaneScope } from "../../src/lib/p2p/lane-scope";
 import { fakeBucket, routeOver } from "./support/store-bucket";
+import { oldestAbove } from "./support/wake-ledger";
 import { pairedWith } from "./support/paired-device";
 
 const ORIGIN = "https://app.example";
@@ -99,12 +100,7 @@ function device(
     record: pairedWith(peer_id, chains),
     swept,
     ledger: {
-      oldestAbove: async (after, budgetBytes, above, scope) =>
-        readLedgerPage(db, after, budgetBytes, {
-          above,
-          laneScope: scope,
-          order: "stamp",
-        }),
+      oldestAbove: oldestAbove(db),
       write: async (rows) => {
         // The converging write path, which is the one `db.worker.ts` takes for
         // a batch that *arrived*: every carried deletion this ledger holds is

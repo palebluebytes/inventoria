@@ -396,6 +396,11 @@ export interface LedgerPageNarrowing {
   /**
    * What one lane carries, by Tracked Domain id (ADR-0103 §1 and §6).
    *
+   * **It and `entityPrefixes` are never both given.** They are two narrowings
+   * of one concern for two callers — an export names a Facet's prefixes, a sync
+   * names a lane's domains — and a read passing both would simply `AND` them,
+   * which is a question nobody asks.
+   *
    * It is the **Lane scope** rather than a prefix list, because two rules
    * answer to it and only one of them is expressible in prefixes:
    * {@link laneScopeMatch} derives the prefixes for the content rows and reads
@@ -771,6 +776,20 @@ export function appendDatoms(
 // ---------------------------------------------------------------------------
 
 /**
+ * One narrowing of a read of `datoms`: the `WHERE` it contributes, and the
+ * values to bind under it.
+ *
+ * Named once because {@link readLedgerPage} composes several of them and they
+ * have to agree about the order their binds are spent in. `version-vector.ts`
+ * hands back the same shape and declares its own, because it owns the vector in
+ * all three of its forms.
+ */
+interface LedgerMatch {
+  where: string;
+  bind: unknown[];
+}
+
+/**
  * The `WHERE` matching every row whose entity starts with one of `prefixes`,
  * and the values to bind under it.
  *
@@ -794,10 +813,7 @@ export function appendDatoms(
 function entityPrefixMatch(
   prefixes: readonly string[],
   takenAtOrBefore: HlcMark | null = null
-): {
-  where: string;
-  bind: unknown[];
-} {
+): LedgerMatch {
   if (prefixes.length === 0) return { where: "0", bind: [] };
   const under = prefixes.map(() => "substr(entity, 1, ?) = ?").join(" OR ");
   const bind = prefixes.flatMap((p) => [p.length, p]);
@@ -843,10 +859,7 @@ function entityPrefixMatch(
  * runs. Such a row crosses no lane narrow enough to ask, which is the same
  * refusal `readCarriedDeletion` makes of it.
  */
-function laneScopeMatch(scope: readonly string[]): {
-  where: string;
-  bind: unknown[];
-} {
+function laneScopeMatch(scope: readonly string[]): LedgerMatch {
   const prefixes = entityPrefixesOfDomains(scope);
   if (prefixes.length === 0) return { where: "0", bind: [] };
   const under = entityPrefixMatch(prefixes);
