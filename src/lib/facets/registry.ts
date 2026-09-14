@@ -485,6 +485,13 @@ export const FACETS = [
     // that file: 1,715,082 B → 981,462 B, which is −733,620. The 64,381 B
     // difference is growth the other way — main's own new food-search code and
     // this branch's four `ui/` primitives.
+    //
+    // Re-measured at #422, which put a Facet's own wake behind each shell. Build
+    // to build, not against the figure this line used to hold: HEAD already
+    // weighed 9,483,696 B before #422 touched anything, so this number also
+    // takes up 67,165 B of drift from the rest of the ADR-0103 arc, which
+    // re-measured nothing. #422's own cost to the root is +363 B, because the
+    // root already carried the whole p2p stack.
     precacheBytes: 8_747_292,
     status: "built",
   },
@@ -563,6 +570,17 @@ export const FACETS = [
     // **This number will move again.** The arc that shrank the corpus is still
     // open, so a later drop puts this back under its floor; the band is ±5%,
     // which is 383 KiB either side at this weight.
+    //
+    // Re-measured at #422, and this is the number ADR-0103 §12 says the
+    // implementing ticket owes before anything claims the p2p stack fits.
+    // Build to build: HEAD already weighed 10,233,011 B before #422 touched
+    // anything, so this figure also takes up 55,910 B of drift from the rest of
+    // the arc. **#422's own cost is +15,972 B (+15.6 KiB, +0.16%)**, against a
+    // ±5% band that is 497 KiB wide either side — small because §12 guessed
+    // right about which half was already paid: Rations precaches the QR writer
+    // and already reached the store, the lane chain and the sealed deposit
+    // through the meal hand-off, so what a wake adds is the cadence, the errand,
+    // the counter and the lock.
     precacheBytes: 7_659_061,
     // Installability is definitional (ADR-0076 §1) and #305 is where Rations
     // gets a manifest of its own, so this is the ticket that flips it.

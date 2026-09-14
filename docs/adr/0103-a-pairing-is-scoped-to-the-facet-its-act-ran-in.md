@@ -7,7 +7,7 @@
 **Amends:** [ADR-0075](0075-your-own-devices-converge-on-a-version-vector-read-off-the-ledger.md) (§6's version vector is re-keyed by originating device **and Tracked Domain**; it stays a read of `datoms` and its argument against a scalar watermark survives, widened to a second axis)  
 **Amends:** [ADR-0080](0080-a-facet-carries-a-jar-wide-control-only-where-losing-it-loses-data.md) (§9's _a food-only user therefore has no p2p at all_ is now false in both halves; §2's table gains a Paired devices row)  
 **Amends:** [ADR-0072](0072-a-meal-crosses-through-a-relay-that-cannot-read-it.md) (§7's refusal to let a sender learn anything about the recipient's device is stated not to govern own-device pairing, which it was never written about)  
-**Implemented:** #420 — §7's gate alone. `docs/eavt-vocabulary.md` now marks every attribute that holds an entity reference, `referencesOf`'s edge set is data rather than `case` labels and is exported from `src/lib/p2p/meal-payload.ts`, and `tests/unit/meal-payload.test.ts` holds the one to the other under `pnpm test:unit`. The documented set is **five** attributes and not the three §7 names, so what shipped is a partition rather than the containment asked for, and the first Amendment at the foot of this record carries that argument. **#419 — §5, and §6's attribution rule.** `src/lib/db/version-vector.ts` is keyed by `(device_id, Tracked Domain)`, `domainsOfRow` there is the attribution rule and `CONTENT_DOMAINS` in `src/lib/facets/registry.ts` is the axis roster; the query and the `WHERE` share one registry-derived predicate, and `tests/unit/version-vector.test.ts` holds that predicate to `domainsOfRow` one row at a time through the real engine. The second Amendment carries what §5 left to the implementer, and the third carries which half of §6 that left standing. **#421 — §1 to §4.** `src/lib/p2p/lane-scope.ts` is a lane's scope, `entityPrefixesOfDomains` in the registry is the one derivation a wipe's predicate and a lane's now share, the domain set rides the first sync's opening frame and `PairedDevice.scope` keeps what the two ends agreed; `tests/unit/first-sync.test.ts` proves a food lane against two real ledgers, both re-pairing directions included. The third Amendment carries where §3 put the statement and what §1's predicate cannot say. Not yet built: the wakes (§9) are #422 and the surface (§8, §10) is #423.
+**Implemented:** #420 — §7's gate alone. `docs/eavt-vocabulary.md` now marks every attribute that holds an entity reference, `referencesOf`'s edge set is data rather than `case` labels and is exported from `src/lib/p2p/meal-payload.ts`, and `tests/unit/meal-payload.test.ts` holds the one to the other under `pnpm test:unit`. The documented set is **five** attributes and not the three §7 names, so what shipped is a partition rather than the containment asked for, and the first Amendment at the foot of this record carries that argument. **#419 — §5, and §6's attribution rule.** `src/lib/db/version-vector.ts` is keyed by `(device_id, Tracked Domain)`, `domainsOfRow` there is the attribution rule and `CONTENT_DOMAINS` in `src/lib/facets/registry.ts` is the axis roster; the query and the `WHERE` share one registry-derived predicate, and `tests/unit/version-vector.test.ts` holds that predicate to `domainsOfRow` one row at a time through the real engine. The second Amendment carries what §5 left to the implementer, and the third carries which half of §6 that left standing. **#421 — §1 to §4.** `src/lib/p2p/lane-scope.ts` is a lane's scope, `entityPrefixesOfDomains` in the registry is the one derivation a wipe's predicate and a lane's now share, the domain set rides the first sync's opening frame and `PairedDevice.scope` keeps what the two ends agreed; `tests/unit/first-sync.test.ts` proves a food lane against two real ledgers, both re-pairing directions included. The third Amendment carries where §3 put the statement and what §1's predicate cannot say. **#422 — §9, and the crossing half of §6 that #421 left.** `readLedgerPage` takes a Lane scope whole and derives both arms of what a lane carries from it (`laneScopeMatch` in `src/lib/db/db.core.ts`), `wake.ts` deposits inside the scope its caller hands it, and `wake-errand.ts` is where a wake names its Facet — `openAppWake("root")` in `src/App.svelte` and `openAppWake("food")` in `src/Rations.svelte`, which is what closes #415. `tests/unit/wake-facet.test.ts` holds §9's table against two real ledgers either side of the real store route. The fourth Amendment carries the case §9's table has no row for and what it cost §11's counter. Not yet built: the surface (§8, §10) is #423.
 
 ## Context
 
@@ -523,3 +523,110 @@ them and is now withheld by the page read as well as by the vector's axes. It
 was already withheld by the axes alone, so nothing is newly lost and the second
 Amendment's account of the loss is unchanged — but a repair that reinstates the
 vector axis and stops there would still not move that row.
+
+## Amendment (2026-09-14): §9's table has no row for the lane a Facet does not meet, and that row costs §11's counter a second list
+
+§9 states the rule as _a wake serves a lane if the waking Facet's scope meets
+it_ and then tables four cases, all of them **yes**. Building it
+([#422](https://github.com/palebluebytes/inventoria/issues/422)) found that the
+**no** the sentence implies is not free, and that what it costs is not in the
+section that pays for it.
+
+A lane a wake meets no part of must be **left alone**, which is one line. But
+§11's counter reads the whole Paired Device list and burns a wake against every
+pairing that produced nothing, so the untouched lane would burn one on every
+open of the Facet that never reaches it — and at K = 200 that Facet stops a
+pairing the **other** Facet's wakes are converging perfectly well. A stop is
+supposed to bound a key touched forever at an index that cannot move (§11's own
+argument), and this would be a stop earned by not looking. So a sync now reports
+which pairings it **served** as well as which produced something, and the
+counter burns only inside that list.
+
+**What §9 names as a cost was already paid, and the cost it does not name is the
+one that was owed.** _The K counter becomes per-pairing and blind to which Facet
+woke_ describes what was already true: `unproductive_wakes` is one field on one
+record and `wake-counter.ts` had never seen a Facet. Nothing had to change for a
+pairing served by both to carry one count rather than two. The second list is the
+opposite direction and is unmentioned.
+
+**The skip cannot fire on today's roster**, and is built rather than deferred for
+the reason `wake-errand.ts`'s other unreachable guard is kept: both Facets hold
+food, so every lane a pairing act can mint meets both, and the day one does not
+the failure would be a pairing that stops itself.
+
+**One clause is stated because §9's wording invites the other reading.** A served
+lane is **collected whole**: the rows a peer left are imported whatever domain
+they belong to. One Jar is one ledger, so there is nothing to protect by
+refusing a Media row that has already arrived, and a lane nobody reads stalls
+its depositor's chain (§5's commit point). §9's narrowing binds the **deposit**
+alone.
+
+## Amendment (2026-09-14): §6's crossing rule is a read of the ledger page, and a jar-wide lane still carries every deletion by its entity
+
+The third Amendment handed #422 the half of §6 that #421 could not express: a
+Carried deletion's entity is `deletion:`, so no prefix list reaches the domains
+it is about. It is built where §1's own predicate already lives — the page read —
+and the shape that made it expressible is that `readLedgerPage` now takes the
+**Lane scope** rather than a prefix list, deriving the prefixes for the content
+rows and reading the same scope again for the deletion arm. Handing prefixes in
+would have left §6's half to each caller, which is the second hand-written list
+ADR-0079 §3 forbids.
+
+**The subset test runs inside SQLite, and that is forced rather than tidy.** The
+frozen list is JSON and this build already reads it in memory
+(`readCarriedDeletion`), so filtering the page afterwards looks equivalent. It is
+not: a page whose every row was filtered comes back **empty**, and an empty page
+is how every walk in the arc learns it is finished, so a refused deletion would
+silently end a deposit and withhold every row behind it. A malformed list is
+refused the same way it is in memory, under a `CASE` rather than an `AND`
+because SQLite is free not to short-circuit and a `deletion/prefixes` row that
+will not parse sits in an append-only table forever.
+
+**A jar-wide lane's deletions still cross on their entity prefix, which is why
+this narrows nothing.** The Jar domain declares `deletion:` like any other
+prefix, so a whole-Jar scope carries every deletion without the subset test being
+consulted — including one whose frozen list names a prefix no domain declares
+any more, which is [#425](https://github.com/palebluebytes/inventoria/issues/425)'s
+population and is left exactly where that ticket found it. The subset test is
+what a **narrower** lane is bought with, and on today's roster the only narrow
+lane a wake can meet is food.
+
+## Amendment (2026-09-14): a Carried deletion can now be applied with only Rations open, and Rations draws no notice
+
+ADR-0096 §12 has the peer show a one-shot notice of a completed act, and
+`CONTEXT.md` recorded the division as _the root Facet draws it and Rations does
+not, because a Wake is an open of the root_. §9 removes that reason without
+replacing it: Rations wakes, so Rations can be the Facet that applies an
+arriving deletion.
+
+The notice is a **broadcast**, so a shell that is not listening does not defer it
+— it loses it. #422 therefore has `Rations.svelte` listen and record, beside the
+wake and before it, and draws nothing: the record waits in `localStorage` until
+the next open of the root, which is where the sentence is rendered. Deferred
+rather than lost, and the surface that would make it immediate is
+[#423](https://github.com/palebluebytes/inventoria/issues/423)'s along with the
+rest of Rations' pairing screen.
+
+## Amendment (2026-09-14): what the p2p stack costs Rations' precache, measured
+
+§12 records the number as owed rather than claimed: _the camera and
+symbol-reading half is largely already paid … and the rest is **unmeasured**.
+The implementing ticket owes the number before anything claims it fits._ #422 is
+that ticket, because it is what puts a wake behind Rations' shell.
+
+**+15,972 B (+15.6 KiB, +0.16%)**, against the ±5% band that is ~497 KiB wide
+either side. Measured build to build at `9a40d783`: Rations precaches
+10,248,983 B with the wake and 10,233,011 B without it, everything else on the
+branch held still.
+
+§12's guess about which half was already paid is right, and is most of why the
+figure is this small. Rations reached the store, the lane chain, the sealed
+deposit and the QR writer through the meal hand-off already; what a wake adds on
+top is the cadence, the errand, §11's counter and #418's lock. The root's own
+figure moves **+363 B** for the same change, which is what a Facet that already
+had all of it looks like.
+
+Both Facets' declared figures move with this, and they take up the rest of the
+arc's drift as they go — 67,165 B for the root and 55,910 B for Rations, from
+tickets that re-measured nothing. That is stated in `src/lib/facets/registry.ts`
+beside each number rather than attributed here.
