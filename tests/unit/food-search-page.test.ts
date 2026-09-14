@@ -161,6 +161,40 @@ describe("the live search on docs/food-search.html", () => {
     expect(html).not.toMatch(/reached as/);
   });
 
+  it("says when a row was reached through a name USDA discarded", () => {
+    // The marker the app deliberately does NOT have. `pak-choi` reaches
+    // `Cabbage, bok choy`, whose own name contains none of what was typed —
+    // the words are in a name the twin merge threw away, so without this the
+    // row is unexplainable.
+    const { rows, html } = search("pak-choi");
+    expect(rows).toBeGreaterThan(0);
+    expect(html).toContain("Cabbage, chinese (pak-choi)");
+    expect(html).toMatch(/reached through USDA/);
+    // And the row is still NAMED as the app names it: the discarded name is a
+    // marker beside the food, never part of it. This is the assertion that
+    // fails if somebody folds `reachedVia` into `searchResultName`.
+    expect(html).toContain(">Cabbage, bok choy<");
+  });
+
+  it("marks exactly the rows whose own name lost, and no others", () => {
+    // `potato` is the illustration, and it is the honest reason this marker
+    // exists rather than a contrived one. `Flour, potato` surfaces under a
+    // typed `potato` because the name the twin merge discarded — `Potato
+    // flour` — puts the typed word in the HEAD phrase, where the shipped name
+    // has it as a qualifier. The discarded name genuinely answers better, and
+    // without the marker the row looks like it ranked on nothing.
+    const potato = search("potato");
+    expect(potato.html).toContain("Potato flour");
+    expect((potato.html.match(/reached through USDA/g) ?? []).length).toBe(1);
+
+    // …and it stays an exception. `beef` is 50 rows, every one answering under
+    // its own name, and a marker on all of them would be noise rather than an
+    // explanation.
+    const beef = search("beef");
+    expect(beef.rows).toBe(50);
+    expect(beef.html).not.toMatch(/reached through USDA/);
+  });
+
   it("leaves a literal hit's name alone", () => {
     // The other half of the rule: no alias, no brackets. A page that appended
     // something to every row would be showing a name the app never shows.

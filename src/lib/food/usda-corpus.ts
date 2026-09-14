@@ -383,6 +383,25 @@ export interface SearchHit {
    * off every food that never needed one.
    */
   alias?: string;
+  /**
+   * The DISCARDED name this row was reached through, where one out-scored the
+   * row's own — a name the twin merge threw away, or one a hand rename left
+   * behind (#137, ADR-0101's amendments). Absent whenever the row answered under
+   * the name it ships as, which is almost every search.
+   *
+   * **Not the same thing as {@link alias}, and it must never be treated as one.**
+   * An alias is another NAME FOR the food and is shown to the user as part of the
+   * name — `Eggplant (aubergine)`. This is retrieval scaffolding: USDA's filing,
+   * or the losing half of a merge. `Eggs, Grade A, Large, egg whole` is a real
+   * reason a row surfaced and is emphatically not what the food should be called
+   * in somebody's diary, so it is reported HERE rather than handed to
+   * {@link searchResultName}, and `usda-corpus.test.ts` holds that line as an
+   * invariant over every aliased row in the corpus.
+   *
+   * Read by `docs/food-search.html`, which explains why a row surfaced, and
+   * deliberately by nothing in the app, which only has to answer.
+   */
+  reachedVia?: string;
 }
 
 /** A finished search over the index: the phrases, and the foods they reached. */
@@ -413,18 +432,28 @@ function bestNameKey(
   rank: ReferenceFoodQuery,
   food: SearchableFood,
   frecency: Frecency
-): RelevanceKey {
+): { key: RelevanceKey; reachedVia?: string } {
   // Spread LAST, over the zeros `buildSearchCorpus` baked in. The other two row
   // keys are facts about the artifact and are read once at load; these two are
   // facts about this device's ledger and change with every meal logged, so they
   // cannot be baked and are handed in per search instead.
   const row = { ...food.rank, ...frecency };
   let best: RelevanceKey = { ...rank(food.name), ...row };
-  for (const alias of food.also) {
-    const key: RelevanceKey = { ...rank(alias), ...row };
-    if (compareRelevance(key, best) < 0) best = key;
+  // Which name won, as an INDEX rather than a string: `ReferenceFoodName` keeps
+  // words and stems, never the text it was read from, and `buildSearchCorpus`
+  // builds `also` by mapping `row.also` one for one — so the index is the only
+  // handle back to the words a person actually typed at.
+  let via = -1;
+  for (let i = 0; i < food.also.length; i++) {
+    const key: RelevanceKey = { ...rank(food.also[i]), ...row };
+    if (compareRelevance(key, best) < 0) {
+      best = key;
+      via = i;
+    }
   }
-  return best;
+  return via < 0
+    ? { key: best }
+    : { key: best, reachedVia: food.row.also?.[via] };
 }
 
 /**
@@ -453,26 +482,29 @@ function bestNameKey(
  * `mandarine` a tangerine where a mandarin answers. Per phrase it keeps
  * everything the union keeps, and those rows besides.
  */
+type Scored = {
+  row: UsdaIndexRow;
+  phrase: string;
+  key: RelevanceKey;
+  reachedVia?: string;
+};
+
 function rankAgainst(
   foods: SearchableFood[],
   phrases: string[],
   frecency: ReadonlyMap<string, Frecency>
-): { row: UsdaIndexRow; phrase: string }[] {
-  const kept = new Map<
-    UsdaIndexRow,
-    { row: UsdaIndexRow; phrase: string; key: RelevanceKey }
-  >();
+): { row: UsdaIndexRow; phrase: string; reachedVia?: string }[] {
+  const kept = new Map<UsdaIndexRow, Scored>();
   for (const phrase of phrases) {
     const rank = compileReferenceFoodQuery(phrase);
-    const scored: { row: UsdaIndexRow; phrase: string; key: RelevanceKey }[] =
-      [];
+    const scored: Scored[] = [];
     for (const food of foods) {
-      const key = bestNameKey(
+      const { key, reachedVia } = bestNameKey(
         rank,
         food,
         frecency.get(mintEntity("fdc:", food.row.fdcId)) ?? NEVER_LOGGED
       );
-      if (key.tier > 0) scored.push({ row: food.row, phrase, key });
+      if (key.tier > 0) scored.push({ row: food.row, phrase, key, reachedVia });
     }
     for (const hit of withoutStrayMentions(scored)) {
       const held = kept.get(hit.row);
@@ -483,7 +515,7 @@ function rankAgainst(
   return [...kept.values()]
     .sort((a, b) => compareRelevance(a.key, b.key))
     .slice(0, SEARCH_RESULT_LIMIT)
-    .map(({ row, phrase }) => ({ row, phrase }));
+    .map(({ row, phrase, reachedVia }) => ({ row, phrase, reachedVia }));
 }
 
 /**
@@ -513,7 +545,10 @@ export function searchIndexRows(
   if (!query.trim()) return { phrases: [], hits: [] };
   const literal = rankAgainst(corpus.foods, [query], frecency);
   if (literal.length > 0)
-    return { phrases: [query], hits: literal.map(({ row }) => ({ row })) };
+    return {
+      phrases: [query],
+      hits: literal.map(({ row, reachedVia }) => ({ row, reachedVia })),
+    };
   const expanded = expandThroughVocabulary(corpus.vocabulary, query);
   if (expanded.length === 0) return { phrases: [query], hits: [] };
   // The typed query rides along, and costs the ranking nothing: the pass above
@@ -526,9 +561,10 @@ export function searchIndexRows(
   return {
     phrases,
     hits: rankAgainst(corpus.foods, phrases, frecency).map(
-      ({ row, phrase }) => ({
+      ({ row, phrase, reachedVia }) => ({
         row,
         alias: aliasOf.get(phrase),
+        reachedVia,
       })
     ),
   };

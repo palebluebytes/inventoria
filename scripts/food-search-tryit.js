@@ -140,6 +140,22 @@
             '<div class="hitkcal">' +
             (kcal == null ? "\u2014" : Math.round(kcal) + " kcal") +
             "</div>" +
+            // Why this row surfaced, where the answer is not in its name: it was
+            // reached through a name USDA discarded — the losing half of a twin
+            // merge, or a filing a hand rename replaced.
+            //
+            // THE PAGE SHOWS THIS AND THE APP DOES NOT, on purpose. The app has
+            // to answer; this page has to explain, and "the words you typed are
+            // nowhere on this row" is a question only a page about the search
+            // owes an answer to. It stays out of the name for the same reason it
+            // stays out of the app: `Eggs, Grade A, Large, egg whole` is USDA's
+            // filing, not what anybody calls an egg, and a name is what gets
+            // written into a food diary.
+            (hit.reachedVia
+              ? '<div class="hitvia">reached through USDA\u2019s discarded name \u201c' +
+                esc(hit.reachedVia) +
+                "\u201d</div>"
+              : "") +
             '<div class="hitkeys">' +
             columns +
             "</div>" +

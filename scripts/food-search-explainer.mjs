@@ -861,11 +861,13 @@ ${funnelRow("Rows that are the beef you meant", "80/20 mince, past the cap", 0, 
           <button type="button" data-q="grape">grape</button>
           <button type="button" data-q="olive oil">olive oil</button>
           <button type="button" data-q="aubergine">aubergine</button>
+          <button type="button" data-q="pak-choi">pak-choi</button>
           <button type="button" data-q="gammon">gammon</button>
         </div>
         <p class="resultline" id="count2" role="status">&nbsp;</p>
         <div class="hits" id="hits"></div>
         <p class="caption" id="keyhelp">Each row shows the key vector that placed it, read left to right exactly as <code>compareRelevance</code> reads it &mdash; the first column where two rows differ is the one that decided them. <span class="rec">tier</span> is the six rungs; <span class="rec">pos</span> is how far into the name your words landed; <span class="rec">sib</span>, <span class="rec">raw</span> and <span class="rec">desig</span> are read off the row rather than the name.</p>
+        <p class="caption">Two annotations can appear under a row, and they are different things. A name in <strong>brackets</strong> &mdash; <span class="rec">Eggplant (aubergine)</span> &mdash; is another name FOR the food, and the app shows it too, in the name itself, so the word you typed follows the food into your log. A line reading <strong>reached through USDA&rsquo;s discarded name</strong> is not a name for the food at all: it is the losing half of a twin merge, or a filing a rename replaced, and it explains why a row surfaced when the words you typed appear nowhere on it. <strong>This page shows that line and the app does not</strong> &mdash; the app has to answer, this page has to explain &mdash; and it is kept out of the name on both, because <span class="rec">Eggs, Grade A, Large, egg whole</span> is USDA&rsquo;s paperwork and not what anybody calls an egg.</p>
       </div>
     </section>
 
