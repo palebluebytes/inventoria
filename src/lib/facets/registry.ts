@@ -507,7 +507,26 @@ export const FACETS = [
     // the per-copy DOM id scheme that a second card in one document had needed
     // is deleted with it. **−52 B**, on both Facets, because what went is a
     // helper in the one module they share.
-    precacheBytes: 8_747_292,
+    //
+    // **Re-measured whole when the arc was rebased onto main**, for the reason
+    // the root's entry gives: the per-ticket figures were taken against a base
+    // 56 commits behind this one and are kept as each ticket's account rather
+    // than as this number's derivation. Against `dec25f50`, which precaches
+    // 7,659,060 B: **+34,833 B (+34.0 KiB, +0.45%)**, against a ±5% band that
+    // is ~374 KiB wide either side. It is larger than the +32,616 B the three
+    // tickets add up to, and the difference is chunking rather than new code:
+    // this arc arrives into a bundle main reshaped, so what the two entries
+    // share is not what they shared before.
+    //
+    // **Re-measured whole when the arc was rebased onto main**, which had moved
+    // 56 commits under it — the corpus consolidation above among them. The
+    // figures each ticket recorded were build-to-build against a base that no
+    // longer exists, so they are kept as the account of what that ticket cost
+    // and this is the one the gate reads. Against `dec25f50`, which precaches
+    // 8,747,291 B with none of this arc in it: **+3,704 B (+0.042%)**. The root
+    // already carried the whole p2p stack, so what it pays here is the second
+    // axis on the vector and the lane scope beside it.
+    precacheBytes: 8_750_995,
     status: "built",
   },
   {
@@ -612,7 +631,7 @@ export const FACETS = [
     // the per-copy DOM id scheme that a second card in one document had needed
     // is deleted with it. **−52 B**, on both Facets, because what went is a
     // helper in the one module they share.
-    precacheBytes: 7_659_061,
+    precacheBytes: 7_693_893,
     // Installability is definitional (ADR-0076 §1) and #305 is where Rations
     // gets a manifest of its own, so this is the ticket that flips it.
     status: "built",
