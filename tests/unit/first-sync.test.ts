@@ -36,10 +36,7 @@ import {
   type FirstSyncProgress,
 } from "../../src/lib/p2p/first-sync";
 import { scopeOfFacet, type LaneScope } from "../../src/lib/p2p/lane-scope";
-import {
-  entityPrefixesOfDomains,
-  type FacetId,
-} from "../../src/lib/facets/registry";
+import { type FacetId } from "../../src/lib/facets/registry";
 import { PairingRefusedError } from "../../src/lib/p2p/pairing-act";
 import { enterRoom, RoomFailedError } from "../../src/lib/p2p/relay-room";
 import { mintRoomCode, type RoomCode } from "../../src/lib/p2p/room-code";
@@ -83,13 +80,11 @@ function device(device_id: string, facetId: FacetId = "root"): Device {
       vector: async () => readLedgerVersionVector(db),
       // `sync-ledger.ts`' own two narrowings, against a real ledger rather
       // than through the worker: what the peer lacks, inside what the lane
-      // carries (ADR-0103 §1). The prefixes come from the registry through the
-      // one function a Facet-scoped wipe also derives its predicate with.
+      // carries (ADR-0103 §1 and §6). The scope goes in whole, because the
+      // prefixes it derives describe every row but one — a Carried deletion,
+      // which crosses only where its frozen list is a subset of this lane's.
       page: async (after, budgetBytes, above, scope) =>
-        readLedgerPage(db, after, budgetBytes, {
-          above,
-          entityPrefixes: entityPrefixesOfDomains(scope),
-        }),
+        readLedgerPage(db, after, budgetBytes, { above, laneScope: scope }),
       write: async (rows) => {
         // What `db.worker.ts` does on every `ledger_import` batch, and what
         // ADR-0075 §8 reuses unchanged: a stamp issued elsewhere moves this

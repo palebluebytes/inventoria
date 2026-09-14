@@ -21,6 +21,7 @@ import {
   type CarriedDeletionSweep,
 } from "./carried-deletion";
 import { describeValue } from "./describe-value";
+import { entityPrefixesOfDomains } from "../facets/registry";
 import { compareHlcMark, type Hlc, type HlcKey, type HlcMark } from "./hlc";
 import {
   foldVersionVector,
@@ -392,6 +393,17 @@ const LEDGER_PAGE_MAX_ROWS = 256;
 export interface LedgerPageNarrowing {
   /** One Facet's rows, for a Facet-scoped export (ADR-0079 §6). */
   entityPrefixes?: readonly string[];
+  /**
+   * What one lane carries, by Tracked Domain id (ADR-0103 §1 and §6).
+   *
+   * It is the **Lane scope** rather than a prefix list, because two rules
+   * answer to it and only one of them is expressible in prefixes:
+   * {@link laneScopeMatch} derives the prefixes for the content rows and reads
+   * the same list again for a Carried deletion, whose entity says nothing about
+   * what it deletes. Handing prefixes in would leave the second rule to the
+   * caller, which is the hand-written second list ADR-0079 §3 forbids.
+   */
+  laneScope?: readonly string[];
   /** Only what a holder of this vector lacks, for a sync (ADR-0075 §6). */
   above?: VersionVector;
   /** Which order the walk runs in. Defaults to `key`. */
@@ -430,6 +442,7 @@ export function readLedgerPage(
   }
   for (const match of [
     narrowing.entityPrefixes && entityPrefixMatch(narrowing.entityPrefixes),
+    narrowing.laneScope && laneScopeMatch(narrowing.laneScope),
     narrowing.above && vectorAboveMatch(narrowing.above),
   ]) {
     if (!match) continue;
@@ -797,6 +810,53 @@ function entityPrefixMatch(
       takenAtOrBefore.hlc_ms,
       takenAtOrBefore.hlc_ctr,
     ],
+  };
+}
+
+/**
+ * The rows one lane carries: its domains' entities, and the Carried deletions
+ * that reach no further than it does (ADR-0103 §1 and §6).
+ *
+ * **Two arms, because a deletion is not described by its own entity.** A
+ * content row belongs to the domain that owns its prefix, which is §1's
+ * predicate and the first arm. A Carried deletion's entity is `deletion:` and
+ * belongs to the Jar domain whatever it deletes, so the domains it is *about*
+ * live in its frozen prefix list — and §6's rule is that it crosses **if and
+ * only if that list is a subset of this lane's**. Letting it merely intersect
+ * would have a food lane delete a peer's Media; leaving it to §1 alone would
+ * have a food lane never carry a food wipe at all, which is
+ * [#415](https://github.com/palebluebytes/inventoria/issues/415).
+ *
+ * **A jar-wide lane still carries every deletion on the first arm**, because it
+ * declares `deletion:` like every other prefix the registry holds. That is what
+ * this rule does *not* change: it narrows nothing that crossed before it, and
+ * the subset test is what a narrower lane is bought with.
+ *
+ * **The list is read inside SQLite rather than parsed here**, so the walk skips
+ * a refused deletion instead of a caller filtering the page afterwards — a page
+ * that came back empty because everything in it was filtered would end the walk
+ * and withhold every row behind it, permanently. `json_each` over the frozen
+ * list is the same reading `readCarriedDeletion` does in memory, and the `CASE`
+ * is what keeps a malformed value from throwing: SQLite's `AND` is free not to
+ * short-circuit, and a `deletion/prefixes` row that will not parse is in an
+ * append-only table forever, so a throw would wedge every sync this device ever
+ * runs. Such a row crosses no lane narrow enough to ask, which is the same
+ * refusal `readCarriedDeletion` makes of it.
+ */
+function laneScopeMatch(scope: readonly string[]): {
+  where: string;
+  bind: unknown[];
+} {
+  const prefixes = entityPrefixesOfDomains(scope);
+  if (prefixes.length === 0) return { where: "0", bind: [] };
+  const under = entityPrefixMatch(prefixes);
+  return {
+    where:
+      `(${under.where}) OR (attribute = ? AND CASE WHEN json_valid(value) ` +
+      `THEN NOT EXISTS (SELECT 1 FROM json_each(datoms.value) ` +
+      `WHERE json_each.value NOT IN (${prefixes.map(() => "?").join(", ")})) ` +
+      `ELSE 0 END)`,
+    bind: [...under.bind, CARRIED_DELETION_ATTRIBUTE, ...prefixes],
   };
 }
 

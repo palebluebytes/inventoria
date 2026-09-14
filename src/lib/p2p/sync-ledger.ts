@@ -13,10 +13,18 @@
  * nothing here excludes an attribute and nothing here skips a superseded fact.
  *
  * What ADR-0103 §1 adds is one narrowing of a different kind: a lane carries
- * the rows of the **Tracked Domains** its two ends agreed on. The predicate is
- * **derived** — `entityPrefixesOfDomains` over the scope, the same function a
- * Facet-scoped wipe reaches through `entityPrefixesOf` — and it composes with
- * the peer's own version vector in `readLedgerPage`, which already took both.
+ * the rows of the **Tracked Domains** its two ends agreed on. The scope is
+ * handed to `readLedgerPage` as the domain ids it is, and the predicate is
+ * **derived** there — `entityPrefixesOfDomains` over the scope, the same
+ * function a Facet-scoped wipe reaches through `entityPrefixesOf` — where it
+ * composes with the peer's own version vector, which that read already took.
+ *
+ * **The one row the prefixes cannot describe is a Carried deletion**, whose
+ * entity is `deletion:` whatever it deletes, and it crosses only where its
+ * frozen list is a subset of this lane's (§6). That rule is the page read's as
+ * well, which is why the scope goes in whole rather than as a prefix list: a
+ * first sync of a food lane carries a food wipe, and carries no wipe that
+ * reaches past food.
  *
  * **A jar-wide lane is every prefix the registry declares, which is not quite
  * the same as no narrowing.** A row whose entity carries a prefix **no** domain
@@ -30,7 +38,6 @@
  */
 
 import { dbClient } from "../db/db.client";
-import { entityPrefixesOfDomains } from "../facets/registry";
 import type { FirstSyncLedger } from "./first-sync";
 
 /**
@@ -48,10 +55,7 @@ export async function appSyncLedger(): Promise<FirstSyncLedger> {
     device_id,
     vector: () => dbClient.versionVector(),
     page: (after, budgetBytes, above, scope) =>
-      dbClient.ledgerPage(after, budgetBytes, {
-        above,
-        entityPrefixes: entityPrefixesOfDomains(scope),
-      }),
+      dbClient.ledgerPage(after, budgetBytes, { above, laneScope: scope }),
     // A first sync is convergence like any other, so its batches are held to
     // the carried deletions this ledger holds (ADR-0096 §12). It is the case
     // most in need of it: a first sync is the empty-vector case, so a peer
