@@ -79,12 +79,43 @@ export const isStopped = (device: PairedDevice): boolean =>
   device.unproductive_wakes >= UNPRODUCTIVE_WAKE_LIMIT;
 
 /**
+ * One sync as the counter reads it: which pairings it looked at, and which of
+ * them produced something.
+ *
+ * **Two lists rather than one**, because a wake no longer reaches every
+ * pairing. A wake is an open of a Facet and serves the lanes that Facet's scope
+ * meets (ADR-0103 §9), so a pairing it never served has had no absence looked
+ * for at it — and a counter that climbed on one would stop a pairing the other
+ * Facet's wakes are converging perfectly well.
+ *
+ * **Neither list names a Facet, and that is the point.** §11's counter is
+ * per-pairing and blind to which Facet woke: a pairing served by both carries
+ * one count toward K rather than one each.
+ */
+export interface CountedRound {
+  /**
+   * The `device_id` of every pairing this sync served — the lanes the waking
+   * Facet's scope met, whatever the sync then managed on them.
+   */
+  served: readonly string[];
+  /**
+   * The `device_id` of every pairing that produced something — an
+   * acknowledgement received, or a collection **settled**.
+   */
+  productive: readonly string[];
+}
+
+/**
  * One wake's counting, ready to be handed each of its syncs.
  *
- * Make one per wake and call it with every sync's productive set. An
- * unproductive result burns **at most one** wake however many syncs report it;
- * a productive one resets the counter and dates the meeting, however late in
- * the wake it arrives.
+ * Make one per wake and call it with every sync's round. An unproductive
+ * result burns **at most one** wake however many syncs report it; a productive
+ * one resets the counter and dates the meeting, however late in the wake it
+ * arrives.
+ *
+ * **A pairing the sync did not serve is not counted at all**, which is the
+ * same argument as the two below arriving from ADR-0103 §9: nothing looked, so
+ * there is nothing for the wake to have produced.
  *
  * **A stopped pairing is not counted further.** It is no longer being touched,
  * so there is nothing for a wake to have produced, and a number that kept
@@ -101,14 +132,19 @@ export function wakeCounter(
   held: () => PairedDevice[],
   keep: (device: PairedDevice) => void,
   now: () => Date = () => new Date()
-): (productive: readonly string[]) => void {
+): (round: CountedRound) => void {
   let burned = false;
-  return (productive) => {
+  return ({ served, productive }) => {
     const met = metOn(now());
     for (const device of held()) {
       if (productive.includes(device.device_id)) {
         keep({ ...device, unproductive_wakes: 0, last_met: met });
-      } else if (!burned && !isStopped(device) && !device.revoked) {
+      } else if (
+        !burned &&
+        served.includes(device.device_id) &&
+        !isStopped(device) &&
+        !device.revoked
+      ) {
         keep({ ...device, unproductive_wakes: device.unproductive_wakes + 1 });
       }
     }

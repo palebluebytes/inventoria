@@ -33,6 +33,7 @@ import {
   wakeCounter,
   UNPRODUCTIVE_WAKE_LIMIT,
 } from "../../src/lib/p2p/wake-counter";
+import type { LedgerRow } from "../../src/lib/db/db.core";
 import type { PairedDevice } from "../../src/lib/stores/paired-devices";
 import { WHOLE_JAR } from "../../src/lib/p2p/lane-scope";
 
@@ -79,7 +80,15 @@ function counting(rows: PairedDevice[], day = "2026-09-13") {
     () => new Date(`${day}T09:13:00`)
   );
   return {
-    count,
+    /**
+     * One sync's round, with **every pairing served** unless the test says
+     * otherwise. Which lanes a wake meets is ADR-0103 §9's and is exercised
+     * where a Facet is named; this half is the arithmetic over the record.
+     */
+    count: (
+      productive: readonly string[],
+      served: readonly string[] = rows.map((device) => device.device_id)
+    ) => count({ productive, served }),
     row: (device_id: string) =>
       held.find((device) => device.device_id === device_id)!,
   };
@@ -305,6 +314,34 @@ async function withJar(rows: Record<string, unknown>[]) {
   return { errand, store: watched, reached };
 }
 
+describe("a pairing this wake did not serve is not counted at all", () => {
+  it("burns nothing on a lane the waking Facet's scope does not meet", () => {
+    // A wake is an open of a Facet and serves the lanes that Facet's scope
+    // meets (ADR-0103 §9). Nothing looked at this one, so there is nothing for
+    // the wake to have produced on it — and a count that climbed here would
+    // stop a pairing the other Facet's wakes are converging perfectly well.
+    const { count, row } = counting([pairing("dev_b"), pairing("dev_c")]);
+
+    count([], ["dev_c"]);
+
+    expect(row("dev_b").unproductive_wakes).toBe(0);
+    expect(row("dev_c").unproductive_wakes).toBe(1);
+  });
+
+  it("counts it again on the next open that does serve it", () => {
+    // The skip is this wake's and not a standing exemption: the record is
+    // untouched, so the Facet that does meet the lane picks up where the count
+    // stood.
+    const skipped = counting([pairing("dev_b", { unproductive_wakes: 3 })]);
+    skipped.count([], []);
+
+    const served = counting([skipped.row("dev_b")]);
+    served.count([], ["dev_b"]);
+
+    expect(served.row("dev_b").unproductive_wakes).toBe(4);
+  });
+});
+
 describe("a severed pairing is not counted at all", () => {
   it("burns no wake on a row the user has revoked", () => {
     // The mark stops both lanes immediately, so every wake after it would be
@@ -338,7 +375,7 @@ describe("a stopped pairing has neither of its keys touched", () => {
     });
     const { errand, store, reached } = await withJar([live.row, out.row]);
 
-    await errand.convergeWithPeers(store, EMPTY_LEDGER);
+    await errand.convergeWithPeers("root", store, EMPTY_LEDGER);
 
     expect(reached).toContain(live.collect);
     expect(reached).toContain(live.deposit);
@@ -354,7 +391,7 @@ describe("a stopped pairing has neither of its keys touched", () => {
     });
     const { errand, store, reached } = await withJar([out.row]);
 
-    await errand.depositToPeers(store, EMPTY_LEDGER);
+    await errand.depositToPeers("root", store, EMPTY_LEDGER);
 
     expect(reached).toEqual([]);
   });
@@ -398,7 +435,7 @@ describe("a take that imported rows and did not settle is not productive", () =>
             : [],
         write: async () => 0,
       },
-      { keep: () => {}, roster: [] }
+      { keep: () => {}, roster: [], scope: WHOLE_JAR }
     );
 
     const jammed: Store = {
@@ -408,9 +445,12 @@ describe("a take that imported rows and did not settle is not productive", () =>
       },
       discard: store.discard,
     };
-    const round = await errand.convergeWithPeers(jammed, {
+    const round = await errand.convergeWithPeers("root", jammed, {
       oldestAbove: async () => [],
-      write: async (rows) => (imported.push(rows.length), rows.length),
+      write: async (rows: LedgerRow[]) => (
+        imported.push(rows.length),
+        rows.length
+      ),
     });
 
     expect(imported.reduce((all, some) => all + some, 0)).toBe(1);

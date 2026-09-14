@@ -113,8 +113,12 @@ function device(device_id: string): Device {
     db,
     rows: [],
     ledger: {
-      oldestAbove: async (after, budgetBytes, above) =>
-        readLedgerPage(db, after, budgetBytes, { above, order: "stamp" }),
+      oldestAbove: async (after, budgetBytes, above, scope) =>
+        readLedgerPage(db, after, budgetBytes, {
+          above,
+          laneScope: scope,
+          order: "stamp",
+        }),
       // The converging write path, which is the one `db.worker.ts` takes for a
       // batch that *arrived*: every carried deletion this ledger holds is
       // applied to it (ADR-0096 §12).
@@ -165,11 +169,11 @@ async function atDevice<T>(who: Device, act: () => Promise<T>): Promise<T> {
 
 /** One open of the app: a round over every pairing this device holds. */
 const open = (who: Device) =>
-  atDevice(who, () => convergeWithPeers(store, who.ledger));
+  atDevice(who, () => convergeWithPeers("root", store, who.ledger));
 
 /** The delta growing: a deposit on every lane, collecting from none (§3). */
 const growth = (who: Device) =>
-  atDevice(who, () => depositToPeers(store, who.ledger));
+  atDevice(who, () => depositToPeers("root", store, who.ledger));
 
 /** The user severing one pairing on this device, both phases (§11). */
 const unpair = (who: Device, peer: Device) =>

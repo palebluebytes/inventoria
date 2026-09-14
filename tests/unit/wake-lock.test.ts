@@ -103,8 +103,12 @@ beforeEach(async () => {
   db = new sqlite3.oo1.DB();
   createLedgerSchema(db);
   ledger = {
-    oldestAbove: async (after, budgetBytes, above) =>
-      readLedgerPage(db, after, budgetBytes, { above, order: "stamp" }),
+    oldestAbove: async (after, budgetBytes, above, scope) =>
+      readLedgerPage(db, after, budgetBytes, {
+        above,
+        laneScope: scope,
+        order: "stamp",
+      }),
     write: async (rows) => importConvergedRows(db, rows).outcome.rowsAdded,
   };
   bucket = fakeBucket();
@@ -220,7 +224,7 @@ function holdingStore(inner: Store): {
 
 /** One wake's deposit errand, taking the lock the way `openAppWake` does. */
 const wakeOver = (over: Store): Promise<void> =>
-  underWakeLock(() => depositToPeers(over, ledger));
+  underWakeLock(() => depositToPeers("root", over, ledger));
 
 // ---------------------------------------------------------------------------
 
@@ -416,7 +420,9 @@ describe("the app's own wake is the one that takes the lock", () => {
       },
     });
 
-    const wake = openAppWake(route, { collectionFloorMs: 60 * 60 * 1_000 });
+    const wake = openAppWake("root", route, {
+      collectionFloorMs: 60 * 60 * 1_000,
+    });
     try {
       await vi.waitFor(() => expect(readPairedDevices()).toEqual([]));
     } finally {

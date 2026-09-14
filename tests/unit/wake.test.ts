@@ -54,6 +54,7 @@ import {
   type WakeLedger,
   type WakeOutcome,
 } from "../../src/lib/p2p/wake";
+import type { LaneScope } from "../../src/lib/p2p/lane-scope";
 import { fakeBucket, routeOver } from "./support/store-bucket";
 import { pairedWith } from "./support/paired-device";
 
@@ -98,8 +99,12 @@ function device(
     record: pairedWith(peer_id, chains),
     swept,
     ledger: {
-      oldestAbove: async (after, budgetBytes, above) =>
-        readLedgerPage(db, after, budgetBytes, { above, order: "stamp" }),
+      oldestAbove: async (after, budgetBytes, above, scope) =>
+        readLedgerPage(db, after, budgetBytes, {
+          above,
+          laneScope: scope,
+          order: "stamp",
+        }),
       write: async (rows) => {
         // The converging write path, which is the one `db.worker.ts` takes for
         // a batch that *arrived*: every carried deletion this ledger holds is
@@ -131,6 +136,13 @@ interface WakeAdjustments {
    * own job (§6). The default is a household of two.
    */
   roster?: readonly string[];
+  /**
+   * What this wake may carry down this lane (ADR-0103 §9). The default is the
+   * lane's own scope, which is what a **root** wake hands over: the root's
+   * scope is the whole Jar, so it contains every lane's and narrows nothing.
+   * Which wakes serve which lanes is `wake-facet.test.ts`'s.
+   */
+  scope?: LaneScope;
 }
 
 /** One open of the app on one device. */
@@ -139,12 +151,14 @@ const wake = (
   {
     store: over = store,
     roster = [who.record.device_id],
+    scope = who.record.scope,
     ...rest
   }: WakeAdjustments = {}
 ): Promise<WakeOutcome> =>
   convergeWithPeer(who.record, over, who.ledger, {
     keep: (next) => (who.record = next),
     roster,
+    scope,
     ...rest,
   });
 
@@ -154,12 +168,14 @@ const deposit = (
   {
     store: over = store,
     roster = [who.record.device_id],
+    scope = who.record.scope,
     ...rest
   }: WakeAdjustments = {}
 ): Promise<DepositOutcome> =>
   depositToPeer(who.record, over, who.ledger, {
     keep: (next) => (who.record = next),
     roster,
+    scope,
     ...rest,
   });
 

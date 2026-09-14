@@ -9,14 +9,23 @@
  * origin, and the browser's own account of when the ledger grew and when the
  * app went away.
  *
- * **A wake is an open of the root Facet, and a Rations-only user never
- * converges** (§7). Both Facets are separately installable and separately
- * launched, so a person who opens Rations daily and the root never gets no
- * wakes at all. That is **stated, not repaired**: reaching across would re-open
- * ADR-0084 §6 from the wrong side and would put convergence inside a Facet
- * ADR-0078 gives no way out of. It is why {@link openAppWake} is called from
- * `App.svelte` rather than from `facets/startup.ts`, which both entry points
- * run.
+ * **A wake is an open of *a* Facet, and it serves every lane its Facet's scope
+ * meets** (ADR-0103 §9, amending §7). ADR-0096 §7 had a wake be an open of the
+ * root and left _a Rations-only user never converges_ stated rather than
+ * repaired; ADR-0103 answers its two reasons and this module is where the
+ * answer is spent. {@link openAppWake} is called from `App.svelte` and from
+ * `Rations.svelte`, each naming its own Facet, and still not from
+ * `facets/startup.ts` — a wake is an open of a Facet, so which Facet it is has
+ * to be said rather than shared.
+ *
+ * **What differs between the two is the deposit and nothing else.** A wake
+ * collects whatever its peer left, whole, because one Jar is one ledger and a
+ * lane that is not read stalls its depositor's chain. What it *deposits* is
+ * narrowed to the domains the waking Facet holds, so a Rations wake on a
+ * jar-wide lane carries food and its deletions and leaves the other five to the
+ * root's wake. A lane whose scope the waking Facet does not meet at all is not
+ * touched, and is not counted against either (§11's counter measures absences
+ * somebody looked for).
  *
  * **One open is still one wake, and it is no longer one sync.** §3's 2026-09-06
  * Amendment unwelds the two: the promise stays stated in opens — _your data
@@ -32,13 +41,14 @@
  */
 
 import { dbClient } from "../db/db.client";
+import type { FacetId } from "../facets/registry";
 import { appWarn } from "../logs/app-log";
 import {
   readPairedDevices,
   updatePairedDevice,
   type PairedDevice,
 } from "../stores/paired-devices";
-import { isStopped, wakeCounter } from "./wake-counter";
+import { isStopped, wakeCounter, type CountedRound } from "./wake-counter";
 import { appStore, type Store } from "./deposit-store";
 import {
   openWake,
@@ -47,6 +57,7 @@ import {
   type WakeTuning,
 } from "./wake-cadence";
 import { convergeWithPeer, depositToPeer, type WakeLedger } from "./wake";
+import { laneScope, scopeOfFacet, type LaneScope } from "./lane-scope";
 import { withdrawRevoked } from "./unpair";
 import { underWakeLock } from "./wake-lock";
 
@@ -59,8 +70,17 @@ import { underWakeLock } from "./wake-lock";
  * first time a backlog drained.
  */
 export const appWakeLedger: WakeLedger = {
-  oldestAbove: (after, budgetBytes, above) =>
-    dbClient.ledgerPage(after, budgetBytes, { above, order: "stamp" }),
+  // `laneScope` is what this wake may carry down this lane (ADR-0103 §9), and
+  // it is handed over as the domain ids it is: `readLedgerPage` derives the
+  // prefixes from the registry, and reads the same list a second time for the
+  // one row whose entity cannot say what it is about — a Carried deletion,
+  // which crosses only where its frozen list is a subset of this lane's (§6).
+  oldestAbove: (after, budgetBytes, above, scope) =>
+    dbClient.ledgerPage(after, budgetBytes, {
+      above,
+      laneScope: scope,
+      order: "stamp",
+    }),
   // `"convergence"`: rows that *arrive* are held to every carried deletion
   // this ledger holds, on every batch (ADR-0096 §12). The user-chosen import
   // is the exemption, and it is the other caller.
@@ -128,8 +148,13 @@ const stillStanding = (device_id: string): PairedDevice | null =>
   ) ?? null;
 
 /**
- * The pairings a sync actually serves: every one that has neither run out nor
- * been severed.
+ * The pairings a sync still touches at all: every one that has neither run out
+ * nor been severed.
+ *
+ * **It is not §9's *serves*.** This is a pairing's health — whether this device
+ * touches its keys — and which lanes the waking Facet meets is decided one
+ * layer in, against the lane's own scope. A pairing can pass here and be
+ * skipped there.
  *
  * **A stopped pairing is skipped here and named in the roster above**, which is
  * the whole of §11's _stops touching that pairing's keys_. The two readings of
@@ -142,23 +167,18 @@ const stillStanding = (device_id: string): PairedDevice | null =>
  * collecting stop at the mark, before any delete has left this device (§11).
  * The row is still here only because the withdrawal needs the addresses on it.
  */
-const stillServed = (held: PairedDevice[]): PairedDevice[] =>
+const stillTouched = (held: PairedDevice[]): PairedDevice[] =>
   held.filter((paired) => !isStopped(paired) && !paired.revoked);
 
 /**
- * What one full sync did, which is the cadence's {@link WakeRound} plus the one
- * thing only §11's counter wants.
+ * What one full sync did: the cadence's {@link WakeRound}, and beside it the
+ * two lists only §11's counter wants.
  *
- * It is declared here rather than there because the counter is folded here: the
- * names never reach `wake-cadence.ts`, which reads `owed` and nothing else.
+ * The counter is folded here rather than in `wake-cadence.ts`, which reads
+ * `owed` and nothing else — so {@link CountedRound} is the shape of what
+ * crosses to it, declared where the counting lives.
  */
-export interface SyncRound extends WakeRound {
-  /**
-   * The `device_id` of every pairing that produced something — an
-   * acknowledgement received, or a collection **settled**.
-   */
-  productive: string[];
-}
+export interface SyncRound extends WakeRound, CountedRound {}
 
 /**
  * Converge with every paired device, once.
@@ -176,20 +196,34 @@ export interface SyncRound extends WakeRound {
  * taken rows it never said the word for.
  */
 export async function convergeWithPeers(
+  facetId: FacetId,
   store: Store = appStore,
   ledger: WakeLedger = appWakeLedger
 ): Promise<SyncRound> {
+  const waking = scopeOfFacet(facetId);
   const productive: string[] = [];
+  const served: string[] = [];
   let owed = false;
   const held = readPairedDevices();
   const roster = localRoster(held);
-  for (const row of stillServed(held)) {
+  for (const row of stillTouched(held)) {
     const paired = stillStanding(row.device_id);
     if (!paired) continue;
+    // §9's rule, both halves. A wake **serves** a lane its Facet's scope meets,
+    // and what it deposits is the meeting itself — the whole lane where the
+    // root is awake, food and its deletions where Rations is. A lane it meets
+    // no part of is left alone rather than deposited to emptily, and it is not
+    // in `served`, so §11's counter does not burn a wake for an absence this
+    // wake never looked for. That skip cannot fire today: both Facets hold
+    // food, so every lane a pairing act can mint meets both.
+    const scope = laneScope(waking, paired.scope);
+    if (scope.length === 0) continue;
+    served.push(paired.device_id);
     try {
       const outcome = await convergeWithPeer(paired, store, ledger, {
         keep: updatePairedDevice,
         roster,
+        scope,
       });
       if (outcome.acknowledged || outcome.settled) {
         productive.push(paired.device_id);
@@ -215,7 +249,7 @@ export async function convergeWithPeers(
       appWarn("[p2p] This wake did not converge with a paired device", failure);
     }
   }
-  return { productive, owed };
+  return { productive, served, owed };
 }
 
 /**
@@ -226,18 +260,23 @@ export async function convergeWithPeers(
  * and why the collection floor does not skip while a peer is owed a word.
  */
 export async function depositToPeers(
+  facetId: FacetId,
   store: Store = appStore,
   ledger: WakeLedger = appWakeLedger
 ): Promise<void> {
+  const waking = scopeOfFacet(facetId);
   const held = readPairedDevices();
   const roster = localRoster(held);
-  for (const row of stillServed(held)) {
+  for (const row of stillTouched(held)) {
     const paired = stillStanding(row.device_id);
     if (!paired) continue;
+    const scope = laneScope(waking, paired.scope);
+    if (scope.length === 0) continue;
     try {
       const outcome = await depositToPeer(paired, store, ledger, {
         keep: updatePairedDevice,
         roster,
+        scope,
       });
       if (outcome.jammed) appWarn(JAMMED);
     } catch (failure) {
@@ -312,6 +351,14 @@ function onHide(hidden: () => void): () => void {
  * how many times it has been called, and not at {@link OpenWake.close}, which a
  * discarded tab never reaches.
  *
+ * **`facetId` is the Facet doing the waking**, handed in by the shell that
+ * mounted rather than worked out here, for the reason `facetOf`'s own comment
+ * gives: a Facet's runtime identity is a build-time constant, and nothing
+ * anywhere reads `location.pathname` to decide. It is what §9's two halves are
+ * computed from, and it is the **only** thing the wake learns about the Facet —
+ * §11's counter never sees it, so a pairing served by both Facets carries one
+ * count rather than one per Facet.
+ *
  * **And this is where an errand is one at a time across the origin** (#418).
  * `wake-cadence.ts` queues every trigger of *this* open, which leaves the open
  * beside it — a browser tab next to the installed app — sharing one jar and one
@@ -321,6 +368,7 @@ function onHide(hidden: () => void): () => void {
  * would disagree before either wrote.
  */
 export function openAppWake(
+  facetId: FacetId,
   store: Store = appStore,
   tuning?: WakeTuning
 ): OpenWake {
@@ -333,12 +381,17 @@ export function openAppWake(
           // retry (§11). It runs before the lanes are served rather than after,
           // because a withdrawal that lands takes its row with it and the loop
           // below then has one fewer pairing to skip. It never throws.
+          //
+          // **It is not narrowed by the waking Facet, and that is ADR-0103
+          // §8**: a Paired Device record belongs to the Jar rather than to the
+          // Facet its lane is scoped to, so a withdrawal the user asked for is
+          // finished by whichever Facet is next opened.
           await withdrawRevoked(store);
-          const round = await convergeWithPeers(store);
-          counted(round.productive);
+          const round = await convergeWithPeers(facetId, store);
+          counted(round);
           return round;
         }),
-      deposit: () => underWakeLock(() => depositToPeers(store)),
+      deposit: () => underWakeLock(() => depositToPeers(facetId, store)),
       onLedgerGrowth,
       onHide,
     },
