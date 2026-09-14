@@ -3,9 +3,9 @@
   "schema_version": 1,
   "ticket": "https://github.com/palebluebytes/inventoria/issues/192",
   "map": "https://github.com/palebluebytes/inventoria/issues/186",
-  "ruler": "sweepQueries over the shipped corpus — 2644 queries, pinned and used against both corpora",
+  "ruler": "sweepQueries over the shipped corpus — 2634 queries, pinned and used against both corpora",
   "corpora": {
-    "shipped": "public/usda/search-index.json sha256:6c3620a61880ed46"
+    "shipped": "public/usda/search-index.json sha256:77893f43f2e510bc"
   },
   "gold_sets": {
     "143": "19 of 50 adjudicated heads carry verdict \"correct\" — the leads ADR-0055 §2 protects",
@@ -34,14 +34,14 @@
   "runs": [
     {
       "label": "shipped",
-      "rows": 2444,
-      "names": 2520,
-      "queries": 2644,
-      "answered": 2644,
+      "rows": 2437,
+      "names": 2513,
+      "queries": 2634,
+      "answered": 2634,
       "empty": 0,
       "plain_sibling": {
-        "carried": 423,
-        "derived": 423,
+        "carried": 422,
+        "derived": 422,
         "stale": 0
       },
       "gold_leads_held": 19,
@@ -227,7 +227,7 @@
         },
         {
           "key": "position",
-          "moved": 190,
+          "moved": 189,
           "gold_leads_broken": 0,
           "c1_lost": 0,
           "examples": [

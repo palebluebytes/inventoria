@@ -664,6 +664,55 @@ export type AdjudicatedDish = readonly [
 ];
 
 export const ADJUDICATED_DISHES: readonly AdjudicatedDish[] = [
+  // ── Drinks compounded from several foods ────────────────────────────────
+  // A drink someone MADE, as against a drink you buy as one substance. Wine,
+  // beer, spirits, brewed coffee and tea and water all stay: each is one thing
+  // fermented, distilled, infused or poured, and ADR-0042 protects the last
+  // three on purpose. These six are recipes — milk and eggs and sugar beaten
+  // together, rum and coconut cream and pineapple, rice and cinnamon steeped
+  // and sweetened — and a recipe is not an ingredient.
+  //
+  // **Hand-written because no signal reaches them.** Their categories are two
+  // the corpus keeps deliberately (`Beverages` for ADR-0042's coffee and water,
+  // `Dairy and Egg Products` for milk and eggs), and their descriptions carry
+  // three different markers plus, for `Eggnog`, none at all. The nearest thing
+  // to a rule is `restaurant-prepared`, and it is a TRAP: the corpus's only two
+  // espresso rows both carry it, so keying on it would delete espresso outright.
+  [
+    171258,
+    "Eggnog",
+    "Milk, cream, egg and sugar beaten together and spiced. It carries no marker of any kind, sits under a category the corpus protects for milk and eggs, and so reached the shipped index unopposed. ADR-0104 already removed its powdered twin, `Beverages, Eggnog-flavor mix, powder, prepared with whole milk`, which left the made drink standing while the mix for it was gone.",
+  ],
+  [
+    168752,
+    "Alcoholic beverage, pina colada, prepared-from-recipe",
+    "Rum, coconut cream and pineapple juice. USDA says `prepared-from-recipe` in the name, which is the plainest statement of a composite this corpus has and which no rule reads.",
+  ],
+  [
+    169574,
+    "Alcoholic beverage, daiquiri, prepared-from-recipe",
+    "The same marker, and the same reading.",
+  ],
+  [
+    173662,
+    "Alcoholic beverage, whiskey sour",
+    "Whiskey, lemon and sugar. No marker at all on this one, which is why the roster and not a regex.",
+  ],
+  [
+    174812,
+    "Alcoholic beverage, whiskey sour, prepared from item 14028",
+    "The same drink made up from the mix, and USDA's `prepared from item 14028` points at the mix's own record. Both leave: one is a recipe, the other is a recipe made from a powder.",
+  ],
+  [
+    173163,
+    "Beverages, Whiskey sour mix, powder",
+    "The powder for the two rows above, and it leaves with them rather than after them. Taking the drink and keeping its mix is strictly worse than taking neither: `whiskey sour` then answers with a tub of powdered mix, which is what `usda-corpus.test.ts` had pinned the drink to beat. It is not the general dry-mix question — cocoa, lemonade and the protein powders are still here and still argued about — only this one, which is the same cocktail in the same three entries.",
+  ],
+  [
+    171941,
+    "Beverages, Horchata, as served in restaurant",
+    "Rice steeped, sweetened and spiced. `as served in restaurant` is a fourth way of saying prepared, and the one nearest the trap: `restaurant-prepared` cannot be a rule while the only espresso rows wear it.",
+  ],
   [
     169823,
     "Agutuk, fish with shortening (Alaskan ice cream) (Alaska Native)",

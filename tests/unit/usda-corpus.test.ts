@@ -302,14 +302,14 @@ describe("the bundled search index", () => {
     // 427 to 423 when `isReconstitutedDrink` took the eight made-up drink
     // mixes: four of them were the plain sibling of nothing else, and a row
     // whose only qualified twin has left stops being one.
-    expect(index.foods.filter((row) => row.plain_sibling).length).toBe(423);
+    expect(index.foods.filter((row) => row.plain_sibling).length).toBe(422);
     // Omitted rather than emitted false, like every other absent field.
     expect(index.foods.filter((row) => row.plain_sibling === false)).toEqual(
       []
     );
   });
 
-  it("holds 571 rows whose head phrase is a shelf label, under 18 labels", () => {
+  it("holds 565 rows whose head phrase is a shelf label, under 18 labels", () => {
     // ADR-0042's #154 Amendment, tripwired the way ADR-0055 §3 tripwired
     // `plainSibling`: the roster is hand-written, so a head phrase added or
     // misspelled shows up as a count here rather than as a quietly reordered
@@ -320,7 +320,7 @@ describe("the bundled search index", () => {
     // 578 to 571: seven of the eight drinks the reconstituted-drink rule takes
     // were filed under the `Beverages` shelf label, and the eighth under
     // `Alcoholic beverage`.
-    expect(shelved.length).toBe(571);
+    expect(shelved.length).toBe(565);
     const labels = new Set(
       shelved.map((row) => qualifiersOf(row.description)[0])
     );
@@ -373,7 +373,7 @@ describe("the bundled search index", () => {
   });
 
   it("is the surviving reference foods, and says which archives it came from", () => {
-    expect(index.foods.length).toBe(2444);
+    expect(index.foods.length).toBe(2437);
     expect(index.generated_from.map((a) => a.dataset)).toEqual([
       "Foundation Foods",
       "SR Legacy",
@@ -389,14 +389,14 @@ describe("the bundled search index", () => {
     // What the alias loop is skipped for, which is the whole reason
     // `bestNameKey` costs nothing on most rows.
     expect(index.foods.filter((row) => !(row.also ?? []).length).length).toBe(
-      2371
+      2364
     );
     // And what `SEARCH_RESULT_LIMIT` is a ceiling ON. Measured after ADR-0062
     // §1, because that is the set the list would have to render.
     // 734 to 727: seven of the eight rows the reconstituted-drink rule takes
     // are filed under a head phrase beginning with `b` — six `Beverages` and
     // one `Alcoholic beverage`.
-    expect(withoutStrayMentions(scoredFor("b")).length).toBe(727);
+    expect(withoutStrayMentions(scoredFor("b")).length).toBe(721);
   });
 
   // ── ADR-0048's invariant, over the artifact itself ────────────────────────
@@ -1167,9 +1167,12 @@ describe("searchIndexRows", () => {
     // handed `red wine` to the row named in one word: a vinegar MADE from wine.
     for (const [query, expected] of [
       ["red wine", "Alcoholic beverage, wine, table, red"],
-      // Not the powdered mix, which `accounted` reached once the label stopped
-      // counting as two words of the name left over.
-      ["whiskey sour", "Alcoholic beverage, whiskey sour"],
+      // `whiskey sour` was the fourth case here and is gone, because the food
+      // is. Both the drink and the powdered mix it beat left as adjudicated
+      // dishes: a cocktail is a recipe, not an ingredient. The case was pinning
+      // the drink above the mix, and with neither in the corpus there is nothing
+      // left for it to say — the three below still exercise the same key, which
+      // is what it was here to prove.
       // The same label on a different aisle: an oyster rather than an OSTRICH
       // oyster, and a scallop rather than a summer SQUASH cut into scallops.
       // Spelled without `raw`, which no name carries now that the corpus holds

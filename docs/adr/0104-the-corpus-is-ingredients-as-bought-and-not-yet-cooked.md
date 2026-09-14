@@ -610,3 +610,55 @@ the whole food. An ordering key cannot return a row the words never reach.
 Corpus 2,444 — unchanged, because a rename drops nothing. Aliased rows 70 → 73:
 each published name stays reachable, so `milk nonfat fluid` still finds the
 skimmed one.
+
+## Amendment (2026-09-14): a drink someone made is not an ingredient
+
+`Eggnog` shipped. The reconstituted-drink rule above took its powdered twin —
+`Beverages, Eggnog-flavor mix, powder, prepared with whole milk` — and left the
+made drink standing, which is the wrong half to keep.
+
+The line is **one substance against a recipe.** Wine, beer, spirits, brewed
+coffee and tea, and water all stay: each is one thing fermented, distilled,
+infused or poured, and ADR-0042 protects the last three deliberately. These
+seven are recipes — milk and eggs and sugar beaten together, rum and coconut
+cream and pineapple, rice steeped and sweetened — and a recipe is not an
+ingredient.
+
+| fdcId  | row                                                          |
+| ------ | ------------------------------------------------------------ |
+| 171258 | `Eggnog`                                                     |
+| 168752 | `Alcoholic beverage, pina colada, prepared-from-recipe`      |
+| 169574 | `Alcoholic beverage, daiquiri, prepared-from-recipe`         |
+| 173662 | `Alcoholic beverage, whiskey sour`                           |
+| 174812 | `Alcoholic beverage, whiskey sour, prepared from item 14028` |
+| 173163 | `Beverages, Whiskey sour mix, powder`                        |
+| 171941 | `Beverages, Horchata, as served in restaurant`               |
+
+They join `ADJUDICATED_DISHES` rather than a predicate, and the reason is that
+**no signal reaches them.** Their two categories are ones the corpus keeps on
+purpose — `Beverages` for ADR-0042's coffee and water, `Dairy and Egg Products`
+for milk and eggs — and their descriptions carry three different markers between
+them plus, for `Eggnog`, none at all.
+
+**The nearest thing to a rule is a trap.** `restaurant-prepared` looks like the
+marker to key on, and the corpus's only two espresso rows both wear it, so a rule
+reading it would delete espresso outright. `prepared-from-recipe` reaches two
+rows, `prepared from item` one, `as served in restaurant` one. Four markers for
+six rows, and the seventh names nothing. A roster is the honest shape.
+
+### The mix leaves with its drink, and the general powder question does not
+
+`Beverages, Whiskey sour mix, powder` is here because a test refused the
+alternative. `usda-corpus.test.ts` pinned `whiskey sour` leading with the drink
+and _not_ the powdered mix; removing the drink alone handed the query to the
+mix, which is worse than having removed nothing. So the cocktail leaves in all
+three of its entries.
+
+That is **not** the general dry-mix question, and this record does not answer it.
+`Beverages, Cocoa mix, powder`, `Beverages, Lemonade, powder`, the two
+flavour-mix powders, and the three protein powders all still ship. They have a
+real boundary in them — a cocoa mix is a formulated product, a whey isolate is
+something people log by the scoop — and it wants deciding on its own evidence
+rather than as a side effect of a cocktail.
+
+Corpus 2,444 → **2,437**.
