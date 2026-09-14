@@ -1,5 +1,6 @@
 <script lang="ts">
   import { untrack } from "svelte";
+  import type { FacetId } from "../facets/registry";
   import { createQueryStore } from "../stores/datoms.store";
   import { HLC_ORDER_DESC } from "../db/hlc";
   import {
@@ -111,6 +112,7 @@
     receiveLink = null,
     onReceiveClose,
     hasPages = false,
+    shell,
   }: {
     dbReady: boolean;
     /**
@@ -140,6 +142,17 @@
      * there would be a second door to a surface that already has one.
      */
     hasPages?: boolean;
+    /**
+     * Which Facet's shell mounted this screen (ADR-0076 §6).
+     *
+     * `hasPages` above is this shell saying what it can *hold*; this is it
+     * saying who it *is*, and the two are not the same question — the root
+     * draws the whole of this screen in its Food tab without being Rations.
+     * Required rather than defaulted, because both shells are two lines apart
+     * and the settings sheet below decides which Facet an act performed on it
+     * runs in (ADR-0103 §1).
+     */
+    shell: FacetId;
   } = $props();
 
   // ── Receiving a meal ─────────────────────────────────────────────────────
@@ -1243,7 +1256,12 @@
   <!-- Rations settings: the OFF login, the contribution default, the nutrition
        targets, Rations' own Local Logs card and its Your data block — the
        Facet's one named, full-height surface (ADR-0080 §7). -->
-  <FoodSettingsSheet {dbReady} inline={onPage} onClose={() => (page = null)} />
+  <FoodSettingsSheet
+    {dbReady}
+    {shell}
+    inline={onPage}
+    onClose={() => (page = null)}
+  />
 {:else if page === "recipes"}
   <!-- The recipe library. Browses every saved recipe and opens one to review or
        amend; its "New recipe" writes a template only. No path through it logs,

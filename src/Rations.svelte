@@ -270,6 +270,7 @@
         {dbReady}
         {receiveLink}
         hasPages
+        shell="food"
         onReceiveClose={() => (receiveLink = null)}
       />
     </main>

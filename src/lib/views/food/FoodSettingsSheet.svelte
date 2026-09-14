@@ -14,7 +14,7 @@
   import PairedDevicesSection from "../pairing/PairedDevicesSection.svelte";
   import LogSettingsSection from "../logs/LogSettingsSection.svelte";
   import ScanSessionsCard from "../logs/ScanSessionsCard.svelte";
-  import { facetOf } from "../../facets/registry";
+  import { facetOf, type FacetId } from "../../facets/registry";
 
   // **Rations settings** (ADR-0080 §7): the one named, full-height surface the
   // food screen's gear opens, from either entry point.
@@ -53,7 +53,24 @@
      */
     dbReady,
     inline = false,
-  }: { onClose: () => void; dbReady: boolean; inline?: boolean } = $props();
+    /**
+     * Which Facet's shell is drawing this sheet, threaded from the entry point
+     * (ADR-0076 §6).
+     *
+     * The sheet is Rations' settings screen whichever shell draws it — the
+     * title below says so — but one control on it is not a fact about food, and
+     * that is the pairing surface: ADR-0103 §1 scopes a pairing to the Facet
+     * the act ran in, and an act performed in the root's Food tab ran in the
+     * root. So the card is drawn under Rations and nowhere else, and the root
+     * keeps the one pairing surface it already has on its own Settings screen.
+     */
+    shell,
+  }: {
+    onClose: () => void;
+    dbReady: boolean;
+    inline?: boolean;
+    shell: FacetId;
+  } = $props();
 
   // The Facet whose settings these are — always Rations, whichever entry point
   // is drawing the screen. Read off the registry rather than typed, so the name
@@ -198,11 +215,22 @@
        the whole of what ADR-0103 §1 needs: a pairing carries the domains of the
        Facet the act ran in, so a pairing made here is a food lane.
 
+       **Which is why the root does not draw it.** This sheet is Rations'
+       screen, but the root draws the whole of it in its Food tab, and an act
+       performed there ran in the root — a Facet is an install (ADR-0076 §1) and
+       not a tab. Drawing the card under both shells would put two pairing
+       surfaces in one root document disagreeing about what a pairing means, and
+       §4 would have the food one silently re-scope a jar-wide lane the other
+       made. The rest of this sheet is unconditional because the rest of it is
+       about food's *data*, which is the same fact whoever is asking.
+
        It sits directly under "Your data" because the wipe above it is the
        control §8 is about: "Delete all my food data" takes food's rows and
        food's `localStorage` and **unpairs nothing**, and the two being one
        screen apart is what makes that legible rather than merely true. -->
-  <PairedDevicesSection facetId="food" />
+  {#if shell === "food"}
+    <PairedDevicesSection facetId="food" />
+  {/if}
 
   <!-- What the barcode scan has been doing (ADR-0071 §6). Rations' surface and
        not the root's, because the reading belongs to the domain that writes the

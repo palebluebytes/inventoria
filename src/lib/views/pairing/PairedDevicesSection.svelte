@@ -68,30 +68,13 @@
   // worked out from the URL (ADR-0076 §6). It is the whole of what ADR-0103 §1
   // needs from the surface: a pairing act carries the domains of the Facet it
   // ran in, so the section that draws the act is where that Facet is known.
-  // There are two callers: the root's `SettingsView`, and Rations' settings
-  // sheet at #423 (ADR-0103 §10). On that sheet the literal is "food" in both
-  // shells, because every other Facet-scoped control there is food's in both —
-  // the wipe, the export and the log card — and the amendment at ADR-0103's
-  // foot carries the argument and what the reading costs.
+  // There are two callers, one per Facet and one card per document: the root's
+  // `SettingsView`, and Rations' settings sheet at #423 (ADR-0103 §10). That
+  // sheet draws this card only under Rations' own shell, because an act
+  // performed in the root's Food tab ran in the root — so no document ever
+  // holds two of these, and the two ways in below keep the unqualified ids
+  // every selector already written names.
   let { facetId }: { facetId: FacetId } = $props();
-
-  /**
-   * A DOM id for one of the two ways in, one per copy of this card.
-   *
-   * **Two copies can be live in one document.** The root renders `SettingsView`
-   * under every tab and merely hides it, so opening the food gear's sheet puts
-   * a second Paired devices card in the same page — and one id on two elements
-   * is an ambiguous selector rather than a duplicate that shows, which is the
-   * rule `LedgerImport` already follows (#335). Nothing else on this card
-   * carries an id, and the three `data-testid`s below are drawn only while an
-   * act is running, which is one card at a time.
-   *
-   * **The root keeps the unqualified spelling**, because it is the copy every
-   * selector already written names. That is a fact about what is written down
-   * rather than a case this card treats differently.
-   */
-  const wayInId = (way: "show" | "read") =>
-    facetId === "root" ? `pair-${way}-btn` : `${facetId}-pair-${way}-btn`;
 
   /** Which face is up: nothing, the code being shown, or the reader. */
   let act = $state<"none" | "showing" | "reading">("none");
@@ -502,11 +485,11 @@
       </ul>
     {/if}
     <div class="pair-actions">
-      <Button id={wayInId("show")} onclick={() => begin("showing")}>
+      <Button id="pair-show-btn" onclick={() => begin("showing")}>
         Show a code
       </Button>
       <Button
-        id={wayInId("read")}
+        id="pair-read-btn"
         variant="secondary"
         onclick={() => begin("reading")}
       >

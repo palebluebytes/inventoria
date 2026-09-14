@@ -208,7 +208,7 @@
              (ADR-0084 §5), so there is none for this shell to hand down. The
              Scan way in still reads a meal code, and FoodView owns that one
              end to end. -->
-        <FoodView {dbReady} onReceiveClose={() => {}} />
+        <FoodView {dbReady} shell="root" onReceiveClose={() => {}} />
         <!-- Under the screen rather than in the header, because ADR-0078 §4
              keeps the Food tab otherwise unchanged: same screen, same
              components, no pointer. Turning the tab itself into one would
