@@ -390,7 +390,7 @@ export function isPreparedProduct(
  * Whole words, never substrings, and the reason is not hypothetical: fourteen
  * corpus rows say `uncooked`, and a `/cooked/` that reads them as cooked deletes
  * `Quinoa, uncooked`, `Teff, uncooked`, `Spelt, uncooked` and
- * `Apricots, dried, sulfured, uncooked`. That is ADR-0100 §10's standing warning
+ * `Apricots, dried, sulfured, uncooked`. That is ADR-0103 §10's standing warning
  * — `Caraway` and `Strawberries` both contain the literal string `raw` — and the
  * measurement that produced this record's predecessor fell into it, which is why
  * the boundary is stated here rather than assumed.
@@ -623,7 +623,7 @@ export function isManufacturingInput(description: string): boolean {
  * the category would delete about 120 real ingredients to remove nine dishes,
  * which is the trade the `Sweets` and `Baked Products` splits already refuse.
  *
- * So these are written down instead. A hand-written drop is what ADR-0100 §6
+ * So these are written down instead. A hand-written drop is what ADR-0103 §6
  * licenses for a head somebody has read, and all 130 rows of this category were
  * read to produce the nine below.
  *

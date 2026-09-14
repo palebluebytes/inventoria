@@ -578,7 +578,7 @@ describe("compareRelevance", () => {
       )
     ).toBeLessThan(0);
     // …and loses to both keys before it, which is the placement argument in
-    // ADR-0101's amendment: log the duck egg and the duck leads.
+    // ADR-0104's amendment: log the duck egg and the duck leads.
     expect(beats({ recent: 1, canonical: 0 }, { canonical: 1 })).toBeLessThan(
       0
     );

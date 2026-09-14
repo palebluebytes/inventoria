@@ -1,10 +1,10 @@
 #!/usr/bin/env node
 /**
- * The `Beef` pilot's roster of ADR-0100 §2 collapsing axes, and the residual
+ * The `Beef` pilot's roster of ADR-0103 §2 collapsing axes, and the residual
  * description it computes — shared by `usda-beef-pilot.mjs`, which produced it,
  * and `usda-filter-census.mjs`, which asks what it would have absorbed.
  *
- * **This is the PILOT's roster and not the shipped one.** ADR-0100 §9 puts the
+ * **This is the PILOT's roster and not the shipped one.** ADR-0103 §9 puts the
  * shipped roster in a module under `src/lib/food/`, reached by the generator
  * through the esbuild seam so that no second copy of the answer exists; no such
  * module is written yet, because the record states the rule and deliberately
@@ -17,7 +17,7 @@
  */
 
 /**
- * ADR-0100 §2's collapsing axes, as patterns over a whole comma-segment (§10).
+ * ADR-0103 §2's collapsing axes, as patterns over a whole comma-segment (§10).
  *
  * `preferred` is §5's second bullet made explicit: a record stating a
  * non-preferred value may not represent a group. The pilot's ruling is that
@@ -55,7 +55,7 @@ export const ROSTER = [
   // trim — a trade specification, and no value of it refuses
   { axis: "trim", re: /^trimmed to (0|1\/8|1\/4)" ?fat$/i, preferred: true },
   // grade — likewise. `Grade A` is a different sense and is not matched:
-  // ADR-0100 §10's standing warning about `Eggs, Grade A, Large, egg white`.
+  // ADR-0103 §10's standing warning about `Eggs, Grade A, Large, egg white`.
   { axis: "grade", re: /^(usda )?(choice|select|prime)$/i, preferred: true },
   { axis: "grade", re: /^aust\. marble score /i, preferred: true },
 ];

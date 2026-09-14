@@ -19,7 +19,7 @@
  * corpus as rows of their own? So this replays the generator's own pipeline,
  * keeps every casualty instead of counting it, and asks of each one:
  *
- *   **Does its residual description, under ADR-0100 §3's key, collide with a row
+ *   **Does its residual description, under ADR-0103 §3's key, collide with a row
  *   that ships?**
  *
  * A collision is a NECESSARY condition for redundancy and not a sufficient one,
@@ -202,7 +202,7 @@ function replayVariantDrops(survivors, app) {
  * Native)` — so a segment-equality test reports the roster reaching nothing,
  * which is a census measuring its own transcription rather than the rule.
  *
- * The overlap column is #192's actual question for this surface. ADR-0100 §5
+ * The overlap column is #192's actual question for this surface. ADR-0103 §5
  * gives ADR-0056 §1's positional strip a second roster, so the two could have
  * been the same rule twice — they are not, and the number says so rather than an
  * argument about it.
@@ -367,7 +367,7 @@ const account = {
   map: "https://github.com/palebluebytes/inventoria/issues/186",
   method:
     "Each filter's casualties are kept rather than counted, and each is asked " +
-    "whether ADR-0100 §3's grouping key collides with a shipped row. A " +
+    "whether ADR-0103 §3's grouping key collides with a shipped row. A " +
     "collision is necessary for redundancy and not sufficient, so a filter " +
     "reported alive is alive.",
   roster:
@@ -385,7 +385,7 @@ const account = {
     note:
       "ADR-0056 §1's positional strip, measured over the rows that reached it " +
       "rather than over the shipped corpus, whose names have already lost these " +
-      "segments. ADR-0100 §5 extends this roster; the overlap column asks " +
+      "segments. ADR-0103 §5 extends this roster; the overlap column asks " +
       "whether it duplicates it.",
     rows_renamed: nameStage.renamed,
     adjudicated_names: nameStage.adjudicated_names,

@@ -172,7 +172,7 @@ export function applyShippedNames(survivors, app) {
     // stopped being its description — and this is what `also` is for.
     //
     // It is not optional politeness. `Eggs, Grade A, Large, egg whole` is what
-    // is printed on the box, and before this line ADR-0101's rename made a row
+    // is printed on the box, and before this line ADR-0104's rename made a row
     // unreachable by the only name a shopper has ever seen for it, silently and
     // with every test still green but one.
     return {

@@ -1,7 +1,7 @@
 # Research: what the collapse makes redundant (#192)
 
 **Grounds:** the committed `public/usda/search-index.json` (`schema_version` 8, 4,238 rows) and the collapsed corpus `pnpm usda:beef-pilot --emit` produces from it (2,837 rows), measured by `pnpm usda:key-census` and `pnpm usda:filter-census`. The filter census also reads the bulk archives directly, because a filter's casualties are not in either corpus.
-**Siblings:** parent map [#186](https://github.com/palebluebytes/inventoria/issues/186). [ADR-0100](../adr/0100-what-was-done-to-a-food-is-not-another-food.md) is the rule whose collapse is under test, [#191](191-beef-pilot.md) the pilot that produced the corpus, [#188](188-consolidation-bar.md) the bar.
+**Siblings:** parent map [#186](https://github.com/palebluebytes/inventoria/issues/186). [ADR-0103](../adr/0103-what-was-done-to-a-food-is-not-another-food.md) is the rule whose collapse is under test, [#191](191-beef-pilot.md) the pilot that produced the corpus, [#188](188-consolidation-bar.md) the bar.
 **Date:** 2026-09-12. **Status:** census. No ranking key, filter or name roster changed; two measurement scripts were added and the `Beef` pilot's roster moved into a module both of them read.
 
 ---
@@ -10,7 +10,7 @@
 
 **Nothing is redundant.** All ten ranking keys still move leads after the collapse, all fourteen filter families still remove rows the collapse would not, and the four name-strip rosters share no entry with the collapse roster. The ticket's terminus was written expecting a retirement list; the measurement produces an empty one.
 
-The reason is structural rather than lucky, and ADR-0100 §7 says it in advance without noticing it says this too: **a collapse always leaves a survivor.** It merges records of one food. Every rule under test separates _different_ foods — a fat from a meat, a brand from an ingredient, an imitation from the thing. A rule that separates two foods has the same work to do whether the corpus holds thirty copies of each or one.
+The reason is structural rather than lucky, and ADR-0103 §7 says it in advance without noticing it says this too: **a collapse always leaves a survivor.** It merges records of one food. Every rule under test separates _different_ foods — a fat from a meat, a brand from an ingredient, an imitation from the thing. A rule that separates two foods has the same work to do whether the corpus holds thirty copies of each or one.
 
 ## 2. The ranking keys
 
@@ -52,7 +52,7 @@ Masking would show as a pair moving far more than its singles — two keys each 
 
 **A filter cannot be measured on the collapsed corpus.** Filters run at generation time, before any collapse; the 2,837-row corpus is derived from the 4,238 rows they already chose. Counting what a filter matches there returns zero by construction and means nothing.
 
-So the census replays the generator's own pipeline, keeps every casualty instead of counting it, and asks of each: **does its residual description, under ADR-0100 §3's key, collide with a row that ships?** A collision is necessary for redundancy and not sufficient — §4's chain might pick the casualty as representative, which promotes the row rather than absorbing it — so the test over-credits the collapse and never under-credits it. **A filter it calls alive is alive.**
+So the census replays the generator's own pipeline, keeps every casualty instead of counting it, and asks of each: **does its residual description, under ADR-0103 §3's key, collide with a row that ships?** A collision is necessary for redundancy and not sufficient — §4's chain might pick the casualty as representative, which promotes the row rather than absorbing it — so the test over-credits the collapse and never under-credits it. **A filter it calls alive is alive.**
 
 | stage   | family                    | dropped | absorbed | promoted | own row |
 | ------- | ------------------------- | ------: | -------: | -------: | ------: |
@@ -75,13 +75,13 @@ So the census replays the generator's own pipeline, keeps every casualty instead
 
 The order is load-bearing and the table reports it as such: a row dropped as brand-specific is never offered to the processed filter, so a family's casualties are the rows that _reached_ it, not the rows that match it (#144's rule, that a drop rule's reach is pinned as the population it left).
 
-**ADR-0061's seventy-four drops are confirmed by measurement rather than by argument.** ADR-0100 §8 states that under §2's as-bought line every one of them is a distinguishing axis — you buy chocolate milk as chocolate milk. The census agrees to the row: 74 casualties, 74 own-row, zero absorbed. §8 was right and is now measured.
+**ADR-0061's seventy-four drops are confirmed by measurement rather than by argument.** ADR-0103 §8 states that under §2's as-bought line every one of them is a distinguishing axis — you buy chocolate milk as chocolate milk. The census agrees to the row: 74 casualties, 74 own-row, zero absorbed. §8 was right and is now measured.
 
 The census reproduces #191's headline from the generator side, by an unrelated route: the 4,238 shipped rows fall into **2,837 collapse groups**.
 
 ## 4. The name rosters
 
-ADR-0100 §5 gives ADR-0056 §1's positional strip a second roster, so the two could have been one rule written twice. They are not, and the number rather than an argument says so. Measured over the rows that reached the strip — never over the shipped corpus, whose names have already lost these segments:
+ADR-0103 §5 gives ADR-0056 §1's positional strip a second roster, so the two could have been one rule written twice. They are not, and the number rather than an argument says so. Measured over the rows that reached the strip — never over the shipped corpus, whose names have already lost these segments:
 
 | roster                     | entries | reaches | also claimed by the collapse roster |
 | -------------------------- | ------: | ------: | ----------------------------------: |
@@ -92,7 +92,7 @@ ADR-0100 §5 gives ADR-0056 §1's positional strip a second roster, so the two c
 
 Each roster is measured by its **own shipped function** and never by a match written in the census. `DESIGNATION_TAGS` is why: its entries are parenthesised tags carried _inside_ a segment, so a whole-segment test reports the roster reaching nothing — a census measuring its own transcription rather than the rule. That instrument was written, produced a `0`, and was replaced.
 
-789 rows are renamed at generation time and none of it is the collapse's work. The two rosters are disjoint by construction: ADR-0056's strips remove a commercial origin, a cataloguing qualifier, a fortification phrase or a designation tag; ADR-0100's remove a preparation, a separation, a trim or a grade.
+789 rows are renamed at generation time and none of it is the collapse's work. The two rosters are disjoint by construction: ADR-0056's strips remove a commercial origin, a cataloguing qualifier, a fortification phrase or a designation tag; ADR-0103's remove a preparation, a separation, a trim or a grade.
 
 ## 5. Four counts in the ticket and the ADR are wrong
 
@@ -103,9 +103,9 @@ This map has been bitten by a restated count three times (#155, #162, #369), so 
 | "eight ranking keys"                  | **ten** terms in `compareRelevance`                             |
 | "fifteen filter families"             | **fourteen** drop families in the generator                     |
 | "29 hand-adjudicated names"           | `ADJUDICATED_NAMES` has **one** entry                           |
-| ADR-0100 §11's "29 adjudicated cases" | `143-gold-set.json` holds **50**, of which **19** are `correct` |
+| ADR-0103 §11's "29 adjudicated cases" | `143-gold-set.json` holds **50**, of which **19** are `correct` |
 
-The eight is the `NameKey` ordering fields; `compareRelevance` also reads ADR-0055's two row keys, which is exactly the pair that goes missing when a harness forgets them. The 29 appears to have travelled from `ADJUDICATED_VARIANTS`, which has 30. ADR-0100 §11's figure is corrected in place, being a miscount rather than a change of position.
+The eight is the `NameKey` ordering fields; `compareRelevance` also reads ADR-0055's two row keys, which is exactly the pair that goes missing when a harness forgets them. The 29 appears to have travelled from `ADJUDICATED_VARIANTS`, which has 30. ADR-0103 §11's figure is corrected in place, being a miscount rather than a change of position.
 
 ## 6. Three traps the instruments had to be built around
 

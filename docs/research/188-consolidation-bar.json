@@ -35,7 +35,7 @@
       "date": "2026-09-14",
       "query": "(all)",
       "what": "Human labels refreshed against the names the rows ship under. 35 of 56 were stale; no fdcId changed.",
-      "why": "The labels had drifted behind ADR-0101's renames - `Beef, ground, 80% lean meat / 20% fat, raw` against a row that now ships without the `raw`, `Eggs, Grade A, Large, egg whole` against `Egg, chicken, whole, fresh`. Every one of the 56 fdcIds still resolved, which is the point: this set was re-keyed onto fdcIds precisely so a rename could not be read as a missing row, and the drift arriving at 35 of 56 while costing nothing is that decision being vindicated rather than a fault.",
+      "why": "The labels had drifted behind ADR-0104's renames - `Beef, ground, 80% lean meat / 20% fat, raw` against a row that now ships without the `raw`, `Eggs, Grade A, Large, egg whole` against `Egg, chicken, whole, fresh`. Every one of the 56 fdcIds still resolved, which is the point: this set was re-keyed onto fdcIds precisely so a rename could not be read as a missing row, and the drift arriving at 35 of 56 while costing nothing is that decision being vindicated rather than a fault.",
       "not_a_goalpost_move": "C1 25/44 and C2 32/44 before the refresh and after it, measured both ways. A label cannot move a score because the bar never reads one - if either number had moved, the set would have been keyed on descriptions after all and the refresh would have been the bug rather than the fix."
     },
     {
@@ -43,7 +43,7 @@
       "query": "rice",
       "was": [2512381, "Rice, white, long grain, unenriched, raw"],
       "now": [168877, "Rice, white, long-grain"],
-      "why": "The pinned row left the corpus, and the bar reported a BROKEN BAR rather than a miss, which is the right behaviour and why it is being answered rather than ignored. It was not dropped: ADR-0101's enrichment rule collided it with `Rice, white, long-grain, regular, raw, unenriched` and kept one row for the two, which is a collapse leaving a survivor - the operation ADR-0100 permits, as against a drop, which it does not. 168877 IS that survivor, and it ships under the name a reader asked for in as many words.",
+      "why": "The pinned row left the corpus, and the bar reported a BROKEN BAR rather than a miss, which is the right behaviour and why it is being answered rather than ignored. It was not dropped: ADR-0104's enrichment rule collided it with `Rice, white, long-grain, regular, raw, unenriched` and kept one row for the two, which is a collapse leaving a survivor - the operation ADR-0103 permits, as against a drop, which it does not. 168877 IS that survivor, and it ships under the name a reader asked for in as many words.",
       "not_a_goalpost_move": "C1 asks whether the row a diarist means is near the top. A diarist means long-grain white rice; that food is still in the corpus and still one row. Re-pinning to the survivor keeps the question the same - and it is worth saying plainly that this repin takes C1 from 24/44 to 25/44, so it is a change that FLATTERS the result and has to be read with that in mind. The alternative, leaving a pin on a row that no longer exists, measures nothing at all."
     }
   ],

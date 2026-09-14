@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Does ADR-0100 survive contact with `Beef`? The measurement behind research
+ * Does ADR-0103 survive contact with `Beef`? The measurement behind research
  * note #191.
  *
  *   pnpm usda:beef-pilot                     # measure, print the tables
@@ -14,7 +14,7 @@
  * Four things are measured, and only the first is what the ticket went looking
  * for:
  *
- *   1  THE COLLAPSE — what ADR-0100 §2 and §3 do to the corpus and to `beef`,
+ *   1  THE COLLAPSE — what ADR-0103 §2 and §3 do to the corpus and to `beef`,
  *      and what that does to #188's two pre-registered conditions. Run through
  *      `usda-consolidation-bar.mjs` against a collapsed index, so the numbers
  *      come from the shipped ranking rather than from a second opinion about it:
@@ -22,7 +22,7 @@
  *        pnpm usda:beef-pilot --emit /tmp/collapsed.json
  *        USDA_INDEX_PATH=/tmp/collapsed.json pnpm usda:consolidation-bar
  *
- *   2  ELIGIBILITY — ADR-0100 §5 refuses a record that "positively states a
+ *   2  ELIGIBILITY — ADR-0103 §5 refuses a record that "positively states a
  *      non-preferred value on a collapsing axis" and never says which values are
  *      non-preferred. The four readings are measured side by side because the
  *      choice between them swings `Beef` from 64 coverage holes to none, and a
@@ -34,11 +34,11 @@
  *
  *   4  SPELLING — §3's residual description is a string, and USDA's spelling of
  *      one cut is not stable. This is the axis nobody was looking at, and it is
- *      what manufactured the coverage hole ADR-0100 §5 was built around.
+ *      what manufactured the coverage hole ADR-0103 §5 was built around.
  *
  * The ROSTER below is read off `Beef`'s 202 distinct trailing segments, and it
  * is the pilot's roster rather than the shipped one: no shipped roster exists
- * yet, because ADR-0100 states the rule and deliberately does not deliver a
+ * yet, because ADR-0103 states the rule and deliberately does not deliver a
  * corpus. When the generator grows one, this file reads it instead of carrying
  * its own copy, and until then the duplication is the point — a roster written
  * here cannot silently become the answer.
@@ -257,7 +257,7 @@ if (process.argv.includes("--json")) {
   );
 
   console.log(
-    "ADR-0100 §5 eligibility — four readings of a non-preferred value\n"
+    "ADR-0103 §5 eligibility — four readings of a non-preferred value\n"
   );
   console.log(`  ${pad("reading", 28)}${pad("holes", 8)}rows stranded`);
   for (const r of eligibility)

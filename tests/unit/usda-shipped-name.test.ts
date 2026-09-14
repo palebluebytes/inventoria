@@ -670,7 +670,7 @@ describe("ADJUDICATED_NAMES — the names no rule reaches (ADR-0061 §5)", () =>
     // than in a rule because there IS no rule: USDA named four birds and then
     // filed the fifth by its retail grade, so nothing in the description says
     // which bird laid it. That is knowledge about shoppers, not about the food,
-    // and it has to be written down (ADR-0101's amendment).
+    // and it has to be written down (ADR-0104's amendment).
     expect(ADJUDICATED_NAMES).toEqual([
       [
         748967,

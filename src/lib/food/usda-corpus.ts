@@ -386,7 +386,7 @@ export interface SearchHit {
   /**
    * The DISCARDED name this row was reached through, where one out-scored the
    * row's own — a name the twin merge threw away, or one a hand rename left
-   * behind (#137, ADR-0101's amendments). Absent whenever the row answered under
+   * behind (#137, ADR-0104's amendments). Absent whenever the row answered under
    * the name it ships as, which is almost every search.
    *
    * **Not the same thing as {@link alias}, and it must never be treated as one.**

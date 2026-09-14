@@ -149,7 +149,7 @@ describe("applyShippedNames — the hand-adjudicated names (ADR-0061 §5)", () =
   });
 
   it("names the bird on the eggs USDA filed by retail grade", () => {
-    // ADR-0101's amendment. The `, raw` is load-bearing and not decoration: the
+    // ADR-0104's amendment. The `, raw` is load-bearing and not decoration: the
     // row's base-ingredient fact is read off the description at this point, and
     // USDA never wrote the word on a graded egg — so without it a box of fresh
     // eggs scores 0 where a drum of liquid egg scores 1. The strip takes the

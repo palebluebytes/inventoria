@@ -922,7 +922,7 @@ const DESIGNATED_POPULATION_CATEGORY = "American Indian/Alaska Native Foods";
  * reason.** The five eggs are the case it was written for. USDA names four
  * birds — `Egg, duck, whole, fresh`, goose, quail, turkey — and then files a
  * hen's egg under its retail grade, so the one egg nearly every search means is
- * the one whose name never says which bird laid it. ADR-0101's rename gives it
+ * the one whose name never says which bird laid it. ADR-0104's rename gives it
  * the same shape as its four siblings, at which point all five are `Egg, <bird>,
  * …`: same tier, same head, same raw flag, same everything the keys can read.
  * They tie to the bottom of {@link compareRelevance} and the sort falls through

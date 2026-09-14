@@ -7,7 +7,7 @@
  *   pnpm usda:key-census --json              # ...as JSON
  *   pnpm usda:key-census --write             # ...and commit the artifact
  *
- * ADR-0100 removes duplication at source, and #192 asks whether the machinery
+ * ADR-0103 removes duplication at source, and #192 asks whether the machinery
  * built to sort that duplication is doing anything afterwards. The method is
  * ADR-0061's #177 amendment: re-measure every key over the changed corpus, keep
  * what still moves a result, retire what moves nothing, and put the count on
@@ -74,7 +74,7 @@ const ACCOUNT = join(ROOT, "docs", "research", "192-key-census.json");
 /**
  * The collapsed corpus, which no generator produces yet.
  *
- * ADR-0100 states the rule and deliberately delivers no corpus; what exists is
+ * ADR-0103 states the rule and deliberately delivers no corpus; what exists is
  * `usda-beef-pilot.mjs`'s emission, a roster read off one head and applied
  * corpus-wide. Every "after" number here is against THAT, and the note says so.
  * When the generator grows a roster this reads its output instead.
@@ -244,7 +244,7 @@ const leadsFor = (corpus, query, orderings) => {
  * **ADR-0055 §2** binds every rule this map adopts: no change may break a lead
  * already measured correct. `143-gold-set.json` holds 50 adjudicated heads, of
  * which **19 carry `verdict: "correct"`** — those, and not the 28 misses, are
- * the leads §2 protects. (ADR-0100 §11 calls this "the 29 adjudicated cases",
+ * the leads §2 protects. (ADR-0103 §11 calls this "the 29 adjudicated cases",
  * which is neither number.)
  *
  * **#188's bar** is the other direction: 44 hand-judged queries keyed by
@@ -393,7 +393,7 @@ const account = {
     shipped: `public/usda/search-index.json sha256:${digest(SHIPPED)}`,
     ...(COLLAPSED
       ? {
-          collapsed: `usda-beef-pilot --emit sha256:${digest(COLLAPSED)} (a roster read off one head; ADR-0100 delivers no corpus)`,
+          collapsed: `usda-beef-pilot --emit sha256:${digest(COLLAPSED)} (a roster read off one head; ADR-0103 delivers no corpus)`,
         }
       : {}),
   },

@@ -131,7 +131,7 @@ delete every row naming a cooking method, then every row naming a trim or a grad
 Nobody had asked what that deletes.
 
 Measured over the shipped corpus while writing
-[ADR-0100](../adr/0100-what-was-done-to-a-food-is-not-another-food.md):
+[ADR-0103](../adr/0103-what-was-done-to-a-food-is-not-another-food.md):
 
 |                                                           |               |
 | --------------------------------------------------------- | ------------: |

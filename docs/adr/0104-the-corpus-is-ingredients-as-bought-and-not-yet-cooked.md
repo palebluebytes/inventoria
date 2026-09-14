@@ -1,15 +1,15 @@
-# ADR 0101: The corpus is ingredients as bought, and not yet cooked
+# ADR 0104: The corpus is ingredients as bought, and not yet cooked
 
 **Status:** Accepted  
 **Date:** 2026-09-13
 
 This record amends [ADR-0055](0055-who-eats-a-food-ranks-it-and-never-drops-it.md)
-§1 for a **fourth** time, and unlike the third it is not narrow. ADR-0100 took no
+§1 for a **fourth** time, and unlike the third it is not narrow. ADR-0103 took no
 general drop power and said so in terms; this one takes one, deletes 1,754 rows
 with it, and loses fourteen foods that have no survivor anywhere. It also amends
 [ADR-0042](0042-usda-search-reference-foods.md) §1 (what the corpus is made of),
 [ADR-0056](0056-a-name-loses-the-parts-that-do-not-name-the-food.md) §1 (whose
-positional strip gains three rosters), and **supersedes ADR-0100's §2 collapse as
+positional strip gains three rosters), and **supersedes ADR-0103's §2 collapse as
 the mechanism**, though not its as-bought line, which this record inherits whole.
 
 It closes the implementation half of the wayfinder map at
@@ -17,7 +17,7 @@ It closes the implementation half of the wayfinder map at
 
 ## Context
 
-ADR-0100 decided that a corpus row is a food **as bought**, and proposed to reach
+ADR-0103 decided that a corpus row is a food **as bought**, and proposed to reach
 it by _collapsing_: merge the records that differ only on a preparation, a trim, a
 grade or a separation, and keep one survivor. Its pilot ([#191](https://github.com/palebluebytes/inventoria/issues/191))
 measured that at 4,238 → 2,837 rows with `beef` falling 954 → 188, and found that
@@ -25,11 +25,11 @@ it **moved neither of #188's two pre-registered conditions**: C1 stayed at 24/44
 C2 went 27/44 → 28/44.
 
 The collapse was never built. What was asked for instead was the plainer rule the
-Context of ADR-0100 had refused: **delete the cooked rows**.
+Context of ADR-0103 had refused: **delete the cooked rows**.
 
-### What ADR-0100 got wrong about that
+### What ADR-0103 got wrong about that
 
-ADR-0100's Context refuses the crude cut on the ground that _"the fix that reaches
+ADR-0103's Context refuses the crude cut on the ground that _"the fix that reaches
 USDA's granularity is the fix that deletes quinoa"_, listing eighteen head phrases
 the cut destroys — `quinoa`, `teff`, `spelt`, `apricots` among them.
 
@@ -43,7 +43,7 @@ fourteen rows whose names say **un**cooked. With a word boundary:
 | `Quinoa, uncooked` (368 kcal) |              deleted |               **survives** |
 | `teff` · `spelt` · `apricots` |              deleted |                **survive** |
 
-ADR-0100 §10 forbids exactly this — _"a roster entry matches a complete
+ADR-0103 §10 forbids exactly this — _"a roster entry matches a complete
 comma-segment and never a substring; `Caraway` and `Strawberries` both contain
 the literal string `raw`"_ — and the measurement its own Context rests on fell
 into it. **The fix that reaches USDA's granularity does not delete quinoa.** That
@@ -173,7 +173,7 @@ it changed **no ordering at all** — not a lead, not a tail position.
 
 Eleven keys remain. This is the first ranking key the project has ever removed,
 and it is worth noting that [#192](https://github.com/palebluebytes/inventoria/issues/192)
-went looking for exactly this against ADR-0100's collapse and found nothing
+went looking for exactly this against ADR-0103's collapse and found nothing
 redundant. The reason it found nothing is instructive: **a collapse merges
 duplicate rows and leaves every distinction standing. Removing them does not.**
 
@@ -316,7 +316,7 @@ any reading. It carries no brand, no processed marker and no cooking word, so no
 predicate in the generator could see it.
 
 > **Nine rows are written down as dishes in `ADJUDICATED_DISHES` and dropped by
-> reading**, which is the only kind of drop ADR-0100 §6 licenses for a head
+> reading**, which is the only kind of drop ADR-0103 §6 licenses for a head
 > nobody can decide mechanically. All 130 rows of the category were read to
 > produce them.
 
@@ -397,7 +397,7 @@ dropping a food for being rare.
 
 USDA publishes New Zealand lamb frozen and American lamb fresh, cut for cut.
 `isFrozenMirror` removes a row whose only difference from a shipping row is the
-freezing and the trade words ADR-0100 §2 has already ruled name the same food —
+freezing and the trade words ADR-0103 §2 has already ruled name the same food —
 a trim and a grade. Nine rows, every one of them lamb.
 
 **It is relational and takes no read head**, unlike the three rules beside it: it

@@ -2206,7 +2206,7 @@ describe("the twin merge's discarded names, as search aliases", () => {
       ["millet", "Millet, whole grain"],
       ["shiitake mushrooms", "Mushrooms, shiitake"],
       // The alias outlives the rename, which is the point of asserting it here:
-      // ADR-0101's amendment ships this row as `Egg, chicken, whole, fresh`, and
+      // ADR-0104's amendment ships this row as `Egg, chicken, whole, fresh`, and
       // someone who knows it by USDA's grade still reaches it.
       ["grade a large egg whole", "Egg, chicken, whole, fresh"],
       ["heavy whipping cream", "Cream, heavy"],
@@ -2278,7 +2278,7 @@ describe("the twin merge's discarded names, as search aliases", () => {
     // name it carried are gone.
     // 70, and the seventieth is not a merge at all: ADR-0061 §5's milk rename
     // now leaves `Milk, producer, fluid, 3.7% milkfat` behind as an alias, the
-    // same way a merge leaves the name it discarded. The three eggs ADR-0101
+    // same way a merge leaves the name it discarded. The three eggs ADR-0104
     // renames were already aliased by their merge, so they add none.
     //
     // A hand rename and a merge are one event from a searcher's side, which is

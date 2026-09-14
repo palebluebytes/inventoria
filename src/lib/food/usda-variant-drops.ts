@@ -528,7 +528,7 @@ export const ADJUDICATED_VARIANTS: readonly AdjudicatedVariant[] =
 /**
  * The collapsing axes a frozen mirror is allowed to differ on.
  *
- * ADR-0100 §2 already rules that a trim and a grade name the same food — they
+ * ADR-0103 §2 already rules that a trim and a grade name the same food — they
  * are true at purchase but written for a butcher's trade, and no reader of this
  * app has chosen between them. So a frozen New Zealand lamb loin trimmed to
  * 1/8" and a fresh one trimmed to 1/4" and graded choice are the same cut, and
@@ -550,7 +550,7 @@ const COLLAPSING_AXIS =
  *
  * **Relational, and the survivor is proved rather than assumed.** It fires only
  * where an unfrozen row of the same cut is in the corpus being built, which is
- * the shape ADR-0055 §1 admits and the one ADR-0100 §7 states as a principle: a
+ * the shape ADR-0055 §1 admits and the one ADR-0103 §7 states as a principle: a
  * drop that can point at a survivor is a collapse, and a collapse fires
  * corpus-wide because its worst case is a wrong representative rather than a
  * missing food.

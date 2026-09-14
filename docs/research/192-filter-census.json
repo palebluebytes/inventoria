@@ -3,7 +3,7 @@
   "schema_version": 1,
   "ticket": "https://github.com/palebluebytes/inventoria/issues/192",
   "map": "https://github.com/palebluebytes/inventoria/issues/186",
-  "method": "Each filter's casualties are kept rather than counted, and each is asked whether ADR-0100 §3's grouping key collides with a shipped row. A collision is necessary for redundancy and not sufficient, so a filter reported alive is alive.",
+  "method": "Each filter's casualties are kept rather than counted, and each is asked whether ADR-0103 §3's grouping key collides with a shipped row. A collision is necessary for redundancy and not sufficient, so a filter reported alive is alive.",
   "roster": "scripts/usda-collapse-roster.mjs — the Beef pilot's roster, not a shipped one",
   "corpus": {
     "shipped_rows": 4238,
@@ -11,7 +11,7 @@
     "collapsed_reference": "sha256:4d4dbdb0015036c0"
   },
   "rename_surface": {
-    "note": "ADR-0056 §1's positional strip, measured over the rows that reached it rather than over the shipped corpus, whose names have already lost these segments. ADR-0100 §5 extends this roster; the overlap column asks whether it duplicates it.",
+    "note": "ADR-0056 §1's positional strip, measured over the rows that reached it rather than over the shipped corpus, whose names have already lost these segments. ADR-0103 §5 extends this roster; the overlap column asks whether it duplicates it.",
     "rows_renamed": 789,
     "adjudicated_names": 1,
     "rosters": [

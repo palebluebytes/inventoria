@@ -310,7 +310,7 @@ export const ADJUDICATED_NAMES: readonly AdjudicatedName[] = [
     748967,
     "Eggs, Grade A, Large, egg whole",
     "Egg, chicken, whole, fresh, raw",
-    "USDA names the other four birds and not this one: `Egg, duck, whole, fresh`, goose, quail, turkey — and then a hen's egg is filed by its retail grade, so the only egg most people mean is the one that never says which bird it came from. Naming the chicken puts all five in one shape. The `, raw` is load-bearing and not decoration: ADR-0101 §6's row key is read off the description at THIS point, USDA never wrote the word on the graded rows, and without it a box of fresh eggs scores 0 on the base-ingredient key while a drum of pasteurised liquid egg scored 1. The strip takes the word out again three passes later.",
+    "USDA names the other four birds and not this one: `Egg, duck, whole, fresh`, goose, quail, turkey — and then a hen's egg is filed by its retail grade, so the only egg most people mean is the one that never says which bird it came from. Naming the chicken puts all five in one shape. The `, raw` is load-bearing and not decoration: ADR-0104 §6's row key is read off the description at THIS point, USDA never wrote the word on the graded rows, and without it a box of fresh eggs scores 0 on the base-ingredient key while a drum of pasteurised liquid egg scored 1. The strip takes the word out again three passes later.",
   ],
   [
     747997,
