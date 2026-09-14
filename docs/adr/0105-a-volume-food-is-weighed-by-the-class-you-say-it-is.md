@@ -128,8 +128,10 @@ is a 6.3% gap between two of the three products anyone owns. **Spirits (0.94,
 n=10)** fails on CV at 2.63% and is likewise out. Neither is curated around; both
 take the typed override of §4.
 
-The figures above are measured against **schema 9** of the shipped corpus
-(2,437 foods). See the re-pin amendment at the foot of this record.
+The figures above are the charting measurement, against schema 8. Four of the
+five survive **schema 9** of the shipped corpus (2,437 foods) unmoved; `oil` is
+now 41 foods (119 portions) at CV 0.52%. See the re-pin amendment at the foot of
+this record.
 
 The classes are wide by design. A class figure sits within 0.75% of the per-food
 figure for every common case measured, because the classes are tight — which is
