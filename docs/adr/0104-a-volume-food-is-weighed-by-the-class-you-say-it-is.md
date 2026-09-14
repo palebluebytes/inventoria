@@ -287,3 +287,111 @@ check. Build the seam; spend the infrastructure when something needs it more.
   silently, so a later reader proposing syrup finds the CV that stopped it.
 - **Not built by this record:** household portions crossing from USDA (§10), the
   per-food model pick (§12). Both are ruled on and neither is implemented.
+
+## Amendment (2026-09-14): the source pre-fills the class, and grams is not the default everywhere
+
+Two clauses above are wrong, and both were written without a measurement behind
+them. Neither changes the model: the class is still the unit of the answer, the
+density still lives on the twin, and the figure is still derived.
+
+### §1's "the app never infers one" is too strong
+
+§1 said the user asserts the class and _"the app never infers one, which is what
+separates this from the guess §2 refused"_. That reasoning holds for a guess
+about an unclassified thing. It does not hold for reading the source's own
+classification: an OFF product arrives carrying `categories_tags`, and mapping
+`en:olive-oils` to the oil class is the same act as `offPanelBasis` reading
+`product_quantity_unit` — a source assertion consulted, not a judgement invented.
+
+That data is already in the ledger. `lookupBarcode` fetches with no `fields`
+parameter and `provenance/raw.raw_data` stores the response verbatim, so every
+`gtin:` twin ever scanned already carries its tags. Reading a domain value back
+out of that blob is established rather than new: `offPackUnitFromTwin` and
+`offPackQuantityFromTwin` do exactly this, and a third sibling joins them.
+ADR-0076 §4 forbids **scoping** by `provenance/`, which reading a value is not.
+
+**So the source pre-fills, and the user confirms.** The class is still theirs.
+
+### The pre-fill covers about a third, not most, and the gap is the point
+
+Measured over the full 2026-09-14 JSONL dump — 4,747,804 products, not a sample:
+
+|                                    | count      | % of ml products |
+| ---------------------------------- | ---------- | ---------------- |
+| sold in millilitres                | 201,821    | 100%             |
+| carrying `categories_tags`         | 156,360    | 77.47%           |
+| **resolving to exactly one class** | **72,182** | **35.76%**       |
+| tagged but matching no class       | 83,595     | 41.42%           |
+| no usable tags at all              | 48,922     | 24.24%           |
+
+The gap between 77% and 36% is the whole finding: having tags and having
+**discriminating** tags are different properties, and a design costed on the
+first number would be costed on nothing.
+
+The unclassifiable 41% is not a long tail of oddities. Half are drinkables the
+five classes do not name — plant milks, energy drinks, cordials, spirits. Half
+are not drinks at all, yet sold in millilitres: 13,394 sauces and condiments,
+4,775 ice creams (aerated, near 0.55, where a five-class scheme would be wrong by
+almost half), 3,181 soups, 2,832 vinegars. And the 24% with no usable tags are
+ordinary products: Orangina, Red Bull, Bière 33cl, Martini Rosato.
+
+Three structural facts constrain any rule written against these tags. The
+taxonomy is a **DAG with 65 roots**, not one beverages tree. **`en:milks` never
+inherits `en:beverages`** and plant milks never inherit `en:dairies`, so nothing
+anchors "milk-like" from above. And the obvious tag names do not exist:
+`en:oat-based-drinks`, not `en:oat-milks`.
+
+### The pre-fill is offered only on an unambiguous match, and never applied silently
+
+527 products match two or more classes. Worse than ambiguous is **squash**, which
+carries `en:fruit-juices` **and** `en:cordials` together — 18.6% of millilitre
+cordials do — so a juice rule would assign 1.04 to a concentrate that is nearer
+1.20. Coconut milk carries `en:beverages` beside
+`en:plant-based-creams-for-cooking`, making a cooking tin indistinguishable from
+a drinking carton.
+
+A silent pre-fill on those is precisely §2's _"a guess wearing the costume of a
+measurement, and silent"_. So: **pre-fill only where the tags name exactly one
+class, open the picker empty otherwise, and never write a class the user has not
+seen.** A wrong pre-fill is worse than none, because it converts a question into
+a nod.
+
+The confirm step here is not the confirmation theatre §12 rejects for a model's
+density. **A class is checkable by someone holding the bottle** — you can see
+"juice" on a bottle of squash and know it is wrong. You could never check
+"1.04 g/ml". Confirming a class is a judgement the user is qualified to make.
+
+### §7's "grams the default" is wrong outside a kitchen
+
+§7 said that on a food carrying a density the field offers both units and opens
+on grams. Unqualified, that opens a can of Coke in grams. Nobody weighs a can of
+Coke; they drink it.
+
+Availability is not the problem, the default is:
+
+- **Context sets it.** A recipe ingredient list opens on grams; logging a food
+  directly opens on the panel's own unit, as it does today. One is a thing
+  measured _into_ something, the other is a thing consumed.
+- **Memory overrides it.** Whatever unit that food was last entered in wins over
+  the context default. `rememberedAmount` already carries this idiom for the
+  amount and refuses a unit mismatch rather than converting; reporting the unit
+  alongside is the small extension.
+
+**This is not a reversal of §1's "a density is a property of the food, not of the
+screen".** The density stays on the twin and both units stay available
+everywhere; what varies is only which one the field opens on. A food classified
+once answers in grams wherever it is reached, so the split §1 refuses does not
+return.
+
+### Consequences of this amendment
+
+- §10's ruling is untouched. A category tag is the source's own, so nothing
+  crosses between sources here at all.
+- **A curated stand-in carries no tags.** `CuratedStandIn.snapshot` is trimmed to
+  the fields `OFFProduct` declares, so the two pinned entries reach no pre-fill —
+  and one of them, `double cream`, is sold in millilitres in the UK. Either
+  `categories_tags` joins the declared fields, or those entries are classified by
+  hand. Two rows either way.
+- The 24% with no usable tags, and the 41% the classes do not name, are the
+  standing case rather than the exception. §6's _"stays in millilitres and never
+  blocks"_ carries more weight than it looked like it did when written.
