@@ -7,7 +7,7 @@
 **Amends:** [ADR-0075](0075-your-own-devices-converge-on-a-version-vector-read-off-the-ledger.md) (§6's version vector is re-keyed by originating device **and Tracked Domain**; it stays a read of `datoms` and its argument against a scalar watermark survives, widened to a second axis)  
 **Amends:** [ADR-0080](0080-a-facet-carries-a-jar-wide-control-only-where-losing-it-loses-data.md) (§9's _a food-only user therefore has no p2p at all_ is now false in both halves; §2's table gains a Paired devices row)  
 **Amends:** [ADR-0072](0072-a-meal-crosses-through-a-relay-that-cannot-read-it.md) (§7's refusal to let a sender learn anything about the recipient's device is stated not to govern own-device pairing, which it was never written about)  
-**Implemented:** #420 — §7's gate alone. `docs/eavt-vocabulary.md` now marks every attribute that holds an entity reference, `referencesOf`'s edge set is data rather than `case` labels and is exported from `src/lib/p2p/meal-payload.ts`, and `tests/unit/meal-payload.test.ts` holds the one to the other under `pnpm test:unit`. The documented set is **five** attributes and not the three §7 names, so what shipped is a partition rather than the containment asked for, and the first Amendment at the foot of this record carries that argument. **#419 — §5, and §6's attribution rule.** `src/lib/db/version-vector.ts` is keyed by `(device_id, Tracked Domain)`, `domainsOfRow` there is the attribution rule and `CONTENT_DOMAINS` in `src/lib/facets/registry.ts` is the axis roster; the query and the `WHERE` share one registry-derived predicate, and `tests/unit/version-vector.test.ts` holds that predicate to `domainsOfRow` one row at a time through the real engine. The second Amendment carries what §5 left to the implementer, and the third carries which half of §6 that left standing. **#421 — §1 to §4.** `src/lib/p2p/lane-scope.ts` is a lane's scope, `entityPrefixesOfDomains` in the registry is the one derivation a wipe's predicate and a lane's now share, the domain set rides the first sync's opening frame and `PairedDevice.scope` keeps what the two ends agreed; `tests/unit/first-sync.test.ts` proves a food lane against two real ledgers, both re-pairing directions included. The third Amendment carries where §3 put the statement and what §1's predicate cannot say. **#422 — §9, and the crossing half of §6 that #421 left.** `readLedgerPage` takes a Lane scope whole and derives both arms of what a lane carries from it (`laneScopeMatch` in `src/lib/db/db.core.ts`), `wake.ts` deposits inside the scope its caller hands it, and `wake-errand.ts` is where a wake names its Facet — `openAppWake("root")` in `src/App.svelte` and `openAppWake("food")` in `src/Rations.svelte`, which is what closes #415. `tests/unit/wake-facet.test.ts` holds §9's table against two real ledgers either side of the real store route. The fourth Amendment carries the case §9's table has no row for and what it cost §11's counter. Not yet built: the surface (§8, §10) is #423.
+**Implemented:** #420 — §7's gate alone. `docs/eavt-vocabulary.md` now marks every attribute that holds an entity reference, `referencesOf`'s edge set is data rather than `case` labels and is exported from `src/lib/p2p/meal-payload.ts`, and `tests/unit/meal-payload.test.ts` holds the one to the other under `pnpm test:unit`. The documented set is **five** attributes and not the three §7 names, so what shipped is a partition rather than the containment asked for, and the first Amendment at the foot of this record carries that argument. **#419 — §5, and §6's attribution rule.** `src/lib/db/version-vector.ts` is keyed by `(device_id, Tracked Domain)`, `domainsOfRow` there is the attribution rule and `CONTENT_DOMAINS` in `src/lib/facets/registry.ts` is the axis roster; the query and the `WHERE` share one registry-derived predicate, and `tests/unit/version-vector.test.ts` holds that predicate to `domainsOfRow` one row at a time through the real engine. The second Amendment carries what §5 left to the implementer, and the third carries which half of §6 that left standing. **#421 — §1 to §4.** `src/lib/p2p/lane-scope.ts` is a lane's scope, `entityPrefixesOfDomains` in the registry is the one derivation a wipe's predicate and a lane's now share, the domain set rides the first sync's opening frame and `PairedDevice.scope` keeps what the two ends agreed; `tests/unit/first-sync.test.ts` proves a food lane against two real ledgers, both re-pairing directions included. The third Amendment carries where §3 put the statement and what §1's predicate cannot say. **#422 — §9, and the crossing half of §6 that #421 left.** `readLedgerPage` takes a Lane scope whole and derives both arms of what a lane carries from it (`laneScopeMatch` in `src/lib/db/db.core.ts`), `wake.ts` deposits inside the scope its caller hands it, and `wake-errand.ts` is where a wake names its Facet — `openAppWake("root")` in `src/App.svelte` and `openAppWake("food")` in `src/Rations.svelte`, which is what closes #415. `tests/unit/wake-facet.test.ts` holds §9's table against two real ledgers either side of the real store route. The fourth Amendment carries the case §9's table has no row for and what it cost §11's counter. **#423 — §8 and §10.** `src/lib/views/food/FoodSettingsSheet.svelte` mounts the root's own `src/lib/views/pairing/PairedDevicesSection.svelte` by reference under `facetId="food"`, so the act, the list, the naming, the two-phase unpair and §11's two states are Rations' entire rather than copied; `carriesLine` there is §10's scope line, read off `TRACKED_DOMAINS`' user-facing names; `tests/unit/rations-settings.test.ts` holds the population to one module and `tests/unit/facet-wipe.test.ts` proves §8 over every Facet's storage predicate rather than over food's. The eighth Amendment carries the sentence of §10 that a jar-wide row on Rations' own list falsifies, and the ninth carries the precache figure §12 called owed.
 
 ## Context
 
@@ -642,3 +642,78 @@ Both Facets' declared figures move with this, and they take up the rest of the
 arc's drift as they go — 67,165 B for the root and 55,910 B for Rations, from
 tickets that re-measured nothing. That is stated in `src/lib/facets/registry.ts`
 beside each number rather than attributed here.
+
+## Amendment (2026-09-14): in Rations the rows do not all say the same thing, because the list is the Jar's
+
+§10 gives the scope line its reason and then gives it a second, weaker one: _in
+Rations every row says the same thing, which is itself the honest statement that
+this Facet carries food and nothing else._ Building it
+([#423](https://github.com/palebluebytes/inventoria/issues/423)) found the
+second sentence false, and false for a reason §8 states four sections earlier.
+
+**The Paired Device list is one jar-wide `localStorage` record**, which is what
+§8 keeps it as. Rations draws that list, not a list of its own, so a pairing made
+from the root — a jar-wide lane, and the ordinary shape for a user with both
+Facets on one device (§2) — appears on Rations' surface with a row naming all
+seven domains. So does a record written before `PairedDevice.scope` existed,
+which reads as the whole Jar. Rations' rows say the same thing only on a device
+that has never paired from the root.
+
+**The first sentence is the one that was built, and it is the stronger one.**
+_Every Devices row names what its lane carries_ reads `PairedDevice.scope` — the
+lane's own agreed scope — rather than the scope of the Facet drawing the row. The
+alternative reading is available and is wrong: a line computed from
+`scopeOfFacet(facetId)` would tell a Rations user that a jar-wide lane carries
+only food, which is the absence §10 exists to explain, printed backwards.
+
+**What survives is the claim about a lane Rations minted**, which is what §1 is
+about: a pairing act run in Rations scopes its lane to food, so its row says
+_Carries Food._ wherever it is drawn. The sentence that does not survive is the
+one about the surface.
+
+**A second sentence of §1 needed reading, and the reading is the surface's.**
+_The Facet the pairing act ran in_ has two candidates on this sheet, because the
+root draws _Rations settings_ too, from its Food tab (ADR-0080 §7). The **shell**
+reading would make an act started there jar-wide; the **surface** reading makes it
+food's. The surface reading is what shipped, and the reason is that every other
+Facet-scoped control on that sheet already takes it: the wipe there deletes food
+from the root's Food tab, the log card there lists food's channels, and the title
+there reads _Rations settings_. A pairing act behaving as the root's on a surface
+where nothing else does would be the inconsistency, not the fix.
+
+**Its cost is real and is disclosed by the line this ticket added.** A root user
+who pairs from the food gear gets a food lane, and §4 has that replace any
+jar-wide pairing with the same device — narrowing it, silently as far as the act
+itself goes. What stops it being silent is §10: the row then reads _Carries
+Food._, which is the absence this section exists to explain, showing up on the
+device that caused it. The alternative would have put two identical jar-wide
+pairing cards in one root document, which is a duplicate control rather than a
+second reading of the rule.
+
+**One case §10 does not reach, decided rather than left.** A scope both ends
+agreed is empty — unreachable through `laneScope` on today's roster, and
+reachable through a hand-edited jar, which `isPairedDevice` admits because an
+empty list is a claim rather than an absence. The row reads _Carries nothing._,
+on the same rule `peer_roster` follows: a claim and a silence must not collapse.
+
+## Amendment (2026-09-14): what the pairing surface costs Rations' precache, measured
+
+§12 recorded the p2p stack's cost to Rations as owed. The wake's half was
+measured at #422 (+15,972 B); this is the surface's, and the two together are
+the whole of what §12 asked for.
+
+**+16,675 B (+16.3 KiB, +0.16%)**, against the ±5% band that is ~497 KiB wide
+either side. Measured build to build with nothing else on the branch moving:
+Rations precaches 10,265,658 B with the pairing surface and 10,248,983 B without
+it. §12's guess holds a second time — the camera, the symbol reader and the QR
+writer were already in this bundle for the barcode scanner and the meal
+hand-off, so what the surface adds is the section, the act around it and the two
+code faces.
+
+**The root's figure moves the other way, by −345 B.** It gains the scope line and
+nothing else, and loses more than that to chunking: a second entry importing
+`src/lib/views/pairing/` turns modules the root used to inline into shared ones,
+whose wrappers are then emitted once rather than twice. A Facet paying slightly
+less because its sibling started reading the same code is the shape of ADR-0095
+seen from the bundler, and it is the opposite of what a reader would guess from
+"Rations grows".

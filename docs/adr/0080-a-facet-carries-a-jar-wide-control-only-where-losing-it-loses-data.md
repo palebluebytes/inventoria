@@ -335,3 +335,49 @@ The heading is corrected here rather than rewritten in place, because the decisi
 record of what was decided on 2026-09-01 and this is evidence that its own summary line was
 broader than the reasoning under it. §8's refusal of a settings-block table is unaffected, and
 ADR-0083 §10 declines the check it offered.
+
+## Amendment (2026-09-14): §2's table gains a Paired devices row, and §9's p2p bullet is false in both halves
+
+§9 wrote a one-shot permission — _the first p2p design to reach `main` may
+overturn it by arguing against §1_ — and both halves of the conclusion it
+guarded have now fallen. The record's header names the later record; this is
+what it changed, written here rather than into the decision text above, so that
+what was decided on 2026-09-01 stays readable as what was decided then.
+
+**§2's table gains a tenth block**, on clause (b):
+
+| Block          | Root  | Rations | Why                                                          |
+| -------------- | ----- | ------- | ------------------------------------------------------------ |
+| Paired devices | stays | ✓       | (b) — the Facet's own act creates the convergence it governs |
+
+Clause (b) reads _the Facet's own act creates the thing the control governs_,
+and that is now literally true of pairing: a pairing act run in Rations scopes
+its lane to the domains Rations holds, so the convergence the Devices list
+governs is one Rations itself made. §9 judged the same clause failed, and it was
+right about what it was looking at — a **jar-wide** pairing is the root's act
+over every domain, and Rations governing it would be a Facet with a control over
+five domains its user cannot see. The scoping is the whole of the difference.
+
+**§9's second bullet — _the p2p pairing UI_ — is false in both halves.** Its
+first half is the placement: _the answer §1 gives today is root-only_. Its
+second is the consequence: _a food-only user therefore has no p2p at all_. Meal
+send and receive went to Rations first, and own-device pairing follows, so a
+food-only user now has both. The bullet's other two — the raw ledger view, the
+storage usage figure and Developer Options; and the jar-wide wipe — stand
+unrevised.
+
+**The clause was spent once and is not being spent again.** §9's permission was
+taken by the record that moved meal send and receive. The later scoping record
+does not claim it a second time: it argues against §1 head-on, on the ground
+that a lane narrowed to a Facet's own domains passes clause (b) where a jar-wide
+one fails it, and that is an argument §9 had not seen rather than a licence
+being reused.
+
+**What this costs the surface, named because §7 fixed its shape.** _Rations
+settings_ was three sections; it is four, and the new one is the first control
+there that reaches another device. §7's reason for a pinned full-height sheet —
+a destructive action and a run that reports progress for minutes — now covers a
+second run of that kind, which is the first sync. The section sits directly
+under **Your data**, because the wipe above it is the control the scoping
+record's §8 is about: "Delete all my food data" takes food's rows and food's
+`localStorage` and unpairs nothing.
