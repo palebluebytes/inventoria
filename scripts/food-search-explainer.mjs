@@ -589,6 +589,7 @@ const movedLeads = (key) => {
 const BUNDLE_EXPORTS = [
   "buildSearchCorpus",
   "searchIndexRows",
+  "searchResultName",
   "SEARCH_RESULT_LIMIT",
   "compareRelevance",
   "compileReferenceFoodQuery",
@@ -602,7 +603,7 @@ const bundleSearch = () => {
   const out = join(scratch, "search.js");
   writeFileSync(
     entry,
-    "export { buildSearchCorpus, searchIndexRows, SEARCH_RESULT_LIMIT } from " +
+    "export { buildSearchCorpus, searchIndexRows, searchResultName, SEARCH_RESULT_LIMIT } from " +
       JSON.stringify(join(ROOT, "src/lib/food/usda-corpus")) +
       ";\nexport { compareRelevance, compileReferenceFoodQuery, readReferenceFoodName, readRowRank } from " +
       JSON.stringify(join(ROOT, "src/lib/food/reference-food-ranking")) +

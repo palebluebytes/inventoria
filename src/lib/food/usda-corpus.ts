@@ -542,14 +542,28 @@ export function searchIndexRows(
  * The panel carries the four macros the row holds. The rest of USDA's nutrients
  * live in the Nutrient store and are read when the food is staged (ADR-0047 §2).
  *
- * `alias` is the vocabulary key a search needed to reach this row, and it is
- * appended to the NAME — "Eggplant, raw" becomes "Eggplant, raw (aubergine)"
- * (ADR-0049's #140 Amendment). `food/name` rather than a sibling attribute
- * because several INDEPENDENT readers show a food's name and only this one goes
- * through here: the consumption fold names a logged event off the twin, the
- * recent list and the recipe ingredient resolver each read their own, and the
- * stager's edit form seeds from it again. A user who searched a word deserves to
- * see that word wherever the food turns up, not only in the results list.
+ * The name comes from {@link searchResultName}, which is the one place the rule
+ * lives — `food/name` rather than a sibling attribute because several
+ * INDEPENDENT readers show a food's name and only this one goes through here:
+ * the consumption fold names a logged event off the twin, the recent list and
+ * the recipe ingredient resolver each read their own, and the stager's edit form
+ * seeds from it again.
+ *
+ * `provenance/raw.raw_data` keeps USDA's untouched row, so the widened name
+ * never masquerades as USDA's own (ADR-0045 §4) — and `deriveNovaVerdict` reads
+ * the description back out of it rather than off this name, because nineteen
+ * vocabulary keys carry one of its deny-substrings. Anything else deciding
+ * something ABOUT a food has to read it the same way.
+ */
+/**
+ * The name a user sees for a search hit: the row's own, widened by the
+ * vocabulary key that reached it.
+ *
+ * "Eggplant" becomes "Eggplant (aubergine)" (ADR-0049's #140 Amendment). **A
+ * user who searched a word deserves to see that word wherever the food turns
+ * up**, not only in the results list — so this is the name itself rather than a
+ * marker beside it, and it follows the food into the log, the recent list and
+ * the recipe resolver.
  *
  * **Parenthesised, not comma-appended.** A comma made the key read as one more
  * of USDA's qualifiers, and 211 of the 452 keys that lead somewhere share a word
@@ -560,18 +574,22 @@ export function searchIndexRows(
  * Brackets keep the whole key, which is never misleading, and stop it scanning
  * as another qualifier.
  *
- * `provenance/raw.raw_data` keeps USDA's untouched row, so the widened name
- * never masquerades as USDA's own (ADR-0045 §4) — and `deriveNovaVerdict` reads
- * the description back out of it rather than off this name, because nineteen
- * vocabulary keys carry one of its deny-substrings. Anything else deciding
- * something ABOUT a food has to read it the same way.
+ * Its own export, and not inlined into {@link mapIndexRowToPayload}, because
+ * `docs/food-search.html` shows search results too and had restated the rule —
+ * so the page rendered a bare `Eggplant` beside a separate "reached as" line
+ * while the app rendered `Eggplant (aubergine)`. A page that exists to show what
+ * the app answers has to call what the app calls (ADR-0047 §4).
  */
+export function searchResultName(description: string, alias?: string): string {
+  return alias ? `${description} (${alias})` : description;
+}
+
 export function mapIndexRowToPayload(
   row: UsdaIndexRow,
   alias?: string
 ): EntityPayload {
   const attributes: EntityPayload["attributes"] = {
-    "food/name": alias ? `${row.description} (${alias})` : row.description,
+    "food/name": searchResultName(row.description, alias),
     [NUTRITION_INFO_ATTR]: {
       serving_size: PER_100G,
       ...row.macros,

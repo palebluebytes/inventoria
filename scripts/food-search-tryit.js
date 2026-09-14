@@ -129,16 +129,17 @@
             at +
             '">' +
             '<div class="hitname">' +
-            esc(row.description) +
+            // The app's own rule, borrowed rather than restated: a row reached
+            // through the vocabulary shows the word that reached it, IN the
+            // name. This used to render a bare `Eggplant` with a separate
+            // "reached as" line beneath, which is not what the app puts in front
+            // of a user, and a page whose whole claim is "this is what the app
+            // answers" cannot spell the answer differently.
+            esc(FoodSearch.searchResultName(row.description, hit.alias)) +
             "</div>" +
             '<div class="hitkcal">' +
             (kcal == null ? "\u2014" : Math.round(kcal) + " kcal") +
             "</div>" +
-            (hit.alias
-              ? '<div class="hitalias">reached as \u201c' +
-                esc(hit.alias) +
-                "\u201d</div>"
-              : "") +
             '<div class="hitkeys">' +
             columns +
             "</div>" +

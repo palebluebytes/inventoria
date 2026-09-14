@@ -100,6 +100,7 @@ describe("the live search on docs/food-search.html", () => {
     for (const name of [
       "buildSearchCorpus",
       "searchIndexRows",
+      "searchResultName",
       "SEARCH_RESULT_LIMIT",
       "compareRelevance",
       "compileReferenceFoodQuery",
@@ -134,14 +135,38 @@ describe("the live search on docs/food-search.html", () => {
     expect(line).toMatch(/50-row cap/);
   });
 
-  it("reports the vocabulary answering, where it is what answered", () => {
+  it("names a vocabulary hit exactly as the app names it", () => {
     // `aubergine` reaches nothing literally, so ADR-0049's fallback substitutes
-    // `eggplant` — and the page says which phrase it used rather than passing
-    // the row off as a literal match.
+    // `eggplant`. The page used to render a bare `Eggplant` with a separate
+    // "reached as" line beneath it, which is not the name the app puts in front
+    // of a user — `mapIndexRowToPayload` widens the name itself, so the word a
+    // person typed follows the food into the log and the recent list.
+    //
+    // Asserted against `searchResultName` CALLED, not against a literal string:
+    // the page borrows the app's rule through the bundle, and this fails if it
+    // ever goes back to spelling the name itself.
     const { rows, line, html } = search("aubergine");
-    expect(rows).toBeGreaterThan(0);
+    const api = (
+      globalThis as unknown as Record<string, Record<string, unknown>>
+    ).FoodSearch;
+    const name = (api.searchResultName as (d: string, a?: string) => string)(
+      "Eggplant",
+      "aubergine"
+    );
+    expect([name, rows > 0]).toEqual(["Eggplant (aubergine)", true]);
+    expect(html).toContain(name);
+    // The mechanism is still explained once, at the top, rather than per row.
     expect(line).toMatch(/vocabulary answered/);
-    expect(html).toMatch(/reached as/);
+    // …and the per-row duplicate is gone.
+    expect(html).not.toMatch(/reached as/);
+  });
+
+  it("leaves a literal hit's name alone", () => {
+    // The other half of the rule: no alias, no brackets. A page that appended
+    // something to every row would be showing a name the app never shows.
+    const { html } = search("eggplant");
+    expect(html).toContain(">Eggplant<");
+    expect(html).not.toContain("Eggplant (");
   });
 
   it("renders the key vector the page's caption promises", () => {
