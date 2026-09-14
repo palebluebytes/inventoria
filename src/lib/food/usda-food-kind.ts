@@ -369,6 +369,8 @@ export function isPreparedProduct(
     return true;
   if (DESSERT_TOPPING.test(description)) return true;
   if (isReconstitutedDrink(description)) return true;
+  if (isFoodserviceRecord(description)) return true;
+  if (isDrinkPowder(foodCategory, description)) return true;
   if (!foodCategory) return false;
   if (PREPARED_CATEGORIES.has(foodCategory)) return true;
   if (foodCategory === "Sweets")
@@ -456,6 +458,74 @@ export function isCookedForm(
   )
     return false;
   return true;
+}
+
+/**
+ * A record USDA published for a restaurant or a caterer rather than a shopper.
+ *
+ * Seven rows, and the word `restaurant` reaches all seven and nothing else:
+ * `Ham, sliced, restaurant`, `Cheese, American, restaurant`, `Ketchup,
+ * restaurant`, `Noodles, flat, crunchy, Chinese restaurant`, the two
+ * `Beverages, coffee, brewed, espresso, restaurant-prepared` rows, and
+ * `Beverages, Horchata, as served in restaurant`. None is a food as bought — a
+ * catering pack of sliced ham and a squeeze bottle of foodservice ketchup are
+ * what a kitchen buys, and the crunchy noodles are a thing a restaurant puts on
+ * a plate.
+ *
+ * The horchata had a hand-written entry as a compounded drink for one day, and
+ * the two readings agree: a drink someone made, recorded as a restaurant serves
+ * it. The rule reaching it first is why that entry is gone.
+ *
+ * **It fixes a shipped defect rather than only tidying.** `Ham, sliced,
+ * restaurant` was the single row a typed `ham` returned, and it was the CAUSE:
+ * `Ham` is its head phrase, so it reached the top tier, raised the bar that
+ * ADR-0062 §1 measures strays against, and every one of the 47 `Pork, cured,
+ * ham, …` rows was then cut as a mention. One catering record was hiding the
+ * whole of the ham.
+ *
+ * **Espresso leaves with them, knowingly.** Both espresso rows are
+ * restaurant-prepared and there is no other, so the corpus keeps no espresso
+ * after this. Brewed coffee stays in three rows, and under ADR-0103 a brewing
+ * strength is a preparation rather than another food, which is the same reading
+ * that lets one coffee stand for the pot.
+ */
+const RESTAURANT_RECORD = /\brestaurant\b/i;
+
+/** True when a record was published for a kitchen rather than for a shopper. */
+export function isFoodserviceRecord(description: string): boolean {
+  return RESTAURANT_RECORD.test(description);
+}
+
+/**
+ * A powder or mix filed under `Beverages`: something you make a drink out of,
+ * not something you cook with.
+ *
+ * Thirteen rows — the cocoa mixes, the carob and strawberry flavour mixes, the
+ * lemonade powder, the cereal-grain coffee substitute, the nutritional shake
+ * mix and the three protein powders.
+ *
+ * **The category is the whole of the safety.** The corpus is full of powders
+ * that ARE ingredients and every one of them is filed elsewhere: curry, chili,
+ * garlic and onion powder under `Spices and Herbs`; unsweetened cocoa, icing
+ * sugar and tabletop fructose under `Sweets`; baobab under fruits; tomato powder
+ * under vegetables. Read without the category this rule would take the spice
+ * rack. Read with it, it takes nothing that is not a drink.
+ *
+ * **The cost, stated rather than buried:** a protein powder is something people
+ * genuinely log by the scoop, and after this the corpus holds none. That is
+ * ADR-0042's division working as designed — a tub of whey isolate is a branded
+ * packaged product and the barcode path owns those — but it is a real thing a
+ * user can no longer type for, which is why it is written here and in the
+ * record rather than counted as tidying.
+ */
+const DRINK_POWDER = /\b(powder|powdered|mix)\b/i;
+
+/** True when a record is a powder or mix for making a drink. */
+export function isDrinkPowder(
+  foodCategory: string | undefined,
+  description: string
+): boolean {
+  return foodCategory === "Beverages" && DRINK_POWDER.test(description);
 }
 
 /**
@@ -701,17 +771,7 @@ export const ADJUDICATED_DISHES: readonly AdjudicatedDish[] = [
   [
     174812,
     "Alcoholic beverage, whiskey sour, prepared from item 14028",
-    "The same drink made up from the mix, and USDA's `prepared from item 14028` points at the mix's own record. Both leave: one is a recipe, the other is a recipe made from a powder.",
-  ],
-  [
-    173163,
-    "Beverages, Whiskey sour mix, powder",
-    "The powder for the two rows above, and it leaves with them rather than after them. Taking the drink and keeping its mix is strictly worse than taking neither: `whiskey sour` then answers with a tub of powdered mix, which is what `usda-corpus.test.ts` had pinned the drink to beat. It is not the general dry-mix question — cocoa, lemonade and the protein powders are still here and still argued about — only this one, which is the same cocktail in the same three entries.",
-  ],
-  [
-    171941,
-    "Beverages, Horchata, as served in restaurant",
-    "Rice steeped, sweetened and spiced. `as served in restaurant` is a fourth way of saying prepared, and the one nearest the trap: `restaurant-prepared` cannot be a rule while the only espresso rows wear it.",
+    "The same drink made up from the mix, and USDA's `prepared from item 14028` points at the mix's own record. The mix itself had a hand-written entry here for one day and no longer needs one: `isDrinkPowder` reaches it a stage earlier, so naming it here would strand the verdict.",
   ],
   [
     169823,

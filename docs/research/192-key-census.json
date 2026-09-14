@@ -3,9 +3,9 @@
   "schema_version": 1,
   "ticket": "https://github.com/palebluebytes/inventoria/issues/192",
   "map": "https://github.com/palebluebytes/inventoria/issues/186",
-  "ruler": "sweepQueries over the shipped corpus — 2634 queries, pinned and used against both corpora",
+  "ruler": "sweepQueries over the shipped corpus — 2604 queries, pinned and used against both corpora",
   "corpora": {
-    "shipped": "public/usda/search-index.json sha256:77893f43f2e510bc"
+    "shipped": "public/usda/search-index.json sha256:08581f5afd159d3c"
   },
   "gold_sets": {
     "143": "19 of 50 adjudicated heads carry verdict \"correct\" — the leads ADR-0055 §2 protects",
@@ -34,21 +34,21 @@
   "runs": [
     {
       "label": "shipped",
-      "rows": 2437,
-      "names": 2513,
-      "queries": 2634,
-      "answered": 2634,
+      "rows": 2418,
+      "names": 2494,
+      "queries": 2604,
+      "answered": 2604,
       "empty": 0,
       "plain_sibling": {
-        "carried": 422,
-        "derived": 422,
+        "carried": 421,
+        "derived": 421,
         "stale": 0
       },
       "gold_leads_held": 19,
       "ablations": [
         {
           "key": "tier",
-          "moved": 76,
+          "moved": 71,
           "gold_leads_broken": 0,
           "c1_lost": 0,
           "examples": [
@@ -135,7 +135,7 @@
             {
               "query": "american",
               "shipped": "Fish, shad, american",
-              "without": "Cheese, American, restaurant"
+              "without": "Cheese, american cheddar, imitation"
             },
             {
               "query": "and pork",
@@ -227,7 +227,7 @@
         },
         {
           "key": "position",
-          "moved": 189,
+          "moved": 183,
           "gold_leads_broken": 0,
           "c1_lost": 0,
           "examples": [
@@ -260,7 +260,7 @@
         },
         {
           "key": "plainSibling",
-          "moved": 59,
+          "moved": 58,
           "gold_leads_broken": 0,
           "c1_lost": 0,
           "examples": [
@@ -293,15 +293,10 @@
         },
         {
           "key": "plain",
-          "moved": 30,
+          "moved": 29,
           "gold_leads_broken": 0,
           "c1_lost": 1,
           "examples": [
-            {
-              "query": "american cheese",
-              "shipped": "Cheese, American, restaurant",
-              "without": "Cheese, american cheddar, imitation"
-            },
             {
               "query": "cheese",
               "shipped": "Cheese, cottage, with vegetables",
@@ -320,6 +315,11 @@
             {
               "query": "cucumber pickles",
               "shipped": "Pickles, cucumber, sweet (includes bread and butter pickles)",
+              "without": "Pickles, cucumber, dill, reduced sodium"
+            },
+            {
+              "query": "dill pickles",
+              "shipped": "Pickles, cucumber, dill or kosher dill",
               "without": "Pickles, cucumber, dill, reduced sodium"
             }
           ]
@@ -392,18 +392,13 @@
         },
         {
           "key": "raw+plain",
-          "moved": 104,
+          "moved": 103,
           "gold_leads_broken": 1,
           "c1_lost": 2,
           "examples": [
             {
               "query": "american",
               "shipped": "Fish, shad, american",
-              "without": "Cheese, american cheddar, imitation"
-            },
-            {
-              "query": "american cheese",
-              "shipped": "Cheese, American, restaurant",
               "without": "Cheese, american cheddar, imitation"
             },
             {
@@ -420,20 +415,20 @@
               "query": "bear",
               "shipped": "Bear, polar, meat",
               "without": "Bear, black, meat"
+            },
+            {
+              "query": "blackeye",
+              "shipped": "Cowpeas (blackeyes)",
+              "without": "Blackeye pea, dry"
             }
           ]
         },
         {
           "key": "plain+wholeness",
-          "moved": 38,
+          "moved": 37,
           "gold_leads_broken": 0,
           "c1_lost": 1,
           "examples": [
-            {
-              "query": "american cheese",
-              "shipped": "Cheese, American, restaurant",
-              "without": "Cheese, american cheddar, imitation"
-            },
             {
               "query": "beef",
               "shipped": "Beef, composite of trimmed retail cuts, separable lean and fat, trimmed to 1/8\" fat",
@@ -453,6 +448,11 @@
               "query": "commercially bread",
               "shipped": "Bread, white, commercially prepared (includes soft bread crumbs)",
               "without": "Bread, white, commercially prepared, low sodium, no salt"
+            },
+            {
+              "query": "cottonseed",
+              "shipped": "Seeds, cottonseed meal, partially defatted (glandless)",
+              "without": "Seeds, cottonseed flour, low fat (glandless)"
             }
           ]
         },
@@ -491,7 +491,7 @@
         },
         {
           "key": "plain+plainSibling",
-          "moved": 92,
+          "moved": 90,
           "gold_leads_broken": 0,
           "c1_lost": 1,
           "examples": [
@@ -511,14 +511,14 @@
               "without": "Fish, pollock, Alaska"
             },
             {
-              "query": "american cheese",
-              "shipped": "Cheese, American, restaurant",
-              "without": "Cheese, american cheddar, imitation"
-            },
-            {
               "query": "american process",
               "shipped": "Cheese, pasteurized process, American",
               "without": "Cheese, pasteurized process, American, low fat"
+            },
+            {
+              "query": "anjou pear",
+              "shipped": "Pear, Anjou, green, with skin",
+              "without": "Pears, red anjou"
             }
           ]
         }

@@ -183,6 +183,17 @@ export function censusFoodKind(groups, app) {
     // word `with` — true, minimal, and useless to a reader, who learns that a
     // preposition dropped a food. Asked first, they are named by their shape.
     {
+      name: "foodservice_record",
+      fires: (food) => app.isFoodserviceRecord(food.description),
+      ablate: (d) => app.isFoodserviceRecord(d),
+    },
+    {
+      name: "drink_powder",
+      fires: (food) => app.isDrinkPowder(food.foodCategory, food.description),
+      ablate: (d, category) => app.isDrinkPowder(category, d),
+      reads_category: true,
+    },
+    {
       name: "reconstituted_drink",
       fires: (food) => app.isReconstitutedDrink(food.description),
       ablate: (d) => app.isReconstitutedDrink(d),

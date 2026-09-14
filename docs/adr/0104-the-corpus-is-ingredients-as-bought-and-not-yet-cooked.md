@@ -662,3 +662,78 @@ something people log by the scoop — and it wants deciding on its own evidence
 rather than as a side effect of a cocktail.
 
 Corpus 2,444 → **2,437**.
+
+## Amendment (2026-09-14): a foodservice record and a drink powder
+
+Two rules, measured together because the first is what made the second worth
+looking at.
+
+### A record published for a kitchen
+
+Seven rows, and the word `restaurant` reaches all seven and nothing else:
+
+```
+Ham, sliced, restaurant                                Cheese, American, restaurant
+Ketchup, restaurant                                    Noodles, flat, crunchy, Chinese restaurant
+Beverages, coffee, brewed, espresso, restaurant-prepared    (and its decaffeinated twin)
+Beverages, Horchata, as served in restaurant
+```
+
+None is a food as bought. A catering pack of sliced ham and a squeeze bottle of
+foodservice ketchup are what a kitchen buys.
+
+**It fixes a shipped defect rather than tidying.** `Ham, sliced, restaurant` was
+the single row a typed `ham` returned, and it was the **cause**: `Ham` is its
+head phrase, so it reached the top tier, raised the bar ADR-0062 §1 measures
+strays against, and all 47 `Pork, cured, ham, …` rows were cut as mentions. One
+catering record was hiding the whole of the ham. After this, `ham` answers with
+50 rows of ham, which closes the retrieval half of #407.
+
+**Espresso leaves knowingly.** Both espresso rows are restaurant-prepared and
+there is no other, so the corpus keeps no espresso. Brewed coffee stays in three
+rows, and under ADR-0103 a brewing strength is a preparation rather than another
+food.
+
+### A powder you make a drink out of
+
+Thirteen rows: the three cocoa mixes, two chocolate powders, the carob and
+strawberry flavour mixes, the lemonade powder, the cereal-grain coffee
+substitute, the nutritional shake mix and the three protein powders.
+
+**The category is the whole of the safety.** The corpus is full of powders that
+ARE ingredients and every one is filed elsewhere: curry, chili, garlic and onion
+powder under `Spices and Herbs`; unsweetened cocoa, icing sugar and tabletop
+fructose under `Sweets`; baobab under fruits; tomato powder under vegetables.
+Read without the category this rule takes the spice rack.
+
+### This overturns ADR-0055 §7, and says so
+
+§7 refused **a powder-or-supplement marker**, and `usda-corpus.test.ts` pinned
+that refusal by asserting the three protein powders still ship. This record
+takes them.
+
+The difference claimed is scope and not principle: §7 refused a marker read
+across the corpus, and this one is read inside a single category, so the two
+`Soy protein isolate` rows §7 also protects are untouched and still ship. That
+is a real distinction and it is not a complete answer — the three rows §7 named
+are gone either way.
+
+**The cost, stated rather than buried:** a protein powder is something people
+log by the scoop, and the corpus now holds none, so a shake has to be reached
+through the barcode path. That is ADR-0042's division working as designed, and
+it is still a thing a user can no longer type for.
+
+### What it uncovered
+
+`chocolate` now answers with three ice creams and nothing else. The drink powder
+that used to lead it was masking a standing decision: every `Chocolate, dark,
+NN% cacao solids` row is dropped as a confection by the `Sweets` rule. This
+record did not cause that and does not fix it; it stopped hiding it, and
+`usda-corpus.test.ts` now pins the lead as known-bad rather than as an answer.
+
+Two hand-written rosters shrank because these rules grew, which is the direction
+they should move: `ADJUDICATED_DISHES` loses the whiskey sour mix and the
+horchata, and ADR-0061's chocolate-drink group is down to its last row.
+
+Reach across the archive is 68 records and 27; against the shipped corpus,
+**2,437 → 2,418**.
