@@ -1173,8 +1173,8 @@
   // listbox is a permanent inline region.
   // Which KIND of list is on screen, which is the distinction this view had
   // never drawn (ADR-0090). The searched branch is a ten-key relevance sort;
-  // the Recent branch is `b.time - a.time`, a chronology that claims no order
-  // at all — and the two rendered identically, down to a first row painted as
+  // the Recent branch is newest-first, a chronology that claims no order at
+  // all — and the two rendered identically, down to a first row painted as
   // if it had won something. Everything that differs between them reads this
   // one derived, rather than restating the query test four times over.
   let ranked = $derived(query.trim().length > 0);

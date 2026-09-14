@@ -37,25 +37,32 @@ export interface RecentCandidate {
 }
 
 /**
- * Every distinct food logged at `meal_type`, the habitual ones first (#165).
+ * Every distinct food logged at `meal_type`, newest first (ADR-0057 §4).
  *
- * **Ordered by frecency, not by recency**, and that is the whole of #165. Strict
- * newest-first is the right key for a chronology and a weak one for a
- * prediction: it offers the sardines logged once yesterday above the banana
- * logged forty times, and a meal default is a prediction. `frecency.ts` carries
- * the model — `prescient.el`'s, recency then decayed frequency, never a blended
- * score — and the two keys are read in that order here for its reason: what you
- * ate this morning is evidence about today, what you ate forty times is evidence
- * about you, and when they disagree today is the better guess.
+ * **It is sorted through `byFrecency`, and that sort currently changes nothing.**
+ * This comment used to claim the opposite, which is why the claim is now stated
+ * the long way round. `Frecency.recent` is a ring POSITION, so it is injective
+ * over the first `FRECENCY_HISTORY` distinct foods — and every candidate here is
+ * one of them. The comparator therefore finds no tie on its first key and never
+ * reaches `frequent`. What comes out is newest-first, exactly what came out
+ * before the key was added, for any meal with fewer than a hundred distinct
+ * foods behind it. Past the ring the two keys do speak, but everything there
+ * ties at 0 and sits far below the caller's twelve-slot cap.
  *
- * **Frecency is computed over THIS MEAL's events alone.** A food eaten at every
- * dinner is not evidence about breakfast, and counting it would let the meal
- * scope #128 established leak straight back out through the ordering. So the
- * banana that leads breakfast leads it on breakfasts.
+ * So [#165](https://github.com/palebluebytes/inventoria/issues/165) is OPEN, not
+ * shipped, and the defect it names is live: strict newest-first is the right key
+ * for a chronology and a weak one for a prediction — it offers the sardines
+ * logged once yesterday above the banana logged forty times, and a meal default
+ * is a prediction. `frecency.ts` carries the model meant to answer that,
+ * `prescient.el`'s, and the reason it does not answer it HERE is a difference in
+ * population: prescient sorts candidates that are mostly OUTSIDE its history,
+ * where frequency does the discriminating, and every candidate on this surface
+ * is inside it.
  *
- * The twelve-slot cap the caller applies is what makes the order matter. Under
- * recency the cap dropped whatever was oldest; under frecency it drops whatever
- * is least likely, which is the same cap doing a different and better job.
+ * **Frecency is computed over THIS MEAL's events alone**, which holds whatever
+ * the keys turn out to be. A food eaten at every dinner is not evidence about
+ * breakfast, and counting it would let the meal scope #128 established leak
+ * straight back out through the ordering.
  *
  * Uncapped by design. A meal's default cannot be computed from the newest N
  * events, because the N+1th may hold the only breakfast in the history — which

@@ -394,8 +394,18 @@ describe("recentCandidatesForMeal over a synthetic ledger", () => {
 // #165: the meal default is a PREDICTION, so it is ordered by frecency rather
 // than by recency. Strict newest-first offers the sardines logged once yesterday
 // above the banana logged forty times, which is the defect the ticket names.
-describe("recentCandidatesForMeal is ordered by frecency (#165)", () => {
-  it("offers the habitual food above yesterday's one-off", () => {
+/**
+ * These four pass with the `byFrecency` sort DELETED from
+ * `recentCandidatesForMeal`, which is the whole of what is wrong with them: they
+ * name a frecency ordering and every one of them is decided by recency alone.
+ * That is not an accident of how they were written — `Frecency.recent` is
+ * injective over the ring, so on this surface there is no frecency ordering to
+ * assert (see the walk's own doc block). They are kept, renamed to what they
+ * actually pin, until #165 settles what the key should be and can replace them
+ * with tests that fail when it is removed.
+ */
+describe("recentCandidatesForMeal's ordering (#165 is open)", () => {
+  it("puts the food logged most recently at this meal first, however often the others were logged", () => {
     const events = [
       ...Array.from({ length: 40 }, () => ate("fdc:banana", "breakfast")),
       ate("fdc:sardines", "breakfast"),
@@ -410,7 +420,7 @@ describe("recentCandidatesForMeal is ordered by frecency (#165)", () => {
     ]);
   });
 
-  it("still lets the newest food lead, because recency outranks frequency", () => {
+  it("offers yesterday's one-off above the food logged forty times — the defect #165 names", () => {
     // prescient's order, and the reason for it: what you ate this morning is
     // evidence about today, what you ate forty times is evidence about you.
     const events = [
@@ -423,7 +433,7 @@ describe("recentCandidatesForMeal is ordered by frecency (#165)", () => {
     ]);
   });
 
-  it("counts frequency at THIS meal only, so dinner cannot order breakfast", () => {
+  it("reads recency at THIS meal only, so dinner cannot order breakfast", () => {
     // The oats are eaten once at breakfast and forty times at dinner. Letting
     // the dinner count speak here would leak the meal scope straight back out
     // through the ordering.

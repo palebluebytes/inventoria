@@ -26,6 +26,17 @@ import type { ConsumptionEvent } from "./consumption-state";
  *   recency is a total order over every food ever logged and frequency never
  *   gets to speak.
  *
+ * **Where the second key is reachable, and where it is not.** {@link
+ * Frecency.recent} is a ring position, so over any candidate set drawn entirely
+ * from the ring it is injective: no two candidates tie on it, and {@link
+ * byFrecency} never reaches `frequent`. That is fine for a corpus search, where
+ * almost every row was never logged and ties at 0 — and it is why the meal
+ * default, whose candidates are by construction ALL logged, still comes out in
+ * pure newest-first order. Prescient does not meet this because its candidate
+ * lists are mostly things it has never seen. This surface is different and
+ * [#165](https://github.com/palebluebytes/inventoria/issues/165) is open on it;
+ * do not read the model below as a claim about what the meal default does.
+ *
  * What is NOT borrowed is prescient's **store**. It keeps two hash tables and
  * rewrites them on every selection; this app already has an append-only ledger
  * holding every log with its target and its time, so frecency is DERIVED and

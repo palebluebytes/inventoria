@@ -29,9 +29,11 @@ export interface SearchListRow {
  * The rows to render, in the order they were given.
  *
  * `ranked` is the distinction the app never drew. The search branch is a
- * relevance sort; the Recent branch is `b.time - a.time`, a chronology whose
- * newest entry won nothing (ADR-0057). A chronology gets no rank, so the marks
- * §2 defines have nothing to attach to there.
+ * relevance sort; the Recent branch is newest-first, a chronology whose newest
+ * entry won nothing (ADR-0057). A chronology gets no rank, so the marks §2
+ * defines have nothing to attach to there. (`recentCandidatesForMeal` sorts
+ * through `byFrecency` and comes out newest-first regardless — see its doc
+ * block, and #165, which is open on exactly that.)
  *
  * **Nothing is held back.** §5 originally cut a ranking to six rows and counted
  * the rest; that cap was withdrawn before this branch merged, because it made
