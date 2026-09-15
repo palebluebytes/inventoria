@@ -36,6 +36,14 @@ separation USDA assayed it at, and nothing else.
 their fullest panel under its own whole, unstripped name, exactly as a group of
 one does — what a coverage hole forbids is the strip, never the row.
 
+The other 174 ship their representative under its RESIDUAL name, which is §5's
+strip, and a flank steak therefore reads `Beef, flank, steak` rather than `Beef,
+flank, steak, separable lean and fat, trimmed to 0" fat, choice`. 174 names
+actually lose a segment: a group that merged on §3's punctuation clause alone
+has nothing to strike out and keeps the name it had. No strip was refused for
+want of a free name (ADR-0062 §3), and a refused one would leave the row under
+the name it had rather than dropping either side.
+
 4 head phrases move, and what is left after ADR-0104 removed the cooked half is
 purely butchery: separation, trim and grade. `scripts/usda-collapse.mjs` names
 the four and the generation stops if a fifth arrives.

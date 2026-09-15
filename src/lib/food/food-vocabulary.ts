@@ -325,8 +325,8 @@ export const LOCAL_VOCABULARY: readonly LocalVocabularyEntry[] = [
   {
     key: "gammon",
     targets: ["pork cured ham whole"],
-    landsOn: "Pork, cured, ham, whole, separable lean and fat",
-    why: "The British name for cured leg of pork sold uncooked, to be cooked at home; the American register calls the same cut ham. Re-chosen when the corpus stopped carrying cooked foods: the bare `pork cured ham` then led with `Pork, cured, ham, patties`, the one formed product left standing once the 21 cooked patty rows went, and a patty is not a gammon. `whole` names the joint the word means.",
+    landsOn: "Pork, cured, ham, whole",
+    why: "The British name for cured leg of pork sold uncooked, to be cooked at home; the American register calls the same cut ham. Re-chosen when the corpus stopped carrying cooked foods: the bare `pork cured ham` then led with `Pork, cured, ham, patties`, the one formed product left standing once the 21 cooked patty rows went, and a patty is not a gammon. `whole` names the joint the word means. The row is the same record throughout — fdc:167875 — and lost `separable lean and fat` to ADR-0103 §5's strip (#436) rather than being re-chosen a second time.",
   },
   // `jacket potato` was here and is REMOVED, and it is the plainest casualty of
   // the corpus becoming uncooked. A jacket potato is a baked potato: it is the
