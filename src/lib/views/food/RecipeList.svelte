@@ -1,9 +1,9 @@
 <script lang="ts">
+  import { getLocalFoodTwin } from "../../stores/calorie.store";
   import {
-    getLocalFoodTwin,
-    seedRowsFromTemplate,
     recipeTwinsStore,
-  } from "../../stores/calorie.store";
+    seedRowsFromTemplate,
+  } from "../../stores/recipe.store";
   import {
     toReferenceIngredient,
     sourceFromIngredients,

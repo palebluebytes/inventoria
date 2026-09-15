@@ -16,7 +16,7 @@
   import {
     recipeIngredientLists,
     recipeIngredientsStore,
-  } from "../../stores/calorie.store";
+  } from "../../stores/recipe.store";
   import { calorieDisplayDecimals } from "../../stores/device-settings";
   import BottomSheet from "../../ui/BottomSheet.svelte";
   import FoodStager from "./FoodStager.svelte";

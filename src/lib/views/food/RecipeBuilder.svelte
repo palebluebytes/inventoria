@@ -2,12 +2,12 @@
   import { untrack } from "svelte";
   import { dbClient } from "../../db/db.client";
   import { ingestEntity } from "../../ingestion/ingest";
+  import { retractConsumptionEvent } from "../../stores/calorie.store";
   import {
     saveRecipe,
     logRecipeConsumption,
-    retractConsumptionEvent,
     seedRowsFromTemplate,
-  } from "../../stores/calorie.store";
+  } from "../../stores/recipe.store";
   import {
     toReferenceIngredient,
     sourceFromIngredients,

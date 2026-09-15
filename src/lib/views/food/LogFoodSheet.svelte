@@ -15,11 +15,13 @@
     saveManualFood,
     changeLoggedFoodAmount,
     retractConsumptionEvent,
-    seedRowsFromTemplate,
-    recipeTwinsStore,
     consumptionStore,
     type ConsumptionEvent,
   } from "../../stores/calorie.store";
+  import {
+    recipeTwinsStore,
+    seedRowsFromTemplate,
+  } from "../../stores/recipe.store";
   import {
     parseLoggedQuantity,
     quantityLabel,

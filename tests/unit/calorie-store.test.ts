@@ -6,9 +6,6 @@ import {
   saveCustomFood,
   saveLabelFood,
   getLocalFoodTwin,
-  saveRecipe,
-  logRecipeConsumption,
-  correctInstantiation,
   retractConsumptionEvent,
   type ConsumptionEvent,
   changeLoggedFoodAmount,
@@ -17,6 +14,11 @@ import {
   consumptionForDay,
   copyPastMeal,
 } from "../../src/lib/stores/calorie.store";
+import {
+  saveRecipe,
+  logRecipeConsumption,
+  correctInstantiation,
+} from "../../src/lib/stores/recipe.store";
 import type { CopyableEvent } from "../../src/lib/food/past-meals";
 import type { NutritionInfo, Portion } from "../../src/lib/food/nutrition";
 import { buildLabelCapture } from "../../src/lib/food/provenance";
