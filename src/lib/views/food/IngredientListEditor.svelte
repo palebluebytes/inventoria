@@ -25,7 +25,6 @@
   import { FOOD_DENSITY_ATTR } from "../../food/density";
   import {
     occasionFraction,
-    sanitizeWeight,
     servingsOfOccasion,
   } from "../../food/batch-weight";
   import { scaleAmount } from "../../food/scale-amount";
@@ -49,6 +48,7 @@
     batchWeight = $bindable(""),
     portionWeight = $bindable(""),
     templateYield,
+    sizedByWeight = false,
     servings = $bindable(1),
     servingsMode = "makes",
   }: {
@@ -87,6 +87,18 @@
      */
     templateYield?: number;
     /**
+     * `portions` mode only: whether this occasion is sized by the scale rather
+     * than by the count (ADR-0106 §1 against §7). The host settles it when it
+     * seeds the weights, and it is a prop rather than a reading taken here so
+     * that one fact has one expression: the surface that asks and the save that
+     * answers cannot end up disagreeing about which question was put.
+     *
+     * Fixed for this surface's life either way. The rows have already been
+     * scaled against whichever question was asked, so swapping mid-type — when
+     * a field is briefly empty — would move the ground under them.
+     */
+    sizedByWeight?: boolean;
+    /**
      * `portions` mode only: how many servings this occasion is. Bound out so the
      * saving surface can say it on the log (ADR-0106 §8). It is not a divisor by
      * the time it leaves here — the rows have already been scaled by it — only
@@ -108,23 +120,6 @@
      */
     servingsMode?: "makes" | "portions";
   } = $props();
-
-  /**
-   * Which question this occasion can be asked, fixed at seed. A recipe whose
-   * template carries a batch weight is sized by the scale; one nobody weighed
-   * falls back to the serving count and nothing else, and never to the row sum
-   * (ADR-0106 §7) — Σ of the raw amounts is a different quantity from a pot's
-   * weight, so offering it here would seed the field with a number wrong in a
-   * direction nobody can predict.
-   *
-   * Read once rather than reactively: the rows have already been scaled against
-   * whichever question was asked, so swapping the surface when the field is
-   * cleared mid-type would move the ground under them.
-   */
-  const weighing = untrack(
-    () =>
-      servingsMode === "portions" && sanitizeWeight(batchWeight) !== undefined
-  );
 
   // The basis each change scales from, so the amounts move by the ratio between
   // the new answer and the applied one rather than accumulating from 1. One per
@@ -351,7 +346,7 @@
       bind:value={batchWeight}
     />
   </div>
-{:else if weighing}
+{:else if sizedByWeight}
   <!-- The occasion's two questions (ADR-0106 §1): what the finished dish
        weighed, and how much of it was eaten. The second over the first is the
        fraction of the recipe this occasion was, and that fraction is what

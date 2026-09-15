@@ -354,9 +354,17 @@ Every logged Event.
   `sodium_content`, and the micronutrients. A nutrient the food never reported is
   absent, never `0` (ADR-0030).
 - `instantiation`: a logged recipe's frozen **Recipe Instantiation** snapshot.
-  Holds `based_on`, `yield`, and per-row
+  Holds `based_on`, `yield`, `batch_weight`, and per-row
   `{ ref, name, amount, unit, calories, protein, fat, carbs, ... }` carrying the same
-  full breakdown.
+  full breakdown. `batch_weight` is what the finished dish weighed, in grams, on the
+  one occasion this snapshot records, so a logged meal says 160 g of a 480 g pot and
+  keeps saying it
+  ([ADR-0106](adr/0106-a-recipe-occasion-is-sized-by-the-weight-you-put-on-the-scale.md) §5).
+  The rows are a fraction of it, and without the denominator the snapshot would carry a
+  numerator whose divisor is gone: a correction reopening the editor to say "actually I
+  ate 200 g" would have nothing to divide against. Absent on every occasion nobody
+  weighed, and on every one logged before that record, which are sized by their serving
+  count instead.
 
 Note that there is **no `acquisition/` namespace**. A physical item's wanted-to-owned
 state is not an attribute on the twin: it is folded from `event:acquire_` events

@@ -183,3 +183,26 @@ asked for.
   against #424 and never committed. It is deleted rather than superseded: the
   rule that records are never deleted governs records that shipped, and a
   superseded record nobody could ever have read is a worse artefact than none.
+
+## Amendment (2026-09-15, #432): §6's read-out is silent on a correction
+
+Building §1 to §5 found a case §6 does not cover: **correcting a weighed
+occasion shows the two weights and no serving count.**
+
+The count is `eaten ÷ (batch ÷ yield)`, so reading it out needs the batch's
+division as well as its weight. §5 freezes the weight and the shape gains
+nothing else, and the `yield` already on the snapshot cannot carry the division:
+an instantiation's rows are the portion, so ADR-0022's `headline == Σrows ÷
+yield` pins that field to 1 for every occasion the editor logs. The divisor §6
+wants is therefore not in the snapshot, and the only place holding it is the
+template — which may have been re-divided since, and which a logged occasion is
+explicitly not read against.
+
+So the surface says nothing rather than saying a number it cannot stand behind,
+which is this codebase's standing answer to an absent measure. Instantiating
+from a template is unaffected: the division is right there, and the count reads
+out as §6 describes.
+
+Closing it means freezing the batch's division beside its weight, which is a
+second key on `event/instantiation` and a change to what §5 decided. That is an
+amendment to make when something needs it, not a key to add on the way past.

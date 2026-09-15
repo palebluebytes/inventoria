@@ -21,6 +21,14 @@ import { sanitizeYield } from "./recipe-nutrition";
 export const RECIPE_BATCH_WEIGHT_ATTR = "recipe/batch_weight";
 
 /**
+ * A weight as a field holds it while the cook types: a number once there is one,
+ * the empty string before that and between two edits. The shape of every weight
+ * this module is asked about except the ones it reads back off the ledger, which
+ * arrive untyped and are {@link sanitizeWeight}'s alone to narrow.
+ */
+export type EnteredWeight = number | string | undefined;
+
+/**
  * A weight the cook read off a scale, in **grams**, or `undefined` where nothing
  * usable was said.
  *
@@ -34,6 +42,12 @@ export const RECIPE_BATCH_WEIGHT_ATTR = "recipe/batch_weight";
  * count (§7) — so every spelling of it (never entered, cleared mid-type, the
  * `0` an edit writes to clear the attribute, a non-positive figure no scale
  * could show) collapses here to the one signal the callers branch on.
+ *
+ * `unknown` rather than {@link EnteredWeight} because this is the boundary: it
+ * is handed `recipe/batch_weight` straight off a twin's attribute blob and
+ * `batch_weight` off a frozen snapshot, neither of which the type system has
+ * ever seen. Narrowing happens here, once, and every sibling below takes the
+ * narrow type instead (CODING_STANDARDS §3.2).
  */
 export function sanitizeWeight(value: unknown): number | undefined {
   const grams = Number(value);
@@ -54,8 +68,8 @@ export function sanitizeWeight(value: unknown): number | undefined {
  * the snapshot beside it (§5).
  */
 export function occasionFraction(
-  portion: unknown,
-  batch: unknown
+  portion: EnteredWeight,
+  batch: EnteredWeight
 ): number | undefined {
   const eaten = sanitizeWeight(portion);
   const cooked = sanitizeWeight(batch);
@@ -75,9 +89,58 @@ export function occasionFraction(
  * the one divisor rule every per-serving division uses, so an unusable yield
  * reads as a single-serving batch here exactly as it does everywhere else.
  */
+/**
+ * How big one Recipe Instantiation was, as the surface that asked settled it
+ * (ADR-0106). Three numbers rather than one because a cook with a scale knows
+ * two different facts: a pot divided into portions, and what went on the plate.
+ *
+ * Nothing here is a divisor. An occasion's rows are scaled before this shape is
+ * built, so these say what the occasion *was* rather than doing anything to it.
+ */
+export interface OccasionSize {
+  /**
+   * How many servings the occasion was. The fallback quantity, and the only one
+   * a recipe nobody weighed has (ADR-0106 §7) — never derived from the row sum,
+   * which is a different quantity from a pot's weight.
+   */
+  servings?: number;
+  /** What the finished dish weighed, in grams, frozen onto the snapshot (§5). */
+  batch_weight?: number;
+  /** How much of that dish was eaten, in grams. The quantity, when present (§8). */
+  portion_weight?: number;
+}
+
+/** An occasion the cook weighed: both numbers, narrowed and present. */
+export interface WeighedOccasion {
+  batch_weight: number;
+  portion_weight: number;
+}
+
+/**
+ * The pair, or nothing. A portion is a fraction *of* something, so neither half
+ * means anything alone: a portion with no batch behind it is a numerator whose
+ * denominator is gone, which is the very state ADR-0106 §5 freezes
+ * `batch_weight` to prevent. Both halves present, or the occasion is sized by
+ * its count instead.
+ *
+ * The single reading of that rule. The surface asks it to decide whether it may
+ * still be saved, and the write path asks it to decide what reaches the ledger;
+ * two spellings of one rule could answer differently and log an occasion the
+ * editor thought it had refused.
+ */
+export function weighedOccasion(
+  occasion: OccasionSize
+): WeighedOccasion | undefined {
+  const batch_weight = sanitizeWeight(occasion.batch_weight);
+  const portion_weight = sanitizeWeight(occasion.portion_weight);
+  return batch_weight !== undefined && portion_weight !== undefined
+    ? { batch_weight, portion_weight }
+    : undefined;
+}
+
 export function servingsOfOccasion(
-  portion: unknown,
-  batch: unknown,
+  portion: EnteredWeight,
+  batch: EnteredWeight,
   templateYield: number | string
 ): number | undefined {
   const fraction = occasionFraction(portion, batch);

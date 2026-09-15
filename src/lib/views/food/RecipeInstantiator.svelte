@@ -1,14 +1,13 @@
 <script lang="ts">
   import { dbClient } from "../../db/db.client";
   import { ingestEntity } from "../../ingestion/ingest";
+  import type { ConsumptionEvent } from "../../stores/calorie.store";
   import {
     logRecipeConsumption,
     correctInstantiation,
     seedRowFromRef,
     seedRowsFromTemplate,
-    type ConsumptionEvent,
-    type OccasionSize,
-  } from "../../stores/calorie.store";
+  } from "../../stores/recipe.store";
   import {
     toReferenceIngredient,
     sourceFromIngredients,
@@ -20,7 +19,10 @@
   import {
     RECIPE_BATCH_WEIGHT_ATTR,
     sanitizeWeight,
+    weighedOccasion,
+    type OccasionSize,
   } from "../../food/batch-weight";
+  import { roundFood } from "../../food/nutrition";
   import { scaleAmount } from "../../food/scale-amount";
   import Alert from "../../ui/Alert.svelte";
   import Button from "../../ui/Button.svelte";
@@ -82,12 +84,11 @@
   // leaves the editor below on the serving count alone.
   let batchWeight = $state<number | string>("");
   let portionWeight = $state<number | string>("");
-  // Whether this occasion is sized by the scale, settled at seed alongside the
-  // weights themselves (and by the same reading of them the editor below makes).
-  // What the surface opened asking is what it has to be answered with: an
-  // occasion offered two weight fields cannot be logged with one of them blanked
-  // out, because the rows are already a fraction the blank cannot state.
-  let weighing = $state(false);
+  // Whether this occasion is sized by the scale, settled once at seed and handed
+  // down to the editor rather than worked out again there: what the surface
+  // opened asking is a fact about the seeding, and two expressions of it could
+  // drift into a surface asking one question and a save answering the other.
+  let sizedByWeight = $state(false);
   // What the template says the batch makes, for the serving read-out alone (§6).
   // Undefined on the correction path, where the snapshot froze a yield of 1 over
   // rows that are already the portion and so cannot say it.
@@ -151,7 +152,7 @@
     if (batch === undefined || eaten.unit !== "g") return;
     batchWeight = batch;
     portionWeight = eaten.amount;
-    weighing = true;
+    sizedByWeight = true;
   }
 
   async function seed() {
@@ -190,8 +191,10 @@
         if (batch !== undefined) {
           templateYield = batchYield;
           batchWeight = batch;
-          portionWeight = batch / batchYield;
-          weighing = true;
+          // Rounded like every other amount that can be retyped: an unrounded
+          // divide opens the field on 128.57142857142858 g.
+          portionWeight = roundFood(batch / batchYield);
+          sizedByWeight = true;
         }
         openAtOneServing(
           await seedRowsFromTemplate(template.attributes),
@@ -216,21 +219,27 @@
    * are settled before this runs and these are only what the occasion is
    * *recorded* as.
    */
-  function occasion(): OccasionSize {
-    return occasionWeights() ?? { servings: sanitizeYield(servings) };
-  }
-
-  /** The pair, or nothing: a portion is a fraction *of* something (ADR-0106 §5). */
-  function occasionWeights() {
-    const batch_weight = sanitizeWeight(batchWeight);
-    const portion_weight = sanitizeWeight(portionWeight);
-    return batch_weight !== undefined && portion_weight !== undefined
-      ? { batch_weight, portion_weight }
-      : undefined;
+  function occasionSize(): OccasionSize {
+    return (
+      weighedOccasion({
+        batch_weight: sanitizeWeight(batchWeight),
+        portion_weight: sanitizeWeight(portionWeight),
+      }) ?? { servings: sanitizeYield(servings) }
+    );
   }
 
   async function save() {
     if (ingredients.length === 0 || !based_on || status === "loading") return;
+    // An occasion the surface asked to weigh cannot be logged half-weighed: the
+    // rows are already a fraction, and a blank field cannot say which. Refused
+    // here rather than by greying out the dock, so the refusal can say what it
+    // means — the same choice ADR-0106 §6 makes for a non-positive count.
+    if (sizedByWeight && occasionSize().servings !== undefined) {
+      status = "error";
+      error =
+        "Say what the batch weighed and how much of it you ate — this occasion is a fraction of the pot, and a blank cannot say which.";
+      return;
+    }
     status = "loading";
     error = "";
     try {
@@ -254,7 +263,7 @@
           resolveName,
           meal_type,
           selectedDate,
-          occasion()
+          occasionSize()
         );
       } else {
         // Instantiate: purely additive — log and retract nothing.
@@ -266,7 +275,7 @@
           resolveName,
           meal_type,
           selectedDate,
-          occasion()
+          occasionSize()
         );
       }
       onCommitted();
@@ -279,11 +288,7 @@
   // Surface the commit to the host's shared dock (ManualEntryFlow pattern).
   requestSave = save;
   $effect(() => {
-    saveReady =
-      ready &&
-      ingredients.length > 0 &&
-      status !== "loading" &&
-      (!weighing || occasionWeights() !== undefined);
+    saveReady = ready && ingredients.length > 0 && status !== "loading";
   });
 </script>
 
@@ -309,6 +314,7 @@
     bind:portionWeight
     bind:servings
     {templateYield}
+    {sizedByWeight}
     servingsMode="portions"
   />
 {:else}

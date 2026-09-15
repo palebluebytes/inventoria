@@ -1,10 +1,8 @@
 import { describe, it, expect, vi } from "vitest";
 import { render } from "svelte/server";
 import IngredientListEditor from "../../src/lib/views/food/IngredientListEditor.svelte";
-import {
-  logRecipeConsumption,
-  type OccasionSize,
-} from "../../src/lib/stores/calorie.store";
+import { logRecipeConsumption } from "../../src/lib/stores/recipe.store";
+import type { OccasionSize } from "../../src/lib/food/batch-weight";
 import { dbClient } from "../../src/lib/db/db.client";
 import { parseLoggedQuantity } from "../../src/lib/food/recipe-ingredient";
 import type { NutritionInfo } from "../../src/lib/food/nutrition";
@@ -111,6 +109,8 @@ describe("the template keeps both numbers (ADR-0106 §4)", () => {
       },
     });
     expect(body).not.toContain('id="recipe-batch-weight"');
+    // §7's fallback, and the only control it offers.
+    expect(body).toContain('id="recipe-servings"');
   });
 });
 
@@ -122,6 +122,9 @@ describe("an occasion is a fraction of a weighed batch (ADR-0106 §1, §5)", () 
         recipeYield: 1,
         batchWeight: 480,
         portionWeight: 160,
+        // The host settles which question this occasion was opened on, when it
+        // seeds the weights — the editor does not re-read it off them.
+        sizedByWeight: true,
         servingsMode: "portions",
         ...props,
       },
