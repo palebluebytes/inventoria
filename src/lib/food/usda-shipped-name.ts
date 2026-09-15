@@ -215,6 +215,49 @@ export const STATE_QUALIFIERS: ReadonlySet<string> = new Set([
   "unheated",
   "unprepared",
   "raw or unheated",
+  // USDA pairs the state with the freezer on exactly one row, and the pairing is
+  // what protects it: `Durian, raw or frozen` writes both words as ONE segment,
+  // so `isFrozenRecord` next door never sees `frozen` as a segment and the
+  // corpus's only durian is not a frozen record. What the row is left saying is
+  // the uncooked state every other row has stopped saying, so it comes off here
+  // with the other five spellings and the food ships as `Durian`.
+  "raw or frozen",
+]);
+
+/**
+ * Where a shop keeps a food, which is not what the food is.
+ *
+ * Two words, and USDA uses them as a contrasting pair on the same shelf: an
+ * almond milk in the chiller and an almond milk in the ambient aisle, a flour
+ * tortilla of each. Neither says WHICH food the row is, which is the test
+ * {@link CATALOGUE_QUALIFIERS} states and these meet for the same reason.
+ *
+ * **`frozen` is deliberately not here.** A frozen record does not ship at all
+ * (`isFrozenRecord` in `usda-variant-drops.ts`), because a freezer changes what
+ * you are buying in a way a chiller does not — and because the processed filter
+ * already took 285 frozen rows on that reading before any name was written.
+ *
+ * **Whole segments only, and that is the whole of what keeps this narrow.**
+ * Measured over the archives, five surviving rows carry `refrigerated` INSIDE a
+ * larger segment and every one of them means it as part of the food's name:
+ * three `Biscuits, …, refrigerated dough` rows, where the dough in the tube is
+ * the product, and two `Pasta, fresh-refrigerated, …` rows, where fresh pasta is
+ * a different food from dry pasta and carries a different panel. A word-wise
+ * rule would rename all five and file two foods under one name in the second
+ * case. The positional strip already guarantees this; it is restated because the
+ * counterexamples are real rather than hypothetical.
+ *
+ * Unlike the rosters above, these are NOT folded into
+ * {@link STRIPPED_QUALIFIERS}. The strip can leave two rows with one name, and
+ * the rows in contention carry no origin — so rule 1's tiebreak cannot fire and
+ * the collision needs a tiebreak of its own. {@link resolveStorageNames} is that
+ * rule, and keeping it separate is what lets a storage collision report itself
+ * as one instead of being counted as a designation collision it has nothing to
+ * do with.
+ */
+export const STORAGE_QUALIFIERS: ReadonlySet<string> = new Set([
+  "refrigerated",
+  "shelf stable",
 ]);
 
 const STRIPPED_QUALIFIERS: ReadonlySet<string> = new Set([
@@ -661,6 +704,127 @@ export function stripFortificationQualifier(description: string): string {
     if (gloss) kept[kept.length - 1] += ` ${gloss[2]}`;
   });
   return stripped ? kept.join(", ") : description;
+}
+
+/**
+ * A description with its {@link STORAGE_QUALIFIERS} segment removed, or
+ * unchanged if it carries none.
+ *
+ * Positional on ADR-0056 §2's terms and gloss-aware on
+ * {@link stripFortificationQualifier}'s, for the same reason and with the same
+ * two lines: USDA writes no comma before a bracket, so a gloss trailing the
+ * stripped segment joins the part before it rather than standing alone.
+ */
+export function stripStorageQualifier(description: string): string {
+  const kept: string[] = [];
+  let stripped = false;
+  namedParts(description).forEach(({ lookup, text }, index) => {
+    const glossed = lookup.match(GLOSSED_PART);
+    const phrase = glossed ? glossed[1] : lookup;
+    if (index === 0 || !STORAGE_QUALIFIERS.has(phrase)) {
+      kept.push(text);
+      return;
+    }
+    stripped = true;
+    const gloss = text.match(GLOSSED_PART);
+    if (gloss) kept[kept.length - 1] += ` ${gloss[2]}`;
+  });
+  return stripped ? kept.join(", ") : description;
+}
+
+/**
+ * What the storage strip does to a whole corpus: which rows get a shorter name,
+ * and which leave because the shorter name was already somebody's.
+ *
+ * **A pass of its own, run last over the names that will ship**, and both halves
+ * of that are load-bearing.
+ *
+ * *Of its own*, because the collision it causes has no tiebreak in
+ * {@link resolveShippedNames}. Rule 1 settles a collision by dropping the row
+ * that carried an ORIGIN, and none of these rows carries one — an almond milk in
+ * the chiller and an almond milk on the shelf are two records of one food, and
+ * nothing about where a shop kept them says which is the corpus's.
+ *
+ * So it borrows rule 1's SHAPE and rule 3's TIEBREAK, in that order. **Only a
+ * row this strip renamed may lose**, because a row that never had to change is
+ * holding the name it always had — that is what leaves the plain
+ * `Cheese, parmesan, grated` standing without ever putting it in contention.
+ * Where every contender was renamed there is no incumbent, and then **the fuller
+ * panel stays**, which is a claim about the record and the only kind ADR-0055 §1
+ * admits; `fdcId` breaks a tie under it so the answer is stable across
+ * regenerations.
+ *
+ * A group the strip did not touch is skipped outright. Two rows that already
+ * shared a name are not this rule's business, and without that guard it would
+ * delete one of them for a reason belonging to neither.
+ *
+ * *Last*, because the strips before it decide what a name is. Run earlier, the
+ * parmesan pair is `Cheese, parmesan, grated, refrigerated` against
+ * `Cheese, parmesan, grated` and would collide correctly by luck; the tortillas
+ * are `…, flour, refrigerated` against `…, flour, shelf stable` and collide only
+ * once BOTH words are gone, which is this rule's own doing and not another's.
+ *
+ * The three collisions it settles over the shipped corpus, with the panel each
+ * side carries:
+ *
+ * | name after the strip | keeps | loses |
+ * | --- | --- | --- |
+ * | `Cheese, parmesan, grated` | the plain row, 115 nutrients | `refrigerated`, 52 |
+ * | `Almond milk, unsweetened, plain` | `shelf stable`, 124 | `refrigerated`, 57 |
+ * | `Tortillas, ready-to-bake or -fry, flour` | `refrigerated`, 135 | `shelf stable`, 117 |
+ *
+ * The tortillas are the case the tiebreak exists for. A rule reading the WORDS
+ * would drop the refrigerated row on both of the other two rows' logic and take
+ * the corpus's better record with it — 135 nutrients against 117, and seven
+ * household portions against two.
+ *
+ * Six more rows are renamed and nothing contests them: the oat milk, the soy
+ * milk, the hash browns, the lump crab, and the two survivors above that kept a
+ * word once they had nothing left to contrast with.
+ */
+export function resolveStorageNames(rows: readonly ShippedNameRow[]): {
+  renamed: ReadonlyMap<number, string>;
+  dropped: ReadonlySet<number>;
+} {
+  const renamed = new Map<number, string>();
+  const dropped = new Set<number>();
+
+  const byName = new Map<string, ShippedNameRow[]>();
+  for (const row of rows) {
+    const key = stemmedName(stripStorageQualifier(row.description));
+    const group = byName.get(key);
+    if (group) group.push(row);
+    else byName.set(key, [row]);
+  }
+
+  for (const group of byName.values()) {
+    const moved = group.filter(
+      (row) => stripStorageQualifier(row.description) !== row.description
+    );
+    // A group this strip did not touch is somebody else's business. Without
+    // this the rule would reach two rows that already shared a name and drop
+    // one of them for a reason that has nothing to do with either.
+    if (moved.length === 0) continue;
+
+    // Only a renamed row can lose, which is rule 1's shape and its reason: a row
+    // that never had to change is holding the name it always had. Where every
+    // contender was renamed there is no incumbent, and the fuller panel decides.
+    const contenders =
+      moved.length === group.length
+        ? [...group].sort(
+            (a, b) =>
+              (b.panelFields ?? 0) - (a.panelFields ?? 0) || a.fdcId - b.fdcId
+          )
+        : group.filter((row) => !moved.includes(row));
+    const [survivor] = contenders;
+    for (const row of group)
+      if (row !== survivor && moved.includes(row)) dropped.add(row.fdcId);
+
+    const name = stripStorageQualifier(survivor.description);
+    if (name !== survivor.description) renamed.set(survivor.fdcId, name);
+  }
+
+  return { renamed, dropped };
 }
 
 /**

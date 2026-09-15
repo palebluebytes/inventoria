@@ -206,7 +206,8 @@ export const BUNDLE_DATASETS = ["Foundation Foods", "SR Legacy"];
  * @property {(rows: { fdcId: number, description: string, panelFields?: number }[]) => { renamed: ReadonlyMap<number, string>, dropped: ReadonlyMap<number, string> }} resolveShippedNames
  * @property {(rows: { fdcId: number, description: string }[]) => ReadonlyMap<number, string>} dropUncontestedQualifiers
  * @property {(rows: { fdcId: number, description: string }[]) => ReadonlyMap<number, string>} renameSeedMaturity
- * @property {(rows: { fdcId: number, description: string }[]) => ReadonlySet<number>} resolveFrozenMirrors
+ * @property {(rows: { fdcId: number, description: string }[]) => ReadonlySet<number>} resolveFrozenRecords
+ * @property {(rows: { fdcId: number, description: string, panelFields?: number }[]) => { renamed: ReadonlyMap<number, string>, dropped: ReadonlySet<number> }} resolveStorageNames
  * @property {(rows: { fdcId: number, description: string }[]) => { renamed: ReadonlyMap<number, string>, dropped: ReadonlySet<number> }} stripEnrichment
  * @property {(description: string) => string} stripNonNamingQualifiers
  * @property {readonly TwinLedgerEntry[]} TWIN_LEDGER
@@ -904,13 +905,15 @@ async function main() {
     origin_dropped,
     fortification,
     enrichment_duplicate,
-    frozen_mirror,
+    frozen_record,
+    storage_collision,
+    storage_renamed,
   } = applyShippedNames(filtered, app);
 
   // ADR-0103's collapse, LAST: §3's residual description is computed from the
   // name the row will actually ship under, so a segment ADR-0056 has already
   // taken cannot come back to split a group. It is the same argument
-  // `applyShippedNames` gives for where it puts the frozen-mirror rule.
+  // `applyShippedNames` gives for where it puts the two storage rules.
   //
   // Before a segment is read, the names are proved against §10's trap: a
   // parenthetical welded to a segment has hidden a word from a positional strip
@@ -1044,7 +1047,15 @@ async function main() {
   // food-kind filters left, so the run has to account for every row between.
   console.log(
     `  ${enrichment_duplicate} then leave as the unenriched half of a pair, ` +
-      `and ${frozen_mirror} as a frozen copy of a cut the corpus keeps fresh`
+      `and ${frozen_record} as a record USDA froze before it measured it`
+  );
+  // The chiller rule reports both halves, because its renames and its drops are
+  // different claims: a name got shorter, or a food lost its place to another
+  // record of itself. A tally printing only the drops would make a nine-row
+  // rename look like a two-row one.
+  console.log(
+    `  ${storage_renamed} lose a word naming the shelf they sat on, and ` +
+      `${storage_collision} leave because that handed their name to a fuller record`
   );
   // ADR-0103's collapse, reported at the granularity §9's account asks for:
   // rows in, rows out, per head phrase. The four are every head it MOVES —

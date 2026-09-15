@@ -7,6 +7,8 @@ import {
   carriesOriginQualifier,
   resolveCollapsedNames,
   resolveShippedNames,
+  resolveStorageNames,
+  stripStorageQualifier,
   stripDesignationTag,
   stripFortificationQualifier,
   stripNonNamingQualifiers,
@@ -833,5 +835,98 @@ describe("resolveCollapsedNames — ADR-0103 §5's strip", () => {
     );
     expect([...renamed]).toEqual([]);
     expect(tally).toEqual({ stripped: 0, refused: 2 });
+  });
+});
+
+describe("where a shop kept a food is not what the food is", () => {
+  // ADR-0104's 2026-09-15 Amendment. Every description is a real corpus row,
+  // read at the commit that added the rule, and the panel figures are the
+  // nutrient counts those rows actually carry.
+  const row = (fdcId: number, description: string, panelFields?: number) => ({
+    fdcId,
+    description,
+    ...(panelFields === undefined ? {} : { panelFields }),
+  });
+
+  it("takes a shelf word that occupies a whole segment", () => {
+    expect(
+      stripStorageQualifier("Oat milk, unsweetened, plain, refrigerated")
+    ).toBe("Oat milk, unsweetened, plain");
+    expect(
+      stripStorageQualifier("Soy milk, unsweetened, plain, shelf stable")
+    ).toBe("Soy milk, unsweetened, plain");
+  });
+
+  it("leaves a shelf word that is part of the food's name", () => {
+    // The five rows that make this rule positional rather than word-wise. The
+    // dough in the tube is the product, and fresh pasta is a different food from
+    // dry pasta with a different panel — a word-wise rule files two foods under
+    // one name here.
+    for (const description of [
+      "Biscuits, plain or buttermilk, refrigerated dough, higher fat",
+      "Biscuits, mixed grain, refrigerated dough",
+      "Pasta, fresh-refrigerated, plain, as purchased",
+      "Pasta, fresh-refrigerated, spinach, as purchased",
+    ] as const)
+      expect([description, stripStorageQualifier(description)]).toEqual([
+        description,
+        description,
+      ]);
+  });
+
+  it("keeps a gloss USDA welded to the stripped segment", () => {
+    // `stripFortificationQualifier`'s rule, for the same reason: USDA writes no
+    // comma before the bracket, so the gloss is a gloss on the FOOD.
+    expect(
+      stripStorageQualifier("Tortillas, flour, refrigerated (includes burrito)")
+    ).toBe("Tortillas, flour (includes burrito)");
+  });
+
+  it("lets the row that never had to change keep its name", () => {
+    // Rule 1's shape. The plain grated parmesan was never renamed, so it is
+    // holding the name it always had and is never in contention — even though
+    // the tiebreak below would have picked it anyway.
+    const { renamed, dropped } = resolveStorageNames([
+      row(325036, "Cheese, parmesan, grated", 115),
+      row(2259795, "Cheese, parmesan, grated, refrigerated", 52),
+    ]);
+    expect([...dropped]).toEqual([2259795]);
+    expect([...renamed]).toEqual([]);
+  });
+
+  it("gives the name to the fuller panel where every contender was renamed", () => {
+    // The case the tiebreak exists for, and it does not agree with "the
+    // refrigerated one loses": the refrigerated tortilla carries 135 nutrients
+    // and seven household portions against the shelf-stable row's 117 and two.
+    const { renamed, dropped } = resolveStorageNames([
+      row(167535, "Tortillas, ready-to-bake or -fry, flour, shelf stable", 117),
+      row(175037, "Tortillas, ready-to-bake or -fry, flour, refrigerated", 135),
+    ]);
+    expect([...dropped]).toEqual([167535]);
+    expect([...renamed]).toEqual([
+      [175037, "Tortillas, ready-to-bake or -fry, flour"],
+    ]);
+  });
+
+  it("renames a row nothing contests and drops nobody", () => {
+    // Four rows reach this shape in the corpus, and one of them is the only oat
+    // milk there is — which is why the chiller is a name rule and not a drop
+    // rule.
+    const { renamed, dropped } = resolveStorageNames([
+      row(2257046, "Oat milk, unsweetened, plain, refrigerated", 57),
+    ]);
+    expect([...dropped]).toEqual([]);
+    expect([...renamed]).toEqual([[2257046, "Oat milk, unsweetened, plain"]]);
+  });
+
+  it("never touches two rows that already shared a name", () => {
+    // Without this guard the rule reaches a collision belonging to neither row
+    // and deletes one of them for a reason that is not its own.
+    const { renamed, dropped } = resolveStorageNames([
+      row(1, "Cheese, brie", 40),
+      row(2, "Cheese, brie", 90),
+    ]);
+    expect([...dropped]).toEqual([]);
+    expect([...renamed]).toEqual([]);
   });
 });

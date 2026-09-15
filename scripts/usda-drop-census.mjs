@@ -419,17 +419,18 @@ async function main() {
     });
   }
 
-  // The frozen-mirror rule, last of all and over the names that will ship —
-  // where the generator runs it, and for its reason: until the origin strip has
-  // run these rows still say `New Zealand, imported` and no mirror can be seen.
+  // The two storage rules, last of all and over the names that will ship —
+  // where the generator runs them, and for its reason: until the origin strip
+  // has run, the frozen lamb still says `New Zealand, imported`, and the
+  // tortillas do not contest a name until both shelf words are gone.
   const finalRows = trimmedRows
     .filter((row) => !enrichment.dropped.has(row.fdcId))
     .map((row) => ({
       ...row,
       description: enrichment.renamed.get(row.fdcId) ?? row.description,
     }));
-  const mirrors = app.resolveFrozenMirrors(finalRows);
-  for (const fdcId of mirrors) {
+  const frozen = app.resolveFrozenRecords(finalRows);
+  for (const fdcId of frozen) {
     const s = byId.get(fdcId);
     const row = finalRows.find((r) => r.fdcId === fdcId);
     drops.push({
@@ -442,8 +443,38 @@ async function main() {
       calories:
         s.food.foodNutrients.find((n) => n.nutrientId === 1008)?.value ?? null,
       stage: "name",
-      rule: "frozen_mirror",
-      // Relational: what removed it is the unfrozen cut that ships, never a word.
+      rule: "frozen_record",
+      // A word, and the census says which one — unlike the mirror rule this
+      // replaced, nothing relational is left to point at.
+      because: ["segment: frozen"],
+      because_kind: "word",
+    });
+  }
+
+  // The chiller rule drops only where the strip handed a row's name to a fuller
+  // record of the same food, so what removed it is that record and never a word.
+  const storage = app.resolveStorageNames(
+    finalRows
+      .filter((row) => !frozen.has(row.fdcId))
+      .map((row) => ({
+        ...row,
+        panelFields: byId.get(row.fdcId).food.foodNutrients.length,
+      }))
+  );
+  for (const fdcId of storage.dropped) {
+    const s = byId.get(fdcId);
+    const row = finalRows.find((r) => r.fdcId === fdcId);
+    drops.push({
+      fdcId,
+      description: row.description,
+      dataType: s.food.dataType,
+      ...(s.food.foodCategory ? { foodCategory: s.food.foodCategory } : {}),
+      group: s.group.map((f) => f.description),
+      nutrients: s.food.foodNutrients.length,
+      calories:
+        s.food.foodNutrients.find((n) => n.nutrientId === 1008)?.value ?? null,
+      stage: "name",
+      rule: "storage_collision",
       because: [],
       because_kind: "by_collision",
     });
@@ -461,7 +492,15 @@ async function main() {
   // reader ask "what happened to `Beef, flank, steak, choice`?" and get a row
   // back instead of a silence.
   const collapsible = finalRows
-    .filter((row) => !mirrors.has(row.fdcId))
+    .filter((row) => !frozen.has(row.fdcId) && !storage.dropped.has(row.fdcId))
+    // The storage strip renames before the collapse reads a name, exactly as the
+    // generator orders them: §3's residual description is computed from the name
+    // the row will actually ship under, so a shelf word still attached here
+    // would split a group the corpus merges.
+    .map((row) => ({
+      ...row,
+      description: storage.renamed.get(row.fdcId) ?? row.description,
+    }))
     .map((row) => ({
       food: {
         fdcId: row.fdcId,
@@ -528,7 +567,11 @@ async function main() {
   }
 
   const shipped =
-    afterNames.length - enrichment.dropped.size - mirrors.size - collapsed.size;
+    afterNames.length -
+    enrichment.dropped.size -
+    frozen.size -
+    storage.dropped.size -
+    collapsed.size;
 
   // The census adds up or it is wrong. The rule ORDER above is mirrored from
   // `buildCorpus` rather than borrowed from it — the one place this script could

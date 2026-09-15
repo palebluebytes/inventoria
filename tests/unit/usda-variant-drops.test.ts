@@ -4,6 +4,8 @@ import {
   isFlavouredVariant,
   isDehydratedForm,
   isFortificationDuplicate,
+  isFrozenRecord,
+  resolveFrozenRecords,
   resolveVariantDrops,
   ADJUDICATED_VARIANTS,
 } from "../../src/lib/food/usda-variant-drops";
@@ -327,6 +329,64 @@ describe("resolveVariantDrops", () => {
     expect([
       ...resolveVariantDrops([row(172225, "Milk, buttermilk, fluid, whole")]),
     ]).toEqual([]);
+  });
+});
+
+describe("a record USDA froze before it measured it", () => {
+  // ADR-0104's 2026-09-15 Amendment. The rule that replaced `isFrozenMirror`,
+  // and what it must and must not reach. Every description here is a real
+  // archive row, read at the commit that widened the rule.
+
+  it("takes a frozen row whether or not an unfrozen twin ships", () => {
+    // The whole of the widening in one pair. The lamb had a fresh twin and left
+    // under the mirror rule too; the pig ears never had one and were the row the
+    // mirror rule named as itself working.
+    expect(isFrozenRecord("Lamb, frozen, loin, separable lean and fat")).toBe(
+      true
+    );
+    expect(isFrozenRecord("Pork, fresh, ears, frozen")).toBe(true);
+    expect(
+      isFrozenRecord(
+        "Turkey roast, boneless, frozen, seasoned, light and dark meat"
+      )
+    ).toBe(true);
+  });
+
+  it("never reads the word out of half a segment", () => {
+    // ADR-0103 §10's rule, and the corpus's only durian is what it protects.
+    // USDA writes the state and the freezer as ONE comma-segment, so there is no
+    // `frozen` segment to find — and the row ships as `Durian`, because that
+    // segment is a state spelling ADR-0104 §4 strips.
+    expect(isFrozenRecord("Durian, raw or frozen")).toBe(false);
+    // The cod hedge never reaches this rule at all — `stripNonNamingQualifiers`
+    // has taken the bracket off before the names are read — but the rule would
+    // decline it anyway, which is the belt to that braces.
+    expect(
+      isFrozenRecord(
+        "Fish, cod, Pacific, raw (may have been previously frozen)"
+      )
+    ).toBe(false);
+  });
+
+  it("never takes the head phrase itself", () => {
+    // Positional like every rule in this file: a head phrase is the food's name
+    // and is never a qualifier, so a food USDA happened to call `Frozen …`
+    // would not be taken for the word in its own name.
+    expect(isFrozenRecord("Frozen yogurts, chocolate")).toBe(false);
+  });
+
+  it("answers about the corpus it was handed and not about a list", () => {
+    const row = (fdcId: number, description: string) => ({
+      fdcId,
+      description,
+    });
+    expect([
+      ...resolveFrozenRecords([
+        row(167857, "Pork, fresh, ears, frozen"),
+        row(168192, "Durian, raw or frozen"),
+        row(172225, "Milk, buttermilk, fluid, whole"),
+      ]),
+    ]).toEqual([167857]);
   });
 });
 

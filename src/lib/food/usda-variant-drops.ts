@@ -478,7 +478,7 @@ const ADJUDICATED_VARIANT_GROUPS: readonly AdjudicatedVariantGroup[] = [
     ],
   },
   {
-    why: "A flavoured soy milk that the flavour rule cannot take: under `Soymilk` every row carries a roster word, so the exemption in `isFlavouredVariant` turns the rule off for the whole head. The rows are read instead. The plain soy milk the corpus keeps is the Foundation row `Soy milk, unsweetened, plain, shelf stable`, which carries the richer panel and the spelling people type; `original and vanilla` is USDA's name for that same drink and goes with the rest of the head.",
+    why: "A flavoured soy milk that the flavour rule cannot take: under `Soymilk` every row carries a roster word, so the exemption in `isFlavouredVariant` turns the rule off for the whole head. The rows are read instead. The plain soy milk the corpus keeps is the Foundation row fdc:1999630, which carries the richer panel and the spelling people type and which ships as `Soy milk, unsweetened, plain` — it published as `…, shelf stable` and lost the shelf word to ADR-0104's storage strip; `original and vanilla` is USDA's name for that same drink and goes with the rest of the head.",
     rows: [
       [172446, "Soymilk, original and vanilla, unfortified"],
       [
@@ -522,76 +522,54 @@ export const ADJUDICATED_VARIANTS: readonly AdjudicatedVariant[] =
   );
 
 /**
- * The collapsing axes a frozen mirror is allowed to differ on.
+ * True when USDA froze this record before it measured it.
  *
- * ADR-0103 §2 already rules that a trim and a grade name the same food — they
- * are true at purchase but written for a butcher's trade, and no reader of this
- * app has chosen between them. So a frozen New Zealand lamb loin trimmed to
- * 1/8" and a fresh one trimmed to 1/4" and graded choice are the same cut, and
- * asking them to match on those words would be re-importing a distinction that
- * record has already erased.
+ * **Not a mirror rule any more, and the widening is deliberate.** It shipped as
+ * one: a frozen row dropped only where an unfrozen row of the same cut was in
+ * the corpus, which reached the nine New Zealand lamb cuts USDA publishes frozen
+ * against an American fresh twin. Two rows were left standing and named here as
+ * the rule working — `Pork, fresh, ears, frozen`, which has no unfrozen pig ear
+ * anywhere, and `Turkey roast, boneless, frozen, seasoned, light and dark meat`,
+ * which is seasoned.
+ *
+ * Measured over the archives, those two are the whole of what the relational
+ * guard was buying, and the ground for keeping them was never stated — only that
+ * no twin existed. The wider claim is the one `isProcessedProduct` already makes
+ * about the same word, which is in its marker set: **a frozen food is a packaged
+ * form, bought off a freezer shelf with a label on it, and the label is what the
+ * OFF scan path reads.** Those two rows reach the corpus at all only because that
+ * filter exempts anything described `raw`, an exemption written to protect retail
+ * cuts and not to carry a seasoned turkey roast through it.
+ *
+ * So the drop no longer points at a survivor, and under ADR-0055 §1 it needs a
+ * claim about the record instead. It has one, and it is the same claim the
+ * processed filter makes.
+ *
+ * **Whole segment, never a substring**, which is ADR-0103 §10's rule and is
+ * doing real work twice over:
+ *
+ *   - `Durian, raw or frozen` writes the state as ONE segment, so `frozen` is
+ *     not a segment there and the corpus's only durian is untouched. What that
+ *     row loses is the phrase itself, to `STATE_QUALIFIERS` in
+ *     `usda-shipped-name.ts`, which holds the five spellings of the uncooked
+ *     state and now a sixth that pairs it with the freezer.
+ *   - `Fish, cod, Pacific, raw (may have been previously frozen)` is a hedge
+ *     about handling rather than a frozen record, and `stripNonNamingQualifiers`
+ *     has taken it off the name before this is ever asked.
+ *
+ * **It runs LAST, over the names that will ship**, and that has not changed with
+ * the widening even though a rule this shape could now run anywhere. Two reasons
+ * hold it here. Six frozen pasteurized egg rows are hand-adjudicated variants
+ * (#186's read of all 21 egg rows), and a general rule taking them earlier would
+ * silently retire a reading somebody did one row at a time. And the New Zealand
+ * lamb still says `New Zealand, imported` until ADR-0056's origin strip runs, so
+ * a census counting this rule against USDA's own descriptions would report a
+ * different population from the one it takes.
+ *
+ * Reaches 11 rows: the nine lamb cuts, the pig ears and the turkey roast.
  */
-const COLLAPSING_AXIS =
-  /^(usda )?(choice|select|prime|all grades|trimmed to (0|1\/8|1\/4)" ?fat)$/;
-
-/**
- * True when this row is a frozen copy of a food the corpus already carries
- * fresh.
- *
- * USDA publishes New Zealand lamb frozen and American lamb fresh, cut for cut:
- * nine rows whose only difference from a shipping row is the freezing and the
- * trade words above. Freezing is not a preparation and not a food — it is how
- * the meat travelled — and a reader typing `lamb` should not meet the same cut
- * twice because one of them crossed an ocean.
- *
- * **Relational, and the survivor is proved rather than assumed.** It fires only
- * where an unfrozen row of the same cut is in the corpus being built, which is
- * the shape ADR-0055 §1 admits and the one ADR-0103 §7 states as a principle: a
- * drop that can point at a survivor is a collapse, and a collapse fires
- * corpus-wide because its worst case is a wrong representative rather than a
- * missing food.
- *
- * **So it takes no read head**, unlike the three rules above it. Those remove a
- * food on a judgement about who looks for it and are confined to a head somebody
- * has read; this removes a second copy of a food that stays.
- *
- * Two frozen rows are deliberately left standing, and both are the rule working:
- * `Pork, fresh, ears, frozen` has no unfrozen pig ear anywhere in the corpus, and
- * `Turkey roast, boneless, frozen, seasoned, light and dark meat` is seasoned,
- * which is a different food and not a copy of one.
- *
- * **It runs LAST, over the names that will ship**, and that is not a detail. The
- * three rules above it see USDA's own descriptions, where this row is still
- * `Lamb, New Zealand, imported, frozen, loin, …` — ADR-0056's origin strip has
- * not run yet, so its identity carries two words the fresh row never had and no
- * mirror is ever found. Asked after the strips, the two names differ by the
- * freezing alone. It is the third rule in this corpus to need that ordering,
- * after the designation tag and the Food Distribution Program gloss.
- *
- * @param siblings - Every shipping description sharing this row's head phrase,
- *   this one included.
- */
-export function isFrozenMirror(
-  description: string,
-  siblings: readonly string[]
-): boolean {
-  const isFrozen = (name: string) =>
-    qualifiersOf(name).slice(1).includes("frozen");
-  if (!isFrozen(description)) return false;
-  const identity = (name: string) =>
-    qualifiersOf(name)
-      .filter(
-        (part, at) =>
-          at === 0 || (part !== "frozen" && !COLLAPSING_AXIS.test(part))
-      )
-      .join("|");
-  const mine = identity(description);
-  return siblings.some(
-    (sibling) =>
-      sibling !== description &&
-      !isFrozen(sibling) &&
-      identity(sibling) === mine
-  );
+export function isFrozenRecord(description: string): boolean {
+  return qualifiersOf(description).slice(1).includes("frozen");
 }
 
 /**
@@ -641,29 +619,17 @@ export function resolveVariantDrops(
 }
 
 /**
- * Every frozen mirror in a finished corpus, by `fdcId`.
+ * Every frozen record in a finished corpus, by `fdcId`.
  *
- * Takes the rows rather than being asked one at a time, because the question is
- * about the corpus: whether an unfrozen row of this cut is in it.
+ * Kept as a corpus-wide call rather than folded into the caller's loop so the
+ * generator's seam does not change shape: `usda-adjudication.mjs` asks this one
+ * question of the finished names, exactly where it asked the mirror question.
  */
-export function resolveFrozenMirrors(
+export function resolveFrozenRecords(
   rows: readonly VariantRow[]
 ): ReadonlySet<number> {
-  const byHead = new Map<string, string[]>();
-  for (const row of rows) {
-    const head = headPhrase(row.description);
-    const siblings = byHead.get(head);
-    if (siblings) siblings.push(row.description);
-    else byHead.set(head, [row.description]);
-  }
-  const mirrors = new Set<number>();
+  const frozen = new Set<number>();
   for (const row of rows)
-    if (
-      isFrozenMirror(
-        row.description,
-        byHead.get(headPhrase(row.description)) ?? []
-      )
-    )
-      mirrors.add(row.fdcId);
-  return mirrors;
+    if (isFrozenRecord(row.description)) frozen.add(row.fdcId);
+  return frozen;
 }

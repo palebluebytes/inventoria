@@ -14,12 +14,13 @@ import {
   dropUncontestedQualifiers,
   renameSeedMaturity,
   resolveShippedNames,
+  resolveStorageNames,
   stripEnrichment,
   stripNonNamingQualifiers,
 } from "../../src/lib/food/usda-shipped-name";
 import {
   ADJUDICATED_VARIANTS,
-  resolveFrozenMirrors,
+  resolveFrozenRecords,
   resolveVariantDrops,
 } from "../../src/lib/food/usda-variant-drops";
 
@@ -37,13 +38,14 @@ import {
  */
 const app = {
   resolveVariantDrops,
-  resolveFrozenMirrors,
+  resolveFrozenRecords,
   ADJUDICATED_VARIANTS,
   resolveShippedNames,
   stripNonNamingQualifiers,
   dropUncontestedQualifiers,
   stripEnrichment,
   renameSeedMaturity,
+  resolveStorageNames,
   ADJUDICATED_NAMES,
 } satisfies Partial<AppModule> as unknown as AppModule;
 

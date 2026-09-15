@@ -103,7 +103,8 @@ const RULE_ORDER = [
   "dehydrated_form",
   "fortification_duplicate",
   "adjudicated_variant",
-  "frozen_mirror",
+  "frozen_record",
+  "storage_collision",
   "collision",
   "preparation_sibling",
   "designation_collision",
@@ -183,9 +184,13 @@ const RULE_BLURB = {
     "Removed by hand, under a read head",
     "Four head phrases have been read row by row — Milk, Yogurt, Soymilk and Egg. A drop may fire nowhere else.",
   ],
-  frozen_mirror: [
-    "A frozen copy of a fresh cut",
-    "USDA publishes New Zealand lamb frozen and American lamb fresh, cut for cut. It fires only where the unfrozen row provably ships.",
+  frozen_record: [
+    "USDA froze it before measuring it",
+    "A freezer-aisle food is a packaged one with a label on it, and the label is the scanner's job rather than this corpus's. The word has to be a whole comma-segment, which is what leaves the corpus's only durian standing: USDA wrote it <span class=\"rec\">Durian, raw or frozen</span>, where <em>frozen</em> is half a segment and not one.",
+  ],
+  storage_collision: [
+    "A second record of one food, off a different shelf",
+    "<em>refrigerated</em> and <em>shelf stable</em> say where a shop kept a food, not which food it is. Once the word comes off, two rows want one name and the fuller panel keeps it.",
   ],
   collision: [
     "Its new name is already taken",

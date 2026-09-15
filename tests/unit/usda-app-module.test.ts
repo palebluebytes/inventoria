@@ -62,14 +62,15 @@ describe("the app seam — the scripts borrow the app instead of copying it", ()
     expect(VARIANT_DROP_EXPORTS).toEqual([
       "resolveVariantDrops",
       "ADJUDICATED_VARIANTS",
-      "resolveFrozenMirrors",
+      "resolveFrozenRecords",
     ]);
     expect(typeof variantDrops.resolveVariantDrops).toBe("function");
     expect(Array.isArray(variantDrops.ADJUDICATED_VARIANTS)).toBe(true);
-    // The frozen-mirror rule is a third export and a corpus-wide one: it asks
-    // whether an unfrozen row of this cut ships, so it takes the rows rather
-    // than one description, and it runs after the name strips.
-    expect(typeof variantDrops.resolveFrozenMirrors).toBe("function");
+    // The frozen rule is a third export. It no longer asks anything about the
+    // corpus — a frozen record does not ship whether or not an unfrozen twin
+    // does — but it stays a corpus-wide call so the generator's seam keeps its
+    // shape, and it still runs after the name strips.
+    expect(typeof variantDrops.resolveFrozenRecords).toBe("function");
   });
 
   it("names only real exports of the ranking", () => {
