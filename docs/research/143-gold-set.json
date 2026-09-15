@@ -344,7 +344,7 @@
       "lead_today": "Cowpeas, young pods with seeds",
       "shapes": ["b-part"],
       "verdict": "miss",
-      "should_lead": "Cowpeas, common (blackeyes, crowder, southern), mature seeds",
+      "should_lead": "Cowpeas, common (blackeyes, crowder, southern), dried",
       "note": "The part key fires on 'seeds' and would promote 'leafy tips' — which is itself a part. Worse, not better.",
       "ratified": false,
       "lead_fdc_id": 168405,
@@ -361,16 +361,17 @@
       "note": "Leads with a duck egg. NB there is NO plain fresh shell-egg row in the corpus; the designated row is the best available, not the right one.",
       "ratified": false,
       "lead_fdc_id": 172189,
-      "should_lead_fdc_id": 323604
+      "should_lead_fdc_id": 323604,
+      "should_lead_dropped": true
     },
     {
       "head": "eggs",
       "hits": 45,
       "tied_at_top": 3,
-      "lead_today": "Eggs, Grade A, Large, egg white",
+      "lead_today": "Egg, chicken, white, fresh",
       "shapes": [],
       "verdict": "miss",
-      "should_lead": "Eggs, Grade A, Large, egg whole",
+      "should_lead": "Egg, chicken, whole, fresh",
       "note": "White and yolk are parts; whole is the food. Not reachable: 'egg white' is not in the part list.",
       "ratified": false,
       "lead_fdc_id": 747997,
@@ -392,7 +393,7 @@
       "head": "lamb",
       "hits": 285,
       "tied_at_top": 129,
-      "lead_today": "Lamb, composite of trimmed retail cuts, separable lean and fat, trimmed to 1/4\" fat, choice",
+      "lead_today": "Lamb, composite of trimmed retail cuts",
       "shapes": ["b-part"],
       "verdict": "correct",
       "should_lead": null,
@@ -746,7 +747,7 @@
       "lead_today": "Veal, Australian, rib, rib roast, separable lean only, raw",
       "shapes": ["b-part"],
       "verdict": "miss",
-      "should_lead": "Veal, composite of trimmed retail cuts, separable lean and fat",
+      "should_lead": "Veal, composite of trimmed retail cuts",
       "note": "An Australian rib roast leads. The generic composite exists and is buried.",
       "ratified": false,
       "should_lead_fdc_id": 173815
@@ -803,5 +804,5 @@
     "ratified_count": 22,
     "ratification": "WAIVED 2026-08-21 at the maintainer's direction. §8.3 required a human to read all 50 before a key was written; the review tool built for it was removed and the step skipped. These verdicts are LLM-proposed and independently unread. The key shipped anyway; see ADR-0042's #143 Amendment."
   },
-  "repinned": "2026-09-13: every case gained the `fdcId` of the row it names, and the descriptions were re-read off the corpus. The uncooked-corpus change renamed most of these rows (`Arugula, raw` -> `Arugula`), and this file was keyed on DESCRIPTION alone - so a harness asking whether a head still leads with its recorded row silently skipped 18 of the 19 adjudicated-correct cases and reported no breakage because it had checked almost nothing. #188 keys its own set by `fdcId` for exactly this reason. `lead_dropped` marks a case whose row has left the corpus."
+  "repinned": "2026-09-13: every case gained the `fdcId` of the row it names, and the descriptions were re-read off the corpus. The uncooked-corpus change renamed most of these rows (`Arugula, raw` -> `Arugula`), and this file was keyed on DESCRIPTION alone - so a harness asking whether a head still leads with its recorded row silently skipped 18 of the 19 adjudicated-correct cases and reported no breakage because it had checked almost nothing. #188 keys its own set by `fdcId` for exactly this reason. `lead_dropped` marks a case whose row has left the corpus. 2026-09-15 (#436): re-read again after ADR-0103 §5's strip shortened 174 survivor names — 5 labels moved, every `fdcId` unchanged, and one missing `should_lead_dropped` marker was set. The labels are what a reader matches against; the `fdcId` is the case."
 }
