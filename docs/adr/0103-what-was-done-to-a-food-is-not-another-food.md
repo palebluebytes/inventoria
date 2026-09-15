@@ -2,7 +2,7 @@
 
 **Status:** Accepted  
 **Date:** 2026-09-12  
-**Implemented:** [#434](https://github.com/palebluebytes/inventoria/issues/434) — `src/lib/food/usda-collapse-roster.ts` (§2's roster, §3's two keys, §5's eligibility test) reached through `scripts/usda-app-module.mjs`'s seam (§9); [#435](https://github.com/palebluebytes/inventoria/issues/435) — `scripts/usda-collapse.mjs` (§3's grouping, §4's chain, §6's corpus-wide firing, §9's survivor assertion and §9's account at `docs/research/190-corpus-account.md`), run last from `scripts/usda-bundle.mjs` and replayed by `scripts/usda-drop-census.mjs`, which is where every collapsed row names its survivor. **§5's strip is outstanding** and is [#436](https://github.com/palebluebytes/inventoria/issues/436): survivors ship under the names USDA published, so a collapsed group's row still reads `Beef, composite of trimmed retail cuts, separable lean and fat, trimmed to 0" fat, choice`  
+**Implemented:** [#434](https://github.com/palebluebytes/inventoria/issues/434) — `src/lib/food/usda-collapse-roster.ts` (§2's roster, §3's two keys, §5's eligibility test) reached through `scripts/usda-app-module.mjs`'s seam (§9); [#435](https://github.com/palebluebytes/inventoria/issues/435) — `scripts/usda-collapse.mjs` (§3's grouping, §4's chain, §6's corpus-wide firing, §9's survivor assertion and §9's account at `docs/research/190-corpus-account.md`), run last from `scripts/usda-bundle.mjs` and replayed by `scripts/usda-drop-census.mjs`, which is where every collapsed row names its survivor; [#436](https://github.com/palebluebytes/inventoria/issues/436) — §5's strip as `resolveCollapsedNames` in `src/lib/food/usda-shipped-name.ts`, licensed by `collapseCorpus` and asserted by `assertNamesClaimNoLess` and `assertNoAxisHidesInAGloss` in `scripts/usda-collapse.mjs`, so a collapsed group's row reads `Beef, composite of trimmed retail cuts` rather than `Beef, composite of trimmed retail cuts, separable lean and fat, trimmed to 0" fat, choice`  
 **Amended by:** [ADR-0104](0104-the-corpus-is-ingredients-as-bought-and-not-yet-cooked.md), which keeps §2's as-bought line and replaces the §2–§4 collapse as the mechanism: the cooked records are removed rather than merged. It also corrects this record's Context, whose "the fix that reaches USDA's granularity is the fix that deletes quinoa" rests on a substring match of `/cooked/` that also matched the fourteen rows saying **un**cooked — against §10's own standing warning. Under a word boundary quinoa, teff, spelt and apricots all survive the cut
 
 This record amends [ADR-0055](0055-who-eats-a-food-ranks-it-and-never-drops-it.md)
@@ -703,3 +703,156 @@ stops instead and names where the live account is:
 written by the generator, and `docs/research/usda-drop-census.json` for every
 collapsed row and the survivor it names. `USDA_INDEX_PATH` and `USDA_STORE_PATH` point it
 at a pre-collapse pair, which reproduces research note #191's numbers exactly.
+
+## Amendment (2026-09-15, #436): §5's strip shipped, and the collisions it was written against do not exist
+
+The flank steak reads `Beef, flank, steak`. **174 of the 179 merged groups ship
+their representative under its residual description**, and the other five are
+§5's coverage holes, which keep the whole name USDA published — what a hole
+forbids is the strip, never the row, and that is now a thing the generator does
+rather than a thing this record says.
+
+§5 writes no strip of its own: it gives [ADR-0056](0056-a-name-loses-the-parts-that-do-not-name-the-food.md)
+§1's positional strip a second roster. So the rule is `resolveCollapsedNames` in
+`src/lib/food/usda-shipped-name.ts`, beside that record's other three rosters and
+beside the one answer to "are these two rows one name", and it imports
+`residualDescription` from `usda-collapse-roster.ts` rather than spelling the
+removal a second time. **The licence arrives from the collapse and is not
+computable from a name** — a group merged, and held a record eligible to
+represent it — so `scripts/usda-collapse.mjs` hands over the `fdcId`s and this
+file is told rather than asking. `Quinoa, cooked` is why: it is the only quinoa
+USDA publishes, its name is true, and nothing in it says so.
+
+### §5 is asserted, and the assertion reads three different ways it could lie
+
+A safety rule that is assumed is not one. `assertNamesClaimNoLess` reads every
+name the strip shortened and refuses a generation where any of these is false:
+
+- **The row was licensed.** A name shortened with no group behind it is
+  `Quinoa` over a cooked panel.
+- **What it lost is exactly its residual description** — the same segments, in
+  the same order, spelled the same way, so a strip that reached inside a kept
+  segment is caught rather than counted.
+- **Every segment it lost is claimed by a preferred axis.** This is the one that
+  matters: `residualDescription` strikes out `separable lean only` as readily as
+  `choice`, so the licence is the only thing standing between a dissected
+  fraction and a name claiming a whole steak. A unit test hands the assertion
+  that exact corpus and it refuses it.
+
+### §10's trap fired a fourth time, and the guard is what caught it
+
+The three previous bites were the designation tag, the Food Distribution Program
+gloss and `(may have been previously frozen)`, all the same shape: a bracket
+welded to the end of a segment, so a whole-segment pattern walks past a word it
+was written to take. `assertNoAxisHidesInAGloss` asks the question of the names
+that SHIP — for every segment the roster walks past, what would it say with the
+trailing bracket removed — and it found a fourth on the day it was written:
+
+> `Pork, cured, separable fat (from ham and arm picnic)`
+
+The separation entry now admits a trailing parenthetical. **Admitting it cannot
+take the gloss's own fact with it, because that entry is non-preferred**: a
+record stating it never represents a group, so no strip ever reaches the segment.
+What the wider pattern changes is the grouping — the row's residual is
+`Pork, cured` rather than a description of itself — and measured over the shipped
+corpus no other row holds that residual, so nothing moved. The guard reads 6,105
+segments a generation and this is the only one it has ever had to say anything
+about.
+
+### The collisions this ticket was commissioned to resolve number zero, and the reason is structural
+
+The hand-off expected "two groups whose residuals are the same string". **That
+cannot happen.** Two rows with the same residual description have the same
+collapse group key, which is the residual with punctuation normalised away — so
+they are one group, with one representative. What the check can actually catch is
+narrower and is still worth having: a residual that collides on STEMS with a
+group whose key differs by punctuation, or with a name an unstripped row keeps —
+a group of one, a coverage hole, or an `also` alias, since `bestNameKey` ranks a
+query against an alias exactly as against a description.
+
+Measured over the corpus: **174 stripped, 0 refused.**
+
+**A refusal is [ADR-0062](0062-a-foods-own-name-is-what-retrieves-it.md) §3's and
+not ADR-0056 §4's**, and the difference is not stylistic. There is no origin here
+to say which of two rows loses, and §6 fires the collapse under 484 unread head
+phrases on the express ground that its worst case is a wrong representative
+rather than a missing food. A strip that deleted a row would take that ground
+away. So the rename is simply not made and the row keeps the name it has, which
+is also why the refusal is counted: it changes nothing, so a rule the corpus
+blocked and a rule that reached nothing look identical from outside.
+
+### No alias is carried, and ADR-0056 §3 is the precedent
+
+The 2026-09-15 hand-off left the aliasing decision here, on the ground that "once
+`Beef, flank, steak, separable lean and fat, trimmed to 0" fat, choice` ships as
+`Beef, flank, steak`, the words that found it are gone from the row". They are,
+and they are not carried back:
+
+- **ADR-0056 §3 decided this shape already.** The origin words left the corpus
+  entirely — not searched, not ranked, not displayed — because "a name a user can
+  read but not type is worse than one they can do neither with". Nobody types
+  `separable lean and fat, trimmed to 0" fat`. §2 classifies these segments as a
+  trade specification the shopper never sees, which is the same sentence.
+- **An alias is ranked.** `bestNameKey` scores a query against `also` exactly as
+  against a description, so 174 long aliases would put `choice`, `select` and
+  `trimmed to 0" fat` back into the ranked vocabulary — the choice overload the
+  whole map exists to reduce, re-imported by the rule that just removed it.
+- **It costs no archived name.** `assertTwinNamesRetrieve` asks its question of
+  the merge, before either name pass. Re-asked of the SHIPPED corpus, 159 of the
+  270 archived names under a still-shipping identity fail to retrieve — and the
+  figure is **159 before the strip and 159 after it**. The strip takes no name
+  the collapse had not already taken.
+
+What is lost is measurable and is stated rather than denied: typing a row's full
+USDA description finds nothing for the 174 rows renamed here, as it already found
+nothing for 377 of the 381 rows the collapse took. **The trade vocabulary does
+not leave the corpus**, which is where this differs from ADR-0056 §3: the strip
+is conditional, so it survives on the rows it could not reach. `separable lean
+only` still returns 22 rows, `choice` 7 and `trimmed to 0" fat` 7, against 22, 39
+and 39 before. `flank steak`, `pork tenderloin`, `lamb loin` and `sirloin steak`
+return exactly what they did.
+
+### What moved, and the one thing that moved back
+
+**#188's two conditions do not move: C1 25/44 and C2 31/44**, the same pair the
+#435 Amendment reported for the collapse itself, with no gold row lost and none
+re-pinned. `beef` is 135 rows and `lamb` 65, unchanged — the strip renames and
+never removes.
+
+**`aust beef` gives back the lead ADR-0056 moved onto a separated fat.** That
+record's Consequences pinned it as collateral: `aust` matched `Aust. marble
+score` in every Wagyu row, and the rename left `Beef, Wagyu, external fat` short
+enough for `accounted` to prefer it over a steak. Six Wagyu rows carried a marble
+score; five of their groups merged, so five lose the grade and `aust` stops
+reaching them. The sixth is a group of ONE, so §5 forbids the strip, it keeps
+USDA's whole name, and it is now the only row the query reaches — a top loin
+steak. The rule did not go looking for this and could not have; it is what the
+licence does when it declines to fire.
+
+**`plain_sibling` goes 225 to 235**, in the opposite direction to the collapse's
+own move and for ADR-0056's Amendment's reason: shortening a name MAKES
+qualifier-prefix relations that did not exist. `Beef, flank, steak, separable
+lean and fat, trimmed to 0" fat, choice` is a prefix of nothing; `Beef, flank,
+steak` sits under `Beef, flank` and takes `Beef, flank, steak, boneless, choice`
+under itself. Nine of the ten are a butchery cut meeting its own primal.
+
+**A row searched by its own full description leads it 135 times against 127**,
+and `lost` is still zero — the invariant no key or corpus change has ever broken.
+
+### The gold set was re-read, and one case had been passing unnoticed
+
+`docs/research/143-gold-set.json` is keyed on `fdcId` and carries the description
+as a human label. Five labels moved and no `fdcId` did. Two of the five are this
+record's — `veal` and `lamb` — and **two had been stale since ADR-0104**:
+`cowpeas` still said `mature seeds` and `eggs` still said `Eggs, Grade A, Large,
+egg whole`.
+
+That second one matters, because the test reading this file compares strings.
+`eggs` has led `fdc:748967` — the row the gold set designates — since ADR-0104
+renamed it, and the comparison was failing against a label rather than against
+the corpus. **The set of cases leading correctly is nine rather than eight, and
+the ninth is not a gain this change made.** It is #143's own trap a third time,
+after ADR-0104's and the file's own `repinned` note: a set keyed on a description
+measures the description. `docs/research/188-consolidation-bar.json` was re-read
+in the same pass; two of its 56 labels were stale and C1 and C2 are identical
+either side, which is what a set that ranks by `fdcId` owes.
