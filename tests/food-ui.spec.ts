@@ -1883,11 +1883,15 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     );
     await expect(page.getByLabel("Amount in grams")).toHaveValue("230");
 
-    // The commit says what it will log at the weight on screen, so the panel is
-    // being divided by the millilitres those grams are, not by the grams
+    // The figures say what will be logged at the weight on screen, so the panel
+    // is being divided by the millilitres those grams are, not by the grams
     // (ADR-0105 §5): 250 ml at 824 kcal/100 ml is 2,060 kcal, and dividing the
-    // 230 unconverted would have read 1,895.
-    await expect(page.locator("#log-food-btn")).toContainText("2060");
+    // 230 unconverted would have read 1,895. Read off the breakdown rather than
+    // the commit button, which says "Log" and nothing else on every flow in this
+    // sheet (ADR-0035 §UI) and never carried a figure to assert.
+    await expect(
+      page.locator(".staged .preview .nutrient-calories strong")
+    ).toContainText("2060");
 
     // And it goes back. Both units stay available on a classified food.
     await units.locator('[data-value="ml"]').click();

@@ -3469,6 +3469,13 @@
      it the way every other block on this form is. */
   .cf-density {
     margin-top: var(--space-s);
+    /* The column it sits in is `align-items: flex-start`, so a child is sized to
+       fit its content — and this one's content is a `Segmented` whose grid
+       tracks are `minmax(0, 1fr)`, which can fit into nothing at all. Without
+       this the class question rendered at zero width: present in the DOM,
+       reachable by a test's locator, and invisible to the person the question is
+       for. */
+    align-self: stretch;
   }
   .cf-basis {
     display: flex;
