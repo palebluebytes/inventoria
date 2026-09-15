@@ -9,6 +9,7 @@ import {
   type Portion,
 } from "./nutrition";
 import { buildRawProvenance, type RawProvenance } from "./provenance";
+import { namesMoreThanOneMagnitude } from "./serving-size";
 import { getSecret } from "../stores/secrets";
 
 // Mapper version, bumped when the OFF -> nutrition/info normalisation changes.
@@ -38,7 +39,12 @@ import { getSecret } from "../stores/secrets";
 //     offers the "1 can" chip v8 had to give up. Forward-only: a drink already
 //     in the ledger keeps its portion-less payload until it is looked up again,
 //     which is the same thing it shows today.
-const ADAPTER_VERSION = "9";
+// v10: a serving whose `serving_size` names more than one distinct magnitude
+//     emits no portion, because OFF's quantity and its unit are parsed from that
+//     one string by two regexes that pick different tokens out of it
+//     (ADR-0052 §2's Amendment, #433). Forward-only: a product already in the
+//     ledger keeps the portion it was given until it is looked up again.
+const ADAPTER_VERSION = "10";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -439,6 +445,14 @@ function isMillilitres(unit: string | undefined): boolean {
  * volume masquerading as one. That cost 57 of 100 sampled beverages their
  * one-tap serving. The sibling field (ADR-0060 §6) is what buys it back, and the
  * unit is now carried rather than assumed either way.
+ *
+ * What it still cannot decide is a serving whose `serving_size` names more than
+ * one magnitude. OFF parses the quantity and the unit out of that one string
+ * with two regexes that prefer opposite ends of it, so `15g + 250mL` yields the
+ * milk's 250 under the powder's `g` — and #433 measured that the number names
+ * the wrong substance more often than the unit is merely mislabelled, which is
+ * why such a serving is dropped rather than re-read
+ * ({@link namesMoreThanOneMagnitude}, ADR-0052 §2's Amendment).
  */
 function offPortions(
   serving_quantity: number | string | undefined,
@@ -451,6 +465,7 @@ function offPortions(
       : serving_quantity;
   if (quantity == null || !Number.isFinite(quantity) || quantity <= 0)
     return [];
+  if (namesMoreThanOneMagnitude(serving_size)) return [];
   const label = serving_size?.trim() || "1 serving";
   const magnitude = isMillilitres(serving_quantity_unit)
     ? { millilitres: quantity }
@@ -558,8 +573,8 @@ export function mapOffProductToPayload(product: OFFProduct): OffPayload {
   // Household portion (ADR-0030 §2/§5). OFF's single product response already
   // carries the serving, so no second network call: map serving_quantity to one
   // food/portions entry, labelled by serving_size when present. Omitted entirely
-  // when the product reports no usable serving weight — including a serving OFF
-  // measured in millilitres (ADR-0052 §2).
+  // when the product reports no usable serving magnitude, and when the string it
+  // was parsed from names more than one (ADR-0052 §2's Amendment, #433).
   const portions = offPortions(
     p.serving_quantity,
     p.serving_quantity_unit,

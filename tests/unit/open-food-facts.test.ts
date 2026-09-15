@@ -459,6 +459,71 @@ describe("mapOffProductToPayload", () => {
     );
   });
 
+  it("emits no portion when serving_size names more than one magnitude (#433)", () => {
+    // Product 19105994, live at the time #433 was filed: the 250 was read off
+    // `250mL` and the unit off `15g`, so OFF's own two fields describe two
+    // different tokens. A 250 g serving of chocolate powder is the result, and
+    // re-reading the unit only makes it 250 ml of chocolate powder instead.
+    const powder: OFFProduct = {
+      ...nutella,
+      product: {
+        ...nutella.product,
+        serving_quantity: 250,
+        serving_quantity_unit: "g",
+        serving_size: "15g + 250mL",
+      },
+    };
+    const attrs = mapOffProductToPayload(powder).attributes;
+    expect(attrs).not.toHaveProperty("food/portions");
+    // The panel is untouched — it is read off the pack's own unit (ADR-0052 §1)
+    // — so the food stays fully loggable by typing an amount.
+    expect((attrs["nutrition/info"] as NutritionInfo).serving_size).toBe(
+      "100 g"
+    );
+  });
+
+  it("keeps a portion whose serving_size restates one magnitude (#433)", () => {
+    // 3362600011006: `2,998 Oz` IS 85 g, so the two tokens agree and the rule
+    // has nothing to refuse. Losing this one would cost a good chip for nothing.
+    const biscuits: OFFProduct = {
+      ...nutella,
+      product: {
+        ...nutella.product,
+        serving_quantity: 85,
+        serving_quantity_unit: "g",
+        serving_size: "15 biscuits (85g/2,998 Oz)",
+      },
+    };
+    expect(
+      mapOffProductToPayload(biscuits).attributes["food/portions"]
+    ).toEqual([
+      {
+        label: "15 biscuits (85g/2,998 Oz)",
+        amount: 1,
+        unit: "serving",
+        grams: 85,
+      },
+    ]);
+  });
+
+  it("emits no portion for a volume named under an absent unit (#433)", () => {
+    // `serving_quantity_unit` missing makes isMillilitres false, so this would
+    // have stored 8 millilitres as 8 grams. The multi-magnitude rule catches it
+    // incidentally; an absent unit is its own defect and its own ticket.
+    const drink: OFFProduct = {
+      ...nutella,
+      product: {
+        ...nutella.product,
+        serving_quantity: 8,
+        serving_quantity_unit: undefined,
+        serving_size: "8 ml (240 ML)",
+      },
+    };
+    expect(mapOffProductToPayload(drink).attributes).not.toHaveProperty(
+      "food/portions"
+    );
+  });
+
   it("keeps a gram serving on a millilitre product (#148)", () => {
     // Alpro's oat milks are 1 L cartons whose serving OFF holds as 100 g. The
     // panel is per 100 ml and the portion is a genuine weight — two fields

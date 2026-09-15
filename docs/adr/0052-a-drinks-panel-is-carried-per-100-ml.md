@@ -185,3 +185,114 @@ and stays available if the mix becomes a problem.
 compiler cannot say so because the field is a string. §4 keeps the arithmetic safe;
 the comparisons are in `buildOffWriteBody` and the correction form's inversion, and
 a fourth basis would want the field typed rather than a third literal added.
+
+## Amendment (2026-09-15): §2's unit is only trustworthy where the string it came from names one magnitude
+
+§2 reads `serving_quantity_unit` to decide which of a `Portion`'s sibling fields a
+serving's magnitude goes in. **That field can name a different token than the value
+beside it**, and Open Food Facts knows: `normalize_serving_size` and
+`extract_standard_unit` run different regexes over the same `serving_size` string
+and prefer opposite ends of it — the first a greedy prefix, so the **last**
+number+unit wins; the second unanchored, so the **first** does
+([openfoodfacts-server#7768](https://github.com/openfoodfacts/openfoodfacts-server/issues/7768),
+open, filed 2022). Where the string holds one number+unit token the disagreement is
+invisible. Where it holds two, the number and the unit describe different things.
+
+Confirmed live on product `19105994` at the date of this amendment:
+
+```json
+{
+  "serving_size": "15g + 250mL",
+  "serving_quantity": 250,
+  "serving_quantity_unit": "g"
+}
+```
+
+**The defect is not principally a mislabelled unit.** Of ten at-risk rows classified
+by hand in [#433](https://github.com/palebluebytes/inventoria/issues/433), five were
+wrong in both fields, three in the value alone, and **none in the unit alone**. Eight
+were the same product shape — a powder you prepare with milk — where the quantity OFF
+picked names **the milk rather than the food**: `15 g + 200 ml de lait` becomes a 200
+unit serving of cocoa. So re-reading the unit out of the string, which is what §2's
+own machinery would suggest, is not a fix. It turns `19105994` into 250 ml _of
+chocolate powder_ — a different wrong answer — and repairs nothing at all for the rows
+whose unit was already right.
+
+### The rule
+
+**A serving whose `serving_size` names more than one distinct magnitude emits no
+portion.** A string every token of which restates one magnitude keeps it, in whatever
+units it restates it: `15 biscuits (85g/2,998 Oz)` names 85 g twice, and
+`35.7 g (1 tranche (environ 35.7 g))` names it twice in the same unit. Two tokens
+count as one magnitude when they resolve to the same unit and stand within **10%** of
+each other.
+
+That tolerance is set above every label rounding rather than below the nearest defect,
+because the two populations are nowhere near each other. A label rounds its conversion
+to a number a person reads, and that is worth more than the odd percent: `1 oz (28 g)`
+is 1.2% out, but `2 oz (60 g)` is 5.5% and `250 ml (8 fl oz)` 5.4%, and all three are
+one magnitude said twice. The widest across the dual-unit shapes a US label mandates
+is 5.5%. The same-unit disagreements the rule exists to catch stand **96% apart or
+more** — `8 ml (240 ML)`, `33.8 ml (1 L)` — and a disagreement across units is refused
+on the unit whatever the tolerance is. A first cut at 5% sat inside the rounding band
+and would have dropped the chip on exactly the benign US dual-unit rows the correction
+comment counts in their hundreds.
+
+`namesMoreThanOneMagnitude` (`src/lib/food/serving-size.ts`) is the whole of it, asked once by
+`offPortions`. §2 is otherwise unchanged: `serving_quantity_unit` still decides the
+unit, and a millilitre serving still emits a millilitre portion
+([ADR-0060](0060-an-amount-is-entered-in-its-panels-unit.md) §6) — but only where the
+string it was parsed from names one thing.
+
+### Measured, and worth less alarm than it reads
+
+The rate is **not** settled, and two samples disagree by about 18x because they sample
+different populations. A random sample of 1,000 products from OFF's search API put the
+at-risk shape at 1.3% of serving-bearing products and genuinely wrong rows at 1.1%. An
+audit of 229,348 records from OFF's JSONL export put the same shape at 1.11% but the
+genuinely wrong rows at **0.059%** — that export is barcode-ordered, so its head is
+almost entirely US/UPC products, whose labels mandate the benign dual-unit
+`85 g (3 oz)` shape and which barely include the European powder-plus-milk products
+that dominate a random draw. The honest bound is roughly **0.06% to 1.1%**, and
+pinning it needs a full pass over the 12.9 GB export. Corpus-wide counts that are
+exact, verified against the full CSV export: 4,535,553 products, 1,446,030 with a
+`serving_size`, 1,424,836 with a `serving_quantity`, 21,207 whose `serving_size` OFF
+could parse no quantity out of at all.
+
+The calorie exposure is smaller again. Seven of the eight wrong products in the
+hand-classified set publish only `*_prepared_*` nutriments, and `offPayload` reads
+`*_100g` exclusively, so they arrive with a portion and **no panel** — there is
+nothing for the bad magnitude to scale. Exactly one carried a plain panel, at a 1.7x
+overstatement. What the rest cost is a row reading "200 g" of a food nobody weighed,
+and a millilitre wearing a gram's label, which is the invariant
+[ADR-0060](0060-an-amount-is-entered-in-its-panels-unit.md) §2 exists to hold.
+
+This is a correctness fix, not an urgent one, and the cost is symmetrical: a little
+over 1% of serving-bearing products lose their one-tap chip. The panel is untouched —
+it is read from `product_quantity_unit` (§1) — so every one of them stays fully
+loggable by typing an amount.
+
+### What this rule does not cover
+
+An **absent** `serving_quantity_unit` is the same defect through a missing field
+rather than a wrong one: `isMillilitres(undefined)` is false, so `offPortions` takes
+the grams arm and a volume is stored as a weight. The audit found 43 such rows
+carrying a volume (`'8 ml (240 ML)'`, `'33.8 ml (1 L)'`). This rule catches those
+**incidentally**, because they happen to name two magnitudes; the 1,092 at-risk rows
+with an absent unit are a much larger population than the multi-magnitude shape and
+want a rule of their own. That rule is not decided here and **no ticket carries it
+yet**, which is the one loose end this amendment leaves.
+
+Two shapes the rule refuses that a cleverer one would keep, both costing a chip rather
+than storing a wrong figure: a magnitude restated as a product (`100 g (2 x 50 g)`,
+where the 50 stands alone as a second magnitude), and a string whose tokens are a
+genuine restatement rounded harder than 10%. Neither appeared in the audit, and both
+fail in the safe direction.
+
+**`ADAPTER_VERSION` moves to `"10"`** and, as with every widening in this adapter,
+the change is forward-only: a product already in the ledger keeps the portion it was
+given until it is looked up again.
+
+**ADR-0108's Density Classes do not help here.** A class converts a volume the _user_
+asserted for a food they are holding. This is a mislabelled import, and no class is
+asserted at scan time.
