@@ -55,6 +55,32 @@
   import { longpress } from "../../actions/longpress";
   import type { ScalePreview } from "../../food/scale-amount";
   import WayInBar from "./WayInBar.svelte";
+
+  // ── THROWAWAY: branch `prototype/way-in-bar-compact` ──────────────────────
+  // Three compact answers to the bar's ~150px, switched by `?variant=`. Every
+  // line of this is dead in a production build: `readVariant()` returns `null`
+  // outside DEV, so Rollup drops each branch and the shipped screen is exactly
+  // what it was. Delete the block, the four imports and the `{#if variant}`
+  // sites below to un-prototype this file.
+  import FusedPlate from "./compact-bar.prototype/FusedPlate.svelte";
+  import OneLine from "./compact-bar.prototype/OneLine.svelte";
+  import SplitTabs from "./compact-bar.prototype/SplitTabs.svelte";
+  import SplitDoors from "./compact-bar.prototype/SplitDoors.svelte";
+  import PrototypeSwitcher from "./compact-bar.prototype/PrototypeSwitcher.svelte";
+  import { readVariant, type Variant } from "./compact-bar.prototype/variants";
+  import { mealNearest } from "../../food/meal-type";
+
+  let variant = $state<Variant | null>(readVariant());
+  $effect(() => {
+    const onSwitch = (e: Event) =>
+      (variant = (e as CustomEvent<Variant>).detail);
+    window.addEventListener("prototype-variant", onSwitch);
+    return () => window.removeEventListener("prototype-variant", onSwitch);
+  });
+  // The target lives HERE rather than in each variant, so flipping between them
+  // keeps the meal you were pointing at — and because C's two halves are two
+  // components that have to agree about it. The shipped bar keeps its own.
+  let protoTarget = $state(mealNearest(new Date()));
   import LoggedFoodsPanel from "./LoggedFoodsPanel.svelte";
 
   let {
@@ -358,6 +384,16 @@
     <h2>{formatDateHeader(selectedDate)}</h2>
   </div>
 
+  <!-- THROWAWAY: variant C puts the meal at the head of the day and leaves only
+       the doors at the foot. Below 768 this copy is the live one. -->
+  {#if variant === "C"}
+    <SplitTabs
+      target={protoTarget}
+      onTarget={(m) => (protoTarget = m)}
+      place="head"
+    />
+  {/if}
+
   <!-- The day's totals: one bar per nutrient, Calories first among equals. Its
        header carries both controls — the disclosure that folds the bars away, and
        the way into the full day RDA-vs-target modal (ticket #42), which used to be
@@ -406,13 +442,52 @@
          Both are rendered HERE, in flow, because that is what the sticky half
          needs; the pinned half takes itself out of flow from the same place. -->
     <div class="way-in-slot">
-      <WayInBar
-        folded={selectionActive}
-        {dbReady}
-        {mealHasPast}
-        {onEnterMeal}
-        bind:height={wayInBarMeasured}
-      />
+      {#if variant === "A"}
+        <FusedPlate
+          target={protoTarget}
+          onTarget={(m) => (protoTarget = m)}
+          folded={selectionActive}
+          {dbReady}
+          {mealHasPast}
+          {onEnterMeal}
+          bind:height={wayInBarMeasured}
+        />
+      {:else if variant === "B"}
+        <OneLine
+          target={protoTarget}
+          onTarget={(m) => (protoTarget = m)}
+          folded={selectionActive}
+          {dbReady}
+          {mealHasPast}
+          {onEnterMeal}
+          bind:height={wayInBarMeasured}
+        />
+      {:else if variant === "C"}
+        <!-- C's strip is at the head of the day on a phone; this copy is the
+             one the column gets above 768, where there is no head to stick to
+             that the doors are not already beside. -->
+        <SplitTabs
+          target={protoTarget}
+          onTarget={(m) => (protoTarget = m)}
+          place="column"
+        />
+        <SplitDoors
+          target={protoTarget}
+          folded={selectionActive}
+          {dbReady}
+          hasPast={mealHasPast[protoTarget]}
+          {onEnterMeal}
+          bind:height={wayInBarMeasured}
+        />
+      {:else}
+        <WayInBar
+          folded={selectionActive}
+          {dbReady}
+          {mealHasPast}
+          {onEnterMeal}
+          bind:height={wayInBarMeasured}
+        />
+      {/if}
       <!-- The Selection's own bar, in the Way-in bar's slot. The two never stand
            here together — the Way-in bar folds the moment a Selection exists,
            which is what `folded` above is — so the slot holds whichever one the
@@ -734,6 +809,12 @@
   >
     <img src={previewPhoto} alt="Food Log Preview" class="photo-preview" />
   </BottomSheet>
+{/if}
+
+<!-- THROWAWAY: the variant switcher, outside `.day` so it cannot be placed
+     by the day's grid. Arrow keys flip too. -->
+{#if variant}
+  <PrototypeSwitcher {variant} />
 {/if}
 
 <style>
