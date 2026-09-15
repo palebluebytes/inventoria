@@ -39,6 +39,7 @@
   let {
     ingredients = $bindable(),
     recipeYield = $bindable(),
+    batchWeight = $bindable(""),
     servings = $bindable(1),
     servingsMode = "makes",
   }: {
@@ -46,6 +47,13 @@
     /** schema.org recipeYield; held loosely so the field can be cleared while
      *  typing, sanitised to a positive number for the live derivation. */
     recipeYield: number | string;
+    /**
+     * `makes` mode only: what the finished batch weighs, in grams — the default
+     * the Recipe Twin remembers (ADR-0106 §3). Held loosely like the yield
+     * beside it, and empty is the standing answer: a recipe nobody weighed is
+     * ordinary, and `sanitizeWeight` is what reads this back.
+     */
+    batchWeight?: number | string;
     /**
      * `portions` mode only: how many servings this occasion is. Bound out so the
      * saving surface can say it on the log (ADR-0106 §8). It is not a divisor by
@@ -242,6 +250,34 @@
   {/if}
 </div>
 
+{#if servingsMode === "makes"}
+  <!-- What the pot weighs when this recipe is cooked (ADR-0106 §2, §4). It sits
+       beside the count rather than replacing it: the two answer different
+       questions and neither derives the other, and `recipe/yield` is still
+       schema.org's `recipeYield` and the divisor behind every per-serving
+       figure.
+
+       It is NOT derived from the list above, and no default is offered from it.
+       A pot does not weigh what went into it — a stew simmers off water, rice
+       absorbs it — so Σ of the raw amounts is a different quantity, and seeding
+       this field with it would plant a number wrong in a direction nobody can
+       predict (ADR-0106 §7). Grams, with no unit beside it, because a scale is
+       the only place this number can have come from (§2). -->
+  <div class="yield-row">
+    <label class="fl" for="recipe-batch-weight">Batch weight (g)</label>
+    <input
+      id="recipe-batch-weight"
+      class="tin yield-in weight-in"
+      type="number"
+      inputmode="decimal"
+      min="0"
+      step="any"
+      placeholder="—"
+      bind:value={batchWeight}
+    />
+  </div>
+{/if}
+
 <!-- The derived figures, shown through the SAME preview a food's card uses
      (NutrientPreview): the tracked nutrients as a grid, the rest of the panel
      behind the full-nutrition disclosure. A recipe's numbers are derived rather
@@ -358,6 +394,10 @@
     padding: var(--space-2xs);
     text-align: center;
     font-weight: 700;
+  }
+  /* A weight in grams runs to four digits where a serving count runs to one. */
+  .weight-in {
+    width: 5rem;
   }
   .recipe-figures {
     margin-top: var(--space-s);

@@ -31,6 +31,7 @@ import {
   buildInstantiation,
   type Instantiation,
 } from "../food/recipe-instantiation";
+import { RECIPE_BATCH_WEIGHT_ATTR } from "../food/batch-weight";
 import {
   ingredientFromTwin,
   quantityLabel,
@@ -621,6 +622,14 @@ export interface RecipeInput {
   instructions?: string[];
   /** schema.org recipeYield; defaults to 1 (single-serving) this ticket. */
   yield?: number;
+  /**
+   * What the finished batch weighs, in grams — a remembered default the
+   * instantiation surface opens on (ADR-0106 §3). It sits **beside**
+   * {@link RecipeInput.yield} rather than deriving it or being derived from it
+   * (§4): 900 g in the pot says nothing about whether the cook thinks in four
+   * portions or six.
+   */
+  batch_weight?: number;
 }
 
 /**
@@ -669,6 +678,10 @@ export async function saveRecipe(
       [],
     ],
     ["recipe/image", input.image, ""],
+    // Zero is this attribute's `empty`: `sanitizeWeight` reads a non-positive
+    // figure as no batch weight at all, so the clearing sentinel and a field
+    // nobody filled in arrive at the one absent answer §7 falls back on.
+    [RECIPE_BATCH_WEIGHT_ATTR, input.batch_weight, 0],
   ];
   for (const [key, value, empty] of optionals) {
     if (isEdit || value) attributes[key] = value ?? empty;

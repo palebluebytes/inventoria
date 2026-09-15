@@ -15,6 +15,10 @@
     type RecipeIngredient,
   } from "../../food/recipe-ingredient";
   import { sanitizeYield } from "../../food/recipe-nutrition";
+  import {
+    RECIPE_BATCH_WEIGHT_ATTR,
+    sanitizeWeight,
+  } from "../../food/batch-weight";
   import { Accordion } from "bits-ui";
   import Alert from "../../ui/Alert.svelte";
   import Textarea from "../../ui/Textarea.svelte";
@@ -70,6 +74,11 @@
   // to a positive number for both the live derivation and the persisted value.
   let recipeYield = $state<number | string>(1);
   let yieldNum = $derived(sanitizeYield(recipeYield));
+  // What the finished batch weighs, remembered on the template so the
+  // instantiation surface opens on it instead of asking every time (ADR-0106
+  // §3). Empty is ordinary — a recipe nobody weighed offers the serving count
+  // alone when it is instantiated (§7).
+  let batchWeight = $state<number | string>("");
 
   // Editing seeds asynchronously (each template ref resolves to its CURRENT
   // twin), so the editor is held behind `ready`. Other modes are ready at once.
@@ -118,6 +127,7 @@
       const a = t.attributes;
       recipeName = a["recipe/name"] ?? "";
       recipeYield = a["recipe/yield"] || 1;
+      batchWeight = sanitizeWeight(a[RECIPE_BATCH_WEIGHT_ATTR]) ?? "";
       source = a["recipe/url"] ?? "";
       notes = a["recipe/description"] ?? "";
       image = a["recipe/image"] || null;
@@ -203,6 +213,7 @@
           instructions: steps.map((s) => s.text.trim()).filter(Boolean),
           image: image ?? undefined,
           yield: yieldNum,
+          batch_weight: sanitizeWeight(batchWeight),
         },
         mode === "edit" ? template?.entity : undefined
       );
@@ -300,7 +311,7 @@
     bind:value={recipeName}
   />
 
-  <IngredientListEditor bind:ingredients bind:recipeYield />
+  <IngredientListEditor bind:ingredients bind:recipeYield bind:batchWeight />
 
   <!-- Optional schema.org sections as a real accordion (#66): bits-ui supplies
        the role=heading trigger, aria-expanded, roving arrow-key focus between

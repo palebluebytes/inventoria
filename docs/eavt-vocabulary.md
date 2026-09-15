@@ -255,6 +255,15 @@ Recipe twins (schema.org/Recipe).
 - `instructions`: ordered HowToStep text.
 - `ingredients`: pure `{ ref, amount, unit }` references. Nutrition is derived, never
   stored.
+- `batch_weight`: what the finished batch weighs, **always in grams** and never a
+  `g | ml` union, because a batch weight has no Panel to read an Amount Unit off and
+  exactly one honest source, a scale
+  ([ADR-0106](adr/0106-a-recipe-occasion-is-sized-by-the-weight-you-put-on-the-scale.md) §2).
+  It is a remembered default the instantiation surface opens on, never a governor: an
+  occasion may override it, and the override never reaches back here (§3). It sits beside
+  `yield` rather than deriving it or being derived from it (§4), and it is not the sum of
+  the ingredient rows, since a pot does not weigh what went into it. Absent on every
+  recipe nobody weighed, which is the standing case; an edit clears it by writing `0`.
 
 ### `media/`
 

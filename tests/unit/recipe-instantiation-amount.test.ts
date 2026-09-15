@@ -67,6 +67,52 @@ describe("the serving count admits a fraction (ADR-0106 §6)", () => {
   });
 });
 
+describe("the template keeps both numbers (ADR-0106 §4)", () => {
+  it("asks what the batch weighs beside what it makes", () => {
+    const { body } = render(IngredientListEditor, {
+      props: {
+        ingredients: [row("fdc:1", "Rice", 180)],
+        recipeYield: 4,
+        batchWeight: 1600,
+        servingsMode: "makes",
+      },
+    });
+    // Both, because neither derives the other: 1,600 g in the pot says nothing
+    // about whether the cook thinks in four portions or six.
+    expect(body).toContain('id="recipe-yield"');
+    const field =
+      /<input[^>]*id="recipe-batch-weight"[^>]*>/.exec(body)?.[0] ?? "";
+    expect(field).toContain('value="1600"');
+    // Grams and no unit picker (§2): a batch weight has one honest source.
+    expect(field).toContain('inputmode="decimal"');
+    expect(body).toContain("Batch weight (g)");
+  });
+
+  it("offers the weight empty on a recipe nobody has weighed", () => {
+    const { body } = render(IngredientListEditor, {
+      props: {
+        ingredients: [row("fdc:1", "Rice", 180)],
+        recipeYield: 4,
+        servingsMode: "makes",
+      },
+    });
+    expect(body).toContain('id="recipe-batch-weight"');
+  });
+
+  it("never asks a batch weight of the occasion it is not defining", () => {
+    // The instantiation surface asks its own two questions (§1); this one field
+    // is the template's remembered default.
+    const { body } = render(IngredientListEditor, {
+      props: {
+        ingredients: [row("fdc:1", "Rice", 180)],
+        recipeYield: 1,
+        servingsMode: "portions",
+      },
+    });
+    expect(body).not.toContain('id="recipe-batch-weight"');
+  });
+});
+
 describe("a logged instantiation says how many servings it was (ADR-0106 §8)", () => {
   const loggedQuantity = async (servings?: number) => {
     (dbClient.append as any).mockClear();

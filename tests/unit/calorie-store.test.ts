@@ -331,6 +331,65 @@ describe("Calorie Store Actions", () => {
         expect(datoms.find((d) => d.attribute === skipped)).toBeUndefined();
       }
     });
+
+    // A batch weight is a remembered default on the template, beside — never
+    // instead of — what the batch makes (ADR-0106 §3, §4). The two answer
+    // different questions and neither derives the other.
+    it("remembers what the batch weighed, alongside what it makes", async () => {
+      const mockAppend = vi
+        .spyOn(dbClient, "append")
+        .mockResolvedValue(undefined);
+
+      await saveRecipe({
+        name: "Dal",
+        ingredients: [{ ref: "fdc:lentils", amount: 300, unit: "g" }],
+        yield: 4,
+        batch_weight: 1600,
+      });
+
+      const datoms = mockAppend.mock.calls[0][0];
+      expect(
+        datoms.find((d) => d.attribute === "recipe/batch_weight")?.value
+      ).toBe(1600);
+      expect(datoms.find((d) => d.attribute === "recipe/yield")?.value).toBe(4);
+    });
+
+    it("skips the batch weight on a recipe nobody weighed", async () => {
+      const mockAppend = vi
+        .spyOn(dbClient, "append")
+        .mockResolvedValue(undefined);
+
+      await saveRecipe({
+        name: "Dal",
+        ingredients: [{ ref: "fdc:lentils", amount: 300, unit: "g" }],
+      });
+
+      expect(
+        mockAppend.mock.calls[0][0].find(
+          (d) => d.attribute === "recipe/batch_weight"
+        )
+      ).toBeUndefined();
+    });
+
+    it("clears a batch weight on edit, so an unweighed recipe can say so", async () => {
+      const mockAppend = vi
+        .spyOn(dbClient, "append")
+        .mockResolvedValue(undefined);
+
+      await saveRecipe(
+        {
+          name: "Dal",
+          ingredients: [{ ref: "fdc:lentils", amount: 300, unit: "g" }],
+        },
+        "recipe:existing_123"
+      );
+
+      expect(
+        mockAppend.mock.calls[0][0].find(
+          (d) => d.attribute === "recipe/batch_weight"
+        )?.value
+      ).toBe(0);
+    });
   });
 
   describe("retractConsumptionEvent", () => {
