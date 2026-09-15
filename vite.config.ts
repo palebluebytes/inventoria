@@ -619,6 +619,32 @@ export default defineConfig({
     facetBundles(),
   ],
   server: {
+    // **The dev server answers to the tailnet, so a phone can open it.**
+    //
+    // Both of #452 and #453 were found on a device and neither was visible in a
+    // desktop window: one is a thumb reaching past a 48px target into Android's
+    // nav bar, the other is what the OS draws when you tap a `<select>`. So
+    // reaching a real phone is part of the loop rather than a favour to it, and
+    // this line is what makes the route work at all — vite's DNS-rebinding guard
+    // rejects the tailnet Host header, and a leading dot is a suffix match. It
+    // is a `server` option, so it has no bearing on a build.
+    //
+    //   vite --host 127.0.0.1 --port 5180 --strictPort
+    //   sudo tailscale serve --bg --https=8443 5180
+    //
+    // `127.0.0.1` and not `localhost`, because vite resolves `localhost` to
+    // `::1` here while `tailscale serve` proxies to `127.0.0.1`. Not port 443:
+    // this tailnet already serves `/` there.
+    //
+    // **The app cannot be reached over plain HTTP on a LAN IP, ever**, which is
+    // why the tunnel and not `--host 0.0.0.0`: anything but `localhost` is not a
+    // secure context, so `crypto.randomUUID` is absent and the shell dies during
+    // mount on `boot-guard`'s dead-end screen, with `crypto.subtle` and
+    // `navigator.storage` going too — so the ledger will not open either. A
+    // self-signed cert does not rescue it: a bypassed interstitial IS a secure
+    // context, but Chromium refuses a service worker script on any cert error,
+    // and for a PWA this size that kills the environment.
+    allowedHosts: [".ts.net"],
     // The relay is **proxied to a real `wrangler dev`, never re-implemented
     // here** (#298). The middleware above stands in for the Worker's
     // `/api/proxy` by importing that route's own guards, which works because a
