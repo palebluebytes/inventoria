@@ -109,12 +109,43 @@ describe("namesMoreThanOneMagnitude", () => {
     expect(namesMoreThanOneMagnitude("1 kilo (2,2 lbs)")).toBe(false);
   });
 
-  it("leaves a household measure out of the vocabulary", () => {
-    // OFF prices a cup at 240 ml and a `tasse` the same, but those millilitres
-    // are a convention. `1 cup (30 g)` is one serving stated two ways, and the
-    // commonest good US label would otherwise become a refusal.
-    expect(namesMoreThanOneMagnitude("1 cup (30 g)")).toBe(false);
+  it("reads a household measure, which OFF parses and prices (#459)", () => {
+    // The vocabulary is what OFF PARSES, not what this app would like to
+    // convert. A cup is in `units_regexp` and does feed both serving fields, so
+    // `1 cup (30 g)` is not one serving stated two ways: OFF stores the 30 off
+    // the gram token and the `ml` off the cup, and a 30 g bowl of cereal
+    // becomes 30 ml. Measured on 11,521 real rows, 206 of the 211 portions the
+    // rule kept and should not have named a cup.
+    expect(namesMoreThanOneMagnitude("1 cup (30 g)")).toBe(true);
+    expect(namesMoreThanOneMagnitude("0.25 cup (30 g)")).toBe(true);
+    expect(namesMoreThanOneMagnitude("0.5 tasse (100 g)")).toBe(true);
+    expect(namesMoreThanOneMagnitude("1 taza (100 g)")).toBe(true);
+    // And it converts, so a cup restated in its own millilitres is still one
+    // magnitude: OFF prices the cup at 240 ml and the label agrees.
+    expect(namesMoreThanOneMagnitude("1 cup (240 ml)")).toBe(false);
     expect(namesMoreThanOneMagnitude("1 tasse (250 ml)")).toBe(false);
+  });
+
+  it("reads a token in a unit it cannot store, which OFF parses too (#459)", () => {
+    // `units_regexp` is built over the WHOLE taxonomy, not the entries whose
+    // standard unit is g or ml. An energy, a percentage or a water hardness is
+    // a token OFF will happily read a `serving_quantity` off — `83 kcal (30 g)`
+    // is stored as 30 with the unit `kj` — and a magnitude in a unit this app
+    // cannot store can never be a gram or a millilitre restated.
+    expect(namesMoreThanOneMagnitude("83 kcal (30 g)")).toBe(true);
+    expect(namesMoreThanOneMagnitude("479 kcal, (100 g)")).toBe(true);
+    expect(namesMoreThanOneMagnitude("30 g (120 kcal)")).toBe(true);
+    expect(namesMoreThanOneMagnitude("100 g (2000 kJ)")).toBe(true);
+    // Two ways of saying one energy are still one magnitude: 120 kcal IS 502 kJ.
+    expect(namesMoreThanOneMagnitude("500 kJ (120 kcal)")).toBe(false);
+  });
+
+  it("matches a unit exactly where OFF does, boundary included (#459)", () => {
+    // OFF ends every unit on `\\b`, so a `%` before a space or the end of the
+    // string is a token OFF cannot see either. Seeing one this app would refuse
+    // a string OFF reads correctly.
+    expect(namesMoreThanOneMagnitude("15 % vrn, 65 g")).toBe(false);
+    expect(namesMoreThanOneMagnitude("65 g (15 %)")).toBe(false);
   });
 });
 
@@ -139,6 +170,21 @@ describe("soleMagnitudeUnit", () => {
     expect(soleMagnitudeUnit(undefined)).toBeUndefined();
     expect(soleMagnitudeUnit("1 portion")).toBeUndefined();
     expect(soleMagnitudeUnit("15 biscuits")).toBeUndefined();
+  });
+
+  it("is undefined for a magnitude in a unit it cannot store (#459)", () => {
+    // The vocabulary is wider than the two units a portion can be stored in.
+    // A sole magnitude in one of the others is read, and then declined: an
+    // energy is not a weight, and defaulting it to grams is how a 240 ml
+    // serving became 240 g.
+    expect(soleMagnitudeUnit("83 kcal")).toBeUndefined();
+    expect(soleMagnitudeUnit("15 %vol")).toBeUndefined();
+    // A household measure is one it CAN store — OFF prices it in millilitres.
+    expect(soleMagnitudeUnit("1 cup")).toBe("ml");
+    expect(soleMagnitudeUnit("2 tasses")).toBe("ml");
+    expect(soleMagnitudeUnit("1 metric pound")).toBe("g");
+    // And a cup beside a weight names two, so it declines rather than picks.
+    expect(soleMagnitudeUnit("1 cup (30 g)")).toBeUndefined();
   });
 
   it("refuses to pick where the label names several", () => {
