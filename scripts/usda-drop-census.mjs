@@ -484,6 +484,26 @@ async function main() {
   const shippedNames = new Map(
     index.foods.map((row) => [row.fdcId, row.description])
   );
+  /**
+   * The survivor's name, refusing the census rather than falling back.
+   *
+   * The invariant is the generator's `assertCollapsedRowsShip`: a collapse
+   * always leaves a survivor, and one missing from the index means a later pass
+   * has turned the collapse into a deletion. Answering with the pre-strip name
+   * instead would publish exactly the name that is no longer in the corpus, so
+   * a census built against an index that has moved stops here rather than 380
+   * rows later at the count assertion.
+   */
+  const shippedName = (fdcId) => {
+    const name = shippedNames.get(fdcId);
+    if (name === undefined)
+      throw new Error(
+        `a row collapsed into ${fdcId} and the shipped index does not hold ` +
+          "that row. The census and public/usda/search-index.json were built " +
+          "from different corpora; run `pnpm usda:bundle` first."
+      );
+    return name;
+  };
   for (const { row, into } of collapsed.values()) {
     const fdcId = row.food.fdcId;
     const s = byId.get(fdcId);
@@ -499,8 +519,7 @@ async function main() {
       stage: "collapse",
       rule: "collapsed_into",
       collapsed_into: into.food.fdcId,
-      collapsed_into_description:
-        shippedNames.get(into.food.fdcId) ?? into.food.description,
+      collapsed_into_description: shippedName(into.food.fdcId),
       // Relational, like every rule below `food_kind`: what took this row is the
       // sibling that shares its residual description, never a word in it.
       because: [],

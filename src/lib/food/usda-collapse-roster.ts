@@ -240,6 +240,21 @@ export const COLLAPSING_AXES: readonly CollapsingAxis[] = [
 ];
 
 /**
+ * A segment with USDA's trailing parenthetical taken off, or the segment
+ * unchanged where it carries none.
+ *
+ * §10's second clause made askable: **a segment may carry more than one fact**,
+ * and USDA welds the second one on in brackets. The separation entry above
+ * admits such a bracket because one row needs it; this is the same bracket,
+ * spelled once, so `scripts/usda-collapse.mjs`'s guard can ask of every OTHER
+ * segment what it would say without one — which is how a designation tag, a
+ * Food Distribution Program gloss and `(may have been previously frozen)` each
+ * hid a word from a positional strip.
+ */
+export const withoutTrailingGloss = (segment: string): string =>
+  segment.replace(/\s*\([^()]*\)$/, "").trim();
+
+/**
  * Which axis claims this segment, or `null` where none does.
  *
  * The segment is matched WHOLE (§10). An unclaimed segment survives into the

@@ -20,6 +20,7 @@ import {
   descriptionSegments,
   mayRepresentGroup,
   residualDescription,
+  withoutTrailingGloss,
 } from "../../src/lib/food/usda-collapse-roster";
 import { resolveCollapsedNames } from "../../src/lib/food/usda-shipped-name";
 
@@ -41,6 +42,7 @@ const app = {
   descriptionSegments,
   residualDescription,
   claimingAxis,
+  withoutTrailingGloss,
   resolveCollapsedNames,
 } satisfies Partial<AppModule> as unknown as AppModule;
 

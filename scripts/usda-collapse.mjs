@@ -332,7 +332,7 @@ export function assertNoAxisHidesInAGloss(rows, app) {
     for (const segment of app.descriptionSegments(row.food.description).tail) {
       read++;
       if (app.claimingAxis(segment)) continue;
-      const bare = segment.replace(/\s*\([^()]*\)$/, "").trim();
+      const bare = app.withoutTrailingGloss(segment);
       const hidden = bare === segment ? null : app.claimingAxis(bare);
       if (!hidden) continue;
       throw new Error(

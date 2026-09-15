@@ -216,6 +216,7 @@ export const BUNDLE_DATASETS = ["Foundation Foods", "SR Legacy"];
  * @property {(description: string) => boolean} mayRepresentGroup
  * @property {(description: string) => { head: string, tail: string[] }} descriptionSegments
  * @property {(description: string) => string} residualDescription
+ * @property {(segment: string) => string} withoutTrailingGloss
  * @property {(segment: string) => { axis: string, preferred: boolean } | null} claimingAxis
  * @property {(rows: { fdcId: number, description: string, also?: readonly string[] }[], licensed: ReadonlySet<number>) => { renamed: ReadonlyMap<number, string>, tally: { stripped: number, refused: number } }} resolveCollapsedNames
  */
@@ -914,7 +915,7 @@ async function main() {
   // parenthetical welded to a segment has hidden a word from a positional strip
   // three times on this map, and the guard is asked of the names that SHIP
   // rather than the ones USDA published (#436).
-  const segments_read = assertNoAxisHidesInAGloss(named, app);
+  const segmentsRead = assertNoAxisHidesInAGloss(named, app);
   const {
     survivors: representatives,
     collapsed,
@@ -927,7 +928,7 @@ async function main() {
   // §5's strip, licensed by the collapse having happened, and asserted rather
   // than assumed: nothing ships under a name claiming less than its panel
   // measures.
-  const { survivors, tally: collapsed_names } = applyCollapsedNames(
+  const { survivors, tally: collapsedNames } = applyCollapsedNames(
     representatives,
     licensed,
     app
@@ -938,6 +939,19 @@ async function main() {
     licensed,
     app
   );
+  // Two passes counting the same event, held to each other. The strip DECIDED
+  // `stripped` renames and the recount found `shortened` names that actually
+  // moved, and they cannot differ against this pipeline — `applyCollapsedNames`
+  // writes exactly what `resolveCollapsedNames` returned. It is written for the
+  // pipeline that would let them, which is the reason `assertCollapsedRowsShip`
+  // gives about itself: a pass inserted between the decision and the rows would
+  // otherwise drop a rename and report the number that was intended.
+  if (shortened !== collapsedNames.stripped)
+    throw new Error(
+      `ADR-0103 §5's strip decided ${collapsedNames.stripped} renames and ` +
+        `${shortened} names moved. A pass between the verdict and the rows has ` +
+        "dropped one; re-read applyCollapsedNames in scripts/usda-collapse.mjs."
+    );
 
   // After the corpus, never before: both of ADR-0049 §3's filters ask what the
   // FINISHED corpus retrieves, so a group's members are compared against the
@@ -1052,10 +1066,10 @@ async function main() {
   // reason: a refused rename changes nothing, so a rule the corpus blocked and a
   // rule that reached nothing look identical from outside (#436).
   console.log(
-    `  ${collapsed_names.stripped} survivors then ship under their residual ` +
-      `name, ${shortened} of them shorter than USDA's; ` +
-      `${collapsed_names.refused} keep the name they had because another row ` +
-      `already answers to the residual. ${segments_read.toLocaleString("en-GB")} ` +
+    `  ${collapsedNames.stripped} survivors then ship under their residual ` +
+      `name, shorter than USDA's by the segments their group collapsed on; ` +
+      `${collapsedNames.refused} keep the name they had because another row ` +
+      `already answers to the residual. ${segmentsRead.toLocaleString("en-GB")} ` +
       "segments were read for a collapsing axis hidden behind a parenthetical"
   );
 
@@ -1119,8 +1133,8 @@ async function main() {
       after: survivors.length,
       groups_merged,
       groups_shipped_whole,
-      names_stripped: collapsed_names.stripped,
-      names_refused: collapsed_names.refused,
+      names_stripped: collapsedNames.stripped,
+      names_refused: collapsedNames.refused,
     })
   );
   console.log(

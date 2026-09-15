@@ -104,11 +104,15 @@ describe("the app seam — the scripts borrow the app instead of copying it", ()
     // `VARIANT_DROP_EXPORTS`'s reason: `COLLAPSING_AXES` is a list, not a
     // function, and a sweep would wave it through. `mayRepresentGroup` is §5's
     // eligibility test, which §4's chain asks first.
+    // `withoutTrailingGloss` is §10's second clause, borrowed by #436's guard:
+    // the bracket the separation entry admits, spelled once so the guard asks
+    // of every other segment the question that bracket has defeated three times.
     expect(COLLAPSE_ROSTER_EXPORTS).toEqual([
       "COLLAPSING_AXES",
       "claimingAxis",
       "descriptionSegments",
       "residualDescription",
+      "withoutTrailingGloss",
       "collapseGroupKey",
       "mayRepresentGroup",
     ]);

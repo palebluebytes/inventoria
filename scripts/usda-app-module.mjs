@@ -234,6 +234,7 @@ export const COLLAPSE_ROSTER_EXPORTS = [
   "claimingAxis",
   "descriptionSegments",
   "residualDescription",
+  "withoutTrailingGloss",
   "collapseGroupKey",
   "mayRepresentGroup",
 ];

@@ -401,16 +401,96 @@ export interface ShippedNameVerdict {
    * blocked look identical from outside. A rule whose reach nobody measured is
    * a hole nobody can see (ADR-0056 §5).
    */
-  fortification: FortificationTally;
+  fortification: StripTally;
 }
 
-/** How far the fortification strip reached, and how far it was refused. */
-export interface FortificationTally {
-  /** Rows whose name lost the phrase. */
+/**
+ * How far a CONDITIONAL strip reached, and how far the corpus refused it.
+ *
+ * One shape for both of them — the fortification phrase (ADR-0062 §3) and the
+ * collapse's segments (ADR-0103 §5) — because they are the same event counted
+ * the same way, and a second interface restating two numbers is a shape to
+ * drift rather than a distinction to keep.
+ *
+ * Counted because the refusals are otherwise INVISIBLE. Every unconditional
+ * rule here reports itself by what it changed — a rename in `renamed`, a drop
+ * in `dropped` — but a refused rename leaves the corpus byte-for-byte as it
+ * was, so a roster that reached nothing and a roster the whole corpus blocked
+ * look identical from outside. A rule whose reach nobody measured is a hole
+ * nobody can see (ADR-0056 §5).
+ */
+export interface StripTally {
+  /** Rows whose name lost the phrase or segment. */
   stripped: number;
   /** Rows that kept it, because another row already answered to the shorter name. */
   refused: number;
 }
+
+/**
+ * One row as {@link renameIntoFreeNames} reads it: what it answers to now, and
+ * what it would rather be called.
+ *
+ * Both strips build this and neither owns it, which is the point — whether a
+ * name is FREE is a question about the whole corpus, and asking it two ways
+ * would let the two rules disagree about what a duplicate is.
+ */
+interface FreeNameCandidate {
+  fdcId: number;
+  /** The name it ships under today, and keeps if the rename is refused. */
+  current: string;
+  /** Every other name it answers to, spelled as those names will SHIP. */
+  aliases: readonly string[];
+  /** The name it would like instead, or `current` where it wants none. */
+  proposed: string;
+}
+
+/**
+ * The renames that leave every row a name of its own, and a count of the ones
+ * the corpus refused.
+ *
+ * ADR-0062 §3's condition, shared by the two rules that carry it: **a phrase is
+ * removed only where the resulting name is unique in the corpus.** Where it is
+ * not, the rename is simply not made and nothing is dropped — there is no
+ * origin here to say which of two rows loses, and an ugly name is preferred to
+ * two foods filed under one.
+ *
+ * A name is free when no OTHER row could answer to it, and both words are
+ * load-bearing. **Could**: a candidate whose own proposal is refused keeps the
+ * name it has, so it still holds that name against everyone else, and counting
+ * only proposed names would let two candidates step aside into each other.
+ * **Answer to**: an alias is a name too, since `bestNameKey` ranks a query
+ * against one exactly as against a description.
+ */
+const renameIntoFreeNames = (
+  candidates: readonly FreeNameCandidate[]
+): { renamed: Map<number, string>; tally: StripTally } => {
+  const claimants = new Map<string, Set<number>>();
+  const claim = (name: string, fdcId: number) => {
+    const key = stemmedName(name);
+    const holders = claimants.get(key);
+    if (holders) holders.add(fdcId);
+    else claimants.set(key, new Set([fdcId]));
+  };
+  const proposals = new Map<number, string>();
+  for (const { fdcId, current, aliases, proposed } of candidates) {
+    if (proposed !== current) proposals.set(fdcId, proposed);
+    claim(current, fdcId);
+    claim(proposed, fdcId);
+    for (const alias of aliases) claim(alias, fdcId);
+  }
+
+  const renamed = new Map<number, string>();
+  const tally: StripTally = { stripped: 0, refused: 0 };
+  for (const [fdcId, proposed] of proposals) {
+    if (claimants.get(stemmedName(proposed))?.size !== 1) {
+      tally.refused++;
+      continue;
+    }
+    renamed.set(fdcId, proposed);
+    tally.stripped++;
+  }
+  return { renamed, tally };
+};
 
 /** One qualifier part, twice: as a roster is asked, and as USDA typed it. */
 interface NamedPart {
@@ -812,35 +892,21 @@ export function resolveShippedNames(
   //    Asked of the rows still standing after the designation pass, not of
   //    `survivors` above, which was read before it took its six.
   const standing = rows.filter((row) => !dropped.has(row.fdcId));
-  const claimants = new Map<string, Set<number>>();
-  const claim = (name: string, fdcId: number) => {
-    const key = stemmedName(name);
-    const holders = claimants.get(key);
-    if (holders) holders.add(fdcId);
-    else claimants.set(key, new Set([fdcId]));
-  };
-  const proposals = new Map<number, string>();
-  for (const row of standing) {
-    const shipped = renamed.get(row.fdcId) ?? row.description;
-    const proposed = stripFortificationQualifier(shipped);
-    if (proposed !== shipped) proposals.set(row.fdcId, proposed);
-    claim(shipped, row.fdcId);
-    claim(proposed, row.fdcId);
-    // The alias as it will SHIP, not as the archive wrote it: ADR-0056 takes
-    // the origin words out of both kinds of name, so a check reading the raw
-    // alias would compare against a string nothing answers to.
-    for (const alias of row.also ?? [])
-      claim(stripNonNamingQualifiers(alias), row.fdcId);
-  }
-  const fortification: FortificationTally = { stripped: 0, refused: 0 };
-  for (const [fdcId, proposed] of proposals) {
-    if (claimants.get(stemmedName(proposed))?.size !== 1) {
-      fortification.refused++;
-      continue;
-    }
-    renamed.set(fdcId, proposed);
-    fortification.stripped++;
-  }
+  const { renamed: freed, tally: fortification } = renameIntoFreeNames(
+    standing.map((row) => {
+      const current = renamed.get(row.fdcId) ?? row.description;
+      return {
+        fdcId: row.fdcId,
+        current,
+        // The alias as it will SHIP, not as the archive wrote it: ADR-0056
+        // takes the origin words out of both kinds of name, so a check reading
+        // the raw alias would compare against a string nothing answers to.
+        aliases: (row.also ?? []).map(stripNonNamingQualifiers),
+        proposed: stripFortificationQualifier(current),
+      };
+    })
+  );
+  for (const [fdcId, name] of freed) renamed.set(fdcId, name);
 
   return { renamed, dropped, fortification };
 }
@@ -1177,14 +1243,6 @@ export function renameSeedMaturity(
 // hand the reader a cooked panel. So the caller passes the rows the collapse
 // merged AND found an eligible representative for, and nothing else is touched.
 
-/** How the collapse's strip went: names it shortened, and names it could not. */
-export interface CollapsedNameTally {
-  /** Rows whose name lost its collapsing segments. */
-  stripped: number;
-  /** Rows that kept them, because another row already answers to the residual. */
-  refused: number;
-}
-
 /**
  * ADR-0103 §5's strip: a collapse group's survivor ships under its residual
  * name, and only where that name is free.
@@ -1208,45 +1266,23 @@ export interface CollapsedNameTally {
  * and not ADR-0056 §4's tiebreak. There is no origin here to say which of two
  * rows loses, and a collapse that deleted a row would contradict the ground §6
  * fires it on — its worst case is a wrong representative, never a missing food.
- * So the row simply keeps the name it has, and the tally says how often, for the
- * reason {@link FortificationTally} gives: a refusal changes nothing, so a
- * roster that reached nothing and a roster the corpus blocked look identical.
- *
- * Freedom is asked exactly as rule 4 asks it — could any OTHER row answer to
- * this name, counting aliases and counting a row whose own proposal is refused
- * under the name it keeps.
+ * So the condition is {@link renameIntoFreeNames}, the same one the
+ * fortification strip asks and by the same route, which is what stops the two
+ * rules disagreeing about what a duplicate is. The aliases arrive already
+ * spelled as they ship, because `applyShippedNames` has run by now.
  */
 export function resolveCollapsedNames(
   rows: readonly ShippedNameRow[],
   licensed: ReadonlySet<number>
-): { renamed: ReadonlyMap<number, string>; tally: CollapsedNameTally } {
-  const proposals = new Map<number, string>();
-  const claimants = new Map<string, Set<number>>();
-  const claim = (name: string, fdcId: number) => {
-    const key = stemmedName(name);
-    const holders = claimants.get(key);
-    if (holders) holders.add(fdcId);
-    else claimants.set(key, new Set([fdcId]));
-  };
-  for (const row of rows) {
-    const proposed = licensed.has(row.fdcId)
-      ? residualDescription(row.description)
-      : row.description;
-    if (proposed !== row.description) proposals.set(row.fdcId, proposed);
-    claim(row.description, row.fdcId);
-    claim(proposed, row.fdcId);
-    for (const alias of row.also ?? []) claim(alias, row.fdcId);
-  }
-
-  const renamed = new Map<number, string>();
-  const tally: CollapsedNameTally = { stripped: 0, refused: 0 };
-  for (const [fdcId, proposed] of proposals) {
-    if (claimants.get(stemmedName(proposed))?.size !== 1) {
-      tally.refused++;
-      continue;
-    }
-    renamed.set(fdcId, proposed);
-    tally.stripped++;
-  }
-  return { renamed, tally };
+): { renamed: ReadonlyMap<number, string>; tally: StripTally } {
+  return renameIntoFreeNames(
+    rows.map((row) => ({
+      fdcId: row.fdcId,
+      current: row.description,
+      aliases: row.also ?? [],
+      proposed: licensed.has(row.fdcId)
+        ? residualDescription(row.description)
+        : row.description,
+    }))
+  );
 }
