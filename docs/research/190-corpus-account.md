@@ -20,13 +20,13 @@ went into — is `usda-drop-census.json`, under `"stage": "collapse"`.
 | ---------- | --------: | --------: | -------: |
 | `Beef`     |       410 |       133 |      277 |
 | `Lamb`     |       116 |        64 |       52 |
-| `Pork`     |       130 |        92 |       38 |
+| `Pork`     |       129 |        91 |       38 |
 | `Veal`     |        43 |        29 |       14 |
-| **corpus** | **2,418** | **2,037** |  **381** |
+| **corpus** | **2,406** | **2,025** |  **381** |
 
 ## And why
 
-179 groups hold more than one record, and the rest of the corpus is 1,858 groups
+179 groups hold more than one record, and the rest of the corpus is 1,846 groups
 of one, which no rule here touches. A collapse group is the records sharing one
 residual description (§3) — the name with every segment §2 calls a collapsing
 axis struck out — so what merges is one cut written out at every trim, grade and
@@ -44,8 +44,8 @@ clause alone has nothing to strike out and ships under the name it already had.
 No strip was refused for want of a free name (ADR-0062 §3), and a refused one
 would leave the row under the name it had rather than dropping either side.
 
-4 of the corpus's 488 head phrases move, and what is left after ADR-0104 removed
-the cooked half is purely butchery: separation, trim and grade. The other 484
+4 of the corpus's 487 head phrases move, and what is left after ADR-0104 removed
+the cooked half is purely butchery: separation, trim and grade. The other 483
 have nothing to collapse and are not listed, because a table of them would be
 that many zeroes padding the rows above. `scripts/usda-collapse.mjs` names the
 heads that move, and the generation stops if another arrives.

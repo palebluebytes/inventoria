@@ -147,10 +147,10 @@
       "head": "almond milk",
       "hits": 3,
       "tied_at_top": 2,
-      "lead_today": "Almond milk, unsweetened, plain, shelf stable",
+      "lead_today": "Almond milk, unsweetened, plain",
       "shapes": [],
       "verdict": "peers",
-      "should_lead": "Almond milk, unsweetened, plain, shelf stable",
+      "should_lead": "Almond milk, unsweetened, plain",
       "note": "Shelf-stable and refrigerated are the same product; neither is more canonical.",
       "ratified": false,
       "lead_fdc_id": 1999631,
@@ -616,7 +616,8 @@
       "note": "Pumpernickel leads a 20-way tie. Not reachable: no marker on the lead.",
       "ratified": false,
       "lead_fdc_id": 168126,
-      "should_lead_fdc_id": 172793
+      "should_lead_fdc_id": 172793,
+      "should_lead_dropped": true
     },
     {
       "head": "rutabagas",
@@ -808,5 +809,5 @@
     "ratified_count": 22,
     "ratification": "WAIVED 2026-08-21 at the maintainer's direction. §8.3 required a human to read all 50 before a key was written; the review tool built for it was removed and the step skipped. These verdicts are LLM-proposed and independently unread. The key shipped anyway; see ADR-0042's #143 Amendment."
   },
-  "repinned": "2026-09-13: every case gained the `fdcId` of the row it names, and the descriptions were re-read off the corpus. The uncooked-corpus change renamed most of these rows (`Arugula, raw` -> `Arugula`), and this file was keyed on DESCRIPTION alone - so a harness asking whether a head still leads with its recorded row silently skipped 18 of the 19 adjudicated-correct cases and reported no breakage because it had checked almost nothing. #188 keys its own set by `fdcId` for exactly this reason. `lead_dropped` marks a case whose row has left the corpus. 2026-09-15 (#436): re-read again after ADR-0103 §5's strip shortened 174 survivor names — 5 labels moved, every `fdcId` unchanged, and one missing `should_lead_dropped` marker was set. The labels are what a reader matches against; the `fdcId` is the case. Four labels carrying NO `fdcId` were still naming rows the corpus does not hold, because the 2026-09-13 re-key could only give one to a row that still shipped: `milk`'s lead and designated row, and `veal`'s and `yogurt`'s leads. Each is now marked dropped rather than re-pointed. `milk`'s `should_lead` in particular is left where #143 put it — the row it names is one of the two 3.25% milks ADR-0061 §5 drops, so re-pointing it at the 3.7% row that ships would edit a pre-registration into agreeing with the corpus."
+  "repinned": "2026-09-13: every case gained the `fdcId` of the row it names, and the descriptions were re-read off the corpus. The uncooked-corpus change renamed most of these rows (`Arugula, raw` -> `Arugula`), and this file was keyed on DESCRIPTION alone - so a harness asking whether a head still leads with its recorded row silently skipped 18 of the 19 adjudicated-correct cases and reported no breakage because it had checked almost nothing. #188 keys its own set by `fdcId` for exactly this reason. `lead_dropped` marks a case whose row has left the corpus. 2026-09-15 (#436): re-read again after ADR-0103 §5's strip shortened 174 survivor names — 5 labels moved, every `fdcId` unchanged, and one missing `should_lead_dropped` marker was set. The labels are what a reader matches against; the `fdcId` is the case. Four labels carrying NO `fdcId` were still naming rows the corpus does not hold, because the 2026-09-13 re-key could only give one to a row that still shipped: `milk`'s lead and designated row, and `veal`'s and `yogurt`'s leads. Each is now marked dropped rather than re-pointed. `milk`'s `should_lead` in particular is left where #143 put it — the row it names is one of the two 3.25% milks ADR-0061 §5 drops, so re-pointing it at the 3.7% row that ships would edit a pre-registration into agreeing with the corpus. 2026-09-15 (#186): re-read a third time after the storage rules. Two labels moved and one case lost its row. `almond milk` is a LABEL move and not a lost lead — fdc:1999631 led before and leads now, and what changed is that `shelf stable` came off its name once the refrigerated twin stopped contesting it, which is the very thing this case's own note called for (\"Shelf-stable and refrigerated are the same product; neither is more canonical\"). `rolls` is a real loss and is marked dropped rather than re-pointed: `Rolls, dinner, plain, commercially prepared (includes brown-and-serve)` is one of the seven rows ADR-0104's Amendment removes as factory-made, and there is no un-barcoded dinner roll to re-point it at. A pre-registration whose row the corpus deleted is evidence about the deletion, so it is left saying what it said."
 }

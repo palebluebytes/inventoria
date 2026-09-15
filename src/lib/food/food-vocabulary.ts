@@ -362,7 +362,7 @@ export const LOCAL_VOCABULARY: readonly LocalVocabularyEntry[] = [
   {
     key: "soymilk",
     targets: ["soy milk"],
-    landsOn: "Soy milk, unsweetened, plain, shelf stable",
-    why: "The one-word spelling of soy milk, which is how the cartons and USDA's own dropped rows both write it; the single plain soy milk the corpus keeps is a Foundation row spelled with a space.",
+    landsOn: "Soy milk, unsweetened, plain",
+    why: "The one-word spelling of soy milk, which is how the cartons and USDA's own dropped rows both write it; the single plain soy milk the corpus keeps is a Foundation row spelled with a space. It shed `shelf stable` to the storage strip, which is a rename and not a re-choosing: the row is fdc:1999630 before and after.",
   },
 ];

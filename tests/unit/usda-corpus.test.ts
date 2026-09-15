@@ -329,8 +329,12 @@ describe("the bundled search index", () => {
     );
     // 578 to 571: seven of the eight drinks the reconstituted-drink rule takes
     // were filed under the `Beverages` shelf label, and the eighth under
-    // `Alcoholic beverage`.
-    expect(shelved.length).toBe(550);
+    // `Alcoholic beverage`. 550 to 549 with ADR-0104's storage rules: ONE row,
+    // `Cheese, parmesan, grated, refrigerated`, which lost its name to the plain
+    // grated parmesan beside it. The lump crab is the other shelf-labelled row
+    // the rules touched and it only shed a word, which is the distinction this
+    // count is sensitive to and should be.
+    expect(shelved.length).toBe(549);
     const labels = new Set(
       shelved.map((row) => qualifiersOf(row.description)[0])
     );
@@ -357,8 +361,12 @@ describe("the bundled search index", () => {
     // first: the whole-qualifier reach is what ships, and the WORD reach is why
     // a second mechanism exists at all. If the words stopped being dangerous,
     // `MODIFIED_PART` would have no reason to be a separate list.
+    // 30 to 29: `Turkey roast, boneless, frozen, seasoned, light and dark meat`
+    // is one of the two rows ADR-0104's frozen rule took, and it was carrying
+    // `light` as a word in a cut description — which is precisely the kind of
+    // row this half of the pin exists to count.
     expect([withWord("light").length, withPart("light").length]).toEqual([
-      30, 12,
+      29, 12,
     ]);
     expect([withWord("cooking").length, withPart("cooking").length]).toEqual([
       7, 1,
@@ -385,8 +393,10 @@ describe("the bundled search index", () => {
   it("is the surviving reference foods, and says which archives it came from", () => {
     // 2,418 to 2,037: ADR-0103's collapse ships one row per food, and 381
     // records of a cut already here left under the `fdcId` of the row that
-    // stands for them (#435).
-    expect(index.foods.length).toBe(2037);
+    // stands for them (#435). 2,037 to 2,025 with ADR-0104's Amendment: seven
+    // factory-made breads, eleven frozen records and three storage duplicates,
+    // less the durian and the five rows that only lost a word.
+    expect(index.foods.length).toBe(2025);
     expect(index.generated_from.map((a) => a.dataset)).toEqual([
       "Foundation Foods",
       "SR Legacy",
@@ -403,8 +413,10 @@ describe("the bundled search index", () => {
     // `bestNameKey` costs nothing on most rows.
     // 2,345 to 1,964, tracking the corpus: the collapse keeps the survivor's
     // own aliases and adds none, so the count moves by the rows it took.
+    // 1,964 to 1,952, tracking the corpus again: none of the twelve rows the
+    // storage rules removed carried an alias, so the two counts move together.
     expect(index.foods.filter((row) => !(row.also ?? []).length).length).toBe(
-      1964
+      1952
     );
     // And what `SEARCH_RESULT_LIMIT` is a ceiling ON. Measured after ADR-0062
     // §1, because that is the set the list would have to render.
@@ -413,7 +425,12 @@ describe("the bundled search index", () => {
     // one `Alcoholic beverage`. 706 to 429 under ADR-0103's collapse, which is
     // the largest single move this number has made: `b` is the first letter of
     // `Beef`, and the collapse takes 277 rows off that head alone.
-    expect(withoutStrayMentions(scoredFor("b")).length).toBe(429);
+    // 429 to 423 with ADR-0104's Amendment. Nine of the twelve rows it removed
+    // are filed under a head phrase beginning with `b` — seven `Bread` and
+    // `Rolls` rows, the frozen turkey roast and the shelf-stable tortilla — and
+    // three of the survivors that only shed a shelf word stay counted under
+    // their shorter names.
+    expect(withoutStrayMentions(scoredFor("b")).length).toBe(423);
   });
 
   // ── ADR-0048's invariant, over the artifact itself ────────────────────────
@@ -549,7 +566,7 @@ describe("the bundled search index", () => {
         isDryBasisRecord(row.description) ||
         isManufacturingInput(row.description)
     );
-    // Twenty-six rows now fail this re-run and every one of them shipped
+    // Eleven rows now fail this re-run and every one of them shipped
     // correctly. `isProcessedProduct` exempts anything described as `raw`, the
     // filters are asked of the ARCHIVE description, and the shipped name has
     // since lost that word - so `Lemon juice, raw` passed the filter and ships
@@ -568,7 +585,14 @@ describe("the bundled search index", () => {
         !isManufacturingInput(row.description)
     );
     expect(byProcessedAlone).toHaveLength(rejected.length);
-    expect(rejected).toHaveLength(11);
+    // Eleven to nine, and the two that left are the reason ADR-0104's Amendment
+    // widened the frozen rule. `Pork, fresh, ears, frozen` and the seasoned
+    // turkey roast were the only rows here whose exemption was not a stripped
+    // word — they said `raw` in the archive AND kept a packaging marker in the
+    // shipped name, so a filter re-run flagged them and the corpus shipped them
+    // anyway. What is left is exactly the documented case: nine juices that
+    // passed as `Lemon juice, raw` and ship as `Lemon juice`.
+    expect(rejected).toHaveLength(9);
   });
 
   it("holds no variant of a food it already keeps", () => {
@@ -604,7 +628,7 @@ describe("the bundled search index", () => {
       // still has to hold: the brand rule is only correct because a generic soy
       // milk stayed.
       "Tofu, firm, prepared with calcium sulfate",
-      "Soy milk, unsweetened, plain, shelf stable",
+      "Soy milk, unsweetened, plain",
       "Oil, canola",
       "Cream, whipped, cream topping, pressurized",
       // the Beverages rows a "drop every beverage" rule would have cost
@@ -620,11 +644,23 @@ describe("the bundled search index", () => {
       // #144: what each of its four new rules had to leave standing.
       // `Bread, cornbread, prepared from recipe, made with low fat (2%) milk`
       // stood here until #161, which is a DIFFERENT rule with a different claim:
-      // #144's escape hatches had to leave a staple loaf alone, and they still
-      // do (the whole-wheat row below), while #161 drops what USDA computed from
-      // a recipe rather than assayed. A pin moving between rules is not a pin
-      // being deleted, so it is named here rather than removed silently.
-      "Bread, whole-wheat, commercially prepared",
+      // #144's escape hatches had to leave a staple loaf alone, and #161 drops
+      // what USDA computed from a recipe rather than assayed. A pin moving
+      // between rules is not a pin being deleted, so it is named here rather
+      // than removed silently.
+      //
+      // `Bread, whole-wheat, commercially prepared` stood here for the same
+      // reason and is now GONE, which is a different event again and the only
+      // one of the three that costs a food. #144's escape hatches still leave it
+      // alone — `BAKED_STAPLE_HEADS` holds `bread` and always did — and what
+      // takes it is ADR-0104's Amendment, on the ground that a factory-made loaf
+      // is a barcode and therefore OFF's to answer. So #144's rule is unmoved
+      // and its pin is not: the row it proved its precision on left to a claim
+      // #144 never made. The cost is stated at the Amendment and restated by the
+      // `Baked Products` count above, and it is real — the corpus now has no
+      // plain white or whole-wheat loaf at all, and `white bread` leads with
+      // `Bread, white wheat`, a 9.2 g-fibre fortified whole-grain loaf that is
+      // not what anybody typing those words means.
       "Syrups, maple",
       // `…, separable lean and fat, select` until ADR-0103 §5's strip (#436)
       // took the two segments the group collapsed on. The row is fdc:170809
@@ -704,7 +740,11 @@ describe("the bundled search index", () => {
     // 127 and 31 before the escape hatches took four treats and seven
     // confections; 114 until #161 took nine more Baked Products rows that USDA
     // computed from a recipe.
-    expect(inCategory("Baked Products")).toBe(83);
+    // 83 to 75 with ADR-0104's Amendment: the seven `commercially prepared`
+    // rows and the shelf-stable flour tortilla that lost its name to the
+    // refrigerated one. This is the count that states the Amendment's cost
+    // plainly — six of the eight were bread.
+    expect(inCategory("Baked Products")).toBe(75);
     expect(inCategory("Sweets")).toBe(24);
     // Eleven of the nineteen rows naming a stew are raw retail cuts sold for one,
     // and the exemption has to keep every one of them.
@@ -1098,7 +1138,7 @@ describe("searchIndexRows", () => {
       ["grape", "Grapes, muscadine"],
       ["gra", "Grapes, muscadine"],
       ["balsamic", "Vinegar, balsamic"],
-      ["soy milk", "Soy milk, unsweetened, plain, shelf stable"],
+      ["soy milk", "Soy milk, unsweetened, plain"],
     ] as const) {
       expect([query, descriptionsFor(query)[0]]).toEqual([query, expected]);
     }
@@ -1291,7 +1331,10 @@ describe("searchIndexRows", () => {
     // the part the shelf label leads to, so `Nuts, coconut milk` is a milk and
     // `Cheese, mozzarella, whole milk` is a cheese.
     const milk = descriptionsFor("milk");
-    expect(milk).toHaveLength(16);
+    // 16 to 15: the refrigerated almond milk lost its name to the shelf-stable
+    // row, which is the whole of ADR-0104's chiller rule showing up in an
+    // answer — one almond milk where there were two.
+    expect(milk).toHaveLength(15);
     expect(milk.filter((d) => /^(Cheese|Yogurt|Potatoes)/.test(d))).toEqual([]);
     // The two the rule must not touch, and the reason it reads the part rather
     // than the head: both are filed under a shelf label, exactly as the cheeses
@@ -1332,9 +1375,12 @@ describe("searchIndexRows", () => {
     // `canonical` roster gained it. The eight rows below it hold the order they
     // had — which is the check that matters here, because a species key would
     // have reordered all four of the other animals' milks too.
+    // One id removed and no other position moved: 2257045, the refrigerated
+    // almond milk, which 1999631 beat on panel completeness. A drop that
+    // reorders nothing is what a duplicate leaving looks like.
     expect(idsFor("milk")).toEqual([
       171266, 170882, 171278, 171280, 171302, 172225, 173441, 172205, 173432,
-      1999630, 1999631, 2257045, 2257046, 170172, 171942, 173675,
+      1999630, 1999631, 2257046, 170172, 171942, 173675,
     ]);
   });
 
@@ -1469,15 +1515,24 @@ describe("searchIndexRows", () => {
       // 34 to 30: four of the drink mixes `isReconstitutedDrink` takes named
       // the milk they were made up with, and a row that MENTIONS milk was
       // exactly what ADR-0062 §1 wanted off this list anyway.
-      milk: [30, 16],
+      // 30 to 29 and 16 to 15, the refrigerated almond milk both times.
+      milk: [29, 15],
       // `raw` reaches seven rows and `cooked` none: the corpus ships only
       // uncooked foods and the word has left every name that is not a
       // parenthetical - `Nuts, coconut cream, raw (liquid expressed from grated
-      // meat)`, `Durian, raw or frozen`. Typing either word is no longer a way
-      // to ask anything.
-      raw: [6, 6],
+      // meat)`. Typing either word is no longer a way to ask anything.
+      //
+      // 6 to 5: `Durian, raw or frozen` ships as `Durian`. ADR-0104's Amendment
+      // added that spelling to the state roster, because the pairing is what
+      // protects the row — `frozen` is not a whole segment there, so the frozen
+      // rule never sees it — and a row left saying `raw or frozen` in a corpus
+      // where nothing else says either word would be the odd one out twice over.
+      raw: [5, 5],
       cooked: [0, 0],
-      salt: [91, 1],
+      // 91 to 90, one row: `Bread, white, commercially prepared, low sodium, no
+      // salt`. It was never a salt — it is the `withoutStrayMentions` gate's
+      // own case, which is why the second figure is still 1.
+      salt: [90, 1],
       // 39 to 35: the four remaining rows saying `prepared with water` were
       // drink mixes, and `isReconstitutedDrink` took them. 35 to 27 under the
       // collapse, which retired eight `water added` hams; the ten that clear the
@@ -2176,7 +2231,15 @@ describe("searchIndexRows", () => {
       // shorter, so they lead under both orderings now and stop being counted.
       // The other eighteen that changed are the same rows under their new
       // names. `lost` is still zero.
-      gained: 135,
+      //
+      // 135 to 136 with ADR-0104's storage rules (#186), and it is one row by
+      // the same mechanism a third time: `Tortillas, ready-to-bake or -fry,
+      // flour` won its collision against the shelf-stable row and shed
+      // `refrigerated`, and the shorter name is one its rivals can no longer
+      // account for. Nothing left the set — the eleven frozen rows and the three
+      // storage casualties were none of them leading their own description, so
+      // no query left with its row. `lost` is still zero.
+      gained: 136,
       lost: 0,
     });
   }, 30_000);
@@ -2341,7 +2404,7 @@ describe("the twin merge's discarded names, as search aliases", () => {
       ["orange juice", "Orange juice"],
 
       ["ground chicken", "Chicken, ground"],
-      ["plain soy milk", "Soy milk, unsweetened, plain, shelf stable"],
+      ["plain soy milk", "Soy milk, unsweetened, plain"],
     ])
       expect([query, descriptionsFor(query)[0]]).toEqual([query, description]);
 
