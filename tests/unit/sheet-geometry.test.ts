@@ -274,10 +274,19 @@ const PINNED_OUTSIDE_THE_PRIMITIVE = [
 ];
 
 describe("no surface hand-rolls a centred card (§6)", () => {
+  // A `*.prototype/` directory is a throwaway variant set living on a branch of
+  // its own (the `prototype` skill's convention, already worn by
+  // `meal-picker.prototype/` and friends). Nothing in one ships — every call
+  // site is behind a `readVariant()` that returns `null` outside DEV — and its
+  // debug chrome is deliberately off the design system, including the pinned
+  // bar that flips variants. Sweeping it would put a throwaway file on a
+  // shipped roster.
   const svelteFiles = (dir: string): string[] =>
     readdirSync(dir, { withFileTypes: true }).flatMap((e) =>
       e.isDirectory()
-        ? svelteFiles(join(dir, e.name))
+        ? e.name.endsWith(".prototype")
+          ? []
+          : svelteFiles(join(dir, e.name))
         : e.name.endsWith(".svelte")
           ? [join(dir, e.name)]
           : []
