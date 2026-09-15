@@ -1,17 +1,21 @@
 import { dbClient } from "../db/db.client";
 import { mintEntity } from "../facets/entity-id";
 import { ingestEntity } from "../ingestion/ingest";
-import { FOOD_DENSITY_ATTR, type FoodDensity } from "../food/density";
+import {
+  readFoodDensity,
+  FOOD_DENSITY_ATTR,
+  type FoodDensity,
+} from "../food/density";
 import { HLC_ORDER_ASC, HLC_ORDER_DESC } from "../db/hlc";
 import { createProjectionStore, createQueryStore } from "./datoms.store";
 import type { ConsumptionEvent } from "../food/consumption-state";
 import {
-  basisUnit,
   nutritionFromMacros,
   roundFood,
   PER_SERVING,
   EXTRA_NUTRIENT_KEYS,
   type AmountUnit,
+  type MeasuredUnit,
   type NutritionInfo,
   type NutritionBreakdown,
   type Portion,
@@ -20,6 +24,7 @@ import type { LabelCapture, ManualEntry } from "../food/provenance";
 import {
   deriveRecipeNutrition,
   deriveIngredientMacros,
+  type IngredientSource,
   type ReferenceIngredient,
 } from "../food/recipe-nutrition";
 import {
@@ -65,6 +70,30 @@ export interface RecipeTwinRow {
 // append a second name datom, ADR-0022 §Deferred).
 export const recipeTwinsStore = createQueryStore<RecipeTwinRow>(
   `SELECT entity, value FROM datoms WHERE attribute = 'recipe/name' ORDER BY ${HLC_ORDER_DESC}`
+);
+
+/** One recipe's ingredient list, as the ledger holds it. */
+export interface RecipeIngredientsRow {
+  entity: string;
+  value: string;
+}
+
+/**
+ * Every recipe's `recipe/ingredients` list, newest first — the recipe context's
+ * memory of which unit a food was last measured into a dish in (ADR-0105 §7).
+ *
+ * Newest first is the whole of the ordering requirement: the first list holding
+ * a food is the last one it was put into. HLC order rather than `time`, like
+ * every other state read (ADR-0020).
+ *
+ * It is a raw row list rather than a projection because nothing else needs it
+ * folded: the one reader takes the lists in order and stops at the first match
+ * (`rememberedIngredientUnit`). Edits append, so one recipe can appear twice and
+ * its newer list is simply the one reached first, which is latest-wins by
+ * position.
+ */
+export const recipeIngredientsStore = createQueryStore<RecipeIngredientsRow>(
+  `SELECT entity, value FROM datoms WHERE attribute = 'recipe/ingredients' ORDER BY ${HLC_ORDER_DESC}`
 );
 
 /** Filters a consumption list to the events that fall on a given local day. */
@@ -195,8 +224,11 @@ export interface ScaleChange {
   /** The scaled amount, in `unit`. */
   amount: number;
   unit: AmountUnit;
-  /** The target twin's panel, read when the Scale tier opened. */
-  panel: NutritionInfo;
+  /** The target twin's panel and density, read when the Scale tier opened. A
+   *  scaled amount keeps the unit it was logged in, so the density is needed for
+   *  the same reason the panel is: a gram amount against a per-100 ml panel has
+   *  to be converted before it can be divided (ADR-0105 §5). */
+  source: IngredientSource;
   /** The food twin the replacement points at. */
   ref: string;
 }
@@ -225,7 +257,7 @@ export async function scaleLoggedFoods(
   for (const change of changes) {
     const breakdown = deriveIngredientMacros(
       { ref: change.ref, amount: change.amount, unit: change.unit },
-      () => change.panel
+      () => change.source
     );
     const replacement = consumptionDatoms(
       change.ref,
@@ -638,7 +670,7 @@ export async function logRecipeConsumption(
   recipeId: string,
   ingredients: ReferenceIngredient[],
   recipeYield: number,
-  resolve: (ref: string) => NutritionInfo | undefined,
+  resolve: (ref: string) => IngredientSource | undefined,
   resolveName: (ref: string) => string | undefined,
   meal_type: string,
   selectedDate: Date,
@@ -682,7 +714,7 @@ export async function correctInstantiation(
   based_on: string,
   ingredients: ReferenceIngredient[],
   recipeYield: number,
-  resolve: (ref: string) => NutritionInfo | undefined,
+  resolve: (ref: string) => IngredientSource | undefined,
   resolveName: (ref: string) => string | undefined,
   meal_type: string,
   selectedDate: Date,
@@ -788,13 +820,13 @@ export async function moveLoggedFoodsToMeal(
  * against a panel; recipe instantiations are corrected on their own editor and
  * whole-serving foods are locked (future work).
  *
- * `amount` is in the panel's OWN unit and nothing converts (ADR-0060 §1/§2): the
- * twin is already resolved here, so the unit is read straight off its
- * `serving_size` — millilitres for a drink published per 100 ml, grams for
- * everything else — and both the scaling factor and the logged quantity string
- * follow from it. Without that a drink would be re-logged as a gram weight it
- * was never measured in, and would go uneditable the moment the amount screen
- * starts naming its unit.
+ * `amount` travels with the `unit` it was entered in rather than having one read
+ * back off the panel, which is what it did until #430. The two coincide on every
+ * food carrying no Density Class, and on one that does they may not: the screen
+ * above this offers both units, so a unit re-derived here would silently
+ * contradict what the user just typed. The logged quantity string is spelled in
+ * the unit that reaches it, and the scaling factor puts that amount into the
+ * panel's own unit first (ADR-0105 §5) rather than rewriting the panel.
  *
  * Returns the id of the Consumption Event that replaced the old one, or `null`
  * when there was nothing to scale from (no target, or a twin carrying no
@@ -804,7 +836,8 @@ export async function moveLoggedFoodsToMeal(
  */
 export async function changeLoggedFoodAmount(
   event: ConsumptionEvent,
-  amount: number
+  amount: number,
+  unit: MeasuredUnit
 ): Promise<string | null> {
   if (!event.target) return null;
   const twin = await getLocalFoodTwin(event.target);
@@ -812,10 +845,9 @@ export async function changeLoggedFoodAmount(
     | NutritionInfo
     | undefined;
   if (!panel) return null;
-  const unit = basisUnit(panel.serving_size);
   const breakdown = deriveIngredientMacros(
     { ref: event.target, amount, unit },
-    () => panel
+    () => ({ panel, density: readFoodDensity(twin?.attributes) })
   );
   const newId = await logFoodConsumption(
     event.target,

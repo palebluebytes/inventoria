@@ -1,7 +1,7 @@
 <script lang="ts">
   import {
     toReferenceIngredient,
-    panelFromIngredients,
+    sourceFromIngredients,
     nameFromIngredients,
     addOrMergeIngredient,
     coerceAmount,
@@ -12,7 +12,13 @@
     deriveRecipeNutrition,
     deriveIngredientMacros,
   } from "../../food/recipe-nutrition";
-  import { isMeasuredUnit, type Portion } from "../../food/nutrition";
+  import {
+    basisUnit,
+    isMeasuredUnit,
+    type MeasuredUnit,
+    type NutritionInfo,
+    type Portion,
+  } from "../../food/nutrition";
   import { FOOD_DENSITY_ATTR } from "../../food/density";
   import { scaleAmount } from "../../food/scale-amount";
   import AddIngredientSheet from "./AddIngredientSheet.svelte";
@@ -100,7 +106,8 @@
   let referenceIngredients = $derived(ingredients.map(toReferenceIngredient));
   // Each ingredient's real nutrition panel / display name, read in memory from
   // its inlined twin payload — never mutating the food twin.
-  const resolvePanel = (ref: string) => panelFromIngredients(ingredients, ref);
+  const resolveSource = (ref: string) =>
+    sourceFromIngredients(ingredients, ref);
   const resolveName = (ref: string) => nameFromIngredients(ingredients, ref);
 
   // The figures describe the ingredients ON SCREEN: Σ(panel × amount ÷
@@ -111,7 +118,7 @@
   // serving" suffix. What the yield divides is what gets LOGGED, which is the
   // saving surface's business, not this list's.
   let visibleTotal = $derived(
-    deriveRecipeNutrition(referenceIngredients, 1, resolvePanel)
+    deriveRecipeNutrition(referenceIngredients, 1, resolveSource)
   );
   // A row's derived display: the clean {ref, amount, unit} (its `amount` coerced
   // once at this boundary, since the inline editor's numeric input is briefly
@@ -120,8 +127,23 @@
     const ref = toReferenceIngredient(ing);
     return {
       amount: ref.amount,
-      macros: deriveIngredientMacros(ref, resolvePanel),
+      macros: deriveIngredientMacros(ref, resolveSource),
     };
+  }
+
+  // The unit an editable row opens on. A `serving` row has no measured amount
+  // to edit and reaches this sheet only through the per-serving path, where the
+  // panel's own unit is the honest answer.
+  function editUnit(ing: RecipeIngredient): MeasuredUnit {
+    return isMeasuredUnit(ing.unit)
+      ? ing.unit
+      : basisUnit(
+          (
+            ing.payload.attributes["nutrition/info"] as
+              | NutritionInfo
+              | undefined
+          )?.serving_size
+        );
   }
 
   function removeIngredient(entity: string) {
@@ -249,7 +271,8 @@
     portions={ingredients[editingIndex].payload.attributes["food/portions"] as
       | Portion[]
       | undefined}
-    panel={resolvePanel(ingredients[editingIndex].entity)}
+    unit={editUnit(ingredients[editingIndex])}
+    panel={resolveSource(ingredients[editingIndex].entity)?.panel}
     onAssertDensity={(density) => {
       // The row's payload, not the ledger: an ingredient's twin is ingested when
       // the recipe is saved (`RecipeBuilder`), so the assertion travels with the
@@ -262,8 +285,10 @@
         attributes: { ...row.payload.attributes, [FOOD_DENSITY_ATTR]: density },
       };
     }}
-    onCommit={(amount) => {
-      if (editingIndex !== null) ingredients[editingIndex].amount = amount;
+    onCommit={(amount, unit) => {
+      if (editingIndex === null) return;
+      ingredients[editingIndex].amount = amount;
+      ingredients[editingIndex].unit = unit;
     }}
     onClose={() => (editingIndex = null)}
   />

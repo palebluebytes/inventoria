@@ -6,7 +6,7 @@
   } from "../../stores/calorie.store";
   import {
     toReferenceIngredient,
-    panelFromIngredients,
+    sourceFromIngredients,
   } from "../../food/recipe-ingredient";
   import {
     deriveRecipeNutrition,
@@ -73,7 +73,7 @@
         if (twin) {
           const rows = await seedRowsFromTemplate(twin.attributes);
           const refs = rows.map(toReferenceIngredient);
-          const resolve = (ref: string) => panelFromIngredients(rows, ref);
+          const resolve = (ref: string) => sourceFromIngredients(rows, ref);
           const y = sanitizeYield(
             (twin.attributes["recipe/yield"] as number) ?? 1
           );

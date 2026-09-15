@@ -12,6 +12,7 @@ import {
   ASSERTED_FIGURE_BOUNDS,
   DENSITY_CLASS_OPTIONS,
   FOOD_DENSITY_ATTR,
+  amountAgainstBasis,
   convertAmount,
   densityClassFromCategoryTags,
   densityGramsPerMl,
@@ -231,22 +232,36 @@ describe("context sets the opening unit and memory overrides it (§7)", () => {
   });
 
   it("takes the memory of this context over the context's default", () => {
-    expect(
-      openingUnit("recipe", "ml", { class: "oil" }, { amount: 30, unit: "ml" })
-    ).toBe("ml");
-    expect(
-      openingUnit("log", "ml", { class: "oil" }, { amount: 15, unit: "g" })
-    ).toBe("g");
+    expect(openingUnit("recipe", "ml", { class: "oil" }, "ml")).toBe("ml");
+    expect(openingUnit("log", "ml", { class: "oil" }, "g")).toBe("g");
   });
 
   it("reads memory per context, so a can drunk for months still opens on grams in a recipe", () => {
     // The scenario the flat rule gets wrong: a food with any history at all
     // takes it, and the context rule never runs. A recipe list has no memory of
     // a can nobody has cooked with, so the context decides.
-    const drunkInMillilitres = { amount: 330, unit: "ml" } as const;
-    expect(
-      openingUnit("log", "ml", { class: "juice" }, drunkInMillilitres)
-    ).toBe("ml");
+    expect(openingUnit("log", "ml", { class: "juice" }, "ml")).toBe("ml");
     expect(openingUnit("recipe", "ml", { class: "juice" }, null)).toBe("g");
+  });
+});
+
+describe("an amount is put into the panel's own unit, never the other way round", () => {
+  it("converts a gram entry against a volume panel", () => {
+    // 92 g of an oil published per 100 ml is 100 ml of it. Dividing the 92
+    // unconverted is an 8% error wearing the right unit, and rescaling the
+    // panel instead is what ADR-0048 §3 forbids.
+    expect(amountAgainstBasis(92, "g", "100 ml", { class: "oil" })).toBe(100);
+  });
+
+  it("is the identity wherever the units already agree", () => {
+    expect(amountAgainstBasis(250, "ml", "100 ml", { class: "oil" })).toBe(250);
+    expect(amountAgainstBasis(40, "g", "100 g", undefined)).toBe(40);
+  });
+
+  it("holds the figure where nothing licenses a conversion", () => {
+    // Only reachable by a row logged under a class since retired, and holding
+    // the amount is the least wrong of the answers available: the alternative
+    // drops a logged figure to zero.
+    expect(amountAgainstBasis(92, "g", "100 ml", undefined)).toBe(92);
   });
 });

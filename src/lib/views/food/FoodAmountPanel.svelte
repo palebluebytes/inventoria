@@ -8,7 +8,7 @@
     type NutritionInfo,
     type Portion,
   } from "../../food/nutrition";
-  import type { FoodDensity } from "../../food/density";
+  import { amountAgainstBasis, type FoodDensity } from "../../food/density";
   import type { DensityClassId } from "../../food/density-class";
   import AmountField from "./AmountField.svelte";
   import NutrientPreview from "./NutrientPreview.svelte";
@@ -36,17 +36,17 @@
   //
   // The density travels with the panel rather than being re-read here, because
   // the twin it is a fact about is the caller's (FoodCard reads both off the
-  // same payload). What it changes on this screen is only which unit the field
-  // opens on and what the box says; `amount` stays in the panel's own unit, so
-  // the factor below is the one it always was (ADR-0105 §5 — the panel is never
-  // rewritten, and a density sits beside it).
+  // same payload). On a food carrying one the amount's unit and the panel's
+  // basis can differ, and the factor below is the only place that matters: the
+  // amount is put into the panel's unit and the panel is left alone (ADR-0105
+  // §5 — a density sits beside a panel and never rescales one).
   let {
     panel = undefined,
     portions = [],
     amount = $bindable(),
+    unit = $bindable(),
     density = undefined,
     prefill = undefined,
-    openOn = undefined,
     onAssertDensity = undefined,
   }: {
     /** The food's `nutrition/info` panel, per its serving basis. Omit for a
@@ -55,23 +55,31 @@
     /** Household portions surfaced as picker chips (ADR-0030). */
     portions?: Portion[];
     amount: number;
+    /** The unit `amount` is in. The host seeds it (its context and this food's
+     *  memory there decide the opening unit) and the control writes back to it
+     *  when the user switches. */
+    unit: MeasuredUnit;
     /** What this food's twin asserts about its density (ADR-0105 §4). */
     density?: FoodDensity | undefined;
     /** The class this food's own source names, where it names exactly one. */
     prefill?: DensityClassId | undefined;
-    /** Which unit the field opens on, decided by the host's context. */
-    openOn?: MeasuredUnit | undefined;
     /** The user has said what kind of liquid this is; the host writes it. */
     onAssertDensity?: (density: FoodDensity) => void;
   } = $props();
 
-  // The unit the amount is entered in, and what the panel's figures are per.
-  let unit = $derived(basisUnit(panel?.serving_size));
+  // What the panel's figures are per, and the unit they are stated in.
+  let basis = $derived(basisUnit(panel?.serving_size));
   let caption = $derived(basisCaption(panel?.serving_size));
 
-  // The amount total: the full panel scaled from its own basis to the typed amount.
+  // The amount total: the full panel scaled from its own basis to the typed
+  // amount, with that amount put into the panel's own unit first. The panel
+  // itself is never rewritten (ADR-0105 §5); what moves is the number divided
+  // by it, and on every food carrying no density that move is the identity.
   let factor = $derived(
-    panel ? amount / parseBasisQuantity(panel.serving_size) : 0
+    panel
+      ? amountAgainstBasis(amount, unit, panel.serving_size, density) /
+          parseBasisQuantity(panel.serving_size)
+      : 0
   );
   let breakdown = $derived(scaleNutrition(panel, factor));
 </script>
@@ -82,12 +90,12 @@
      head row, sharing it with the − + × ÷ sum keys. -->
 <AmountField
   bind:amount
-  {unit}
+  bind:unit
+  {basis}
   {portions}
   {caption}
   {density}
   {prefill}
-  {openOn}
   {onAssertDensity}
 />
 

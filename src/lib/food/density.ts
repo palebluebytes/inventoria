@@ -20,7 +20,7 @@ import {
   type DensityClass,
   type DensityClassId,
 } from "./density-class";
-import { roundFood, type MeasuredUnit } from "./nutrition";
+import { basisUnit, roundFood, type MeasuredUnit } from "./nutrition";
 
 /** Where a food's density lives on its twin. */
 export const FOOD_DENSITY_ATTR = "food/density";
@@ -159,6 +159,33 @@ export function convertAmount(
   const gPerMl = densityGramsPerMl(density);
   if (gPerMl === undefined || gPerMl <= 0) return undefined;
   return roundFood(to === "g" ? amount * gPerMl : amount / gPerMl);
+}
+
+/**
+ * An amount, expressed in whatever unit the panel's own basis is stated in —
+ * the number every scaler divides by `parseBasisQuantity` (ADR-0021's formula).
+ *
+ * This is the seam ADR-0105 §5 turns on: a gram entry against a per-100 ml
+ * panel converts the AMOUNT and never the panel. Rescaling the assay to an
+ * assumed basis is what ADR-0048 §3 forbids, and a rewritten panel is also
+ * unreadable afterwards, since nothing would distinguish it from one the source
+ * published.
+ *
+ * Falls back to the amount unchanged where the two units cannot be bridged.
+ * That is the identity everywhere the units agree, which is every food carrying
+ * no density; where they disagree it can only be reached by a row logged under a
+ * class since retired, and holding the figure is the least wrong of the answers
+ * available (the alternative is dropping a logged amount to zero).
+ */
+export function amountAgainstBasis(
+  amount: number,
+  unit: MeasuredUnit,
+  serving_size: string | undefined,
+  density: FoodDensity | undefined
+): number {
+  return (
+    convertAmount(amount, unit, basisUnit(serving_size), density) ?? amount
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -370,25 +397,16 @@ export function densityClassFromCategoryTags(
 export type AmountContext = "recipe" | "log";
 
 /**
- * What this food was last entered in, **in this context**, or null where it has
- * no history here.
+ * The unit an amount field opens on: the context's default, overridden by what
+ * this food was last entered in **here**.
  *
- * Scoped to the context rather than to the food, and that is the correction
+ * `remembered` is read per context and never per food, which is the correction
  * ADR-0105's 2026-09-15 amendment makes to itself. A flat per-food memory
  * retires the context rule almost entirely: a can of Coke logged and drunk in
  * millilitres for months, then added to a recipe — where it is a thing measured
  * into something, which is the entire reason the context rule exists — would
  * take its memory and open in millilitres, and the rule that was supposed to
  * decide the case would never run.
- */
-export interface RememberedEntry {
-  amount: number;
-  unit: MeasuredUnit;
-}
-
-/**
- * The unit an amount field opens on: the context's default, overridden by what
- * this food was last entered in **here**.
  *
  * A food that cannot be weighed has no choice to make and opens on its panel's
  * own unit, exactly as ADR-0060 §1 has it — this function is a no-op everywhere
@@ -403,9 +421,8 @@ export function openingUnit(
   context: AmountContext,
   basis: MeasuredUnit,
   density: FoodDensity | undefined,
-  remembered: RememberedEntry | null
+  remembered: MeasuredUnit | null
 ): MeasuredUnit {
   if (densityGramsPerMl(density) === undefined) return basis;
-  if (remembered) return remembered.unit;
-  return context === "recipe" ? "g" : basis;
+  return remembered ?? (context === "recipe" ? "g" : basis);
 }

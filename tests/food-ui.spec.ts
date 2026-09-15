@@ -1803,14 +1803,14 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     // The toggle is the whole of the surface: there is no separate prompt
     // asking whether you would like to weigh this instead.
     const units = page.locator('[data-testid="amount-units"]');
-    await expect(units.locator('[data-unit="ml"]')).toHaveAttribute(
-      "aria-pressed",
-      "true"
+    await expect(units.locator('[data-value="ml"]')).toHaveAttribute(
+      "data-state",
+      "checked"
     );
     await expect(page.locator('[data-testid="density-picker"]')).toHaveCount(0);
 
     // The tap on `g` IS the question.
-    await units.locator('[data-unit="g"]').click();
+    await units.locator('[data-value="g"]').click();
     const picker = page.locator('[data-testid="density-picker"]');
     await expect(picker).toBeVisible();
 
@@ -1818,7 +1818,7 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     // opens on it — a proposal the user confirms, never a class written behind
     // them. The option names the bottle, not the figure.
     const oil = picker.locator('[data-value="oil"]');
-    await expect(oil).toHaveAttribute("data-state", "on");
+    await expect(oil).toHaveAttribute("data-state", "checked");
     await expect(oil).toContainText("olive", { ignoreCase: true });
     await expect(picker).not.toContainText("0.92");
 
@@ -1826,14 +1826,20 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     // oil weighs 92 g, which is the 78 kcal of error this whole record is about.
     await oil.click();
     await expect(picker).toHaveCount(0);
-    await expect(units.locator('[data-unit="g"]')).toHaveAttribute(
-      "aria-pressed",
-      "true"
+    await expect(units.locator('[data-value="g"]')).toHaveAttribute(
+      "data-state",
+      "checked"
     );
     await expect(page.getByLabel("Amount in grams")).toHaveValue("230");
 
+    // The commit says what it will log at the weight on screen, so the panel is
+    // being divided by the millilitres those grams are, not by the grams
+    // (ADR-0105 §5): 250 ml at 824 kcal/100 ml is 2,060 kcal, and dividing the
+    // 230 unconverted would have read 1,895.
+    await expect(page.locator("#log-food-btn")).toContainText("2060");
+
     // And it goes back. Both units stay available on a classified food.
-    await units.locator('[data-unit="ml"]').click();
+    await units.locator('[data-value="ml"]').click();
     await expect(page.getByLabel("Amount in millilitres")).toHaveValue("250");
   });
 
@@ -1849,10 +1855,10 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
       "en:cordials",
     ]);
 
-    await page.locator('[data-testid="amount-units"] [data-unit="g"]').click();
+    await page.locator('[data-testid="amount-units"] [data-value="g"]').click();
     const picker = page.locator('[data-testid="density-picker"]');
     await expect(picker).toBeVisible();
-    await expect(picker.locator('[data-state="on"]')).toHaveCount(0);
+    await expect(picker.locator('[data-state="checked"]')).toHaveCount(0);
 
     // And it is not a dead end: the exit takes a figure the user asserts.
     await picker.locator('[data-value="other"]').click();
@@ -1860,6 +1866,13 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     await picker.getByRole("button", { name: "Use this" }).click();
     await expect(picker).toHaveCount(0);
     await expect(page.getByLabel("Amount in grams")).toHaveValue("300");
+
+    // Logged as the grams that went on the scale, not as the millilitres the
+    // label is per: `event/quantity` records what was entered (ADR-0060 §4).
+    await page.locator("#log-food-btn").click();
+    await expect(
+      page.locator(".meal-section", { hasText: "LUNCH" })
+    ).toContainText("300g");
   });
 
   // Select two logged foods and start building a recipe from them.

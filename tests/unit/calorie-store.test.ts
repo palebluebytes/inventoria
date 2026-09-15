@@ -567,7 +567,7 @@ describe("correctInstantiation", () => {
       carbohydrate_content: 67.7,
     },
   };
-  const resolve = (ref: string) => PANELS[ref];
+  const resolve = (ref: string) => ({ panel: PANELS[ref] });
   const resolveName = (ref: string) =>
     ref === "fdc:oats" ? "Oats" : undefined;
 
@@ -655,7 +655,8 @@ describe("changeLoggedFoodAmount", () => {
         meal_type: "breakfast",
         time: new Date("2026-05-31T08:00:00").getTime(),
       } as any,
-      100 // 100 g of a 379 kcal/100 g food → 379 kcal
+      100, // 100 g of a 379 kcal/100 g food → 379 kcal
+      "g"
     );
 
     // Two appends: (1) the re-logged event at the new amount, (2) the retraction.
@@ -716,7 +717,7 @@ describe("changeLoggedFoodAmount", () => {
       meal_type: "lunch",
       time: new Date("2026-05-31T12:00:00").getTime(),
     };
-    await changeLoggedFoodAmount(cola, 330);
+    await changeLoggedFoodAmount(cola, 330, "ml");
 
     const newDatoms = mockAppend.mock.calls[0][0];
     expect(newDatoms.find((d) => d.attribute === "event/quantity")?.value).toBe(
@@ -735,7 +736,8 @@ describe("changeLoggedFoodAmount", () => {
 
     const newId = await changeLoggedFoodAmount(
       { id: "event:x", target: "fdc:ghost", quantity: "50g", time: 0 } as any,
-      100
+      100,
+      "g"
     );
 
     expect(mockAppend).not.toHaveBeenCalled();
@@ -779,14 +781,14 @@ describe("scaleLoggedFoods (ADR-0088 §5)", () => {
       event: event("oats", "breakfast", "2026-05-31T08:00:00"),
       amount: 100,
       unit: "g" as const,
-      panel: OATS_PANEL,
+      source: { panel: OATS_PANEL },
       ref: "fdc:oats",
     },
     {
       event: event("milk", "lunch", "2026-05-31T13:00:00"),
       amount: 200,
       unit: "ml" as const,
-      panel: MILK_PANEL,
+      source: { panel: MILK_PANEL },
       ref: "fdc:milk",
     },
   ];
@@ -1354,7 +1356,7 @@ describe("store action → computeConsumption round-trip (Seam 2)", () => {
       recipeId,
       refs,
       1,
-      (ref) => panels.get(ref),
+      (ref) => ({ panel: panels.get(ref) }),
       (ref) => names.get(ref),
       "breakfast",
       day
@@ -1492,7 +1494,7 @@ describe("store action → computeConsumption round-trip (Seam 2)", () => {
       recipeId,
       refs,
       2,
-      () => oatsPanel,
+      () => ({ panel: oatsPanel }),
       () => "Oats",
       "breakfast",
       day

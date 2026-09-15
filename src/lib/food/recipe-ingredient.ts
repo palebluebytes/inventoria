@@ -9,9 +9,11 @@ import {
   roundFood,
   PER_SERVING,
   type AmountUnit,
+  type MeasuredUnit,
   type NutritionInfo,
 } from "./nutrition";
-import type { ReferenceIngredient } from "./recipe-nutrition";
+import type { IngredientSource, ReferenceIngredient } from "./recipe-nutrition";
+import { readFoodDensity } from "./density";
 
 /**
  * A single recipe ingredient in the builder. It carries only what cannot be
@@ -56,20 +58,28 @@ export interface RecipeIngredient {
 }
 
 /**
- * Resolves a builder ingredient's `nutrition/info` panel by its twin ref — the
+ * Resolves what a scaler needs from a builder ingredient's twin, by ref — the
  * `resolve` the shared derivation ({@link deriveRecipeNutrition}) reads from. A
- * builder ingredient carries the referenced twin's real panel inline on its
- * `payload`, so both the live per-serving display and the log-time snapshot read
- * the single source of truth without touching the ledger. `undefined` when no
- * ingredient matches (or it carries no panel).
+ * builder ingredient carries the referenced twin's real payload inline, so both
+ * the live per-serving display and the log-time snapshot read the single source
+ * of truth without touching the ledger. `undefined` when no ingredient matches.
+ *
+ * It resolves the panel AND the density together because the derivation needs
+ * both: an ingredient's amount may be stated in a unit the panel's basis is not
+ * (ADR-0105 §7), and converting it is what the density is for. A resolver
+ * handing back only the panel was what this was until #430, and every caller
+ * would have compiled unchanged while silently dropping the conversion.
  */
-export function panelFromIngredients(
+export function sourceFromIngredients(
   ings: RecipeIngredient[],
   ref: string
-): NutritionInfo | undefined {
-  return ings.find((i) => i.entity === ref)?.payload?.attributes?.[
-    "nutrition/info"
-  ] as NutritionInfo | undefined;
+): IngredientSource | undefined {
+  const attributes = ings.find((i) => i.entity === ref)?.payload?.attributes;
+  if (!attributes) return undefined;
+  return {
+    panel: attributes["nutrition/info"] as NutritionInfo | undefined,
+    density: readFoodDensity(attributes),
+  };
 }
 
 /**
@@ -207,29 +217,24 @@ export function parseLoggedQuantity(quantity: string | undefined): {
  * builder derives each row's contribution from the twin's panel and this
  * `amount` (ADR-0021).
  *
- * The unit is read off the food's basis rather than assumed to be grams
- * (ADR-0060 §1): a drink published per 100 ml enters a recipe as a millilitre
- * row, so the amount the user typed on the panel's own screen is the amount
- * stored. Nothing converts. `FoodResult.basis` IS the panel's `serving_size`,
- * carried onto the row by `mapPayloadToFoodResult` — the same string
- * {@link parseBasisQuantity} takes the divisor from when
- * {@link deriveRecipeNutrition} scales this row, so a unit and a divisor cannot
- * read it to different conclusions.
- *
- * A basis naming no measured unit keeps grams: a weightless `"1 serving"` takes
- * `basisUnit`'s fallback, exactly as it takes `parseBasisQuantity`'s fallback to
- * 100. A food with no panel at all never reaches that fallback — its row carries
- * the per-100 g basis by construction — and is grams for that reason instead.
+ * The unit is **passed in**, not read off the food's basis. It was read off it
+ * until #430, which was the same answer while a unit could not be chosen
+ * (ADR-0060 §1) and is the wrong one now: a bottle of oil weighed into a recipe
+ * is a gram row against a per-100 ml panel, and re-deriving the unit here would
+ * silently relabel it as millilitres. Nothing converts on the way in; the
+ * conversion belongs to {@link deriveRecipeNutrition}, which puts the amount
+ * into the panel's own unit before dividing (ADR-0105 §5).
  */
 export function ingredientFromFood(
   food: FoodResult,
-  amount: number
+  amount: number,
+  unit: MeasuredUnit
 ): RecipeIngredient {
   return {
     entity: food.entity,
     name: food.name,
     amount,
-    unit: basisUnit(food.basis),
+    unit,
     payload: food.payload,
   };
 }
@@ -255,7 +260,7 @@ export type IngredientAddOutcome = { ok: boolean; message?: string };
 /**
  * Adds `incoming` to `ingredients`, merging when its twin is already present.
  *
- * The builder keys its list — and every resolver ({@link panelFromIngredients},
+ * The builder keys its list — and every resolver ({@link sourceFromIngredients},
  * {@link nameFromIngredients}) and the `remove` action — on `entity`, so two
  * rows sharing a twin are not representable: a keyed `{#each … (entity)}` throws
  * on the duplicate and the render aborts (issue #14). Re-adding a food therefore

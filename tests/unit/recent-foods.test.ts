@@ -2,7 +2,9 @@ import { describe, it, expect } from "vitest";
 import {
   recentCandidatesForMeal,
   emptyMealDefaultHint,
-  rememberedEntry,
+  rememberedAmount,
+  rememberedIngredientUnit,
+  rememberedUnit,
   type RecentCandidate,
 } from "../../src/lib/food/recent-foods";
 import type { ConsumptionEvent } from "../../src/lib/food/consumption-state";
@@ -228,17 +230,14 @@ describe("recentCandidatesForMeal", () => {
   });
 });
 
-describe("rememberedEntry", () => {
-  it("answers the amount this food was last logged at, and the unit", () => {
+describe("rememberedAmount", () => {
+  it("answers the amount this food was last logged at", () => {
     const events = [
       ate("food:oats", "breakfast", "40g"),
       ate("food:oats", "breakfast", "55g"),
     ];
 
-    expect(rememberedEntry(events, "food:oats")).toEqual({
-      amount: 55,
-      unit: "g",
-    });
+    expect(rememberedAmount(events, "food:oats", "g")).toBe(55);
   });
 
   it("reads the newest by time, not by position in the array", () => {
@@ -248,37 +247,34 @@ describe("rememberedEntry", () => {
     const older = { ...ate("food:oats", "breakfast", "55g"), time: 9_000 };
     const newer = { ...ate("food:oats", "breakfast", "40g"), time: 8_000 };
 
-    expect(rememberedEntry([newer, older], "food:oats")?.amount).toBe(55);
+    expect(rememberedAmount([newer, older], "food:oats", "g")).toBe(55);
   });
 
   it("is null for a food with nothing behind it, which takes the default", () => {
     const events = [ate("food:oats", "breakfast", "40g")];
 
-    expect(rememberedEntry(events, "food:banana")).toBeNull();
-    expect(rememberedEntry([], "food:oats")).toBeNull();
+    expect(rememberedAmount(events, "food:banana", "g")).toBeNull();
+    expect(rememberedAmount([], "food:oats", "g")).toBeNull();
   });
 
-  it("reports the unit it found rather than being asked for one", () => {
-    // It used to take the field's unit and answer null on a mismatch, which was
-    // the whole of the honest answer while nothing converted. On a food carrying
-    // a Density Class the unit is a choice, and what this food was last entered
-    // in is the memory that overrides the context's default (ADR-0105 §7): the
-    // unit is the answer now, not the question.
+  it("refuses to seed a gram field from a millilitre log, and the reverse", () => {
+    // ADR-0060 §1/§2: nothing converts. 330 is a true amount and the wrong one,
+    // and a control opened on it would be pre-filled with a number measured
+    // against something else. Still true on a food carrying a density: what
+    // unit to open in is `rememberedUnit`'s question, asked first.
     const events = [ate("food:cola", "dinner", "330ml")];
 
-    expect(rememberedEntry(events, "food:cola")).toEqual({
-      amount: 330,
-      unit: "ml",
-    });
+    expect(rememberedAmount(events, "food:cola", "ml")).toBe(330);
+    expect(rememberedAmount(events, "food:cola", "g")).toBeNull();
   });
 
   it("refuses a whole-serving log, which names no measurement at all", () => {
     // `parseLoggedQuantity` reads anything unmeasured as one serving (ADR-0035
-    // §6), so the 1 that comes back is a count and not a gram. There is no
-    // amount in it to remember and no unit to report.
+    // §6), so the 1 that comes back is a count and not a gram.
     const events = [ate("food:soup", "lunch", "1 serving")];
 
-    expect(rememberedEntry(events, "food:soup")).toBeNull();
+    expect(rememberedAmount(events, "food:soup", "g")).toBeNull();
+    expect(rememberedAmount(events, "food:soup", "ml")).toBeNull();
   });
 
   it("remembers across meals, where the Recent walk beside it does not", () => {
@@ -288,7 +284,7 @@ describe("rememberedEntry", () => {
     const events = [ate("food:oats", "breakfast", "40g")];
 
     expect(targets(recentCandidatesForMeal(events, "dinner"))).toEqual([]);
-    expect(rememberedEntry(events, "food:oats")?.amount).toBe(40);
+    expect(rememberedAmount(events, "food:oats", "g")).toBe(40);
   });
 
   it("keeps the amount's stored precision, having parsed rather than rounded", () => {
@@ -296,7 +292,55 @@ describe("rememberedEntry", () => {
     // control it re-opens must hold what the user actually logged.
     const events = [ate("food:cream", "dinner", "32.5g")];
 
-    expect(rememberedEntry(events, "food:cream")?.amount).toBe(32.5);
+    expect(rememberedAmount(events, "food:cream", "g")).toBe(32.5);
+  });
+});
+
+describe("rememberedUnit", () => {
+  it("answers which unit this food was last logged in", () => {
+    // The memory half of ADR-0105 §7's opening-unit rule, and a reader of its
+    // own: the amount above refuses a mismatch and must keep refusing, which a
+    // single function choosing the unit could not report.
+    const older = { ...ate("food:oil", "dinner", "250ml"), time: 8_000 };
+    const newer = { ...ate("food:oil", "dinner", "30g"), time: 9_000 };
+
+    expect(rememberedUnit([older, newer], "food:oil")).toBe("g");
+  });
+
+  it("is null for a food with no measured log, so the context decides", () => {
+    expect(rememberedUnit([], "food:oats")).toBeNull();
+    expect(
+      rememberedUnit([ate("food:soup", "lunch", "1 serving")], "food:soup")
+    ).toBeNull();
+  });
+});
+
+describe("rememberedIngredientUnit", () => {
+  const oilInMl = [{ ref: "food:oil", amount: 15, unit: "ml" as const }];
+  const oilInG = [{ ref: "food:oil", amount: 14, unit: "g" as const }];
+
+  it("answers from the newest recipe holding this food", () => {
+    // The lists arrive newest first, so the first one holding the food is the
+    // last one it was put into.
+    expect(rememberedIngredientUnit([oilInG, oilInMl], "food:oil")).toBe("g");
+    expect(rememberedIngredientUnit([oilInMl, oilInG], "food:oil")).toBe("ml");
+  });
+
+  it("is null for a food no recipe uses, which takes the recipe default", () => {
+    // What this food was last DRUNK in is not consulted here: a can of Coke
+    // logged in millilitres for months is still a thing measured into something
+    // the first time it reaches an ingredient list (ADR-0105 §7, as amended).
+    expect(rememberedIngredientUnit([oilInMl], "food:cola")).toBeNull();
+    expect(rememberedIngredientUnit([], "food:oil")).toBeNull();
+  });
+
+  it("ignores a whole-serving row, which names no measured unit", () => {
+    expect(
+      rememberedIngredientUnit(
+        [[{ ref: "food:dish", amount: 1, unit: "serving" }]],
+        "food:dish"
+      )
+    ).toBeNull();
   });
 });
 
@@ -476,7 +520,7 @@ describe("recentCandidatesForMeal is ordered by frecency (#165)", () => {
   });
 
   it("still reads the unit off the newest log, whatever the order does", () => {
-    // The ordering key moved; the amount seed did not. `rememberedEntry` opens
+    // The ordering key moved; the amount seed did not. `rememberedAmount` opens
     // the control on what this food was last logged in, and only the most recent
     // log can answer that.
     const events = [

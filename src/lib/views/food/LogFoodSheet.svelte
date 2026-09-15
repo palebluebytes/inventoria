@@ -24,15 +24,17 @@
     parseLoggedQuantity,
     quantityLabel,
     toReferenceIngredient,
-    panelFromIngredients,
+    sourceFromIngredients,
   } from "../../food/recipe-ingredient";
   import {
     recentCandidatesForMeal,
     emptyMealDefaultHint,
-    rememberedEntry,
+    rememberedAmount,
+    rememberedUnit,
   } from "../../food/recent-foods";
   import type { MealType } from "../../food/meal-type";
   import { wayInTitle, type WayIn } from "../../food/ways-in";
+  import { amountAgainstBasis, readFoodDensity } from "../../food/density";
   import {
     basisUnit,
     isMeasuredUnit,
@@ -193,10 +195,11 @@
   });
 
   // What a staged food's amount control opens at: the amount this food was last
-  // logged at, and the unit it was logged in. Passed as a reader rather than as
-  // a table because the stager asks about ONE food, at the moment it is staged —
-  // a map would be the whole history precomputed against the chance that one
-  // entry of it gets used.
+  // logged at, and the unit it was logged in. Two readers, because they answer
+  // two questions — the unit settles which field this is, and the amount is
+  // refused rather than converted when it was measured against the other one.
+  // Passed as readers rather than as a table because the stager asks about ONE
+  // food, at the moment it is staged.
   //
   // This is the LOG's memory, and it seeds a log sheet alone. What the same food
   // was last measured into a recipe at is a different fact and seeds a different
@@ -208,8 +211,10 @@
   // Not `$derived`, and it does not need to be: it reads the store at call time,
   // inside a tap handler, so it always answers from the current history rather
   // than from whatever a derived last settled on.
-  const lastEntryFor = (entity: string) =>
-    rememberedEntry($consumptionStore, entity);
+  const lastAmountFor = (entity: string, unit: MeasuredUnit) =>
+    rememberedAmount($consumptionStore, entity, unit);
+  const lastUnitFor = (entity: string) =>
+    rememberedUnit($consumptionStore, entity);
 
   // Edit mode hides Recent entirely (it locks onto one food's amount), so it
   // gets no line either — an empty list there is the point, not a shortfall.
@@ -361,6 +366,20 @@
           kind: "food",
           food: mapPayloadToFoodResult(twin),
           amount,
+          // The unit this event was logged in, which on a food carrying a
+          // Density Class is what the user chose rather than what the panel
+          // implies. `parseLoggedQuantity` reads a whole-serving entry as one
+          // serving, and that is not an amount this screen can re-open, so the
+          // twin's own basis is the honest seed there.
+          unit: isMeasuredUnit(unit)
+            ? unit
+            : basisUnit(
+                (
+                  twin.attributes?.["nutrition/info"] as
+                    | NutritionInfo
+                    | undefined
+                )?.serving_size
+              ),
         };
       });
     }
@@ -387,7 +406,18 @@
         // divided by the basis, so the two disagreed on any panel not measured
         // per 100 — and this is the one that freezes into `event/metrics`, which
         // history never recomputes.
-        const factor = choice.amount / parseBasisQuantity(panel?.serving_size);
+        //
+        // The amount is put into the panel's unit before it is divided: a gram
+        // entry against a per-100 ml panel is a real amount stated in the other
+        // unit, and dividing it unconverted would freeze an 8% error into
+        // history. The panel itself is untouched (ADR-0105 §5).
+        const factor =
+          amountAgainstBasis(
+            choice.amount,
+            choice.unit,
+            panel?.serving_size,
+            readFoodDensity(f.payload.attributes)
+          ) / parseBasisQuantity(panel?.serving_size);
         const breakdown = scaleNutrition(panel, factor);
         const newId = await logFoodConsumption(
           f.entity,
@@ -395,12 +425,14 @@
           // changeLoggedFoodAmount agreed with `quantityLabel` only by
           // coincidence, and a second spelling is how the two drift.
           //
-          // The unit is the panel's own (§1): the same `serving_size` the
-          // divisor above is read from, so a drink the user entered on a
-          // millilitre screen is recorded as "330ml" rather than as a weight it
-          // was never measured in. Forward-only, and a receipt already in the
-          // ledger keeps the string it was written with (§9).
-          quantityLabel(choice.amount, basisUnit(panel?.serving_size)),
+          // The unit is the one the amount was ENTERED in, which the choice
+          // carries. It was re-read off the panel here, which was the same
+          // answer while a unit could not be chosen (ADR-0060 §1) and is the
+          // wrong one now: a bottle of oil weighed into a recipe is recorded as
+          // the grams that went on the scale, not as the millilitres the label
+          // is per. Forward-only, and a receipt already in the ledger keeps the
+          // string it was written with (§9).
+          quantityLabel(choice.amount, choice.unit),
           meal_type,
           breakdown.calories,
           breakdown.protein,
@@ -506,7 +538,8 @@
         if (edit && logged != null && isMeasuredUnit(logged.unit)) {
           await changeLoggedFoodAmount(
             { ...edit, target: twinId },
-            logged.amount
+            logged.amount,
+            logged.unit
           );
         } else {
           const newId = await logFoodConsumption(
@@ -561,7 +594,8 @@
     methodDock={false}
     recent={showsMealDefault ? recent : []}
     {recentEmptyHint}
-    {lastEntryFor}
+    {lastAmountFor}
+    {lastUnitFor}
     primaryDisabled={!dbReady}
     ids={{
       search: "food-search-input",

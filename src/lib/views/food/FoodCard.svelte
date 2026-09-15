@@ -45,7 +45,7 @@
     panel = undefined,
     portions = [],
     amount = $bindable(),
-    openOn = undefined,
+    unit = $bindable(),
     onAssertDensity = undefined,
     onEdit,
     onExplainSource,
@@ -61,16 +61,17 @@
     panel?: NutritionInfo;
     /** Household portions surfaced as picker chips (ADR-0030). */
     portions?: Portion[];
-    /** The amount in view, in the panel's own unit (ADR-0060 §1). */
+    /** The amount in view, in {@link unit}. */
     amount: number;
     /**
-     * Which unit the amount field opens on, which is the one thing about a
-     * density that is not a property of the food: it is the host's, because only
-     * the host knows whether this food is being measured INTO something or
-     * consumed (ADR-0105 §7, as amended). Omitted where the host has no context
-     * to offer, and the field then opens on the panel's own unit.
+     * The unit that amount is in. The host seeds it — only the host knows
+     * whether this food is being measured INTO something or consumed, which is
+     * what decides the opening unit on a food that can answer in either
+     * (ADR-0105 §7, as amended) — and the control writes back to it when the
+     * user switches, because an amount that left here as a bare number would be
+     * re-derived wrongly by every reader that read its unit off the food.
      */
-    openOn?: MeasuredUnit | undefined;
+    unit: MeasuredUnit;
     /**
      * The user has said what kind of liquid this food is. Where that lands is
      * the host's too: a twin already in the ledger takes a datom, a staged one
@@ -251,17 +252,17 @@
        staging screen and the edit sheet cannot come to different conclusions
        about the same carton (ADR-0105 §1: a density is a property of the food).
 
-       Keyed on the entity because the unit the field is showing is a choice the
-       user made about THIS food: staging another one is a new control, not the
-       same control with a stale toggle. -->
+       Keyed on the entity because the question the picker asks is about THIS
+       food: staging another one is a new control, not the same control with a
+       half-answered question still open. -->
   {#key payload.entity}
     <FoodAmountPanel
       {panel}
       {portions}
       bind:amount
+      bind:unit
       {density}
       {prefill}
-      {openOn}
       onAssertDensity={onAssertDensity ? assertDensity : undefined}
     />
   {/key}

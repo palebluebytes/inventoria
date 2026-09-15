@@ -12,17 +12,18 @@ import { describe, expect, it } from "vitest";
 import { render } from "svelte/server";
 import AmountField from "../../src/lib/views/food/AmountField.svelte";
 
-// Svelte appends a scoping hash to every class it styles, so the classes are
-// matched as the first word of the attribute rather than as its whole value.
-const unitKeys = (body: string) =>
-  [...body.matchAll(/<button[^>]*class="unit-key[^"]*"[^>]*>/g)].map(
-    (m) => m[0]
-  );
+// bits-ui renders the Segmented cells and Svelte appends a scoping hash to
+// every class it styles, so both are matched loosely rather than by an exact
+// attribute value.
+const unitCells = (body: string) => {
+  const row = /data-testid="amount-units"[\s\S]*?<\/div>/.exec(body)?.[0] ?? "";
+  return [...row.matchAll(/<button[^>]*data-value="(\w+)"[^>]*>/g)];
+};
 
-const pressed = (body: string) =>
-  unitKeys(body)
-    .filter((tag) => tag.includes('aria-pressed="true"'))
-    .map((tag) => /data-unit="(\w+)"/.exec(tag)?.[1]);
+const checkedUnit = (body: string) =>
+  unitCells(body)
+    .filter((m) => m[0].includes('data-state="checked"'))
+    .map((m) => m[1]);
 
 const numberIn = (body: string) =>
   /<input[^>]*class="num[^"]*"[^>]*value="([^"]*)"/.exec(body)?.[1];
@@ -33,9 +34,9 @@ describe("a food measured by weight has no choice to make", () => {
     // is where "everywhere else" is proved: a gram food renders exactly the
     // control it always did.
     const { body } = render(AmountField, {
-      props: { amount: 100, unit: "g" },
+      props: { amount: 100, unit: "g", onAssertDensity: () => {} },
     });
-    expect(unitKeys(body)).toEqual([]);
+    expect(unitCells(body)).toEqual([]);
     expect(body).toContain("Amount (grams)");
   });
 });
@@ -46,17 +47,27 @@ describe("a food published by volume is offered the question", () => {
     // capability is the one that earns it, so there is no separate prompt and
     // no second surface to find.
     const { body } = render(AmountField, {
-      props: { amount: 250, unit: "ml", onAssertDensity: () => {} },
+      props: {
+        amount: 250,
+        unit: "ml",
+        basis: "ml",
+        onAssertDensity: () => {},
+      },
     });
-    expect(unitKeys(body)).toHaveLength(2);
-    expect(pressed(body)).toEqual(["ml"]);
+    expect(unitCells(body)).toHaveLength(2);
+    expect(checkedUnit(body)).toEqual(["ml"]);
   });
 
   it("opens in millilitres and stays fully loggable with no class", () => {
     // §6: a food with no class stays in millilitres indefinitely. The gram path
     // is something a product earns once, never a precondition for using the app.
     const { body } = render(AmountField, {
-      props: { amount: 250, unit: "ml", onAssertDensity: () => {} },
+      props: {
+        amount: 250,
+        unit: "ml",
+        basis: "ml",
+        onAssertDensity: () => {},
+      },
     });
     expect(body).toContain("Amount (millilitres)");
     expect(numberIn(body)).toBe("250");
@@ -64,59 +75,14 @@ describe("a food published by volume is offered the question", () => {
 
   it("does not open the picker before anybody has asked for grams", () => {
     const { body } = render(AmountField, {
-      props: { amount: 250, unit: "ml", onAssertDensity: () => {} },
-    });
-    expect(body).not.toContain('data-testid="density-picker"');
-  });
-});
-
-describe("a classified food answers in the unit the host opens it on", () => {
-  it("shows grams, and the weight the class resolves to", () => {
-    // 100 ml of olive oil is 92 g. Assuming 1 g/ml instead is 78 kcal of error
-    // on that amount, which is the whole reason this record exists.
-    const { body } = render(AmountField, {
-      props: {
-        amount: 100,
-        unit: "ml",
-        density: { class: "oil" },
-        openOn: "g",
-      },
-    });
-    expect(pressed(body)).toEqual(["g"]);
-    expect(body).toContain("Amount (grams)");
-    expect(numberIn(body)).toBe("92");
-  });
-
-  it("shows millilitres where the host's context opens it there", () => {
-    // Nobody weighs a can of Coke; they drink it. Both units stay available —
-    // what the context decides is only which one the field opens on.
-    const { body } = render(AmountField, {
-      props: {
-        amount: 330,
-        unit: "ml",
-        density: { class: "juice" },
-        openOn: "ml",
-      },
-    });
-    expect(pressed(body)).toEqual(["ml"]);
-    expect(numberIn(body)).toBe("330");
-  });
-
-  it("ignores an opening unit it has no density to reach", () => {
-    // A host may hand down grams for a food nobody has classified — the memory
-    // and the context rules do not know what the twin says. Converting anyway
-    // would be ADR-0060 §2's ratio-1 pretence, so the field simply stays where
-    // the panel put it.
-    const { body } = render(AmountField, {
       props: {
         amount: 250,
         unit: "ml",
-        openOn: "g",
+        basis: "ml",
         onAssertDensity: () => {},
       },
     });
-    expect(pressed(body)).toEqual(["ml"]);
-    expect(numberIn(body)).toBe("250");
+    expect(body).not.toContain('data-testid="density-picker"');
   });
 
   it("draws no toggle where the host has nowhere to put the answer", () => {
@@ -125,14 +91,56 @@ describe("a classified food answers in the unit the host opens it on", () => {
     // can already be weighed still offers the switch, because switching is not
     // asking.
     const unanswerable = render(AmountField, {
-      props: { amount: 250, unit: "ml" },
+      props: { amount: 250, unit: "ml", basis: "ml" },
     });
-    expect(unitKeys(unanswerable.body)).toEqual([]);
+    expect(unitCells(unanswerable.body)).toEqual([]);
 
     const classified = render(AmountField, {
-      props: { amount: 250, unit: "ml", density: { class: "juice" } },
+      props: {
+        amount: 250,
+        unit: "ml",
+        basis: "ml",
+        density: { class: "juice" },
+      },
     });
-    expect(unitKeys(classified.body)).toHaveLength(2);
+    expect(unitCells(classified.body)).toHaveLength(2);
+  });
+});
+
+describe("the amount is in the unit the host handed down", () => {
+  it("shows grams, and the number as typed rather than as converted", () => {
+    // The amount travels in its own unit (`CONTEXT.md`, **Amount unit**): 92 is
+    // what was entered against an oil published per 100 ml, and it is not
+    // silently relabelled or re-divided on the way to the screen. Putting it
+    // into the panel's unit is the scaler's job, one layer out.
+    const { body } = render(AmountField, {
+      props: {
+        amount: 92,
+        unit: "g",
+        basis: "ml",
+        density: { class: "oil" },
+        onAssertDensity: () => {},
+      },
+    });
+    expect(checkedUnit(body)).toEqual(["g"]);
+    expect(body).toContain("Amount (grams)");
+    expect(numberIn(body)).toBe("92");
+  });
+
+  it("shows millilitres where the host's context opened it there", () => {
+    // Nobody weighs a can of Coke; they drink it. Both units stay available —
+    // what the context decides is only which one the field opens on.
+    const { body } = render(AmountField, {
+      props: {
+        amount: 330,
+        unit: "ml",
+        basis: "ml",
+        density: { class: "juice" },
+        onAssertDensity: () => {},
+      },
+    });
+    expect(checkedUnit(body)).toEqual(["ml"]);
+    expect(numberIn(body)).toBe("330");
   });
 
   it("names the unit once, in the label, the suffix and the aria-label", () => {
@@ -141,9 +149,10 @@ describe("a classified food answers in the unit the host opens it on", () => {
     const { body } = render(AmountField, {
       props: {
         amount: 100,
-        unit: "ml",
+        unit: "g",
+        basis: "ml",
         density: { g_per_ml: 1.2 },
-        openOn: "g",
+        onAssertDensity: () => {},
       },
     });
     expect(body).toContain("Amount (grams)");

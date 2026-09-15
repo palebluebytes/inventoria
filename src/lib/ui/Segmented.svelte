@@ -16,12 +16,18 @@
   let {
     options,
     value = $bindable(),
+    onValueChange,
     label,
     required = false,
     testid,
   }: {
     options: { value: T; label: string }[];
     value: T | null;
+    /** Fires with the new value on every change, for a caller that acts on a
+     *  choice rather than only reading it back. The sibling ToggleGroup has
+     *  carried this since it was minted; a caller reaching for an `$effect` over
+     *  the bound value instead would be writing one on every settle. */
+    onValueChange?: (value: T) => void;
     /** Visible heading rendered above the row and used as the group's a11y name. */
     label: string;
     /** Marks the group aria-required — for a picker that starts empty (e.g. sex). */
@@ -40,7 +46,10 @@
   <RadioGroup.Root
     class="seg-row"
     value={value ?? ""}
-    onValueChange={(v) => (value = v as T)}
+    onValueChange={(v) => {
+      value = v as T;
+      onValueChange?.(v as T);
+    }}
     orientation="horizontal"
     {required}
     aria-labelledby={labelId}

@@ -34,13 +34,12 @@
   import { offContributeDefault } from "../../stores/device-settings";
   import { secretsStore } from "../../stores/secrets";
   import {
-    convertAmount,
+    amountAgainstBasis,
     openingUnit,
     readFoodDensity,
     FOOD_DENSITY_ATTR,
     type AmountContext,
     type FoodDensity,
-    type RememberedEntry,
   } from "../../food/density";
   import {
     amountDefaults,
@@ -198,27 +197,27 @@
      *  concept at all. */
     recentEmptyHint = "",
     /**
-     * The amount and unit this food was last entered at **in this host's
-     * context**, or null where there is none to reuse. Host-supplied for the
+     * The amount this food was last entered at in `unit` **on this host's
+     * surface**, or null where there is none to reuse. Host-supplied for the
      * same reason `recent` is: the history belongs to the host's surface, and
      * this stager holds no store of its own.
      *
      * The default answers null for every food, which is a host with no history
-     * to read rather than a food with nothing behind it — `AddIngredientSheet`
-     * builds a recipe, where an amount is a proportion of a dish and not a
-     * record of what somebody ate, and nothing in the ledger records what a food
-     * was last measured into one at. A food with no history in the context it is
-     * reached in takes that context's default (ADR-0105 §7, as amended), which
-     * is exactly what null means here.
+     * to read rather than a food with nothing behind it. Both cases fall back to
+     * `amountDefaults`.
      */
-    lastEntryFor = () => null,
+    lastAmountFor = () => null,
     /**
-     * Whether this host is measuring a food INTO something or recording one
-     * consumed — the whole of what decides the opening unit on a food that can
-     * answer in either (ADR-0105 §7, as amended). A recipe ingredient list opens
-     * on grams; a log sheet opens on the panel's own unit, as it does today.
-     * Unqualified "grams the default" would open a can of Coke in grams.
+     * Which unit this food was last entered in **on this host's surface**, or
+     * null where it has no history here. The memory half of ADR-0105 §7's
+     * opening-unit rule, and a separate reader from the amount because the two
+     * answer separate questions: that one refuses a unit mismatch, which a
+     * reader also choosing the unit could not report.
+     *
+     * A food with no history in the context it is reached in takes that
+     * context's default, which is exactly what null means here.
      */
+    lastUnitFor = () => null,
     amountContext = "log",
     /** DOM ids for each host's e2e selectors. */
     ids,
@@ -273,7 +272,8 @@
     extraTabs?: StagerExtraTab[];
     recent?: FoodResult[];
     recentEmptyHint?: string;
-    lastEntryFor?: (entity: string) => RememberedEntry | null;
+    lastAmountFor?: (entity: string, unit: MeasuredUnit) => number | null;
+    lastUnitFor?: (entity: string) => MeasuredUnit | null;
     amountContext?: AmountContext;
     ids: StagerIds;
     staged?: FoodResult | null;
@@ -327,6 +327,12 @@
   // for a weighed food, millilitres for a drink published per 100 ml, and
   // nothing converts between the two (ADR-0060 §1/§2).
   let amount = $state(100);
+  // The unit `amount` is in. It is the panel's own on every food carrying no
+  // Density Class, and on one that does it is a choice — seeded by the context
+  // and this food's memory in it, then owned by the toggle (ADR-0105 §7). It
+  // travels with the amount to whatever commits it, because a reader that
+  // re-derived it off the panel would contradict what the user typed.
+  let amountUnit = $state<MeasuredUnit>("g");
 
   // Where the control opens for a freshly staged food: the amount this food was
   // last logged at, and only failing that the unit's generic default — 100 g
@@ -355,27 +361,29 @@
       | undefined;
     const basis = basisUnit(info?.serving_size);
     const density = readFoodDensity(payload.attributes);
-    const remembered = lastEntryFor(payload.entity);
-    const unit = openingUnit(amountContext, basis, density, remembered);
-    const opening =
-      remembered?.unit === unit
-        ? remembered.amount
-        : amountDefaults(unit).amount;
-    // `amount` is held in the PANEL's unit whichever unit the field opens on, so
-    // every reader downstream is unchanged (ADR-0105 §5: the panel is never
-    // rewritten and the density sits beside it). The conversion cannot fail —
-    // `openingUnit` only names the second unit on a food carrying a density.
+    // The unit is settled first, and only then is the amount asked for: a
+    // remembered amount measured against the other unit is refused rather than
+    // converted (ADR-0060 §1/§2), and takes the unit's generic default.
+    const unit = openingUnit(
+      amountContext,
+      basis,
+      density,
+      lastUnitFor(payload.entity)
+    );
     return {
-      amount: convertAmount(opening, unit, basis, density) ?? opening,
+      amount:
+        lastAmountFor(payload.entity, unit) ?? amountDefaults(unit).amount,
       unit,
     };
   }
 
-  // Which unit the staged food's field opens on, re-read from the same rule the
-  // opening amount came from so the two cannot disagree about one food.
-  let stagedOpenOn = $derived(
-    staged ? openingEntry(staged.payload).unit : undefined
-  );
+  /** Seeds both halves of the control from one reading, so the number and the
+   *  unit it is in can never come from two different rules. */
+  function openAt(payload: EntityPayload) {
+    const opening = openingEntry(payload);
+    amount = opening.amount;
+    amountUnit = opening.unit;
+  }
 
   // The user has said what kind of liquid the staged food is. It lands on the
   // staged payload rather than in the ledger, because that payload IS what the
@@ -409,7 +417,14 @@
   // same divisor FoodAmountPanel's preview directly above it uses (#148). A
   // hardcoded /100 here disagreed with that preview on every panel not measured
   // per 100 — a label-corrected `gtin:` twin restaged from a re-scan, say.
-  let factor = $derived(amount / parseBasisQuantity(stagedInfo?.serving_size));
+  let factor = $derived(
+    amountAgainstBasis(
+      amount,
+      amountUnit,
+      stagedInfo?.serving_size,
+      readFoodDensity(staged?.payload.attributes)
+    ) / parseBasisQuantity(stagedInfo?.serving_size)
+  );
 
   // The staged food's household portions (ADR-0030), surfaced as picker presets.
   // A searched food carries them on its bundled row (ADR-0047 §6); empty (and
@@ -457,7 +472,7 @@
     // the Recent list closes nothing — no session was ever open.
     endSearchSession();
     staged = item;
-    amount = openingEntry(item.payload).amount;
+    openAt(item.payload);
     if (!searched) return;
     completingEntity = item.entity;
     unreachablePanel = null;
@@ -1075,6 +1090,7 @@
     if (seed.kind === "food") {
       staged = seed.food;
       amount = seed.amount;
+      amountUnit = seed.unit;
     } else if (seed.kind === "edit_twin") {
       // Same screen the staged card's pencil opens, seeded from the same twin.
       openEditForm(seed.entity, seed.attributes);
@@ -1739,7 +1755,7 @@
       // runs the found-but-poor predicate below (§1).
       if (local) {
         staged = mapPayloadToFoodResult(local);
-        amount = openingEntry(local).amount;
+        openAt(local);
         status = "idle";
         return;
       }
@@ -1768,7 +1784,7 @@
       // resurrect it.
       if (scanSession) scanSession = scanAnswered(scanSession, "found");
       staged = mapPayloadToFoodResult(off);
-      amount = openingEntry(off).amount;
+      openAt(off);
       status = "idle";
       const info = off.attributes[NUTRITION_INFO_ATTR] as
         | NutritionInfo
@@ -1929,9 +1945,10 @@
 
   function primaryAction() {
     if (staged) {
-      // The amount travels in the staged panel's own unit; every host reads that
-      // unit back off the panel rather than off the carrier (ADR-0060 §1).
-      return commit({ kind: "food", food: staged, amount });
+      // The amount travels WITH its unit: on a food carrying a density the two
+      // can differ from the panel's basis, and a host re-deriving the unit off
+      // the panel would contradict the toggle the user just used (ADR-0105 §7).
+      return commit({ kind: "food", food: staged, amount, unit: amountUnit });
     }
     if (method === "custom") {
       if (!customName.trim() || runningKcal === "") return;
@@ -2158,7 +2175,7 @@
                     panel={stagedInfo}
                     portions={stagedPortions}
                     bind:amount
-                    openOn={stagedOpenOn}
+                    bind:unit={amountUnit}
                     onAssertDensity={assertStagedDensity}
                     onEdit={editStaged}
                     onExplainSource={(kind) => (sourceExplain = kind)}

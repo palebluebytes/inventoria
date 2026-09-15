@@ -11,7 +11,10 @@
     ChooseOutcome,
     PrimaryLabelContext,
   } from "../../food/food-staging";
-  import { roundFoodDisplay } from "../../food/nutrition";
+  import { roundFoodDisplay, type MeasuredUnit } from "../../food/nutrition";
+  import { rememberedIngredientUnit } from "../../food/recent-foods";
+  import { recipeIngredientsStore } from "../../stores/calorie.store";
+  import type { ReferenceIngredient } from "../../food/recipe-nutrition";
   import { calorieDisplayDecimals } from "../../stores/device-settings";
   import BottomSheet from "../../ui/BottomSheet.svelte";
   import FoodStager from "./FoodStager.svelte";
@@ -47,17 +50,37 @@
 
   // An ingredient list is a thing measured INTO something, so a food that can be
   // weighed opens on grams here where the log sheet opens it on its panel's own
-  // unit (ADR-0105 §7, as amended). Nothing in the ledger records what a food was
-  // last measured into a recipe at, so this context has no memory to override the
-  // default with — which is what "a food with no history in the context it is
-  // reached in takes that context's default" says, rather than a gap.
+  // unit (ADR-0105 §7, as amended).
+  //
+  // Its memory is the recipes themselves, not the consumption log: what a food
+  // was last measured into a dish in is the fact this screen is seeded by, and
+  // what it was last DRUNK in says nothing about it. A can of Coke logged in
+  // millilitres for months is still a thing measured into something the first
+  // time it reaches an ingredient list, which is the case a per-food memory
+  // would get wrong.
+  //
+  // Only the unit is remembered, and not the amount: how much of a food a recipe
+  // uses is a property of that recipe, where which unit you measure it in is a
+  // property of how you cook.
+  let ingredientLists = $derived(
+    $recipeIngredientsStore.map((row) => {
+      try {
+        const parsed: unknown = JSON.parse(row.value);
+        return Array.isArray(parsed) ? (parsed as ReferenceIngredient[]) : [];
+      } catch {
+        return [];
+      }
+    })
+  );
+  const lastUnitFor = (entity: string): MeasuredUnit | null =>
+    rememberedIngredientUnit(ingredientLists, entity);
 
   // Map the chosen food to a RecipeIngredient and hand it to the recipe builder.
   // `onAdd`'s outcome is already the stager's outcome shape: `ok` closes the
   // sheet (the parent unmounts us), otherwise the reason keeps it open.
   function handleChoose(choice: FoodChoice): ChooseOutcome {
     if (choice.kind === "food") {
-      return onAdd(ingredientFromFood(choice.food, choice.amount));
+      return onAdd(ingredientFromFood(choice.food, choice.amount, choice.unit));
     }
     return onAdd(
       customIngredient(
@@ -95,6 +118,7 @@
     bind:canGoBack
     bind:goBack
     amountContext="recipe"
+    {lastUnitFor}
     ids={{
       search: "ai-search",
       barcode: "ai-barcode",

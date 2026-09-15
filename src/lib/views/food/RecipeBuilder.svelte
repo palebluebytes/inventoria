@@ -10,7 +10,7 @@
   } from "../../stores/calorie.store";
   import {
     toReferenceIngredient,
-    panelFromIngredients,
+    sourceFromIngredients,
     nameFromIngredients,
     type RecipeIngredient,
   } from "../../food/recipe-ingredient";
@@ -147,7 +147,8 @@
   let referenceIngredients = $derived(ingredients.map(toReferenceIngredient));
   // Each ingredient's real nutrition panel / display name, resolved in memory
   // from its inlined twin payload — never mutating the food twin.
-  const resolvePanel = (ref: string) => panelFromIngredients(ingredients, ref);
+  const resolveSource = (ref: string) =>
+    sourceFromIngredients(ingredients, ref);
   const resolveName = (ref: string) => nameFromIngredients(ingredients, ref);
 
   function addStep() {
@@ -222,7 +223,7 @@
           recipeId,
           referenceIngredients,
           yieldNum,
-          resolvePanel,
+          resolveSource,
           resolveName,
           meal_type,
           selectedDate

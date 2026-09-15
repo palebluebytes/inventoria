@@ -30,7 +30,7 @@ const NAMES: Record<string, string> = {
   "fdc:oats": "Oats",
   "food:custom_milk": "Milk",
 };
-const resolve = (ref: string): NutritionInfo | undefined => PANELS[ref];
+const resolve = (ref: string) => ({ panel: PANELS[ref] });
 const resolveName = (ref: string): string | undefined => NAMES[ref];
 
 const INGREDIENTS: ReferenceIngredient[] = [
@@ -160,13 +160,15 @@ describe("buildInstantiation", () => {
       [{ ref: "fdc:oats", amount: 50, unit: "g" }],
       1,
       () => ({
-        serving_size: "100 g",
-        calories: 380,
-        protein_content: 13,
-        fat_content: 7,
-        carbohydrate_content: 67,
-        fiber_content: 10,
-        sodium_content: 0.006,
+        panel: {
+          serving_size: "100 g",
+          calories: 380,
+          protein_content: 13,
+          fat_content: 7,
+          carbohydrate_content: 67,
+          fiber_content: 10,
+          sodium_content: 0.006,
+        },
       }),
       () => "Oats"
     );

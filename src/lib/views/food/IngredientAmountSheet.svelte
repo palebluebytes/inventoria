@@ -9,6 +9,7 @@
   import type { DietaryVerdict } from "../../food/off-signals";
   import type { FoodSourceKind } from "../../food/food-source";
   import type { FoodDensity } from "../../food/density";
+  import type { MeasuredUnit } from "../../food/nutrition";
   import BottomSheet from "../../ui/BottomSheet.svelte";
   import FoodCard from "./FoodCard.svelte";
   import CommitButton from "./CommitButton.svelte";
@@ -35,6 +36,7 @@
     payload,
     name,
     amount,
+    unit,
     portions = [],
     panel,
     onEdit,
@@ -50,6 +52,10 @@
     payload: EntityPayload;
     name: string;
     amount: number;
+    /** The unit `amount` is in. On a food carrying a Density Class this is what
+     *  the row was entered in and not what its panel implies (ADR-0105 §7), so
+     *  it is handed in and handed back rather than re-derived here. */
+    unit: MeasuredUnit;
     /** The food's household portions (ADR-0030) plus any synthesised serving,
      *  shown as picker chips. Empty for a portion-less food. */
     portions?: Portion[];
@@ -71,7 +77,7 @@
      *  than carrying it to a commit the way a staging screen does. Omit on a
      *  host with nowhere to put it, and the field offers only the panel's unit. */
     onAssertDensity?: (density: FoodDensity) => void;
-    onCommit: (amount: number) => void;
+    onCommit: (amount: number, unit: MeasuredUnit) => void;
     onClose: () => void;
   } = $props();
 
@@ -81,6 +87,10 @@
   // prop changes.
   // svelte-ignore state_referenced_locally
   let value = $state(amount);
+  // The unit travels with the working copy: the card below offers the toggle on
+  // a food that can be weighed, so Done reports what the user left it on.
+  // svelte-ignore state_referenced_locally
+  let valueUnit = $state<MeasuredUnit>(unit);
 
   // A panel that reports no energy cannot be committed at any amount, and the
   // card says why (ADR-0048 §6). Held here as well as on the staging screen
@@ -91,7 +101,7 @@
   let noEnergy = $derived(reportsNoEnergy(panel));
 
   function done() {
-    onCommit(value);
+    onCommit(value, valueUnit);
     onClose();
   }
 </script>
@@ -125,6 +135,7 @@
     {panel}
     {portions}
     bind:amount={value}
+    bind:unit={valueUnit}
     {onEdit}
     {onExplainSource}
     {onExplainNova}

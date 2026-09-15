@@ -1,12 +1,9 @@
 import {
   deriveIngredientMacros,
+  type IngredientSource,
   type ReferenceIngredient,
 } from "./recipe-nutrition";
-import type {
-  AmountUnit,
-  NutritionBreakdown,
-  NutritionInfo,
-} from "./nutrition";
+import type { AmountUnit, NutritionBreakdown } from "./nutrition";
 
 /**
  * One ingredient of a logged Recipe Instantiation, frozen (ADR-0022). It keeps
@@ -49,7 +46,9 @@ export interface Instantiation {
  * display and the headline `deriveRecipeNutrition` use, so the frozen rows sum
  * exactly to the batch total the headline is `÷ yield` of. `resolve` yields each
  * referenced twin's nutrition panel; `resolveName` its display name, denormalized
- * onto the row (falling back to the raw `ref` if the twin cannot be resolved).
+ * onto the row (falling back to the raw `ref` if the twin cannot be resolved);
+ * it yields the twin's panel and density together, because a row's amount may be
+ * stated in a unit that panel's basis is not (ADR-0105 §7).
  * Yield is only carried here, not applied to the rows: the rows are the batch as
  * cooked, and dividing by yield happens once, in the headline.
  */
@@ -57,7 +56,7 @@ export function buildInstantiation(
   based_on: string,
   ingredients: ReferenceIngredient[],
   recipeYield: number,
-  resolve: (ref: string) => NutritionInfo | undefined,
+  resolve: (ref: string) => IngredientSource | undefined,
   resolveName: (ref: string) => string | undefined
 ): Instantiation {
   const rows: InstantiationRow[] = ingredients.map((ing) => ({

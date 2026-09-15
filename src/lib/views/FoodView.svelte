@@ -48,7 +48,7 @@
   import {
     addOrMergeIngredient,
     customIngredient,
-    panelFromIngredients,
+    sourceFromIngredients,
     parseLoggedQuantity,
     type RecipeIngredient,
   } from "../food/recipe-ingredient";
@@ -63,10 +63,15 @@
     servingSizePortion,
     roundFood,
     type AmountUnit,
+    type MeasuredUnit,
     type NutritionInfo,
     type Portion,
   } from "../food/nutrition";
-  import { deriveIngredientMacros } from "../food/recipe-nutrition";
+  import {
+    deriveIngredientMacros,
+    type IngredientSource,
+  } from "../food/recipe-nutrition";
+  import { readFoodDensity } from "../food/density";
   import type { NovaVerdict } from "../food/nova-verdict";
   import type { DietaryVerdict } from "../food/off-signals";
   import type { EntityPayload } from "../ingestion/ingest";
@@ -330,6 +335,10 @@
     event: ConsumptionEvent;
     name: string;
     amount: number;
+    /** The unit `amount` is in, which on a food carrying a Density Class is a
+     *  choice the log recorded rather than a fact re-derivable from the panel
+     *  (ADR-0105 §7). */
+    unit: MeasuredUnit;
     panel?: NutritionInfo;
     portions: Portion[];
     /** The resolved food twin — the card derives every mark on it from this. */
@@ -514,6 +523,10 @@
       event: item,
       name: item.foodName ?? "Food",
       amount: openAmount,
+      // A measured log opens in the unit it was logged in, which is what the
+      // user chose. The two fallbacks above rebuilt an amount out of the panel,
+      // so they open in the panel's own unit by construction.
+      unit: isMeasuredUnit(unit) ? unit : basisUnit(panel?.serving_size),
       panel,
       portions,
       // A twin-less event still carries the id it was logged against, and the
@@ -675,7 +688,10 @@
   interface Scalable {
     amount: number;
     unit: AmountUnit;
-    panel: NutritionInfo;
+    /** The panel to divide by AND what the twin says about its density: a
+     *  scaled amount keeps the unit it was logged in, and putting that into the
+     *  panel's own unit is what the density is for (ADR-0105 §5). */
+    source: IngredientSource;
     ref: string;
   }
   let scalables = $state<Map<string, Scalable>>(new Map());
@@ -695,8 +711,13 @@
       if (!resolved?.panel) continue;
       next.set(item.id, {
         amount: resolved.amount,
-        unit: basisUnit(resolved.panel.serving_size),
-        panel: resolved.panel,
+        // The unit the amount is in, resolved once above — not re-read off the
+        // panel, which on a classified food can name the other one.
+        unit: resolved.unit,
+        source: {
+          panel: resolved.panel,
+          density: readFoodDensity(resolved.payload.attributes),
+        },
         ref: item.target,
       });
     }
@@ -731,7 +752,7 @@
       const amount = scaleAmount(food.amount, factor, scale_op);
       const macros = deriveIngredientMacros(
         { ref: food.ref, amount, unit: food.unit },
-        () => food.panel
+        () => food.source
       );
       preview.set(id, {
         amount,
@@ -784,7 +805,7 @@
         event: item,
         amount: scaleAmount(food.amount, factor, op),
         unit: food.unit,
-        panel: food.panel,
+        source: food.source,
         ref: food.ref,
       });
     }
@@ -922,7 +943,7 @@
       // ones, so nothing is lost but the link to the shared twin.
       const macros = deriveIngredientMacros(
         { ref: ing.entity, amount: ing.amount, unit: ing.unit },
-        (ref) => panelFromIngredients([ing], ref)
+        (ref) => sourceFromIngredients([ing], ref)
       );
       seed.push({
         ...customIngredient(
@@ -1359,6 +1380,7 @@
   <IngredientAmountSheet
     name={ae.name}
     amount={ae.amount}
+    unit={ae.unit}
     panel={ae.panel}
     portions={ae.portions}
     payload={ae.payload}
@@ -1368,7 +1390,7 @@
     onExplainDietary={(v) => (dietaryExplain = v)}
     onAssertDensity={(density) =>
       void setFoodDensity(ae.payload.entity, density)}
-    onCommit={(amount) => changeLoggedFoodAmount(ae.event, amount)}
+    onCommit={(amount, unit) => changeLoggedFoodAmount(ae.event, amount, unit)}
     onClose={() => (amountEdit = null)}
   />
 {/if}

@@ -1,5 +1,5 @@
 import type { FoodResult } from "./food-search";
-import type { NutritionInfo, Portion } from "./nutrition";
+import type { MeasuredUnit, NutritionInfo, Portion } from "./nutrition";
 import type { EntityPayload } from "../ingestion/ingest";
 import type { LabelCapture, ManualEntry, ManualEntryKind } from "./provenance";
 
@@ -71,7 +71,14 @@ export interface LabelCaptureSeed {
  * come to disagree about the same food.
  */
 export type FoodChoice =
-  | { kind: "food"; food: FoodResult; amount: number }
+  | {
+      kind: "food";
+      food: FoodResult;
+      amount: number;
+      /** The unit `amount` is in, which on a food carrying a Density Class the
+       *  log recorded rather than the panel implying (ADR-0105 §7). */
+      unit: MeasuredUnit;
+    }
   | ({
       kind: "custom";
       name: string;
@@ -167,7 +174,14 @@ export interface ManualEntrySeed {
  * back to the control that entered it.
  */
 export type StagerSeed =
-  | { kind: "food"; food: FoodResult; amount: number }
+  | {
+      kind: "food";
+      food: FoodResult;
+      amount: number;
+      /** The unit `amount` is in, which on a food carrying a Density Class the
+       *  log recorded rather than the panel implying (ADR-0105 §7). */
+      unit: MeasuredUnit;
+    }
   /**
    * Edit a food's own twin in the label form (ADR-0034 §7). The whole twin
    * rides along because a logged event freezes only the four headline macros:

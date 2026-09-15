@@ -10,7 +10,7 @@
   } from "../../stores/calorie.store";
   import {
     toReferenceIngredient,
-    panelFromIngredients,
+    sourceFromIngredients,
     nameFromIngredients,
     type RecipeIngredient,
   } from "../../food/recipe-ingredient";
@@ -156,7 +156,7 @@
         await dbClient.append(ingestEntity(ing.payload));
       }
       const refs = ingredients.map(toReferenceIngredient);
-      const resolve = (ref: string) => panelFromIngredients(ingredients, ref);
+      const resolve = (ref: string) => sourceFromIngredients(ingredients, ref);
       const resolveName = (ref: string) =>
         nameFromIngredients(ingredients, ref);
       if (edit) {

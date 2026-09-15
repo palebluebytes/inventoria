@@ -1,8 +1,12 @@
 import type { ConsumptionEvent } from "./consumption-state";
 import { byFrecency, frecencyOf } from "./frecency";
 import { parseLoggedQuantity } from "./recipe-ingredient";
-import { isMeasuredUnit, type AmountUnit } from "./nutrition";
-import type { RememberedEntry } from "./density";
+import {
+  isMeasuredUnit,
+  type AmountUnit,
+  type MeasuredUnit,
+} from "./nutrition";
+import type { ReferenceIngredient } from "./recipe-nutrition";
 import type { MealType } from "./meal-type";
 
 /**
@@ -113,8 +117,8 @@ export function recentCandidatesForMeal(
 }
 
 /**
- * The amount this food was last logged at **and the unit it was logged in**, or
- * null where there is nothing to open on.
+ * The amount this food was last logged at, in `unit`, or null where there is
+ * nothing to open on.
  *
  * A food is nearly always eaten in the same amount — a 40 g bowl of oats stays
  * a 40 g bowl — so the amount control opens on what the user last chose for
@@ -122,17 +126,19 @@ export function recentCandidatesForMeal(
  * caller falls back to that default on null, which keeps the two rules in one
  * readable line at the call site instead of a default buried in here.
  *
- * **It reports the unit rather than being asked for one.** It took the field's
- * unit and answered null on a mismatch, which was the whole of the honest answer
- * while nothing converted (ADR-0060 §1/§2). On a food carrying a Density Class
- * the unit is a choice, and what this food was last entered in is the memory
- * that overrides the context's default (ADR-0105 §7, as amended) — so the unit
- * is the answer here, not the question. A caller that can only take one unit
- * still compares and falls back; `openingUnit` is where the comparison lives.
+ * **The unit must match, and a mismatch is null rather than a number.** ADR-0060
+ * §1/§2 is that nothing converts: a drink logged at `330ml` cannot seed a field
+ * entered in grams, and a whole-serving log ("1 serving", ADR-0035 §6) names no
+ * measurement at all. Both come back null and take the default, which is the
+ * only honest answer — the alternative is a field pre-filled with a number
+ * measured against something else.
  *
- * **A whole-serving log names no measurement at all** ("1 serving",
- * ADR-0035 §6) and comes back null, as it always did: there is no amount in it
- * to remember and no unit to report.
+ * This still refuses rather than converting, even on a food that now carries a
+ * density: what unit to open in is {@link rememberedUnit}'s question, and a
+ * caller asks this one only once that is settled. The two are siblings by
+ * design — a reader that both chose the unit and reported the amount would be
+ * answering two questions with one return value, which is what makes a mismatch
+ * unreportable.
  *
  * Unscoped by meal, unlike {@link recentCandidatesForMeal} above. That walk is
  * scoped because a meal's *offer* is about what belongs at breakfast; this is
@@ -149,10 +155,53 @@ export function recentCandidatesForMeal(
  * dropped retracted events (`consumption-state.ts`), so an amount the user
  * undid is not in the history to be remembered.
  */
-export function rememberedEntry(
+export function rememberedAmount(
+  events: readonly ConsumptionEvent[],
+  target: string,
+  unit: MeasuredUnit
+): number | null {
+  const logged = newestLog(events, target);
+  if (!logged) return null;
+  return logged.unit === unit ? logged.amount : null;
+}
+
+/**
+ * Which unit this food was last **logged** in, or null where it has never been
+ * logged as a measurement.
+ *
+ * The sibling {@link rememberedAmount} needs, and the memory half of ADR-0105
+ * §7's opening-unit rule: context sets the default and what this food was last
+ * entered in **here** overrides it. Reporting the unit is a different question
+ * from seeding the amount, which is why it is a second reader rather than a
+ * widened return: that one refuses a mismatch and must keep refusing, and a
+ * single function answering both would have no way to say "330, and it was
+ * millilitres, and your field takes grams".
+ *
+ * Scoped to the LOG. What the same food was last measured into a recipe at is
+ * `rememberedIngredientUnit`'s answer and seeds a different screen: a can of
+ * Coke drunk in millilitres for months is still a thing measured *into*
+ * something the first time it reaches an ingredient list, and a memory read per
+ * food rather than per context would never let the context rule run.
+ *
+ * A whole-serving log ("1 serving") names no measured unit and comes back null,
+ * so the context's own default decides — the same answer a food with no history
+ * gets, which is what it is.
+ */
+export function rememberedUnit(
   events: readonly ConsumptionEvent[],
   target: string
-): RememberedEntry | null {
+): MeasuredUnit | null {
+  return newestLog(events, target)?.unit ?? null;
+}
+
+/**
+ * The newest measured log of one food, parsed. Shared by the two readers above
+ * so they can never disagree about which event "the last time" was.
+ */
+function newestLog(
+  events: readonly ConsumptionEvent[],
+  target: string
+): { amount: number; unit: MeasuredUnit } | null {
   let newest: ConsumptionEvent | null = null;
   for (const event of events) {
     if (event.target !== target) continue;
@@ -164,6 +213,34 @@ export function rememberedEntry(
   return isMeasuredUnit(logged.unit)
     ? { amount: logged.amount, unit: logged.unit }
     : null;
+}
+
+/**
+ * Which unit this food was last measured **into a recipe** in, over every recipe
+ * on this device, or null where it is in none of them.
+ *
+ * The recipe half of the same rule, and a separate walk because it reads a
+ * separate history: an ingredient list's memory is on the recipe twins
+ * (`recipe/ingredients`), not in the consumption log. `lists` arrives newest
+ * first, so the first list holding this food is the last one it was put into.
+ *
+ * It answers a unit and not an amount, deliberately. How much of a food a recipe
+ * uses is a property of that recipe — 30 g of oil in one dish says nothing about
+ * the next — where which unit you measure it in is a property of how you cook.
+ * {@link rememberedAmount} has the same shape for the log because the opposite is
+ * true there: how much of a food a person eats does not change between days.
+ */
+export function rememberedIngredientUnit(
+  lists: readonly (readonly ReferenceIngredient[])[],
+  target: string
+): MeasuredUnit | null {
+  for (const list of lists) {
+    for (const row of list) {
+      if (row.ref !== target) continue;
+      if (isMeasuredUnit(row.unit)) return row.unit;
+    }
+  }
+  return null;
 }
 
 /**
