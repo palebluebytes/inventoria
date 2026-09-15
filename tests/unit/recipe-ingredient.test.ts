@@ -299,6 +299,19 @@ describe("parseLoggedQuantity", () => {
   });
 
   it("treats anything naming no measured unit as one whole serving", () => {
+    expect(parseLoggedQuantity("2 servings")).toEqual({
+      amount: 2,
+      unit: "serving",
+    });
+    expect(parseLoggedQuantity("0.5 servings")).toEqual({
+      amount: 0.5,
+      unit: "serving",
+    });
+    // Anything that names no readable amount is still one serving.
+    expect(parseLoggedQuantity("a bowlful")).toEqual({
+      amount: 1,
+      unit: "serving",
+    });
     expect(parseLoggedQuantity("1 serving")).toEqual({
       amount: 1,
       unit: "serving",
@@ -334,6 +347,12 @@ describe("quantityLabel", () => {
       [150, "g"],
       [330, "ml"],
       [1, "serving"],
+      // A count other than one, which is where this stopped holding: the serving
+      // arm read every "N servings" back as one, so the invariant above was true
+      // only of the single case that survives being flattened (#432).
+      [2, "serving"],
+      [0.5, "serving"],
+      [3.25, "serving"],
     ] as const) {
       expect(parseLoggedQuantity(quantityLabel(amount, unit))).toEqual({
         amount,

@@ -186,10 +186,27 @@ export function toReferenceIngredient(
 const LOGGED_MEASURED = /^\s*([\d.]+)\s*(g|ml)\b/i;
 
 /**
- * Parses a logged Consumption Event's quantity ("150g", "330ml", "1 serving")
+ * Matches a logged quantity that names a serving COUNT: "1 serving",
+ * "2 servings", "0.5 servings". The other half of what {@link quantityLabel}
+ * writes, and it has to be read back or the count is lost between the ledger and
+ * the row that shows it.
+ */
+const LOGGED_SERVINGS = /^\s*([\d.]+)\s*servings?\b/i;
+
+/**
+ * Parses a logged Consumption Event's quantity ("150g", "330ml", "2 servings")
  * back into the `{ amount, unit }` that a reference ingredient scales its twin's
  * panel by (ADR-0021). A measured amount scales the twin's panel by its own
- * basis; anything else is treated as one whole serving.
+ * basis; a serving count scales it by the count; anything unreadable is one
+ * whole serving.
+ *
+ * **It is {@link quantityLabel}'s inverse, and ADR-0060 §4's "one spelling" is
+ * only true if it is.** The serving arm counted nothing until #432: every
+ * `"N servings"` read back as one, so a recipe logged as two servings reached
+ * the ledger honestly (#424) and was then rendered "1 serving" on the day by the
+ * dashboard, which re-derives the label through here rather than printing the
+ * stored string. The same flattening opened a custom food logged at 2 servings
+ * on an amount picker showing 1.
  *
  * The millilitre arm is load-bearing rather than cosmetic (ADR-0060 §5). While
  * the match was gram-only, "330ml" failed it and fell through to
@@ -208,6 +225,8 @@ export function parseLoggedQuantity(quantity: string | undefined): {
       unit: measuredUnitFrom(measured[2]),
     };
   }
+  const counted = LOGGED_SERVINGS.exec(quantity ?? "");
+  if (counted) return { amount: parseFloat(counted[1]), unit: "serving" };
   return { amount: 1, unit: "serving" };
 }
 

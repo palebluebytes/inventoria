@@ -210,9 +210,13 @@ describe("a logged instantiation says how many servings it was (ADR-0106 §8)", 
     expect(await loggedQuantity(0.5)).toBe("0.5 servings");
   });
 
-  it("writes a quantity the app reads back as a whole-serving amount", async () => {
+  it("writes a quantity the app reads back as the count it wrote", async () => {
+    // This pinned `amount: 1` until #432, which is the bug rather than the rule:
+    // the day's row re-derives its label through `parseLoggedQuantity`, so a
+    // count that does not survive the round trip reaches the ledger correctly
+    // and is then shown as one serving anyway.
     expect(parseLoggedQuantity(await loggedQuantity(3))).toEqual({
-      amount: 1,
+      amount: 3,
       unit: "serving",
     });
   });
