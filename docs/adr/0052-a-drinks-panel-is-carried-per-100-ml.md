@@ -186,7 +186,7 @@ compiler cannot say so because the field is a string. §4 keeps the arithmetic s
 the comparisons are in `buildOffWriteBody` and the correction form's inversion, and
 a fourth basis would want the field typed rather than a third literal added.
 
-## Amendment (2026-09-15): §2's unit is only trustworthy where the string it came from names one magnitude
+## Amendment (2026-09-15): §2's unit is only trustworthy where the string it came from names one magnitude, and an absent unit is not a gram
 
 §2 reads `serving_quantity_unit` to decide which of a `Portion`'s sibling fields a
 serving's magnitude goes in. **That field can name a different token than the value
@@ -238,11 +238,12 @@ on the unit whatever the tolerance is. A first cut at 5% sat inside the rounding
 and would have dropped the chip on exactly the benign US dual-unit rows the correction
 comment counts in their hundreds.
 
-`namesMoreThanOneMagnitude` (`src/lib/food/serving-size.ts`) is the whole of it, asked once by
-`offPortions`. §2 is otherwise unchanged: `serving_quantity_unit` still decides the
-unit, and a millilitre serving still emits a millilitre portion
+`namesMoreThanOneMagnitude` (`src/lib/food/serving-size.ts`) is the whole of it, asked
+once by `offPortions`. §2 is otherwise unchanged: a stated `serving_quantity_unit`
+still decides the unit, and a millilitre serving still emits a millilitre portion
 ([ADR-0060](0060-an-amount-is-entered-in-its-panels-unit.md) §6) — but only where the
-string it was parsed from names one thing.
+string it was parsed from names one thing. What §2 did not say, and what the second
+rule below settles, is what decides the unit when OFF states none.
 
 ### Measured, and worth less alarm than it reads
 
@@ -272,26 +273,68 @@ over 1% of serving-bearing products lose their one-tap chip. The panel is untouc
 it is read from `product_quantity_unit` (§1) — so every one of them stays fully
 loggable by typing an amount.
 
-### What this rule does not cover
+### The second rule: an absent unit is not a gram
 
 An **absent** `serving_quantity_unit` is the same defect through a missing field
-rather than a wrong one: `isMillilitres(undefined)` is false, so `offPortions` takes
-the grams arm and a volume is stored as a weight. The audit found 43 such rows
-carrying a volume (`'8 ml (240 ML)'`, `'33.8 ml (1 L)'`). This rule catches those
-**incidentally**, because they happen to name two magnitudes; the 1,092 at-risk rows
-with an absent unit are a much larger population than the multi-magnitude shape and
-want a rule of their own. That rule is not decided here and **no ticket carries it
-yet**, which is the one loose end this amendment leaves.
+rather than a wrong one. `isMillilitres(undefined)` is false, so `offPortions` took
+the grams arm and a volume was stored as a weight — the audit found 43 such rows
+carrying one (`'8 ml (240 ML)'`, `'33.8 ml (1 L)'`), and 1,092 at-risk rows in all
+state no unit. The rule above catches those only **incidentally**, where they happen
+to name two magnitudes.
 
-Two shapes the rule refuses that a cleverer one would keep, both costing a chip rather
-than storing a wrong figure: a magnitude restated as a product (`100 g (2 x 50 g)`,
-where the 50 stands alone as a second magnitude), and a string whose tokens are a
-genuine restatement rounded harder than 10%. Neither appeared in the audit, and both
-fail in the safe direction.
+**So the unit is read off the label where OFF states none, and the portion is refused
+where the label names none either.** The grams arm is no longer reachable by
+falling through it: it is taken because something said grams.
 
-**`ADAPTER_VERSION` moves to `"10"`** and, as with every widening in this adapter,
-the change is forward-only: a product already in the ledger keeps the portion it was
-given until it is looked up again.
+Reading the unit off the label here is **not** the option ruled out above, and the
+distinction is the whole of its soundness. That option re-read the unit out of a
+string naming **several** magnitudes, where it picks one token's unit to sit beside
+another token's number. This reads a string naming **one**, which the rule above has
+already established by the time the question is asked — there is a single token, so
+the quantity and the unit cannot have come from different ones.
+
+Two facts from `lib/ProductOpener/Units.pm` (read 2026-09-15) carry it:
+
+- `normalize_serving_size` matches `(?<quantity>…)( )?(?<unit>$units_regexp)\b`, so a
+  `serving_quantity` **exists only where a unit from OFF's vocabulary was matched**.
+  A quantity with no unit token anywhere in its label is very nearly a contradiction,
+  which is what keeps the refusal arm narrow.
+- It returns `unit_to_g($q, $u)`, so the quantity is **already in the standard unit**.
+  Reading the sole token's standard unit — `ml` for a `33 cl`, `g` for a `2 oz` — is
+  therefore reading the unit the number beside it is actually in, not the unit it was
+  written in.
+
+That second rule is what makes the reader's **vocabulary** load-bearing, and it is now
+OFF's own: every entry in `taxonomies/units.txt` whose `standard_unit:en` is `g` or
+`ml`, restricted to the unaccented Latin spellings and the English and French
+synonyms. A narrow `g`/`ml` vocabulary was wrong in both directions — an unreadable
+token cannot become the second magnitude that refuses a bad string, so `15 gr + 250mL`
+would have slipped through the first rule, and under the second an unreadable token
+costs a good portion outright.
+
+Two families of OFF's units are deliberately **excluded**: `cup`/`tasse`, the teaspoon
+and the pinch. OFF prices a cup at 240 ml, but those millilitres are a convention
+rather than a measurement, and a cereal label reading `1 cup (30 g)` is one serving
+stated two ways. Admitting the cup would turn the commonest good US label into a
+refusal — a household measure beside a weight is how a label states a serving, not a
+conflict.
+
+### What these rules still refuse that a cleverer one would keep
+
+Three shapes, all costing a chip rather than storing a wrong figure: a magnitude
+restated as a product (`100 g (2 x 50 g)`, where the 50 stands alone as a second
+magnitude); a genuine restatement rounded harder than 10%; and a serving whose
+quantity OFF states with neither a unit of its own nor a readable one on the label.
+None appeared in the audit, and all three fail in the safe direction.
+
+A `serving_quantity_unit` that is **present but names neither gram nor millilitre** is
+still read as grams, which §2 decided and this amendment does not reopen. OFF's own
+`get_standard_unit` returns only `g` or `ml`, so the field should not hold anything
+else; nothing has measured whether it does.
+
+**`ADAPTER_VERSION` moves to `"11"`** — `"10"` for the first rule, `"11"` for the
+second — and, as with every widening in this adapter, both are forward-only: a product
+already in the ledger keeps the portion it was given until it is looked up again.
 
 **ADR-0108's Density Classes do not help here.** A class converts a volume the _user_
 asserted for a food they are holding. This is a mislabelled import, and no class is

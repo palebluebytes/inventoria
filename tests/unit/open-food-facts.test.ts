@@ -382,6 +382,7 @@ describe("mapOffProductToPayload", () => {
       product: {
         ...nutella.product,
         serving_quantity: "37",
+        serving_quantity_unit: "g",
         serving_size: undefined,
       },
     };
@@ -522,6 +523,81 @@ describe("mapOffProductToPayload", () => {
     expect(mapOffProductToPayload(drink).attributes).not.toHaveProperty(
       "food/portions"
     );
+  });
+
+  it("reads the unit off the label when OFF states none (#433)", () => {
+    // `isMillilitres(undefined)` is false, so this arrived as a 240 g serving of
+    // a drink — a volume wearing a gram's label, which is the invariant ADR-0060
+    // §2 exists to hold. The label names one magnitude and it is millilitres, so
+    // there is exactly one token the quantity can have come from.
+    const drink: OFFProduct = {
+      ...nutella,
+      product: {
+        ...nutella.product,
+        serving_quantity: 240,
+        serving_quantity_unit: undefined,
+        serving_size: "240 ml",
+      },
+    };
+    expect(mapOffProductToPayload(drink).attributes["food/portions"]).toEqual([
+      { label: "240 ml", amount: 1, unit: "serving", millilitres: 240 },
+    ]);
+  });
+
+  it("reads a label unit OFF's own taxonomy knows and this app does not (#433)", () => {
+    // `30 gr` is grams to OFF (`taxonomies/units.txt` gives `gr` as an `xx:`
+    // symbol for the gram) and nothing to a vocabulary of just `g` and `ml`. A
+    // unit the reader cannot spell now costs the portion, so the vocabulary is
+    // OFF's rather than this app's.
+    const biscuit: OFFProduct = {
+      ...nutella,
+      product: {
+        ...nutella.product,
+        serving_quantity: 30,
+        serving_quantity_unit: "",
+        serving_size: "30 gr",
+      },
+    };
+    expect(mapOffProductToPayload(biscuit).attributes["food/portions"]).toEqual(
+      [{ label: "30 gr", amount: 1, unit: "serving", grams: 30 }]
+    );
+  });
+
+  it("emits no portion when neither OFF nor the label names a unit (#433)", () => {
+    // Nothing says what the 37 is. Taking the grams arm here is the defect, not
+    // the fallback: an absent measure is not a zero and is not a gram either
+    // (ADR-0048 §3).
+    const unknown: OFFProduct = {
+      ...nutella,
+      product: {
+        ...nutella.product,
+        serving_quantity: 37,
+        serving_quantity_unit: undefined,
+        serving_size: "1 portion",
+      },
+    };
+    expect(mapOffProductToPayload(unknown).attributes).not.toHaveProperty(
+      "food/portions"
+    );
+  });
+
+  it("keeps a household measure stated beside a weight (#433)", () => {
+    // OFF's taxonomy prices a cup at 240 ml, but a cereal label reading
+    // `1 cup (30 g)` is one serving stated two ways rather than two magnitudes
+    // in conflict. The cup is not in the reader's vocabulary for exactly that
+    // reason, so the string names one magnitude and keeps its chip.
+    const cereal: OFFProduct = {
+      ...nutella,
+      product: {
+        ...nutella.product,
+        serving_quantity: 30,
+        serving_quantity_unit: undefined,
+        serving_size: "1 cup (30 g)",
+      },
+    };
+    expect(mapOffProductToPayload(cereal).attributes["food/portions"]).toEqual([
+      { label: "1 cup (30 g)", amount: 1, unit: "serving", grams: 30 },
+    ]);
   });
 
   it("keeps a gram serving on a millilitre product (#148)", () => {

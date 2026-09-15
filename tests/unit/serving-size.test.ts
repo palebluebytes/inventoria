@@ -1,5 +1,8 @@
 import { describe, it, expect } from "vitest";
-import { namesMoreThanOneMagnitude } from "../../src/lib/food/serving-size";
+import {
+  namesMoreThanOneMagnitude,
+  soleMagnitudeUnit,
+} from "../../src/lib/food/serving-size";
 
 // The rule behind #433: a source's serving-size string that names more than one
 // distinct magnitude cannot say which of them the quantity beside it was read
@@ -87,5 +90,66 @@ describe("namesMoreThanOneMagnitude", () => {
     // A zero names nothing; it must not become a second magnitude that refuses
     // an otherwise fine string.
     expect(namesMoreThanOneMagnitude("0 g (100 g)")).toBe(false);
+  });
+
+  it("reads a unit spelling OFF knows and this app's own basis reader does not", () => {
+    // The vocabulary is OFF's `taxonomies/units.txt`, not `g`/`ml`. A token the
+    // reader cannot spell is invisible, and an invisible token cannot be the
+    // second magnitude that refuses a string — so a narrow vocabulary would let
+    // exactly the French shapes #433 measured through.
+    expect(namesMoreThanOneMagnitude("15 gr + 250 mL")).toBe(true);
+    expect(namesMoreThanOneMagnitude("60 grammes + 100 millilitres")).toBe(
+      true
+    );
+    expect(namesMoreThanOneMagnitude("1 kilogramme + 200 ml de lait")).toBe(
+      true
+    );
+    // And it converts across the widened vocabulary, so a restatement in two of
+    // its units is still one magnitude: 2.2 lbs IS 1 kilo.
+    expect(namesMoreThanOneMagnitude("1 kilo (2,2 lbs)")).toBe(false);
+  });
+
+  it("leaves a household measure out of the vocabulary", () => {
+    // OFF prices a cup at 240 ml and a `tasse` the same, but those millilitres
+    // are a convention. `1 cup (30 g)` is one serving stated two ways, and the
+    // commonest good US label would otherwise become a refusal.
+    expect(namesMoreThanOneMagnitude("1 cup (30 g)")).toBe(false);
+    expect(namesMoreThanOneMagnitude("1 tasse (250 ml)")).toBe(false);
+  });
+});
+
+describe("soleMagnitudeUnit", () => {
+  it("is the unit of the one magnitude the string names", () => {
+    expect(soleMagnitudeUnit("240 ml")).toBe("ml");
+    expect(soleMagnitudeUnit("1 bouteille (33 cl)")).toBe("ml");
+    expect(soleMagnitudeUnit("30 gr")).toBe("g");
+    expect(soleMagnitudeUnit("1 lb")).toBe("g");
+  });
+
+  it("is the STANDARD unit, which is what OFF's quantity is already in", () => {
+    // `normalize_serving_size` returns `unit_to_g($q, $u)`, so a `33 cl` serving
+    // arrives as the number 330 and the unit to read is millilitres, not
+    // centilitres. The same for `2 oz`, which arrives as 56.7 grams.
+    expect(soleMagnitudeUnit("33 cl")).toBe("ml");
+    expect(soleMagnitudeUnit("2 oz")).toBe("g");
+    expect(soleMagnitudeUnit("8 fl oz")).toBe("ml");
+  });
+
+  it("is undefined where the label names no unit at all", () => {
+    expect(soleMagnitudeUnit(undefined)).toBeUndefined();
+    expect(soleMagnitudeUnit("1 portion")).toBeUndefined();
+    expect(soleMagnitudeUnit("15 biscuits")).toBeUndefined();
+  });
+
+  it("refuses to pick where the label names several", () => {
+    // The evidence of last resort declines rather than guesses: re-reading the
+    // unit out of a multi-magnitude string was measured and rejected (#433).
+    expect(soleMagnitudeUnit("15g + 250mL")).toBeUndefined();
+    expect(soleMagnitudeUnit("8 ml (240 ML)")).toBeUndefined();
+  });
+
+  it("answers through a restatement, which names one magnitude", () => {
+    expect(soleMagnitudeUnit("15 biscuits (85g/2,998 Oz)")).toBe("g");
+    expect(soleMagnitudeUnit("250 ml (8 fl oz)")).toBe("ml");
   });
 });
