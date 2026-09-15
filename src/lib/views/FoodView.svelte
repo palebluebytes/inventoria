@@ -393,6 +393,17 @@
    * Any of them supersedes whatever a previous copy had to say, so the note
    * goes first.
    */
+  /**
+   * The Consumption Events a way in has just written onto the day (#440).
+   *
+   * A fresh array per act — the day watches its identity, so reassigning is the
+   * signal and mutating would be silence. Set by every path that ADDS a row and
+   * by none that corrects one: an amount edit and an instantiation correction
+   * both retract and replace, which mints an id for a row already on screen, and
+   * a meal arriving from a paired device is not something this person just did.
+   */
+  let just_logged = $state<string[]>([]);
+
   function enterMeal(meal_type: MealType, kind: WayIn) {
     copy_note = null;
     if (kind === "past") {
@@ -426,6 +437,9 @@
       const day = selectedDate;
       const { copyable, lost } = partitionCopyable(meal.items);
       const result = await copyPastMeal(copyable, target, day);
+      // Only what it actually wrote: the day waits for every id before it
+      // moves, so an id for an append that threw would hold the wait open.
+      just_logged = result.ids;
       const text = copyTally(result.copied, result.lost + lost.length);
       copy_note = text ? { meal_type: target, text, day: dayKeyOf(day) } : null;
     } finally {
@@ -1239,6 +1253,7 @@
     {scalePreview}
     {scaleNotes}
     {selectionBar}
+    justLogged={just_logged}
   />
 {/if}
 
@@ -1327,6 +1342,7 @@
     editLabel={edit_label}
     wayIn={way_in ?? undefined}
     onClose={closeSheet}
+    onLogged={(ids) => (just_logged = ids)}
     onMealCode={takeMealCode}
   />
 {/if}
@@ -1364,6 +1380,7 @@
     template={instantiate_template}
     edit={instantiate_edit}
     onClose={closeInstantiation}
+    onLogged={(ids) => (just_logged = ids)}
   />
 {/if}
 
@@ -1512,6 +1529,7 @@
     template={recipe_template}
     initialIngredients={recipe_seed}
     onClose={closeRecipe}
+    onLogged={(ids) => (just_logged = ids)}
   />
 {/if}
 

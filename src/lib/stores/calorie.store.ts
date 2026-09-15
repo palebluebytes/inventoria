@@ -276,6 +276,11 @@ export async function scaleLoggedFoods(
  * `partitionCopyable` has already removed what cannot be reproduced, so `lost`
  * here counts only appends that actually threw.
  *
+ * The ids it returns are the events it actually wrote, in the order it wrote
+ * them, and never the ones it lost — #440 waits for every id it is handed to
+ * appear in the day, so an id for an append that threw would hold that wait open
+ * forever.
+ *
  * `mintEventId` is the receive path's one seam into this operation (ADR-0073 §5,
  * amending ADR-0058). Accepting a sent meal **is** this copy with a wire in
  * front of it — the same re-log of frozen fields into the recipient's own meal
@@ -288,12 +293,12 @@ export async function copyPastMeal(
   meal_type: string,
   selectedDate: Date,
   mintEventId?: (item: ConsumptionEvent) => string
-): Promise<{ copied: number; lost: number }> {
-  let copied = 0;
+): Promise<{ copied: number; lost: number; ids: string[] }> {
   let lost = 0;
+  const ids: string[] = [];
   for (const item of items) {
     try {
-      await logFoodConsumption(
+      const id = await logFoodConsumption(
         item.target as string,
         item.quantity as string,
         meal_type,
@@ -306,13 +311,16 @@ export async function copyPastMeal(
         item.metrics,
         mintEventId?.(item)
       );
-      copied += 1;
+      ids.push(id);
     } catch (e) {
       appError("copying a logged food failed", e);
       lost += 1;
     }
   }
-  return { copied, lost };
+  // `copied` is `ids.length` and stays in the shape callers already destructure:
+  // the tally reads a number and #440 reads the ids, and deriving one from the
+  // other at each call site is how the two would come to disagree.
+  return { copied: ids.length, lost, ids };
 }
 
 /**

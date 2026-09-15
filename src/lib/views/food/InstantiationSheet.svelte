@@ -12,12 +12,17 @@
     meal_type,
     selectedDate,
     onClose,
+    onLogged,
     template = null,
     edit = null,
   }: {
     meal_type: "breakfast" | "lunch" | "dinner" | "snack";
     selectedDate: Date;
     onClose: () => void;
+    /** What the editor logged, so the day can reveal it (#440). This sheet does
+     *  both jobs — a fresh instantiation and a correction — and the editor
+     *  reports only the first, so nothing here has to tell them apart. */
+    onLogged?: (ids: string[]) => void;
     /** A Recipe Twin (getLocalFoodTwin shape) to instantiate. */
     template?: { entity: string; attributes: Record<string, any> } | null;
     /** A past Recipe Instantiation event to correct. */
@@ -37,7 +42,10 @@
     {selectedDate}
     {template}
     {edit}
-    onCommitted={onClose}
+    onCommitted={(logged) => {
+      if (logged?.length) onLogged?.(logged);
+      onClose();
+    }}
     bind:requestSave
     bind:saveReady
   />

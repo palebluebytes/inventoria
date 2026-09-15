@@ -50,7 +50,10 @@
     /** A past Recipe Instantiation event to correct. */
     edit?: ConsumptionEvent | null;
     /** Called once the instantiation is logged (the host closes/returns). */
-    onCommitted: () => void;
+    /** Committed: the ids it LOGGED, which is one on an instantiation and none
+     *  on a correction — a correction supersedes a row already on screen, and
+     *  #440's rules must not move the page for one. */
+    onCommitted: (logged?: string[]) => void;
     /**
      * Opens the recipe's template for editing. Shown as an "Edit" button beside
      * the recipe name when instantiating from a template; omitted on the
@@ -166,9 +169,10 @@
           meal_type,
           selectedDate
         );
+        onCommitted();
       } else {
         // Instantiate: purely additive — log and retract nothing.
-        await logRecipeConsumption(
+        const logged = await logRecipeConsumption(
           based_on,
           refs,
           yieldNum,
@@ -177,8 +181,8 @@
           meal_type,
           selectedDate
         );
+        onCommitted([logged]);
       }
-      onCommitted();
     } catch (e: any) {
       status = "error";
       error = e.message ?? String(e);

@@ -1955,13 +1955,18 @@ describe("copyPastMeal (ADR-0058)", () => {
       "breakfast",
       new Date()
     );
-    expect(result).toEqual({ copied: 2, lost: 1 });
+    // `ids` is what it actually wrote, so a run that lost one reports two —
+    // #440 waits for every id it is handed, and an id for a failed append would
+    // hold that wait open forever.
+    expect(result).toEqual({ copied: 2, lost: 1, ids: expect.any(Array) });
+    expect(result.ids).toHaveLength(2);
     expect(appendMock).toHaveBeenCalledTimes(3);
   });
 
   it("reports a clean run so the caller can stay silent", async () => {
     const result = await copyPastMeal([logged()], "breakfast", new Date());
-    expect(result).toEqual({ copied: 1, lost: 0 });
+    expect(result).toEqual({ copied: 1, lost: 0, ids: expect.any(Array) });
+    expect(result.ids).toHaveLength(1);
   });
 
   // ADR-0073 §5, amending ADR-0058: receiving a meal IS this copy, with a wire

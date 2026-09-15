@@ -84,6 +84,7 @@
     meal_type,
     selectedDate,
     onClose,
+    onLogged,
     edit = null,
     editLabel = false,
     initialMethod = undefined,
@@ -94,6 +95,16 @@
     meal_type: MealType;
     selectedDate: Date;
     onClose: () => void;
+    /**
+     * The Consumption Events this sheet has just WRITTEN, so the day can put
+     * them on screen (#440).
+     *
+     * Fired only on an add. Every commit path here can also be an edit — `edit`
+     * is set, the sheet logs a replacement and retracts the original — and a
+     * replacement is a fresh id for a row the user is already looking at, which
+     * is the one case the three rules must not act on.
+     */
+    onLogged?: (ids: string[]) => void;
     /**
      * Method to open on, for a host that has one but no `wayIn` (the
      * Recipe browser reopening itself). A header-opened sheet passes only
@@ -404,6 +415,7 @@
           breakdown
         );
         if (edit) await retractConsumptionEvent(edit.id, newId);
+        else onLogged?.([newId]);
       } else {
         // Three custom writer paths, chosen by what the choice carries:
         //   • a `manualEntry` envelope → saveManualFood (ADR-0035): a calories-only
@@ -513,6 +525,7 @@
             selectedDate
           );
           if (edit) await retractConsumptionEvent(edit.id, newId);
+          else onLogged?.([newId]);
         }
       }
       onClose();
@@ -520,6 +533,19 @@
     } catch (e: any) {
       return { ok: false, message: e.message ?? String(e) };
     }
+  }
+
+  /**
+   * What both recipe editors do when they finish: report whatever they logged,
+   * then close.
+   *
+   * They report **none** for the two things that are not an arrival — a
+   * correction by supersession, and a template-only save — so the sheet does not
+   * have to know which mode either of them was in.
+   */
+  function commitRecipe(logged?: string[]) {
+    if (logged?.length) onLogged?.(logged);
+    onClose();
   }
 
   // One label for every terminal commit in this sheet: "Log" (ADR-0035 §UI — the
@@ -580,7 +606,7 @@
             {selectedDate}
             {template}
             onEdit={() => editRecipe(template.entity)}
-            onCommitted={onClose}
+            onCommitted={commitRecipe}
             bind:requestSave={recipeRequestSave}
             bind:saveReady={recipeSaveReady}
           />
@@ -590,7 +616,7 @@
             {selectedDate}
             mode={recipeView.mode}
             template={recipeView.template}
-            onCommitted={onClose}
+            onCommitted={commitRecipe}
             bind:requestSave={recipeRequestSave}
             bind:saveReady={recipeSaveReady}
             bind:saveLabel={recipeSaveLabel}

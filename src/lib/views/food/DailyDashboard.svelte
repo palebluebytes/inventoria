@@ -1,5 +1,6 @@
 <script lang="ts">
-  import type { Snippet } from "svelte";
+  import { tick, type Snippet } from "svelte";
+  import { revealScroll, type Span } from "../../food/reveal-logged";
   import {
     consumptionStore,
     consumptionForDay,
@@ -70,6 +71,7 @@
     scalePreview,
     scaleNotes,
     selectionBar,
+    justLogged = [],
   }: {
     dbReady: boolean;
     selectedDate: Date;
@@ -109,6 +111,25 @@
     /** A word for a food the live preview cannot touch, keyed the same way —
      *  said in place and before the fact, never reported afterwards (§7). */
     scaleNotes?: Map<string, string>;
+    /**
+     * The Consumption Events a way in has **just written** onto this day (#440),
+     * so the day can put them on screen.
+     *
+     * A fresh array per act, and that identity is the signal: two logs of the
+     * same food are two arrays, and a re-render that changes nothing hands the
+     * same one back. Empty between acts.
+     *
+     * The host passes only ids it actually wrote — a partial past-meal copy
+     * reports what it copied and not what it lost — because the day waits for
+     * **all** of them to arrive before it moves, and an id that never lands
+     * would hold the reveal open forever.
+     *
+     * What is deliberately NOT in here: an amount edit, which retracts and
+     * replaces and therefore mints a fresh id for a row you were already looking
+     * at, and a meal that arrives from a paired device, which is not something
+     * this person just did.
+     */
+    justLogged?: string[];
   } = $props();
 
   // Long-press a logged item to start selecting; while a selection is active,
@@ -133,6 +154,109 @@
     if (!selectionActive && wayInBarMeasured > 0)
       wayInBarReserve = wayInBarMeasured;
   });
+
+  // ── Putting a new row on screen (#440) ───────────────────────────────────
+  //
+  // The three rules are `food/reveal-logged.ts`, which is arithmetic over three
+  // boxes and knows nothing about this screen. What lives here is the measuring:
+  // which row, which meal, and what the free band actually is.
+  let dayEl = $state<HTMLElement | null>(null);
+
+  /**
+   * The ids this day has already acted on, by array identity.
+   *
+   * A plain `let` and not `$state`, deliberately: the effect below both reads
+   * and writes it, and a reactive value there is a loop. Identity is enough —
+   * `justLogged` is a fresh array per act (see the prop), so a re-render cannot
+   * look like a second one.
+   */
+  let revealed: string[] | null = null;
+
+  $effect(() => {
+    const ids = justLogged;
+    if (ids.length === 0 || ids === revealed) return;
+    // **Wait for every id, not the first.** A copied past meal appends one event
+    // per food, so the projection lands them over several updates; acting on the
+    // first would scroll to the top of a group that is still growing downwards.
+    if (!ids.every((id) => dayItems.some((item) => item.id === id))) return;
+    revealed = ids;
+    // The rows exist in the projection now; `tick` is what puts them in the DOM.
+    tick().then(() => revealLogged(ids));
+  });
+
+  /**
+   * The free band: the scrollport, minus whatever is standing in front of the
+   * rows inside it.
+   *
+   * **Measured off the bar's own rect rather than derived from the breakpoint
+   * that put it there.** The Way-in bar is pinned over the foot below 768, stuck
+   * to the head between 768 and 1440, and beside the meals in a flank above that
+   * — three geometries, and a band written as a sum of tokens would be a fourth
+   * copy of them (the mistake ADR-0101 §3 refused once already, over the same
+   * box).
+   *
+   * The horizontal test is what makes the flank case right: up there the bar is
+   * *beside* the rows rather than in front of them, so it takes nothing off the
+   * band. A surface only obstructs a row it actually covers.
+   */
+  function freeBand(port: HTMLElement, row: HTMLElement): Span {
+    const box = port.getBoundingClientRect();
+    const band: Span = { top: box.top, bottom: box.bottom };
+    const bar = dayEl?.querySelector<HTMLElement>(".way-in-bar");
+    if (!bar) return band;
+    const over = bar.getBoundingClientRect();
+    const line = row.getBoundingClientRect();
+    if (over.right <= line.left || over.left >= line.right) return band;
+    if (over.bottom >= band.bottom && over.top < band.bottom)
+      band.bottom = over.top;
+    if (over.top <= band.top && over.bottom > band.top) band.top = over.bottom;
+    return band;
+  }
+
+  /** The lowest of the rows just written, which is where a group ends. */
+  function lastOnScreen(ids: string[]): HTMLElement | null {
+    const rows = ids
+      .map((id) =>
+        dayEl?.querySelector<HTMLElement>(`[data-event-id="${CSS.escape(id)}"]`)
+      )
+      .filter((el): el is HTMLElement => el !== null && el !== undefined);
+    // By where they landed rather than by the order they were written: the day
+    // groups by meal, so the last id appended is not the last row down the page.
+    return rows.reduce<HTMLElement | null>(
+      (lowest, el) =>
+        lowest === null ||
+        el.getBoundingClientRect().bottom >
+          lowest.getBoundingClientRect().bottom
+          ? el
+          : lowest,
+      null
+    );
+  }
+
+  function revealLogged(ids: string[]) {
+    const row = lastOnScreen(ids);
+    const meal = row?.closest<HTMLElement>(".meal-section");
+    // The scroll container is the shell's `.main`, which is the one box in the
+    // app with `overflow-y: auto` on it (`src/app.css` says so, and says why it
+    // is there rather than in either shell).
+    const port = dayEl?.closest<HTMLElement>(".main");
+    if (!row || !meal || !port) return;
+
+    const delta = revealScroll(
+      row.getBoundingClientRect(),
+      meal.getBoundingClientRect(),
+      freeBand(port, row)
+    );
+    // `null` is rule 1 and is not a scroll of zero: a row already on screen must
+    // not start a gesture that travels nowhere.
+    if (delta === null) return;
+    port.scrollBy({
+      top: delta,
+      behavior: window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
+        ? "auto"
+        : "smooth",
+    });
+  }
 
   // A long-press is followed by a synthetic click on release; without this the
   // click would immediately toggle the item we just selected back off.
@@ -334,7 +458,7 @@
      The overlays below stay outside it. They are pinned boxes rather than
      regions of a screen, and a grid should never have to know that one of its
      children took itself out of flow. -->
-<div class="day">
+<div class="day" bind:this={dayEl}>
   <!-- Week Strip date selector. In a box of its own because a grid places its
        children, and this child is another component's root: the box is this
        screen's handle on where the strip goes, rather than this screen reaching
@@ -434,7 +558,7 @@
          is as tall as this box. -->
     <div class="meals">
       {#each meal_types as meal_type}
-        <div class="meal-section">
+        <div class="meal-section" data-meal={meal_type}>
           <div class="meal-section-header">
             <!-- The meal's name is the way into its own nutrition panel, and the
                  one that always works: an empty meal has no subtotal line at all
@@ -502,6 +626,7 @@
                 <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
                 <div
                   class="meal-item-card"
+                  data-event-id={item.id}
                   class:selectable={selectionActive}
                   class:selected={isSelected}
                   use:longpress={{

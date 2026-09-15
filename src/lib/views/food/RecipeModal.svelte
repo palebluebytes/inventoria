@@ -13,6 +13,7 @@
     meal_type,
     selectedDate,
     onClose,
+    onLogged,
     mode = "consolidate",
     template = null,
     initialIngredients = [],
@@ -20,6 +21,10 @@
     meal_type: "breakfast" | "lunch" | "dinner" | "snack";
     selectedDate: Date;
     onClose: () => void;
+    /** What the builder logged onto the day, so it can be revealed (#440).
+     *  `consolidate` and `define` write a row; `edit` is template-only and
+     *  reports nothing. */
+    onLogged?: (ids: string[]) => void;
     /** Which verb this surface performs. Default: consolidate. */
     mode?: "consolidate" | "define" | "edit";
     /** The Recipe Twin being amended (edit mode only; getLocalFoodTwin shape). */
@@ -49,7 +54,10 @@
     {mode}
     {template}
     {initialIngredients}
-    onCommitted={onClose}
+    onCommitted={(logged) => {
+      if (logged?.length) onLogged?.(logged);
+      onClose();
+    }}
     bind:requestSave
     bind:saveReady
     bind:saveLabel

@@ -55,7 +55,9 @@
     /** Foods selected on the dashboard, seeded as ingredients (carry event_ids). */
     initialIngredients?: RecipeIngredient[];
     /** Called once the recipe is saved (and logged for consolidate/define). */
-    onCommitted: () => void;
+    /** Committed: the ids it LOGGED, so the day can put the new row on screen
+     *  (#440). Empty on `create`, which is template-only and logs nothing. */
+    onCommitted: (logged?: string[]) => void;
     /** The host's dock fires this to commit; readiness/label drive its button. */
     requestSave?: () => void;
     saveReady?: boolean;
@@ -206,6 +208,9 @@
         },
         mode === "edit" ? template?.entity : undefined
       );
+      // The row this save put on the day, if it put one there: #440 reveals it,
+      // and the two template-only modes below leave it empty on purpose.
+      let logged: string | null = null;
       // 3. Consolidate and Define both LOG the recipe onto the current day — a
       //    recipe you just built should appear on the day you built it (ADR-0022,
       //    amended). Edit stays template-only: it re-seeds only FUTURE
@@ -219,7 +224,7 @@
         // live display above and the projection's derivation, so the frozen
         // snapshot equals what the builder showed at the moment it was logged.
         // Panels are read in memory, so real food twins are never mutated.
-        await logRecipeConsumption(
+        logged = await logRecipeConsumption(
           recipeId,
           referenceIngredients,
           yieldNum,
@@ -242,7 +247,7 @@
           }
         }
       }
-      onCommitted();
+      onCommitted(logged ? [logged] : []);
     } catch (e: any) {
       status = "error";
       error = e.message ?? String(e);
