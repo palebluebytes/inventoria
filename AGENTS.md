@@ -15,8 +15,11 @@ checks against, and this file deliberately does not restate it.
   for one-off Node binaries. Never `npm`, `yarn`, or `bun`.
 - **Verification:** a change is verified when `pnpm check`, `pnpm test:unit`, and
   `pnpm lint:css` are clean. `pnpm check` already chains the docs check, the
-  worker-closure check, the worker-config check, the log-egress check and the
-  entity-ownership check.
+  worker-closure check, the worker-config check, the log-egress check, the
+  entity-ownership check and the two artifact staleness gates —
+  `docs/food-search.html` and `docs/research/190-corpus-account.md`, each
+  rebuilt from the committed corpus and compared byte for byte, so a generated
+  page that has stopped describing what ships fails rather than misleading.
 - **The deployment config is gated, not commented.** `scripts/worker-config-check.mjs`
   holds `wrangler.toml` and `worker/r2-lifecycle.json` to the claims ADR-0072 §9 and
   ADR-0096 §15 make in the user's name: no Workers traces, no invocation logs, one R2

@@ -19,3 +19,10 @@ docs/food-search.html
 # The drop census (scripts/usda-drop-census.mjs), one drop per line for the same
 # reason public/usda/ is here: the unit of a reviewable diff is one food.
 docs/research/usda-drop-census.json
+
+# The collapse account (scripts/usda-collapse.mjs's `collapseAccount`, written by
+# `pnpm usda:bundle`). Byte-compared against a rebuild from the shipped corpus by
+# `pnpm check` (scripts/usda-account-check.mjs), so its layout is the generator's:
+# a re-wrap here would fail the gate on the commit that made it, which is what
+# happened to docs/food-search.html before its entry above.
+docs/research/190-corpus-account.md
