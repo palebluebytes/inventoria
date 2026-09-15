@@ -58,6 +58,33 @@
   import WayInBar from "./WayInBar.svelte";
   import LoggedFoodsPanel from "./LoggedFoodsPanel.svelte";
 
+  // ── THROWAWAY: branch `prototype/logged-recipe-inline` ────────────────────
+  // Three shapes for a LOGGED RECIPE in the day, switched by `?variant=`. Dead
+  // in a production build: `readVariant()` returns `null` outside DEV, so every
+  // branch below is behind a falsy constant and Rollup drops it. Delete this
+  // block, the `shownMeals` derived, the `{#if variant}` in the meal list and
+  // the switcher render to un-prototype.
+  import Unfold from "./logged-recipe.prototype/Unfold.svelte";
+  import Nested from "./logged-recipe.prototype/Nested.svelte";
+  import Takeover from "./logged-recipe.prototype/Takeover.svelte";
+  import PrototypeSwitcher from "./logged-recipe.prototype/PrototypeSwitcher.svelte";
+  import {
+    readVariant,
+    type Variant,
+  } from "./logged-recipe.prototype/variants";
+  import { withDemo } from "./logged-recipe.prototype/draft";
+
+  let variant = $state<Variant | null>(readVariant());
+  $effect(() => {
+    const onSwitch = (e: Event) =>
+      (variant = (e as CustomEvent<Variant>).detail);
+    window.addEventListener("prototype-variant", onSwitch);
+    return () => window.removeEventListener("prototype-variant", onSwitch);
+  });
+  // C only: which recipe has taken its meal's list over. Held here rather than
+  // in the row, because opening one hides that meal's other rows.
+  let takeoverId = $state<string | null>(null);
+
   let {
     dbReady,
     selectedDate = $bindable(new Date()),
@@ -540,9 +567,22 @@
     return groups;
   });
 
+  // THROWAWAY (`prototype/logged-recipe-inline`): the day as the variants see
+  // it — untouched, or carrying one demo occasion when this day has no logged
+  // recipe to judge. Only the LIST reads it; the meal subtotal and the
+  // nutrition panel stay on `groupedMeals`, because a demo row must not move
+  // figures the user reads as their own.
+  let shownMeals = $derived(variant ? withDemo(groupedMeals) : groupedMeals);
+
   // Selected photo modal inside dashboard
   let previewPhoto = $state<string | null>(null);
 </script>
+
+<!-- THROWAWAY (`prototype/logged-recipe-inline`): the variant switcher, outside
+     the day so nothing the variants do can move it. -->
+{#if variant}
+  <PrototypeSwitcher {variant} />
+{/if}
 
 <!-- ── The day ────────────────────────────────────────────────────────────
      The day screen, and the element the two-region grid is written on
@@ -695,7 +735,7 @@
             <div class="meal-skeleton" aria-busy="true">
               <Skeleton height="var(--step-n2)" width="60%" />
             </div>
-          {:else if groupedMeals[meal_type].length === 0}
+          {:else if shownMeals[meal_type].length === 0}
             <div class="empty-meal">
               <p>No {meal_type} logged yet.</p>
             </div>
@@ -706,78 +746,110 @@
               $calorieDisplayDecimals,
               true
             )}
+            <!-- THROWAWAY (`prototype/logged-recipe-inline`, variant C): which of
+                 this meal's recipes has taken the list over, if any. -->
+            {@const taken =
+              variant === "C" && takeoverId
+                ? shownMeals[meal_type].find((i) => i.id === takeoverId)
+                : undefined}
             <div class="meal-items-list">
-              {#each groupedMeals[meal_type] as item}
-                {@const isSelected = selectedIds.has(item.id)}
-                {@const qty = parseLoggedQuantity(item.quantity)}
-                <!-- While a selection is active the check takes the remove ✕'s
+              {#if taken}
+                <Takeover
+                  item={taken}
+                  open
+                  onOpen={() => {}}
+                  onBack={() => (takeoverId = null)}
+                />
+              {:else}
+                {#each shownMeals[meal_type] as item}
+                  {@const isSelected = selectedIds.has(item.id)}
+                  {@const qty = parseLoggedQuantity(item.quantity)}
+                  <!-- While a selection is active the check takes the remove ✕'s
                      corner: the whole card is the tap target then, so the ✕ has no
                      role, and the check reads where the eye already looks. -->
-                {#snippet selectCheck()}
-                  <span
-                    class="select-check"
-                    class:on={isSelected}
-                    aria-hidden="true">{isSelected ? "✓" : ""}</span
-                  >
-                {/snippet}
-                <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
-                <div
-                  class="meal-item-card"
-                  data-event-id={item.id}
-                  class:selectable={selectionActive}
-                  class:selected={isSelected}
-                  use:longpress={{
-                    onlongpress: () => onCardLongPress(item.id),
-                  }}
-                  onpointerdown={onCardPointerDown}
-                  onclick={() => onCardClick(item)}
-                  onkeydown={(e) =>
-                    selectionActive &&
-                    (e.key === "Enter" || e.key === " ") &&
-                    onTapItem(item.id)}
-                  role={selectionActive ? "button" : undefined}
-                  tabindex={selectionActive ? 0 : undefined}
-                >
-                  <FoodItemRow
-                    logged
-                    name={item.foodName || "Unknown Food"}
-                    amount={qty.amount}
-                    unit={qty.unit}
-                    calories={Number(item.calories) || 0}
-                    selected={isSelected}
-                    preview={scalePreview?.get(item.id)}
-                    note={scaleNotes?.get(item.id) ?? ""}
-                    onRemove={() => onRemoveItem(item.id)}
-                    corner={selectionActive ? selectCheck : undefined}
-                  >
-                    {#snippet lead()}
-                      {#if item.photoBase64}
-                        <button
-                          type="button"
-                          class="meal-item-thumb-btn"
-                          aria-label="View {item.foodName} photo"
-                          onpointerdown={(e) => e.stopPropagation()}
-                          onclick={(e) => {
-                            e.stopPropagation();
-                            if (suppressNextClick) {
-                              suppressNextClick = false;
-                              return;
-                            }
-                            if (selectionActive) onTapItem(item.id);
-                            else previewPhoto = item.photoBase64;
-                          }}
-                        >
-                          <img
-                            src={item.photoBase64}
-                            alt={item.foodName}
-                            class="meal-item-thumb"
-                          />
-                        </button>
-                      {/if}
-                    {/snippet}
-                  </FoodItemRow>
-                </div>
-              {/each}
+                  {#snippet selectCheck()}
+                    <span
+                      class="select-check"
+                      class:on={isSelected}
+                      aria-hidden="true">{isSelected ? "✓" : ""}</span
+                    >
+                  {/snippet}
+                  <!-- THROWAWAY: a logged recipe is drawn by the variant under
+                     judgement; everything else is the day's own card. -->
+                  {#if variant && variant !== "now" && item.instantiation}
+                    {#if variant === "A"}
+                      <Unfold {item} />
+                    {:else if variant === "B"}
+                      <Nested {item} />
+                    {:else}
+                      <Takeover
+                        {item}
+                        open={false}
+                        onOpen={() => (takeoverId = item.id)}
+                        onBack={() => (takeoverId = null)}
+                      />
+                    {/if}
+                  {:else}
+                    <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
+                    <div
+                      class="meal-item-card"
+                      data-event-id={item.id}
+                      class:selectable={selectionActive}
+                      class:selected={isSelected}
+                      use:longpress={{
+                        onlongpress: () => onCardLongPress(item.id),
+                      }}
+                      onpointerdown={onCardPointerDown}
+                      onclick={() => onCardClick(item)}
+                      onkeydown={(e) =>
+                        selectionActive &&
+                        (e.key === "Enter" || e.key === " ") &&
+                        onTapItem(item.id)}
+                      role={selectionActive ? "button" : undefined}
+                      tabindex={selectionActive ? 0 : undefined}
+                    >
+                      <FoodItemRow
+                        logged
+                        name={item.foodName || "Unknown Food"}
+                        amount={qty.amount}
+                        unit={qty.unit}
+                        calories={Number(item.calories) || 0}
+                        selected={isSelected}
+                        preview={scalePreview?.get(item.id)}
+                        note={scaleNotes?.get(item.id) ?? ""}
+                        onRemove={() => onRemoveItem(item.id)}
+                        corner={selectionActive ? selectCheck : undefined}
+                      >
+                        {#snippet lead()}
+                          {#if item.photoBase64}
+                            <button
+                              type="button"
+                              class="meal-item-thumb-btn"
+                              aria-label="View {item.foodName} photo"
+                              onpointerdown={(e) => e.stopPropagation()}
+                              onclick={(e) => {
+                                e.stopPropagation();
+                                if (suppressNextClick) {
+                                  suppressNextClick = false;
+                                  return;
+                                }
+                                if (selectionActive) onTapItem(item.id);
+                                else previewPhoto = item.photoBase64;
+                              }}
+                            >
+                              <img
+                                src={item.photoBase64}
+                                alt={item.foodName}
+                                class="meal-item-thumb"
+                              />
+                            </button>
+                          {/if}
+                        {/snippet}
+                      </FoodItemRow>
+                    </div>
+                  {/if}
+                {/each}
+              {/if}
             </div>
             <!-- Subtle one-line subtotal for the section: Calories + just the macros
                  the user tracks (micronutrients belong on the full-day RDA surface,
