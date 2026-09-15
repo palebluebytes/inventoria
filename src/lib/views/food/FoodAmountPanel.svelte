@@ -4,9 +4,12 @@
     basisUnit,
     parseBasisQuantity,
     scaleNutrition,
+    type MeasuredUnit,
     type NutritionInfo,
     type Portion,
   } from "../../food/nutrition";
+  import type { FoodDensity } from "../../food/density";
+  import type { DensityClassId } from "../../food/density-class";
   import AmountField from "./AmountField.svelte";
   import NutrientPreview from "./NutrientPreview.svelte";
 
@@ -30,10 +33,21 @@
   // per-100 panel (ADR-0060 §3). Both are read off the same `serving_size`, so a
   // drink published per 100 ml is entered in millilitres under a caption that
   // says so, and nothing converts between a volume and a weight.
+  //
+  // The density travels with the panel rather than being re-read here, because
+  // the twin it is a fact about is the caller's (FoodCard reads both off the
+  // same payload). What it changes on this screen is only which unit the field
+  // opens on and what the box says; `amount` stays in the panel's own unit, so
+  // the factor below is the one it always was (ADR-0105 §5 — the panel is never
+  // rewritten, and a density sits beside it).
   let {
     panel = undefined,
     portions = [],
     amount = $bindable(),
+    density = undefined,
+    prefill = undefined,
+    openOn = undefined,
+    onAssertDensity = undefined,
   }: {
     /** The food's `nutrition/info` panel, per its serving basis. Omit for a
      *  panel-less food — then only the amount control renders. */
@@ -41,6 +55,14 @@
     /** Household portions surfaced as picker chips (ADR-0030). */
     portions?: Portion[];
     amount: number;
+    /** What this food's twin asserts about its density (ADR-0105 §4). */
+    density?: FoodDensity | undefined;
+    /** The class this food's own source names, where it names exactly one. */
+    prefill?: DensityClassId | undefined;
+    /** Which unit the field opens on, decided by the host's context. */
+    openOn?: MeasuredUnit | undefined;
+    /** The user has said what kind of liquid this is; the host writes it. */
+    onAssertDensity?: (density: FoodDensity) => void;
   } = $props();
 
   // The unit the amount is entered in, and what the panel's figures are per.
@@ -58,7 +80,16 @@
      cannot say, since it names the unit being typed and not the divisor — is
      handed to the control rather than drawn above it: it rides the control's
      head row, sharing it with the − + × ÷ sum keys. -->
-<AmountField bind:amount {unit} {portions} {caption} />
+<AmountField
+  bind:amount
+  {unit}
+  {portions}
+  {caption}
+  {density}
+  {prefill}
+  {openOn}
+  {onAssertDensity}
+/>
 
 {#if panel}
   <!-- The shared preview (#97 prototype): the tracked figures as a 2-column grid,

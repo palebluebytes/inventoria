@@ -13,6 +13,7 @@
     deriveIngredientMacros,
   } from "../../food/recipe-nutrition";
   import { isMeasuredUnit, type Portion } from "../../food/nutrition";
+  import { FOOD_DENSITY_ATTR } from "../../food/density";
   import { scaleAmount } from "../../food/scale-amount";
   import AddIngredientSheet from "./AddIngredientSheet.svelte";
   import IngredientAmountSheet from "./IngredientAmountSheet.svelte";
@@ -249,6 +250,18 @@
       | Portion[]
       | undefined}
     panel={resolvePanel(ingredients[editingIndex].entity)}
+    onAssertDensity={(density) => {
+      // The row's payload, not the ledger: an ingredient's twin is ingested when
+      // the recipe is saved (`RecipeBuilder`), so the assertion travels with the
+      // food the same way a staged one does, and a recipe the user abandons
+      // writes nothing.
+      if (editingIndex === null) return;
+      const row = ingredients[editingIndex];
+      row.payload = {
+        ...row.payload,
+        attributes: { ...row.payload.attributes, [FOOD_DENSITY_ATTR]: density },
+      };
+    }}
     onCommit={(amount) => {
       if (editingIndex !== null) ingredients[editingIndex].amount = amount;
     }}

@@ -1,7 +1,8 @@
 import type { ConsumptionEvent } from "./consumption-state";
 import { byFrecency, frecencyOf } from "./frecency";
 import { parseLoggedQuantity } from "./recipe-ingredient";
-import type { AmountUnit, MeasuredUnit } from "./nutrition";
+import { isMeasuredUnit, type AmountUnit } from "./nutrition";
+import type { RememberedEntry } from "./density";
 import type { MealType } from "./meal-type";
 
 /**
@@ -112,8 +113,8 @@ export function recentCandidatesForMeal(
 }
 
 /**
- * The amount this food was last logged at, in `unit`, or null where there is
- * nothing to open on.
+ * The amount this food was last logged at **and the unit it was logged in**, or
+ * null where there is nothing to open on.
  *
  * A food is nearly always eaten in the same amount — a 40 g bowl of oats stays
  * a 40 g bowl — so the amount control opens on what the user last chose for
@@ -121,12 +122,17 @@ export function recentCandidatesForMeal(
  * caller falls back to that default on null, which keeps the two rules in one
  * readable line at the call site instead of a default buried in here.
  *
- * **The unit must match, and a mismatch is null rather than a number.** ADR-0060
- * §1/§2 is that nothing converts: a drink logged at `330ml` cannot seed a field
- * entered in grams, and a whole-serving log ("1 serving", ADR-0035 §6) names no
- * measurement at all. Both come back null and take the default, which is the
- * only honest answer — the alternative is a field pre-filled with a number
- * measured against something else.
+ * **It reports the unit rather than being asked for one.** It took the field's
+ * unit and answered null on a mismatch, which was the whole of the honest answer
+ * while nothing converted (ADR-0060 §1/§2). On a food carrying a Density Class
+ * the unit is a choice, and what this food was last entered in is the memory
+ * that overrides the context's default (ADR-0105 §7, as amended) — so the unit
+ * is the answer here, not the question. A caller that can only take one unit
+ * still compares and falls back; `openingUnit` is where the comparison lives.
+ *
+ * **A whole-serving log names no measurement at all** ("1 serving",
+ * ADR-0035 §6) and comes back null, as it always did: there is no amount in it
+ * to remember and no unit to report.
  *
  * Unscoped by meal, unlike {@link recentCandidatesForMeal} above. That walk is
  * scoped because a meal's *offer* is about what belongs at breakfast; this is
@@ -143,11 +149,10 @@ export function recentCandidatesForMeal(
  * dropped retracted events (`consumption-state.ts`), so an amount the user
  * undid is not in the history to be remembered.
  */
-export function rememberedAmount(
+export function rememberedEntry(
   events: readonly ConsumptionEvent[],
-  target: string,
-  unit: MeasuredUnit
-): number | null {
+  target: string
+): RememberedEntry | null {
   let newest: ConsumptionEvent | null = null;
   for (const event of events) {
     if (event.target !== target) continue;
@@ -156,7 +161,9 @@ export function rememberedAmount(
   if (newest === null) return null;
 
   const logged = parseLoggedQuantity(newest.quantity);
-  return logged.unit === unit ? logged.amount : null;
+  return isMeasuredUnit(logged.unit)
+    ? { amount: logged.amount, unit: logged.unit }
+    : null;
 }
 
 /**

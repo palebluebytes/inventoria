@@ -1,6 +1,15 @@
 <script lang="ts">
   import { tick } from "svelte";
   import Button from "../../ui/Button.svelte";
+  import ToggleGroup from "../../ui/ToggleGroup.svelte";
+  import {
+    convertAmount,
+    densityGramsPerMl,
+    isAssertableFigure,
+    DENSITY_CLASS_OPTIONS,
+    type FoodDensity,
+  } from "../../food/density";
+  import type { DensityClassId } from "../../food/density-class";
   import {
     evaluateAmount,
     AMOUNT_EXPRESSION_CHARS,
@@ -33,25 +42,79 @@
   // `QuantityGrams` it used to be: the label was a millilitre field wearing a
   // gram name, and "quantity" is the ledger's word for the frozen `event/quantity`
   // string, not for a live input.
+  //
+  // On a food published by volume the control also carries the `g`/`ml` toggle
+  // that CHOOSES the unit, and that toggle is the only door to the Density Class
+  // question (ADR-0105 §1/§6): on a classified food it switches units, and on an
+  // unclassified one tapping `g` is what asks. The capability is offered by the
+  // same control that earns it, so there is deliberately no separate "weigh this
+  // instead?" prompt — a prompt that exists only to be a prompt is a worse
+  // surface than a control that does something.
+  //
+  // `amount` stays in the PANEL's unit whichever unit is being typed in, so
+  // every reader downstream — the scaler, the logged quantity, a recipe row —
+  // keeps reading it exactly as it always has. What the toggle changes is the
+  // number on screen, converted through the class the user asserted. Recording
+  // the entered unit as entered, and the caption that says so, is #431.
   let {
     amount = $bindable(),
     unit,
     portions = [],
     caption = null,
+    density = undefined,
+    prefill = undefined,
+    openOn = undefined,
+    onAssertDensity = undefined,
   }: {
     amount: number;
-    /** The unit this amount is entered in — the food's panel basis unit. */
+    /** The food's panel basis unit — what `amount` is measured in, always. */
     unit: MeasuredUnit;
     portions?: Portion[];
     /** What the panel's figures are measured against ("Per 100 g"), rendered on
      *  the head row that the sum keys share. Null on a panel-less food, and
      *  then the keys have that row to themselves. */
     caption?: string | null;
+    /** What this food's twin asserts about its density (ADR-0105 §4). Absent on
+     *  every food nobody has classified, which is the standing state. */
+    density?: FoodDensity | undefined;
+    /** The class the food's own source names, where it names exactly one — the
+     *  picker opens on it, and it is never written until the user has seen it. */
+    prefill?: DensityClassId | undefined;
+    /** Which unit to open on, decided by the host from its context and this
+     *  food's memory there (`openingUnit`). Ignored on a food that cannot be
+     *  weighed, which has no choice to make. */
+    openOn?: MeasuredUnit | undefined;
+    /** The user has said what kind of liquid this is. The host owns where that
+     *  lands — a twin already in the ledger takes a datom, a staged one carries
+     *  it to its commit — so this control never writes one itself. */
+    onAssertDensity?: (density: FoodDensity) => void;
   } = $props();
+
+  // Whether this food can answer in both units at all: a volume panel plus a
+  // density to bridge them. A gram panel is already weighed and has nothing to
+  // ask (ADR-0105's curated stand-in amendment turns on exactly this), and a
+  // volume food with no density can still be offered the question.
+  let weighable = $derived(densityGramsPerMl(density) !== undefined);
+  // Whether the toggle is drawn at all. A volume food that can already be
+  // weighed always offers it; one that cannot offers it only where the host can
+  // take the answer, because a question with nowhere to put its answer is a
+  // control that does nothing — which is the surface ADR-0105 §1 rejects, in
+  // the other direction.
+  let offersUnits = $derived(
+    unit === "ml" && (weighable || onAssertDensity !== undefined)
+  );
+
+  // The unit being typed in. The user's own choice wins while this control is
+  // mounted; failing that the host's opening rule, and failing that the panel's
+  // own unit — which is the whole of the answer on a food with no density.
+  let chosenUnit = $state<MeasuredUnit | null>(null);
+  let entryUnit = $derived<MeasuredUnit>(
+    weighable ? (chosenUnit ?? openOn ?? unit) : unit
+  );
 
   // The unit's own spelling, resolved in one place so the label, the aria-label
   // and the box suffix cannot name three things.
-  let unitName = $derived(measuredUnitName(unit));
+  let unitName = $derived(measuredUnitName(entryUnit));
 
   // The chip view-models are derived once from the raw portions by the food
   // domain helper; the .svelte file holds no portion mapping of its own.
@@ -87,14 +150,111 @@
   // fractional part still shows whole (the result is a number, never padded).
   const clamp = (v: number) => Math.max(0, Math.min(HARD_MAX, roundFood(v)));
 
+  // `amount` in the unit being typed in — the number on screen. Identical to
+  // `amount` itself on every food that answers in one unit, which is most of
+  // them; converted through the asserted class on the one that does not.
+  let shown = $derived(
+    convertAmount(amount, unit, entryUnit, density) ?? amount
+  );
+
   // The field keeps its own raw string so typing (and a transient empty field)
   // isn't clobbered; `amount` is the source of truth everything else drives.
-  let raw = $state(String(amount));
+  // Seeded from `shown` rather than from `amount`, because the two differ on a
+  // food being weighed and the `$effect` below that reconciles them does not run
+  // on the server: seeded from `amount`, a gram field would render its
+  // millilitre figure and then correct itself after mount.
+  // svelte-ignore state_referenced_locally
+  let raw = $state(String(shown));
   let focused = $state(false);
   let inputEl = $state<HTMLInputElement>();
   $effect(() => {
-    if (!focused) raw = String(amount);
+    if (!focused) raw = String(shown);
   });
+
+  // Writes a number the user typed — which is in `entryUnit` — back to `amount`,
+  // which is in the panel's. The conversion cannot fail here (the toggle only
+  // offers a second unit on a food carrying a density), and the fallback is the
+  // typed figure rather than a guess at what it would have been.
+  function takeTyped(value: number) {
+    const typed = clamp(value);
+    amount = convertAmount(typed, entryUnit, unit, density) ?? typed;
+  }
+
+  // ── the unit toggle, and the question behind it ──────────────────────────
+
+  /** The two units the toggle offers, in the order they are drawn. */
+  const UNIT_KEYS = ["g", "ml"] as const;
+
+  /** The exit from the five classes, as the picker spells it. A bottle they do
+   *  not cover would otherwise be a dead end, and squash is the common one. */
+  const OTHER = "other";
+
+  // The five classes plus the exit, in the order they are drawn. Each names the
+  // thing and never the number.
+  const PICKER_OPTIONS = [
+    ...Object.entries(DENSITY_CLASS_OPTIONS).map(([value, label]) => ({
+      value,
+      label,
+    })),
+    { value: OTHER, label: "Something else" },
+  ];
+
+  // Whether the class question is on screen. It opens by tapping `g` on a food
+  // nobody has classified — no separate prompt — and closes the moment the
+  // question is answered or the user goes back to millilitres.
+  let asking = $state(false);
+  // Which cell the picker shows as chosen: the source's own proposal until the
+  // user touches it. A proposal is never a written class (ADR-0105's pre-fill
+  // amendment), so nothing reaches `onAssertDensity` from here.
+  let proposed = $state<string>("");
+  // The typed exit's field, held as a string so a half-typed "1." survives.
+  let typedFigure = $state("");
+  let typedFigureValue = $derived(Number(typedFigure));
+
+  function chooseUnit(next: MeasuredUnit) {
+    if (next === "ml") {
+      asking = false;
+      chosenUnit = "ml";
+      return;
+    }
+    if (weighable) {
+      chosenUnit = "g";
+      return;
+    }
+    // The tap on `g` IS the question. The control that offers the capability is
+    // the one that earns it.
+    proposed = prefill ?? "";
+    asking = true;
+  }
+
+  function assert(next: FoodDensity) {
+    onAssertDensity?.(next);
+    asking = false;
+    chosenUnit = "g";
+  }
+
+  function pickClass(value: string) {
+    if (value !== "") {
+      proposed = value;
+      if (value !== OTHER) assert({ class: value as DensityClassId });
+      return;
+    }
+    // A ToggleGroup clears when the cell already on is tapped, and on this row
+    // that tap is the user CONFIRMING the source's own proposal: a cell is on
+    // before anybody has touched the row only because Open Food Facts named
+    // exactly one class for this product. Read as a clear it would make the one
+    // option the source pre-filled the one option that cannot be chosen.
+    if (proposed !== "" && proposed !== OTHER) {
+      assert({ class: proposed as DensityClassId });
+      return;
+    }
+    proposed = "";
+  }
+
+  function assertTypedFigure() {
+    if (!isAssertableFigure(typedFigureValue)) return;
+    assert({ g_per_ml: typedFigureValue });
+  }
 
   // The number pad has no operator keys, so the sums we support ride four
   // on-screen ones. Each inserts its operator at the caret, keeps the field
@@ -109,7 +269,7 @@
     const next = raw.slice(0, start) + op + raw.slice(end);
     raw = [...next].filter((ch) => AMOUNT_EXPRESSION_CHARS.test(ch)).join("");
     const result = evaluateAmount(raw);
-    if (result !== null) amount = clamp(result);
+    if (result !== null) takeTyped(result);
     await tick(); // let Svelte push the new value before we place the caret
     el.focus();
     const caret = start + op.length;
@@ -125,15 +285,15 @@
       .filter((ch) => AMOUNT_EXPRESSION_CHARS.test(ch))
       .join("");
     const result = evaluateAmount(raw);
-    if (result !== null) amount = clamp(result);
+    if (result !== null) takeTyped(result);
   }
   // On blur/Enter, collapse whatever was typed to its computed value: a valid
   // sum becomes its result, anything unparseable falls back to the last `amount`.
   function commit() {
     focused = false;
     const result = evaluateAmount(raw);
-    amount = clamp(result ?? amount);
-    raw = String(amount);
+    takeTyped(result ?? shown);
+    raw = String(convertAmount(amount, unit, entryUnit, density) ?? amount);
   }
 </script>
 
@@ -158,6 +318,36 @@
          control they had not touched. Typing is the primary way an amount is
          entered and the sums these keys build are the secondary one; neither
          needs a coarse skim beside them. -->
+    {#if offersUnits}
+      <!-- The unit toggle: the door to the Density Class question, and on a
+           classified food the switch between the two units the label below
+           names. It rides the head row beside the sum keys rather than inside
+           the amount box, and the reason is structural rather than visual —
+           that box IS the <label> that takes the tap (ADR-0093, #338), and a
+           <label> may hold only the one labelable element it names. Putting a
+           second control inside it would have cost the row its label, split one
+           amount box into two, and bought nothing the head row does not already
+           give: the toggle is part of this control either way, which is the
+           whole of ADR-0105 §1's claim that the capability is offered by the
+           control that earns it. -->
+      <div
+        class="units"
+        role="group"
+        aria-label="Amount unit"
+        data-testid="amount-units"
+      >
+        {#each UNIT_KEYS as choice (choice)}
+          <button
+            type="button"
+            class="unit-key"
+            data-unit={choice}
+            aria-pressed={entryUnit === choice}
+            onclick={() => chooseUnit(choice)}>{choice}</button
+          >
+        {/each}
+      </div>
+    {/if}
+
     <div class="ops">
       {#each OPERATOR_KEYS as key (key.op)}
         <button
@@ -179,7 +369,15 @@
        row around it took nothing — and flooring that inner box would have grown
        the row to 70px to reach a size the row already had (ADR-0093, #338).
        Naming the row instead costs one element and no pixels, and the "Amount
-       (g)" text joins the target rather than sitting outside it. -->
+       (g)" text joins the target rather than sitting outside it.
+
+       A volume food draws the second form instead, and it is a <div> for a
+       reason the first form's argument cannot reach: the row now holds another
+       control, and a <label> may contain only the one labelable element it
+       names. So the tap moves inward to a <label> around the value, which
+       carries the floor itself (ADR-0093 §3 — a declared floor, not an
+       arithmetic one). Every food that answers in one unit keeps the row it
+       has, so no screen in the app moves. -->
   <label class="af-row">
     <span class="af-label">Amount ({unitName})</span>
     <span class="value">
@@ -201,9 +399,50 @@
         onblur={commit}
         onkeydown={(e) => e.key === "Enter" && e.currentTarget.blur()}
       />
-      <span class="unit">{unit}</span>
+      <span class="unit">{entryUnit}</span>
     </span>
   </label>
+
+  {#if asking}
+    <!-- The class question, inline under the field it is about. A BottomSheet
+         would put the amount you were typing behind a backdrop to answer a
+         question about that amount, and five short options is a row of cells
+         rather than a screen (ADR-0105 §1). -->
+    <div class="asking" data-testid="density-picker">
+      <ToggleGroup
+        options={PICKER_OPTIONS}
+        value={proposed}
+        onValueChange={pickClass}
+        label="What kind of liquid is this?"
+        testid="density-classes"
+      />
+      {#if proposed === OTHER}
+        <!-- The exit, so a bottle the five classes do not cover is not a dead
+             end. It is the user's own claim about their own food and never a
+             measurement the app could check (ADR-0105 §4, as amended). -->
+        <div class="typed">
+          <label class="typed-label" for="density-figure"
+            >Grams per millilitre</label
+          >
+          <input
+            id="density-figure"
+            class="typed-num"
+            inputmode="decimal"
+            autocomplete="off"
+            spellcheck="false"
+            placeholder="1.20"
+            bind:value={typedFigure}
+            onkeydown={(e) => e.key === "Enter" && assertTypedFigure()}
+          />
+          <Button
+            variant="secondary"
+            disabled={!isAssertableFigure(typedFigureValue)}
+            onclick={assertTypedFigure}>Use this</Button
+          >
+        </div>
+      {/if}
+    </div>
+  {/if}
 
   {#if portionOptions.length > 0}
     <!-- Portion chips, taking the control's full width (the NOVA badge that used
@@ -282,6 +521,80 @@
   .unit {
     font-size: var(--step-n1);
     font-weight: 700;
+  }
+
+  /* The `g`/`ml` toggle, between the label and the value. It wears the operator
+     keys' skin because it is the same kind of thing — a small pressed key in the
+     amount control — and floors on both axes for the same reason they do: a unit
+     key is pure touch, with no keyboard route to it. */
+  .units {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3xs);
+    margin-left: auto;
+  }
+  .unit-key {
+    flex: none;
+    min-width: var(--tap-min);
+    min-height: var(--tap-min);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: var(--edge);
+    box-shadow: var(--shadow-1);
+    background: var(--paper);
+    font-family: inherit;
+    font-size: var(--step-n1);
+    font-weight: 800;
+    line-height: 1;
+    color: var(--text-primary);
+    cursor: pointer;
+  }
+  /* The chosen unit inverts to paper-on-ink, the same way a ToggleGroup cell
+     says "on" — one skin for "this is the selected one" across the app. */
+  .unit-key[aria-pressed="true"] {
+    background: var(--ink);
+    color: var(--paper);
+    box-shadow: none;
+  }
+  .unit-key:focus-visible {
+    outline: var(--edge-thick);
+    outline-offset: 3px;
+  }
+
+  /* The class question, inline under the field. */
+  .asking {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-s);
+    width: 100%;
+    padding: var(--space-xs);
+    border: var(--edge);
+    background: var(--paper);
+  }
+  .typed {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-xs);
+  }
+  .typed-label {
+    font-size: var(--step-n1);
+    font-weight: 700;
+  }
+  /* Its own box rather than ui/Input: the field is one number wide and sits
+     inline beside its label and its confirm, where Input draws a full-width
+     stacked field. Floored on the axis that could fail a finger. */
+  .typed-num {
+    width: 6rem;
+    min-height: var(--tap-min);
+    padding: var(--space-3xs) var(--space-2xs);
+    border: var(--edge);
+    background: var(--paper);
+    font-family: inherit;
+    font-size: var(--step-0);
+    font-weight: 700;
+    color: var(--text-primary);
   }
 
   /* Head row: caption left, sum keys right. `margin-left: auto` rather than

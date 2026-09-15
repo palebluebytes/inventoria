@@ -12,6 +12,7 @@
     type ScaleChange,
     moveLoggedFoodsToMeal,
     copyPastMeal,
+    setFoodDensity,
     type ConsumptionEvent,
   } from "../stores/calorie.store";
   import {
@@ -1365,6 +1366,8 @@
     onExplainNova={(v) => (novaExplain = v)}
     onExplainSource={(kind) => (sourceExplain = kind)}
     onExplainDietary={(v) => (dietaryExplain = v)}
+    onAssertDensity={(density) =>
+      void setFoodDensity(ae.payload.entity, density)}
     onCommit={(amount) => changeLoggedFoodAmount(ae.event, amount)}
     onClose={() => (amountEdit = null)}
   />

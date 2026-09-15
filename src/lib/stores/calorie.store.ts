@@ -1,6 +1,7 @@
 import { dbClient } from "../db/db.client";
 import { mintEntity } from "../facets/entity-id";
 import { ingestEntity } from "../ingestion/ingest";
+import { FOOD_DENSITY_ATTR, type FoodDensity } from "../food/density";
 import { HLC_ORDER_ASC, HLC_ORDER_DESC } from "../db/hlc";
 import { createProjectionStore, createQueryStore } from "./datoms.store";
 import type { ConsumptionEvent } from "../food/consumption-state";
@@ -452,6 +453,33 @@ export async function saveLabelFood(input: LabelFoodInput): Promise<string> {
 
   await dbClient.append(ingestEntity({ entity: entityId, attributes }));
   return entityId;
+}
+
+/**
+ * Records what kind of liquid a food is, on a twin already in the ledger
+ * (ADR-0105 §1/§4).
+ *
+ * One datom on one attribute, and latest-wins settles a user who changes their
+ * mind — which is the whole reason `food/density` is one key whose VALUE names
+ * which kind of answer it holds rather than two keys that could disagree about
+ * one food with nothing to arbitrate them.
+ *
+ * The figure is never written beside the class: 0.92 is our reading of "this is
+ * an oil", and a reading belongs derived, so improving a class figure improves
+ * every food filed under it without a migration (§4).
+ *
+ * This is the path for a food the user reaches through an already-logged row or
+ * an already-added ingredient. A food still being STAGED has no twin in the
+ * ledger yet, and its assertion rides its payload to whatever commits it, so it
+ * does not come through here.
+ */
+export async function setFoodDensity(
+  entity: string,
+  density: FoodDensity
+): Promise<void> {
+  await dbClient.append(
+    ingestEntity({ entity, attributes: { [FOOD_DENSITY_ATTR]: density } })
+  );
 }
 
 /** A manual-entry food from one of the Custom chooser's intents (ADR-0035). */

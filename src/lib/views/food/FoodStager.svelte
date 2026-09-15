@@ -34,6 +34,15 @@
   import { offContributeDefault } from "../../stores/device-settings";
   import { secretsStore } from "../../stores/secrets";
   import {
+    convertAmount,
+    openingUnit,
+    readFoodDensity,
+    FOOD_DENSITY_ATTR,
+    type AmountContext,
+    type FoodDensity,
+    type RememberedEntry,
+  } from "../../food/density";
+  import {
     amountDefaults,
     basisUnit,
     parseBasisQuantity,
@@ -189,16 +198,28 @@
      *  concept at all. */
     recentEmptyHint = "",
     /**
-     * The amount this food was last logged at, in `unit`, or null where there is
-     * none to reuse. Host-supplied for the same reason `recent` is: the history
-     * belongs to the host's surface, and this stager holds no store of its own.
+     * The amount and unit this food was last entered at **in this host's
+     * context**, or null where there is none to reuse. Host-supplied for the
+     * same reason `recent` is: the history belongs to the host's surface, and
+     * this stager holds no store of its own.
      *
      * The default answers null for every food, which is a host with no history
      * to read rather than a food with nothing behind it — `AddIngredientSheet`
      * builds a recipe, where an amount is a proportion of a dish and not a
-     * record of what somebody ate. Both cases fall back to `amountDefaults`.
+     * record of what somebody ate, and nothing in the ledger records what a food
+     * was last measured into one at. A food with no history in the context it is
+     * reached in takes that context's default (ADR-0105 §7, as amended), which
+     * is exactly what null means here.
      */
-    lastAmountFor = () => null,
+    lastEntryFor = () => null,
+    /**
+     * Whether this host is measuring a food INTO something or recording one
+     * consumed — the whole of what decides the opening unit on a food that can
+     * answer in either (ADR-0105 §7, as amended). A recipe ingredient list opens
+     * on grams; a log sheet opens on the panel's own unit, as it does today.
+     * Unqualified "grams the default" would open a can of Coke in grams.
+     */
+    amountContext = "log",
     /** DOM ids for each host's e2e selectors. */
     ids,
     /** The staged food, exposed so the host header's back button can clear it
@@ -252,7 +273,8 @@
     extraTabs?: StagerExtraTab[];
     recent?: FoodResult[];
     recentEmptyHint?: string;
-    lastAmountFor?: (entity: string, unit: MeasuredUnit) => number | null;
+    lastEntryFor?: (entity: string) => RememberedEntry | null;
+    amountContext?: AmountContext;
     ids: StagerIds;
     staged?: FoodResult | null;
     canGoBack?: boolean;
@@ -324,12 +346,55 @@
   // the order a derived happens to settle in relative to the assignment beside
   // it. The edit path never comes through here: it opens on the logged amount
   // its seed carries, which is that event's own figure and not a memory of one.
-  function openingAmount(payload: EntityPayload): number {
+  function openingEntry(payload: EntityPayload): {
+    amount: number;
+    unit: MeasuredUnit;
+  } {
     const info = payload.attributes[NUTRITION_INFO_ATTR] as
       | NutritionInfo
       | undefined;
-    const unit = basisUnit(info?.serving_size);
-    return lastAmountFor(payload.entity, unit) ?? amountDefaults(unit).amount;
+    const basis = basisUnit(info?.serving_size);
+    const density = readFoodDensity(payload.attributes);
+    const remembered = lastEntryFor(payload.entity);
+    const unit = openingUnit(amountContext, basis, density, remembered);
+    const opening =
+      remembered?.unit === unit
+        ? remembered.amount
+        : amountDefaults(unit).amount;
+    // `amount` is held in the PANEL's unit whichever unit the field opens on, so
+    // every reader downstream is unchanged (ADR-0105 §5: the panel is never
+    // rewritten and the density sits beside it). The conversion cannot fail —
+    // `openingUnit` only names the second unit on a food carrying a density.
+    return {
+      amount: convertAmount(opening, unit, basis, density) ?? opening,
+      unit,
+    };
+  }
+
+  // Which unit the staged food's field opens on, re-read from the same rule the
+  // opening amount came from so the two cannot disagree about one food.
+  let stagedOpenOn = $derived(
+    staged ? openingEntry(staged.payload).unit : undefined
+  );
+
+  // The user has said what kind of liquid the staged food is. It lands on the
+  // staged payload rather than in the ledger, because that payload IS what the
+  // host ingests on commit — a searched or scanned twin is not in the ledger yet
+  // and writing one from a staging screen would mint a food nobody has chosen.
+  // The assertion travels with the food it is about, and a staging the user
+  // backs out of writes nothing, which is the same rule the amount follows.
+  function assertStagedDensity(density: FoodDensity) {
+    if (!staged) return;
+    staged = {
+      ...staged,
+      payload: {
+        ...staged.payload,
+        attributes: {
+          ...staged.payload.attributes,
+          [FOOD_DENSITY_ATTR]: density,
+        },
+      },
+    };
   }
 
   // The staged food's full nutrition panel (per its serving basis). Handed to
@@ -392,7 +457,7 @@
     // the Recent list closes nothing — no session was ever open.
     endSearchSession();
     staged = item;
-    amount = openingAmount(item.payload);
+    amount = openingEntry(item.payload).amount;
     if (!searched) return;
     completingEntity = item.entity;
     unreachablePanel = null;
@@ -1674,7 +1739,7 @@
       // runs the found-but-poor predicate below (§1).
       if (local) {
         staged = mapPayloadToFoodResult(local);
-        amount = openingAmount(local);
+        amount = openingEntry(local).amount;
         status = "idle";
         return;
       }
@@ -1703,7 +1768,7 @@
       // resurrect it.
       if (scanSession) scanSession = scanAnswered(scanSession, "found");
       staged = mapPayloadToFoodResult(off);
-      amount = openingAmount(off);
+      amount = openingEntry(off).amount;
       status = "idle";
       const info = off.attributes[NUTRITION_INFO_ATTR] as
         | NutritionInfo
@@ -2093,6 +2158,8 @@
                     panel={stagedInfo}
                     portions={stagedPortions}
                     bind:amount
+                    openOn={stagedOpenOn}
+                    onAssertDensity={assertStagedDensity}
                     onEdit={editStaged}
                     onExplainSource={(kind) => (sourceExplain = kind)}
                     onExplainNova={explainNova}

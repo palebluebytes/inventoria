@@ -1746,6 +1746,122 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     ).toContainText("Olive Oil");
   });
 
+  // ── The Density Class question, and the toggle that is its only door ──────
+  //
+  // ADR-0105 §1. Everything the control renders at first paint is pinned in
+  // `tests/unit/amount-field.test.ts` against SSR; what lands here is the half
+  // SSR cannot reach — a tap on `g` opening the picker, and a picked class
+  // switching the field under it.
+
+  /** Stages one OFF product sold by volume, carrying whatever tags it is given. */
+  async function scanVolumeProduct(
+    page: import("@playwright/test").Page,
+    code: string,
+    name: string,
+    categories_tags: string[]
+  ) {
+    await page.route(`**/api/v3/product/${code}.json`, async (route) => {
+      await route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify({
+          code,
+          status: "success",
+          product: {
+            product_name: name,
+            completeness: 0.9,
+            quantity: "500 ml",
+            product_quantity: 500,
+            product_quantity_unit: "ml",
+            categories_tags,
+            nutriments: {
+              "energy-kcal_100g": 824,
+              proteins_100g: 0,
+              fat_100g: 91.6,
+              carbohydrates_100g: 0,
+            },
+          },
+        }),
+      });
+    });
+
+    await page.goto("/?mem=1");
+    await waitForDbReady(page);
+    await openWayIn(page, "lunch", "scan");
+    await page.locator("#barcode-input").fill(code);
+    await page.locator("#barcode-input").press("Enter");
+    await expect(page.locator(".staged h3")).toHaveText(name);
+  }
+
+  test("tapping `g` on an unclassified bottle is what asks what kind of liquid it is", async ({
+    page,
+  }) => {
+    await scanVolumeProduct(page, "0000000000071", "Olive Oil", [
+      "en:olive-oils",
+    ]);
+
+    // A volume food opens in millilitres and stays fully loggable there (§6).
+    // The toggle is the whole of the surface: there is no separate prompt
+    // asking whether you would like to weigh this instead.
+    const units = page.locator('[data-testid="amount-units"]');
+    await expect(units.locator('[data-unit="ml"]')).toHaveAttribute(
+      "aria-pressed",
+      "true"
+    );
+    await expect(page.locator('[data-testid="density-picker"]')).toHaveCount(0);
+
+    // The tap on `g` IS the question.
+    await units.locator('[data-unit="g"]').click();
+    const picker = page.locator('[data-testid="density-picker"]');
+    await expect(picker).toBeVisible();
+
+    // Open Food Facts named exactly one class for this product, so the picker
+    // opens on it — a proposal the user confirms, never a class written behind
+    // them. The option names the bottle, not the figure.
+    const oil = picker.locator('[data-value="oil"]');
+    await expect(oil).toHaveAttribute("data-state", "on");
+    await expect(oil).toContainText("olive", { ignoreCase: true });
+    await expect(picker).not.toContainText("0.92");
+
+    // Confirming it closes the question and switches the field: 100 ml of olive
+    // oil weighs 92 g, which is the 78 kcal of error this whole record is about.
+    await oil.click();
+    await expect(picker).toHaveCount(0);
+    await expect(units.locator('[data-unit="g"]')).toHaveAttribute(
+      "aria-pressed",
+      "true"
+    );
+    await expect(page.getByLabel("Amount in grams")).toHaveValue("230");
+
+    // And it goes back. Both units stay available on a classified food.
+    await units.locator('[data-unit="ml"]').click();
+    await expect(page.getByLabel("Amount in millilitres")).toHaveValue("250");
+  });
+
+  test("a bottle the source cannot tell apart opens the picker empty", async ({
+    page,
+  }) => {
+    // Squash carries `en:fruit-juices` beside `en:cordials` — 18.6% of
+    // millilitre cordials do — and a juice rule would put 1.04 on a concentrate
+    // nearer 1.20. A wrong pre-fill converts a question into a nod.
+    await scanVolumeProduct(page, "0000000000072", "Orange Squash", [
+      "en:beverages",
+      "en:fruit-juices",
+      "en:cordials",
+    ]);
+
+    await page.locator('[data-testid="amount-units"] [data-unit="g"]').click();
+    const picker = page.locator('[data-testid="density-picker"]');
+    await expect(picker).toBeVisible();
+    await expect(picker.locator('[data-state="on"]')).toHaveCount(0);
+
+    // And it is not a dead end: the exit takes a figure the user asserts.
+    await picker.locator('[data-value="other"]').click();
+    await page.locator("#density-figure").fill("1.2");
+    await picker.getByRole("button", { name: "Use this" }).click();
+    await expect(picker).toHaveCount(0);
+    await expect(page.getByLabel("Amount in grams")).toHaveValue("300");
+  });
+
   // Select two logged foods and start building a recipe from them.
   async function selectTwoAndBuild(page: import("@playwright/test").Page) {
     await logUsdaFood(page, "dinner", "oats", "Mock Oats", "50"); // 379 * .5 = 189.5

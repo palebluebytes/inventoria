@@ -45,6 +45,13 @@
   let canGoBack = $state(false);
   let goBack = $state<() => void>(() => {});
 
+  // An ingredient list is a thing measured INTO something, so a food that can be
+  // weighed opens on grams here where the log sheet opens it on its panel's own
+  // unit (ADR-0105 §7, as amended). Nothing in the ledger records what a food was
+  // last measured into a recipe at, so this context has no memory to override the
+  // default with — which is what "a food with no history in the context it is
+  // reached in takes that context's default" says, rather than a gap.
+
   // Map the chosen food to a RecipeIngredient and hand it to the recipe builder.
   // `onAdd`'s outcome is already the stager's outcome shape: `ok` closes the
   // sheet (the parent unmounts us), otherwise the reason keeps it open.
@@ -87,6 +94,7 @@
     bind:staged
     bind:canGoBack
     bind:goBack
+    amountContext="recipe"
     ids={{
       search: "ai-search",
       barcode: "ai-barcode",

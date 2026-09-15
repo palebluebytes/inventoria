@@ -901,6 +901,15 @@ describe("the floor, swept", () => {
    * `SHORT_BY_ARGUMENT`'s length by construction, so a seventh entry moves this
    * assertion as well as that list — two diffs for one exemption, deliberately.
    *
+   * It rose 134 → 136 at #430, both in `AmountField`, where a volume food's
+   * `g`/`ml` toggle lands (ADR-0105 §1): `button.unit-key` and the typed
+   * override's `input.typed-num`. The amount box itself did not move, and that
+   * is a fact about where the toggle went rather than luck. Drawn inside the
+   * box it would have cost the row its `<label>` — a label may hold only the one
+   * labelable element it names — splitting one amount box into two boxes wearing
+   * two rules, which this sweep keys by the element that takes the tap and would
+   * have read as one.
+   *
    * It rose 133 → 134 at #416, and by **one** box rather than the two the
    * ticket projected. The day's five way-in controls left the meal header for a
    * bar of their own (ADR-0101 §1), so `WayInRail`'s cell and `DailyDashboard`'s
@@ -920,7 +929,7 @@ describe("the floor, swept", () => {
       else if (b.kind === "drawn") how.drawn++;
     }
 
-    expect(how).toEqual({ declared: 134, drawn: 26, sanctioned: 6 });
+    expect(how).toEqual({ declared: 136, drawn: 26, sanctioned: 6 });
     // Every box lands in exactly one column. Without this the two figures above
     // could both be right while a box fell out of the sweep between them.
     expect(how.declared + how.drawn + how.sanctioned).toBe(SWEEP.groups.size);

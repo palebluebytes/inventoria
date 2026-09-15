@@ -29,7 +29,7 @@
   import {
     recentCandidatesForMeal,
     emptyMealDefaultHint,
-    rememberedAmount,
+    rememberedEntry,
   } from "../../food/recent-foods";
   import type { MealType } from "../../food/meal-type";
   import { wayInTitle, type WayIn } from "../../food/ways-in";
@@ -193,16 +193,23 @@
   });
 
   // What a staged food's amount control opens at: the amount this food was last
-  // logged at, in the unit the stager is about to enter. Passed as a reader
-  // rather than as a table because the stager asks about ONE food, at the moment
-  // it is staged — a map would be the whole history precomputed against the
-  // chance that one entry of it gets used.
+  // logged at, and the unit it was logged in. Passed as a reader rather than as
+  // a table because the stager asks about ONE food, at the moment it is staged —
+  // a map would be the whole history precomputed against the chance that one
+  // entry of it gets used.
+  //
+  // This is the LOG's memory, and it seeds a log sheet alone. What the same food
+  // was last measured into a recipe at is a different fact and seeds a different
+  // screen (ADR-0105 §7, as amended): a can of Coke drunk in millilitres for
+  // months is still a thing measured INTO something the first time it reaches an
+  // ingredient list, and a memory read per food rather than per context would
+  // retire that rule almost entirely.
   //
   // Not `$derived`, and it does not need to be: it reads the store at call time,
   // inside a tap handler, so it always answers from the current history rather
   // than from whatever a derived last settled on.
-  const lastAmountFor = (entity: string, unit: MeasuredUnit) =>
-    rememberedAmount($consumptionStore, entity, unit);
+  const lastEntryFor = (entity: string) =>
+    rememberedEntry($consumptionStore, entity);
 
   // Edit mode hides Recent entirely (it locks onto one food's amount), so it
   // gets no line either — an empty list there is the point, not a shortfall.
@@ -554,7 +561,7 @@
     methodDock={false}
     recent={showsMealDefault ? recent : []}
     {recentEmptyHint}
-    {lastAmountFor}
+    {lastEntryFor}
     primaryDisabled={!dbReady}
     ids={{
       search: "food-search-input",

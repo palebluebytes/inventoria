@@ -8,6 +8,7 @@
   import type { NovaVerdict } from "../../food/nova-verdict";
   import type { DietaryVerdict } from "../../food/off-signals";
   import type { FoodSourceKind } from "../../food/food-source";
+  import type { FoodDensity } from "../../food/density";
   import BottomSheet from "../../ui/BottomSheet.svelte";
   import FoodCard from "./FoodCard.svelte";
   import CommitButton from "./CommitButton.svelte";
@@ -40,6 +41,7 @@
     onExplainNova,
     onExplainSource,
     onExplainDietary,
+    onAssertDensity,
     onCommit,
     onClose,
   }: {
@@ -64,6 +66,11 @@
     onExplainSource?: (kind: FoodSourceKind) => void;
     /** Tap-through on a dietary mark — the on-pack claims explainer. */
     onExplainDietary?: (verdict: DietaryVerdict) => void;
+    /** The user has said what kind of liquid this food is (ADR-0105 §1). The
+     *  twin behind this sheet already exists, so the host persists it rather
+     *  than carrying it to a commit the way a staging screen does. Omit on a
+     *  host with nowhere to put it, and the field offers only the panel's unit. */
+    onAssertDensity?: (density: FoodDensity) => void;
     onCommit: (amount: number) => void;
     onClose: () => void;
   } = $props();
@@ -122,6 +129,7 @@
     {onExplainSource}
     {onExplainNova}
     {onExplainDietary}
+    {onAssertDensity}
   />
 
   {#snippet footer()}
