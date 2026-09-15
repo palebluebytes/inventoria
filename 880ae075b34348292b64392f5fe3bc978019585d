@@ -1,5 +1,0 @@
-This commit says ADR-0103. That record is now ADR-0105: docs/adr/0105-a-pairing-is-scoped-to-the-facet-its-act-ran-in.md
-
-It was drafted and built as 0103 for the whole arc. The food-search branch reached main first and renumbered its own two records into 0103 and 0104, so this arc took the next free number when it landed. The code, the tests and the sibling records moved with it; these messages did not, because main was already pushed and shared. The amendment at ADR-0105's foot records the swap.
-
-ADR-0103 today is a different record: what was done to a food is not another food.
