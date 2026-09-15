@@ -28,6 +28,14 @@
 // which produced this roster, and `scripts/usda-filter-census.mjs`, which asks
 // what it absorbs — read the same entries through the same seam.
 //
+// **So does the strip** (#436). §5 takes these segments out of the name a
+// merged group's representative ships under, and it writes no strip of its own:
+// it gives ADR-0056 §1's positional strip a second roster, so
+// `usda-shipped-name.ts` imports `residualDescription` from here rather than
+// spelling the removal a second time. The licence — the group merged, and held
+// a record eligible to represent it — is a fact about a GROUP, so it arrives
+// from the collapse rather than being read off a name.
+//
 // NOTHING IN THE APP IMPORTS THIS FILE. The corpus is filtered once, at
 // generation time, and what ships is the survivors; the scripts reach these
 // through the esbuild seam in `scripts/usda-app-module.mjs` rather than keeping
@@ -130,23 +138,28 @@ export interface CollapsingAxis {
  *
  * Tallies below are rows of `public/usda/search-index.json` as it ships today
  * (2,037 rows, schema 9), because a roster entry whose reach nobody measured is
- * a hole nobody can see. 224 rows carry at least one of the three, under the
- * same seven head phrases the roster has always reached: `Beef` 99, `Pork` 56,
- * `Lamb` 45, `Veal` 16, and eight between `Game meat` (6), `Pork loin` (1) and
- * `Chicken`.
+ * a hole nobody can see. **51** rows still carry at least one of the three,
+ * under the same seven head phrases the roster has always reached: `Pork` 19,
+ * `Beef` 17, `Game meat` 6, `Lamb` 4, `Veal` 3, `Pork loin` 1 and `Chicken` 1.
  *
- * **These are SURVIVORS' segments, and that is not a contradiction.** The
- * generator collapses on these entries and then ships the representative under
- * the name USDA published, so the winner of a flank-steak group still says
- * `separable lean and fat, trimmed to 0" fat, choice`. Taking those words out of
- * the shipped name is ADR-0103 §5's strip and is #436's; until it lands, a
- * count here is a count of groups that collapsed rather than of rows that will.
+ * **224 rows carried one before #436, and the fall to 51 is the strip rather
+ * than a roster change.** §5 takes these segments out of the name a merged
+ * group's representative ships under, so a count here is now a count of the
+ * segments the strip was NOT licensed to take: a group of one, which keeps its
+ * name whole, or a group with no eligible record, which ships its fullest panel
+ * under that record's whole name. 21 `separable lean only` rows is the largest
+ * part of it and is exactly that — a dissected fraction nothing collapsed onto.
+ * A roster entry is therefore still measured against the corpus it is asked of,
+ * which is the corpus after the strip has run.
  */
 export const COLLAPSING_AXES: readonly CollapsingAxis[] = [
   // ── separation: the butcher's knife, not the counter ─────────────────────
-  // 218 rows of the shipped corpus, 189 of them the undissected value. USDA
-  // dissects a cut and assays the parts, so one steak arrives as three records.
-  // You cannot buy any of them but the first.
+  // 47 segments of the shipped corpus, 17 of them the undissected value and 30
+  // a fraction. USDA dissects a cut and assays the parts, so one steak arrives
+  // as three records; you cannot buy any of them but the first. The fractions
+  // outnumber the wholes here because §5 strips the whole and never the
+  // fraction — a row saying `separable lean only` is refused the group's name,
+  // so it ships under its own.
   {
     axis: "separation",
     kind: "collapsing",
@@ -165,11 +178,21 @@ export const COLLAPSING_AXES: readonly CollapsingAxis[] = [
       "fraction of the cut. Collapsing, because you did not buy the fraction — " +
       "but non-preferred, because a name with the separation struck out would " +
       "claim a whole steak over a panel that measured part of one (§5).",
-    re: /^((boneless )?separable lean only|lean only|separable fat)$/i,
+    // The trailing gloss is §10's second clause, and #436's guard is what found
+    // it: USDA welds one to a single row, `Pork, cured, separable fat (from ham
+    // and arm picnic)`, and an entry reading the bare phrase walks past the
+    // segment exactly as the designation tag and the Food Distribution gloss
+    // walked past ADR-0056's strip. Admitting it cannot take the gloss's own
+    // fact with it, because this entry is NON-PREFERRED: a record stating it can
+    // never represent a group, so no strip ever reaches the segment. What the
+    // wider pattern changes is the GROUPING — the row's residual is `Pork,
+    // cured` rather than a description of itself — and measured over the shipped
+    // corpus no other row holds that residual, so nothing moves today.
+    re: /^((boneless )?separable lean only|lean only|separable fat)( \([^()]*\))?$/i,
     preferred: false,
   },
   // ── trim: a trade specification, and no value of it refuses ──────────────
-  // 95 rows: 44 at 1/8", 39 at 0", 12 at 1/4". The optional space is §10's,
+  // 14 segments: 7 at 0", 4 at 1/8", 3 at 1/4". The optional space is §10's,
   // written for the one SR Legacy row spelling it `1/8"fat`; that row was
   // `cooked, broiled` and left with ADR-0104's, so the entry reaches three
   // spellings today and the `?` is insurance against the archive, not the index.
@@ -187,7 +210,7 @@ export const COLLAPSING_AXES: readonly CollapsingAxis[] = [
     preferred: true,
   },
   // ── grade: likewise, in two countries' vocabularies ──────────────────────
-  // 60 rows: choice 39, select 14, prime 1, Australian marble score 6.
+  // 10 segments: choice 7, select 1, prime 1, Australian marble score 1.
   {
     axis: "grade",
     kind: "collapsing",

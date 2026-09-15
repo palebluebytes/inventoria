@@ -76,8 +76,11 @@ import {
   serialiseNutrientStore,
 } from "./usda-artifacts.mjs";
 import {
+  applyCollapsedNames,
   assertCollapseReach,
   assertCollapsedRowsShip,
+  assertNamesClaimNoLess,
+  assertNoAxisHidesInAGloss,
   collapseAccount,
   collapseCorpus,
   collapseReach,
@@ -212,6 +215,9 @@ export const BUNDLE_DATASETS = ["Foundation Foods", "SR Legacy"];
  * @property {(description: string) => string} collapseGroupKey
  * @property {(description: string) => boolean} mayRepresentGroup
  * @property {(description: string) => { head: string, tail: string[] }} descriptionSegments
+ * @property {(description: string) => string} residualDescription
+ * @property {(segment: string) => { axis: string, preferred: boolean } | null} claimingAxis
+ * @property {(rows: { fdcId: number, description: string, also?: readonly string[] }[], licensed: ReadonlySet<number>) => { renamed: ReadonlyMap<number, string>, tally: { stripped: number, refused: number } }} resolveCollapsedNames
  */
 
 /**
@@ -903,10 +909,35 @@ async function main() {
   // name the row will actually ship under, so a segment ADR-0056 has already
   // taken cannot come back to split a group. It is the same argument
   // `applyShippedNames` gives for where it puts the frozen-mirror rule.
-  const { survivors, collapsed, groups_merged, groups_shipped_whole } =
-    collapseCorpus(named, app);
-  const reach = collapseReach(named, survivors, app);
+  //
+  // Before a segment is read, the names are proved against §10's trap: a
+  // parenthetical welded to a segment has hidden a word from a positional strip
+  // three times on this map, and the guard is asked of the names that SHIP
+  // rather than the ones USDA published (#436).
+  const segments_read = assertNoAxisHidesInAGloss(named, app);
+  const {
+    survivors: representatives,
+    collapsed,
+    licensed,
+    groups_merged,
+    groups_shipped_whole,
+  } = collapseCorpus(named, app);
+  const reach = collapseReach(named, representatives, app);
   const collapsing_heads = assertCollapseReach(reach);
+  // §5's strip, licensed by the collapse having happened, and asserted rather
+  // than assumed: nothing ships under a name claiming less than its panel
+  // measures.
+  const { survivors, tally: collapsed_names } = applyCollapsedNames(
+    representatives,
+    licensed,
+    app
+  );
+  const shortened = assertNamesClaimNoLess(
+    representatives,
+    survivors,
+    licensed,
+    app
+  );
 
   // After the corpus, never before: both of ADR-0049 §3's filters ask what the
   // FINISHED corpus retrieves, so a group's members are compared against the
@@ -1017,6 +1048,16 @@ async function main() {
       `    ${head.padEnd(8)} ${String(rows).padStart(4)} -> ` +
         `${String(after).padStart(4)}  (${absorbed} absorbed)`
     );
+  // §5's strip, reported the way the fortification strip is and for the same
+  // reason: a refused rename changes nothing, so a rule the corpus blocked and a
+  // rule that reached nothing look identical from outside (#436).
+  console.log(
+    `  ${collapsed_names.stripped} survivors then ship under their residual ` +
+      `name, ${shortened} of them shorter than USDA's; ` +
+      `${collapsed_names.refused} keep the name they had because another row ` +
+      `already answers to the residual. ${segments_read.toLocaleString("en-GB")} ` +
+      "segments were read for a collapsing axis hidden behind a parenthetical"
+  );
 
   const aliased = index.foods.filter((row) => row.also);
   const aliasBytes = aliased.reduce(
@@ -1078,6 +1119,8 @@ async function main() {
       after: survivors.length,
       groups_merged,
       groups_shipped_whole,
+      names_stripped: collapsed_names.stripped,
+      names_refused: collapsed_names.refused,
     })
   );
   console.log(

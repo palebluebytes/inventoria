@@ -4,18 +4,24 @@ import { describe, it, expect } from "vitest";
 // @ts-ignore
 import {
   HEADS_THE_COLLAPSE_MOVES,
+  applyCollapsedNames,
   assertCollapseReach,
   assertCollapsedRowsShip,
+  assertNamesClaimNoLess,
+  assertNoAxisHidesInAGloss,
   collapseCorpus,
   collapseReach,
 } from "../../scripts/usda-collapse.mjs";
 // @ts-ignore
 import type { AppModule, Survivor } from "../../scripts/usda-bundle.mjs";
 import {
+  claimingAxis,
   collapseGroupKey,
   descriptionSegments,
   mayRepresentGroup,
+  residualDescription,
 } from "../../src/lib/food/usda-collapse-roster";
+import { resolveCollapsedNames } from "../../src/lib/food/usda-shipped-name";
 
 // ADR-0103 §3, §4, §6 and §9's survivor assertion, as the generator runs them.
 // Every description below is a real corpus row: §4's chain is a rule about what
@@ -33,6 +39,9 @@ const app = {
   collapseGroupKey,
   mayRepresentGroup,
   descriptionSegments,
+  residualDescription,
+  claimingAxis,
+  resolveCollapsedNames,
 } satisfies Partial<AppModule> as unknown as AppModule;
 
 /**
@@ -320,5 +329,246 @@ describe("collapseReach — what the rule lands on, per head phrase", () => {
         { head: "Veal" },
       ])
     ).toThrow(/Chicken/);
+  });
+});
+
+describe("applyCollapsedNames — §5's strip, licensed by the collapse", () => {
+  // The half #435 deliberately left undone. A survivor shipped under the name
+  // USDA published, so `beef` led with `Beef, composite of trimmed retail cuts,
+  // separable lean and fat, trimmed to 0" fat, choice` rather than the four
+  // words that name it.
+
+  it("ships a merged group's representative under its residual name", () => {
+    const flank = [
+      survivor(
+        168627,
+        'Beef, flank, steak, separable lean and fat, trimmed to 0" fat, choice',
+        40
+      ),
+      survivor(
+        168628,
+        'Beef, flank, steak, separable lean and fat, trimmed to 0" fat, select',
+        42
+      ),
+    ];
+    const { survivors, licensed } = collapseCorpus(flank, app);
+    const named = applyCollapsedNames(survivors, licensed, app);
+    expect(named.survivors.map((row) => row.food.description)).toEqual([
+      "Beef, flank, steak",
+    ]);
+    expect(named.tally).toEqual({ stripped: 1, refused: 0 });
+  });
+
+  it("leaves a group of one whole, because nothing licensed the strip", () => {
+    // §5's own example, and the reason the licence cannot be read off a name.
+    // `Quinoa, cooked` is the only quinoa USDA publishes; strip it and the
+    // corpus claims raw quinoa over a cooked panel. A lone trimmed steak is the
+    // same case.
+    const lone = [
+      survivor(168627, 'Beef, flank, steak, trimmed to 0" fat, choice', 40),
+    ];
+    const { survivors, licensed } = collapseCorpus(lone, app);
+    expect(licensed.size).toBe(0);
+    const named = applyCollapsedNames(survivors, licensed, app);
+    expect(named.survivors.map((row) => row.food.description)).toEqual([
+      'Beef, flank, steak, trimmed to 0" fat, choice',
+    ]);
+    expect(named.tally).toEqual({ stripped: 0, refused: 0 });
+  });
+
+  it("leaves a group with no eligible row whole, however many merged", () => {
+    // ADR-0103's 2026-09-12 Amendment, and the sentence #435 shipped five
+    // instances of: what a coverage hole forbids is the STRIP, never the row.
+    // Struck, this would claim a whole flank over a panel that measured the fat
+    // trimmed off one.
+    const fractions = [
+      survivor(173078, "Beef, flank, separable lean only", 30),
+      survivor(173079, "Beef, flank, separable fat", 44),
+    ];
+    const { survivors, licensed, groups_shipped_whole } = collapseCorpus(
+      fractions,
+      app
+    );
+    expect([licensed.size, groups_shipped_whole]).toEqual([0, 1]);
+    expect(
+      applyCollapsedNames(survivors, licensed, app).survivors.map(
+        (row) => row.food.description
+      )
+    ).toEqual(["Beef, flank, separable fat"]);
+  });
+
+  it("refuses a strip into a name another row already answers to", () => {
+    // ADR-0062 §3, not ADR-0056 §4: there is no origin here to say which of two
+    // rows loses, and a collapse that DELETED one would contradict the ground
+    // §6 fires it on. So the rename is simply not made and the row keeps the
+    // name it has.
+    const { survivors, licensed } = collapseCorpus(
+      [
+        survivor(1, "Beef, flank, steak, separable lean and fat", 40),
+        survivor(2, "Beef, flank, steak, separable lean and fat, choice", 42),
+      ],
+      app
+    );
+    // The licence is real — that group merged and its representative is
+    // eligible — and the third row is a different food that answers to the name
+    // the strip would leave. `steaks` rather than `steak` because the collision
+    // is judged on STEMS: the search already treats the two as one word, so
+    // shipping both would put two rows a letter apart side by side.
+    const contested = [...survivors, survivor(3, "Beef, flank, steaks", 10)];
+    const named = applyCollapsedNames(contested, licensed, app);
+    expect(named.tally).toEqual({ stripped: 0, refused: 1 });
+    expect(named.survivors.map((row) => row.food.description)).toEqual([
+      "Beef, flank, steak, separable lean and fat, choice",
+      "Beef, flank, steaks",
+    ]);
+  });
+
+  it("counts an alias as a name that can refuse a strip", () => {
+    // `bestNameKey` ranks a query against an alias exactly as against a
+    // description, so a guard reading only descriptions would call a name free
+    // while a second row still answered to it (ADR-0056 §3).
+    const rows = [
+      survivor(1, "Beef, flank, steak, separable lean and fat", 40),
+      {
+        ...survivor(2, "Beef, flank, bavette", 10),
+        also: ["Beef, flank, steak"],
+      },
+    ];
+    const named = applyCollapsedNames(rows, new Set([1]), app);
+    expect(named.tally).toEqual({ stripped: 0, refused: 1 });
+  });
+});
+
+describe("assertNamesClaimNoLess — §5 asserted, not assumed", () => {
+  // A safety rule that is assumed is not one. Each case below is a way the
+  // strip could quietly start claiming a food the panel did not measure.
+
+  const published = [
+    survivor(
+      168627,
+      'Beef, flank, steak, separable lean and fat, trimmed to 0" fat, choice',
+      40
+    ),
+  ];
+
+  it("passes the strip it licensed", () => {
+    expect(
+      assertNamesClaimNoLess(
+        published,
+        [survivor(168627, "Beef, flank, steak", 40)],
+        new Set([168627]),
+        app
+      )
+    ).toBe(1);
+  });
+
+  it("counts nothing where no name moved", () => {
+    expect(assertNamesClaimNoLess(published, published, new Set(), app)).toBe(
+      0
+    );
+  });
+
+  it("refuses a name shortened without a licence", () => {
+    expect(() =>
+      assertNamesClaimNoLess(
+        published,
+        [survivor(168627, "Beef, flank, steak", 40)],
+        new Set(),
+        app
+      )
+    ).toThrow(/merged nothing, or held no record eligible/);
+  });
+
+  it("refuses a name that lost a non-preferred segment", () => {
+    // The `separable lean only` case §5 names: a whole steak claimed over a
+    // panel that measured a fraction of one. `residualDescription` strikes the
+    // segment out, so only the LICENCE stands between this and shipping — and
+    // the assertion is what proves the licence was the thing that stopped it.
+    expect(() =>
+      assertNamesClaimNoLess(
+        [survivor(1, "Beef, flank, steak, separable lean only", 40)],
+        [survivor(1, "Beef, flank, steak", 40)],
+        new Set([1]),
+        app
+      )
+    ).toThrow(/non-preferred value on the separation axis/);
+  });
+
+  it("refuses a name that lost anything but its residual description", () => {
+    // Not "fewer segments" — the same segments, spelled the same way. A strip
+    // that reached into a kept segment would pass a count and fail here.
+    expect(() =>
+      assertNamesClaimNoLess(
+        published,
+        [survivor(168627, "Beef, steak", 40)],
+        new Set([168627]),
+        app
+      )
+    ).toThrow(/its residual description is "Beef, flank, steak"/);
+  });
+});
+
+describe("assertNoAxisHidesInAGloss — the trap that has fired three times", () => {
+  // §10 calls the positional rule the whole safety argument and then states its
+  // cost: a segment may carry more than one fact. Every one of the three bites
+  // on this map was the same shape — a bracket welded to the end of a segment,
+  // so a whole-segment pattern walks past a word it was written to take.
+
+  it("reads the corpus's own brackets without complaint", () => {
+    // `leg (ham)` and `blade (chops or roasts)` are USDA naming a cut, and
+    // `(Boston butt)` is a cut too. Nothing behind these brackets is an axis.
+    expect(
+      assertNoAxisHidesInAGloss(
+        [
+          survivor(
+            1,
+            "Pork, fresh, leg (ham), rump half, separable lean and fat"
+          ),
+          survivor(2, "Pork, fresh, loin, blade (chops or roasts), bone-in"),
+          survivor(3, "Cabbage, chinese (pe-tsai)"),
+        ],
+        app
+      )
+    ).toBe(9);
+  });
+
+  for (const [what, description] of [
+    [
+      "a designation tag",
+      "Beef, flank, steak, separable lean and fat, choice (Alaska Native)",
+    ],
+    [
+      "the Food Distribution Program gloss",
+      "Beef, flank, steak, choice (Includes foods for USDA's Food Distribution Program)",
+    ],
+    [
+      "a handling hedge",
+      'Beef, flank, steak, trimmed to 0" fat (may have been previously frozen)',
+    ],
+  ] as const)
+    it(`refuses a generation where ${what} hides a segment`, () => {
+      // All three reach the collapse only if an earlier pass has stopped taking
+      // them. ADR-0056's strip takes the tag and both glosses today, so the
+      // guard fires on none of them over the shipped corpus — which is exactly
+      // why it is asked of a fixture here rather than left to be proved by a
+      // green generation.
+      expect(() =>
+        assertNoAxisHidesInAGloss([survivor(1, description)], app)
+      ).toThrow(/is how the designation tag/);
+    });
+
+  it("named the row that made the separation entry admit a gloss", () => {
+    // What it found on the day it was written. USDA welds a provenance gloss to
+    // one `separable fat` segment, and an entry reading the bare phrase walked
+    // past it — so the roster's pattern admits the bracket, and this passes.
+    // Admitting it cannot take the gloss's own fact with it, because the entry
+    // is NON-PREFERRED: a record stating it never represents a group, so no
+    // strip ever reaches the segment.
+    const row = survivor(
+      167877,
+      "Pork, cured, separable fat (from ham and arm picnic)"
+    );
+    expect(assertNoAxisHidesInAGloss([row], app)).toBe(2);
+    expect(mayRepresentGroup(row.food.description)).toBe(false);
   });
 });

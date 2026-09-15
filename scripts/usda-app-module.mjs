@@ -185,6 +185,7 @@ export const CORPUS_EXPORTS = ["buildSearchCorpus", "searchIndexRows"];
  */
 export const SHIPPED_NAME_EXPORTS = [
   "resolveShippedNames",
+  "resolveCollapsedNames",
   "stripNonNamingQualifiers",
   "dropUncontestedQualifiers",
   "stripEnrichment",

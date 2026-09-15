@@ -5,6 +5,7 @@ import {
   FORTIFICATION_QUALIFIERS,
   ORIGIN_QUALIFIERS,
   carriesOriginQualifier,
+  resolveCollapsedNames,
   resolveShippedNames,
   stripDesignationTag,
   stripFortificationQualifier,
@@ -737,5 +738,100 @@ describe("the rename stays out of the app's bundle", () => {
     // `usda-twin-ledger.ts` use: the corpus is renamed once, ahead of time, and
     // what ships is the finished names (ADR-0047 §4).
     expect(importersOf("usda-shipped-name")).toEqual([]);
+  });
+});
+
+describe("resolveCollapsedNames — ADR-0103 §5's strip", () => {
+  // §5 writes no strip of its own: it gives §1's positional strip a second
+  // roster, and licenses it only where a collapse has merged more than one row.
+  // So the rule lives here, beside the other three rosters and the one answer to
+  // "are these two rows one name", and the licence arrives from the pass that
+  // knows the groups.
+
+  const row = (fdcId: number, description: string, also?: string[]) => ({
+    fdcId,
+    description,
+    ...(also ? { also } : {}),
+  });
+
+  it("takes the segments the group collapsed on, and nothing else", () => {
+    const { renamed, tally } = resolveCollapsedNames(
+      [
+        row(
+          168627,
+          'Beef, flank, steak, separable lean and fat, trimmed to 0" fat, choice'
+        ),
+      ],
+      new Set([168627])
+    );
+    expect([...renamed]).toEqual([[168627, "Beef, flank, steak"]]);
+    expect(tally).toEqual({ stripped: 1, refused: 0 });
+  });
+
+  it("never touches the head phrase, however it reads", () => {
+    // ADR-0056 §2's position rule, inherited whole. The head is what the group
+    // is a group OF, so it is never a candidate — and `Choice` is a head phrase
+    // in nobody's corpus but is exactly the shape that would prove it.
+    const { renamed } = resolveCollapsedNames(
+      [row(1, "Choice, separable lean and fat")],
+      new Set([1])
+    );
+    expect(renamed.get(1)).toBe("Choice");
+  });
+
+  it("leaves an unlicensed row byte-for-byte alone", () => {
+    // `Quinoa, cooked` is the only quinoa USDA publishes: nothing collapsed onto
+    // it, so nothing is stripped and it ships — a true name over a true panel.
+    const unlicensed = [
+      row(1, 'Beef, flank, steak, trimmed to 0" fat, choice'),
+      row(2, "Quinoa, cooked"),
+    ];
+    const { renamed, tally } = resolveCollapsedNames(unlicensed, new Set());
+    expect([...renamed]).toEqual([]);
+    expect(tally).toEqual({ stripped: 0, refused: 0 });
+  });
+
+  it("refuses a strip into a name another row already answers to", () => {
+    // ADR-0062 §3 rather than ADR-0056 §4: no origin here says which row loses,
+    // so the rename is simply not made and nothing is dropped. An ugly name
+    // beats two foods filed under one.
+    const { renamed, tally } = resolveCollapsedNames(
+      [
+        row(1, "Beef, flank, steak, separable lean and fat"),
+        row(2, "Beef, flank, steak"),
+      ],
+      new Set([1])
+    );
+    expect([...renamed]).toEqual([]);
+    expect(tally).toEqual({ stripped: 0, refused: 1 });
+  });
+
+  it("asks freedom of aliases too, because an alias is a name", () => {
+    // `bestNameKey` ranks a query against an alias exactly as against a
+    // description, so a check reading only descriptions would call a name free
+    // while a second row still answered to it.
+    const { tally } = resolveCollapsedNames(
+      [
+        row(1, "Beef, flank, steak, separable lean and fat"),
+        row(2, "Beef, flank, bavette", ["Beef, flank, steaks"]),
+      ],
+      new Set([1])
+    );
+    expect(tally).toEqual({ stripped: 0, refused: 1 });
+  });
+
+  it("refuses both sides where two licensed rows want one name", () => {
+    // A candidate whose own proposal is refused keeps the name it has, so it
+    // still holds that name against everyone else. Counting only PROPOSED names
+    // would let two candidates step aside into each other.
+    const { renamed, tally } = resolveCollapsedNames(
+      [
+        row(1, 'Lamb, loin, separable lean and fat, trimmed to 1/4" fat'),
+        row(2, "Lamb, loin, separable lean and fat, choice"),
+      ],
+      new Set([1, 2])
+    );
+    expect([...renamed]).toEqual([]);
+    expect(tally).toEqual({ stripped: 0, refused: 2 });
   });
 });

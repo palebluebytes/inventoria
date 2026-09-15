@@ -1,4 +1,5 @@
 import { qualifiersOf, stemOf, wordsOf } from "./reference-food-ranking";
+import { residualDescription } from "./usda-collapse-roster";
 
 // ---------------------------------------------------------------------------
 // The rename: taking out of a name the parts that do not name the food
@@ -1153,4 +1154,99 @@ export function renameSeedMaturity(
     renamed.set(row.fdcId, kept.join(", "));
   }
   return renamed;
+}
+
+// ---------------------------------------------------------------------------
+// The collapse's strip: a name over the panel it actually measures
+// (ADR-0103 §5, §10)
+// ---------------------------------------------------------------------------
+//
+// ADR-0103 §5 does not write a strip of its own. It says §1's positional strip
+// "gains this record's collapsing axes", and that the strip is LICENSED by the
+// collapse having happened — so the rule lives here, beside the three rosters
+// above and the one answer to "are these two rows one name", and its roster
+// lives in `usda-collapse-roster.ts`, which moves when an axis is classified.
+// Two modules, because they move on two triggers (§9); one strip, because a
+// second spelling of "remove a whole comma-segment" is a second set of
+// parenthetical traps to fall into.
+//
+// The licence is the whole of the safety argument and it is not computable from
+// a name. `Quinoa, cooked` is the only quinoa USDA publishes: its group holds
+// one row, nothing is stripped, and it ships as `Quinoa, cooked` — a true name
+// over a true panel. Strip it and the corpus would claim to hold raw quinoa and
+// hand the reader a cooked panel. So the caller passes the rows the collapse
+// merged AND found an eligible representative for, and nothing else is touched.
+
+/** How the collapse's strip went: names it shortened, and names it could not. */
+export interface CollapsedNameTally {
+  /** Rows whose name lost its collapsing segments. */
+  stripped: number;
+  /** Rows that kept them, because another row already answers to the residual. */
+  refused: number;
+}
+
+/**
+ * ADR-0103 §5's strip: a collapse group's survivor ships under its residual
+ * name, and only where that name is free.
+ *
+ * `Beef, flank, steak, separable lean and fat, trimmed to 0" fat, choice` ships
+ * as `Beef, flank, steak`, because 5 records of that cut collapsed onto it and
+ * the three segments name a dissection, a trade trim and a carcass grade — none
+ * of which the reader bought or chose. What is left is the four words that name
+ * the food.
+ *
+ * **`licensed` is not an optimisation and may not be derived here.** §5 permits
+ * the strip only where the group MERGED MORE THAN ONE ROW and found a record
+ * eligible to represent it; a group of one keeps its name whole, and a group
+ * with no eligible record ships its fullest panel under that record's whole,
+ * unstripped name (ADR-0103's 2026-09-12 Amendment). Both facts are about a
+ * group, which is `scripts/usda-collapse.mjs`'s to know and this file's to be
+ * told — passing the ids rather than recomputing them is what stops the licence
+ * drifting away from the collapse that granted it.
+ *
+ * **A rename that would collide is not made**, which is ADR-0062 §3's condition
+ * and not ADR-0056 §4's tiebreak. There is no origin here to say which of two
+ * rows loses, and a collapse that deleted a row would contradict the ground §6
+ * fires it on — its worst case is a wrong representative, never a missing food.
+ * So the row simply keeps the name it has, and the tally says how often, for the
+ * reason {@link FortificationTally} gives: a refusal changes nothing, so a
+ * roster that reached nothing and a roster the corpus blocked look identical.
+ *
+ * Freedom is asked exactly as rule 4 asks it — could any OTHER row answer to
+ * this name, counting aliases and counting a row whose own proposal is refused
+ * under the name it keeps.
+ */
+export function resolveCollapsedNames(
+  rows: readonly ShippedNameRow[],
+  licensed: ReadonlySet<number>
+): { renamed: ReadonlyMap<number, string>; tally: CollapsedNameTally } {
+  const proposals = new Map<number, string>();
+  const claimants = new Map<string, Set<number>>();
+  const claim = (name: string, fdcId: number) => {
+    const key = stemmedName(name);
+    const holders = claimants.get(key);
+    if (holders) holders.add(fdcId);
+    else claimants.set(key, new Set([fdcId]));
+  };
+  for (const row of rows) {
+    const proposed = licensed.has(row.fdcId)
+      ? residualDescription(row.description)
+      : row.description;
+    if (proposed !== row.description) proposals.set(row.fdcId, proposed);
+    claim(row.description, row.fdcId);
+    claim(proposed, row.fdcId);
+    for (const alias of row.also ?? []) claim(alias, row.fdcId);
+  }
+
+  const renamed = new Map<number, string>();
+  const tally: CollapsedNameTally = { stripped: 0, refused: 0 };
+  for (const [fdcId, proposed] of proposals) {
+    if (claimants.get(stemmedName(proposed))?.size !== 1) {
+      tally.refused++;
+      continue;
+    }
+    renamed.set(fdcId, proposed);
+    tally.stripped++;
+  }
+  return { renamed, tally };
 }

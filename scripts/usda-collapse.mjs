@@ -19,12 +19,16 @@
  * same argument `applyShippedNames` gives for putting the frozen-mirror rule
  * where it is.
  *
- * **What it does NOT do is shorten a name.** §5's strip — `Beef, flank, steak`
- * for `Beef, flank, steak, separable lean and fat, trimmed to 0" fat, choice` —
- * is licensed by the collapse having happened and is #436's. A survivor here
- * ships under the name USDA published, which over-states nothing and under-reads
- * badly; the two halves are separate tickets because the strip creates name
- * collisions that need resolving and this does not.
+ * **It also shortens the survivor's name** (#436). §5's strip is LICENSED by the
+ * collapse having happened — `Beef, flank, steak, separable lean and fat,
+ * trimmed to 0" fat, choice` ships as `Beef, flank, steak` because five records
+ * of that cut collapsed onto it — so the permission is computed here, where the
+ * groups are, and spent in `usda-shipped-name.ts`, where ADR-0056 §1's other
+ * three rosters and the one answer to "are these two rows one name" already
+ * live. Two assertions come with it, because §5 is a safety rule and a safety
+ * rule that is assumed is not one: {@link assertNamesClaimNoLess} reads what
+ * each shortened name lost, and {@link assertNoAxisHidesInAGloss} asks the
+ * question a parenthetical has defeated three times on this map.
  *
  * @import { AppModule } from "./usda-bundle.mjs"
  */
@@ -138,15 +142,27 @@ function collapseGroups(rows, app) {
  * It carries both rows WHOLE rather than a pair of ids, so neither caller has to
  * build a second map back from `fdcId` to a name it already had.
  *
+ * `licensed` is §5's strip permission, computed HERE because it is a fact about
+ * a group rather than about a name: a representative may lose its collapsing
+ * segments only where the group merged more than one row AND held a record
+ * eligible to represent it. A group of one keeps its name whole — `Quinoa,
+ * cooked` is the only quinoa USDA publishes, and stripping it would claim raw
+ * quinoa over a cooked panel — and a group with no eligible record ships its
+ * fullest panel under that record's whole, unstripped name. Both are the same
+ * sentence from ADR-0103's 2026-09-12 Amendment: what a coverage hole forbids is
+ * the strip, never the row.
+ *
  * @template {Collapsible} Row
  * @param {Row[]} rows
  * @param {AppModule} app
- * @returns {{ survivors: Row[], collapsed: Map<number, { row: Row, into: Row }>, groups_merged: number, groups_shipped_whole: number }}
+ * @returns {{ survivors: Row[], collapsed: Map<number, { row: Row, into: Row }>, licensed: Set<number>, groups_merged: number, groups_shipped_whole: number }}
  */
 export function collapseCorpus(rows, app) {
   /** @type {Map<number, { row: Row, into: Row }>} */
   const collapsed = new Map();
   const kept = [];
+  /** @type {Set<number>} */
+  const licensed = new Set();
   let groups_merged = 0;
   let groups_shipped_whole = 0;
 
@@ -164,6 +180,7 @@ export function collapseCorpus(rows, app) {
       byPanelThenId
     );
     kept.push(representative);
+    if (eligible.length) licensed.add(representative.food.fdcId);
     for (const row of group)
       if (row !== representative)
         collapsed.set(row.food.fdcId, { row, into: representative });
@@ -173,7 +190,163 @@ export function collapseCorpus(rows, app) {
   // (ADR-0047 §3): a representative is rarely the first row of its group, so
   // without this the diff of a regeneration would be a reshuffle.
   kept.sort((a, b) => a.food.fdcId - b.food.fdcId);
-  return { survivors: kept, collapsed, groups_merged, groups_shipped_whole };
+  return {
+    survivors: kept,
+    collapsed,
+    licensed,
+    groups_merged,
+    groups_shipped_whole,
+  };
+}
+
+/**
+ * The survivors, under the names ADR-0103 §5 lets them ship: a merged group's
+ * representative loses its collapsing segments, and every other row keeps the
+ * name it had.
+ *
+ * The strip itself is `resolveCollapsedNames`, in `usda-shipped-name.ts` beside
+ * ADR-0056 §1's other three rosters, because §5 writes no strip of its own — it
+ * says §1's positional strip "gains this record's collapsing axes". This
+ * function is the pass that applies the verdict to rows, in the shape the
+ * generator and the drop census both hold them.
+ *
+ * `also` goes in, and it is not decoration. ADR-0062 §3's freedom check asks
+ * whether any OTHER row could answer to the residual name, and an alias is a
+ * name in every sense that matters — `bestNameKey` ranks a query against one
+ * exactly as against a description.
+ *
+ * @template {Collapsible & { also?: readonly string[] }} Row
+ * @param {Row[]} survivors
+ * @param {ReadonlySet<number>} licensed
+ * @param {AppModule} app
+ * @returns {{ survivors: Row[], tally: { stripped: number, refused: number } }}
+ */
+export function applyCollapsedNames(survivors, licensed, app) {
+  const { renamed, tally } = app.resolveCollapsedNames(
+    survivors.map((row) => ({
+      fdcId: row.food.fdcId,
+      description: row.food.description,
+      also: row.also,
+    })),
+    licensed
+  );
+  return {
+    survivors: survivors.map((row) => {
+      const description = renamed.get(row.food.fdcId);
+      return description ? { ...row, food: { ...row.food, description } } : row;
+    }),
+    tally,
+  };
+}
+
+/**
+ * Refuses a generation in which a shipped name claims less than its panel
+ * measures — ADR-0103 §5's safety rule, asserted rather than assumed.
+ *
+ * §5 is one sentence and §4's eligibility is its consequence, so the assertion
+ * has to read them together. It asks three things of every row whose name the
+ * strip shortened, and each is a way the strip could quietly become a lie:
+ *
+ * - **The row was licensed.** A name shortened without a group behind it is
+ *   `Quinoa, raw` over a cooked panel.
+ * - **What it lost is exactly its residual description.** Not "fewer segments"
+ *   — the same segments, in the same order, spelled the same way, so a strip
+ *   that took a word out of the middle of a kept segment is caught.
+ * - **Every segment it lost is claimed by a PREFERRED axis.** A non-preferred
+ *   value struck out of a name is the `separable lean only` case §5 names: a
+ *   whole steak claimed over a panel that measured a fraction of one.
+ *
+ * @param {Collapsible[]} before - the rows as the collapse received them.
+ * @param {Collapsible[]} after - the rows as they will ship.
+ * @param {ReadonlySet<number>} licensed
+ * @param {AppModule} app
+ * @returns {number} how many shortened names were checked
+ */
+export function assertNamesClaimNoLess(before, after, licensed, app) {
+  const was = new Map(
+    before.map((row) => [row.food.fdcId, row.food.description])
+  );
+  let checked = 0;
+  for (const row of after) {
+    const published = was.get(row.food.fdcId);
+    const shipped = row.food.description;
+    if (published === undefined || published === shipped) continue;
+    checked++;
+    const refuse = (why) => {
+      throw new Error(
+        `"${published}" (${row.food.fdcId}) ships as "${shipped}", and ${why}. ` +
+          "ADR-0103 §5: a name may never claim less than its panel measures, " +
+          "and the strip is licensed by the collapse having happened. Re-read " +
+          "the roster in src/lib/food/usda-collapse-roster.ts."
+      );
+    };
+    if (!licensed.has(row.food.fdcId))
+      refuse(
+        "its group merged nothing, or held no record eligible to represent it"
+      );
+    if (app.residualDescription(published) !== shipped)
+      refuse(
+        `its residual description is "${app.residualDescription(published)}"`
+      );
+    const kept = new Set(app.descriptionSegments(shipped).tail);
+    for (const segment of app.descriptionSegments(published).tail) {
+      if (kept.has(segment)) continue;
+      const entry = app.claimingAxis(segment);
+      if (!entry) refuse(`no roster entry claims the segment "${segment}"`);
+      if (!entry.preferred)
+        refuse(
+          `"${segment}" is a non-preferred value on the ${entry.axis} axis`
+        );
+    }
+  }
+  return checked;
+}
+
+/**
+ * Refuses a generation in which a parenthetical hides a collapsing segment from
+ * the roster.
+ *
+ * §10 calls the positional rule the whole safety argument and then states its
+ * cost: **a segment may carry more than one fact**. This map has been bitten by
+ * that three times, every time in the same shape — a bracket welded to the end
+ * of a segment, so a whole-segment pattern walks past a word it was written to
+ * take. ADR-0056's designation tag left 41 rows carrying a state word every
+ * other row had lost; the Food Distribution Program gloss hid six more; `(may
+ * have been previously frozen)` hid a seventh.
+ *
+ * So the strip is proved against the names that actually SHIP rather than the
+ * names USDA published: for every segment the roster walks past, ask what it
+ * would say if the trailing bracket were not there. A segment that answers
+ * differently is a fact the roster was meant to read and cannot.
+ *
+ * It found one on the day it was written — `Pork, cured, separable fat (from ham
+ * and arm picnic)` — which is why the separation entry admits a gloss.
+ *
+ * @param {Collapsible[]} rows - the names the collapse groups on.
+ * @param {AppModule} app
+ * @returns {number} how many segments were read
+ */
+export function assertNoAxisHidesInAGloss(rows, app) {
+  let read = 0;
+  for (const row of rows)
+    for (const segment of app.descriptionSegments(row.food.description).tail) {
+      read++;
+      if (app.claimingAxis(segment)) continue;
+      const bare = segment.replace(/\s*\([^()]*\)$/, "").trim();
+      const hidden = bare === segment ? null : app.claimingAxis(bare);
+      if (!hidden) continue;
+      throw new Error(
+        `"${row.food.description}" (${row.food.fdcId}) carries the segment ` +
+          `"${segment}", which the roster walks past — and "${bare}" is a ` +
+          `${hidden.axis} segment it claims. A bracket welded to a segment is ` +
+          "how the designation tag, the Food Distribution Program gloss and " +
+          '"(may have been previously frozen)" each hid a word from a ' +
+          "positional strip. Widen the entry in " +
+          "src/lib/food/usda-collapse-roster.ts, or say in ADR-0103 why the " +
+          "gloss makes it a different segment."
+      );
+    }
+  return read;
 }
 
 /**
@@ -263,7 +436,7 @@ export function collapseReach(before, after, app) {
  * rows here would be a second copy of it to drift from.
  *
  * @param {{ head: string, rows: number, after: number, absorbed: number }[]} reach
- * @param {{ before: number, after: number, groups_merged: number, groups_shipped_whole: number }} corpus
+ * @param {{ before: number, after: number, groups_merged: number, groups_shipped_whole: number, names_stripped: number, names_refused: number }} corpus
  * @returns {string} the file's whole text
  */
 export function collapseAccount(reach, corpus) {
@@ -364,6 +537,22 @@ export function collapseAccount(reach, corpus) {
         "to represent them (§5). They ship their fullest panel under its own " +
         "whole, unstripped name, exactly as a group of one does — what a " +
         "coverage hole forbids is the strip, never the row."
+    ),
+    "",
+    wrap(
+      `The other ${n(corpus.groups_merged - corpus.groups_shipped_whole)} ship ` +
+        "their representative under its RESIDUAL name, which is §5's strip, " +
+        "and a flank steak therefore reads `Beef, flank, steak` rather than " +
+        '`Beef, flank, steak, separable lean and fat, trimmed to 0" fat, ' +
+        `choice\`. ${n(corpus.names_stripped)} names actually lose a segment: a ` +
+        "group that merged on §3's punctuation clause alone has nothing to " +
+        "strike out and keeps the name it had. " +
+        (corpus.names_refused === 0
+          ? "No strip was refused for want of a free name (ADR-0062 §3), and a " +
+            "refused one would leave the row under the name it had rather than " +
+            "dropping either side."
+          : `${n(corpus.names_refused)} keep the name they had, because another ` +
+            "row already answers to the residual (ADR-0062 §3).")
     ),
     "",
     wrap(

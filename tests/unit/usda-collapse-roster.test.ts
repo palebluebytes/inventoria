@@ -66,6 +66,28 @@ describe("claimingAxis", () => {
     expect(claimingAxis("Aust. marble score 9")?.axis).toBe("grade");
   });
 
+  it("reads a separation USDA welded a provenance gloss to", () => {
+    // §10's second clause, and #436's guard is what found it: USDA writes
+    // `Pork, cured, separable fat (from ham and arm picnic)`, and an entry
+    // reading the bare phrase walks past the segment exactly as the designation
+    // tag walked past ADR-0056's strip. The gloss cannot be taken with the
+    // segment, because the entry is non-preferred — a record stating it never
+    // represents a group, so no strip ever reaches it.
+    expect(claimingAxis("separable fat (from ham and arm picnic)")).toEqual(
+      claimingAxis("separable fat")
+    );
+    expect(
+      mayRepresentGroup("Pork, cured, separable fat (from ham and arm picnic)")
+    ).toBe(false);
+    // What the wider pattern actually changes is the GROUPING: the row's
+    // residual is the cured pork it was cut off, not a description of itself.
+    expect(
+      residualDescription(
+        "Pork, cured, separable fat (from ham and arm picnic)"
+      )
+    ).toBe("Pork, cured");
+  });
+
   it("matches a whole segment and never a substring", () => {
     // §10's clause. `primavera` carries `prime`, `selected` carries `select`,
     // and `84% lean / 16% fat` is a fat content, which §2 classes as
@@ -274,6 +296,17 @@ describe("the roster stays out of the app's bundle", () => {
     // The arrangement `usda-food-kind.ts` and `usda-variant-drops.ts` already
     // follow: the corpus is filtered once, ahead of time, and what ships is the
     // survivors (ADR-0047 §4).
-    expect(importersOf("usda-collapse-roster")).toEqual([]);
+    //
+    // One importer, and the claim is a CLOSURE rather than a list: ADR-0103 §5
+    // does not write a strip of its own, it gives ADR-0056 §1's positional strip
+    // a second roster, so `usda-shipped-name.ts` reads these entries (#436). It
+    // is a generation-only module for the same reason, and the second assertion
+    // is what stops that being taken on trust — an app file importing the strip
+    // would reach the roster through it and this test would still pass without
+    // it.
+    expect(importersOf("usda-collapse-roster")).toEqual([
+      "src/lib/food/usda-shipped-name.ts",
+    ]);
+    expect(importersOf("usda-shipped-name")).toEqual([]);
   });
 });
