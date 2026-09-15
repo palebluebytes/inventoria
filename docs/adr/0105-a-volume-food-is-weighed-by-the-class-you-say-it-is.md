@@ -533,3 +533,88 @@ product by volume at all.
 
 So: no stand-in is classified, by hand or otherwise, and `OFFProduct`'s declared
 fields are unchanged.
+
+## Amendment (2026-09-15): one attribute named for the question, a word §4 cannot support, and memory that knows where it is
+
+Three corrections found while modelling #430, all in clauses nothing has built yet.
+
+### The attribute is `food/density`, and its value names its own grammar
+
+§4 says the class lives on `food/density_class` and that "a user who measures a
+density themselves stores a bare number instead". Read literally that is one key
+holding either a class id or a number, and `food/density_class: 1.20` is a datom
+that says something false about itself.
+
+Two attributes were considered and refused. The ledger's later-datom-wins rule is
+**per attribute**, so a food moving from a typed figure to a class would take two
+datoms in the right order, and a wrong order leaves it carrying both with nothing
+to arbitrate them. One assertion that simply wins is the whole point of the
+append-only model.
+
+So: **one attribute, `food/density`, whose value is an object naming which kind
+of answer it holds** — `{ class: "oil" }` or `{ g_per_ml: 1.20 }`. The key names
+the question and the value names the grammar of the answer. This is `food/portions`'
+shape rather than a new one: its `grams | millilitres` siblings are fields inside
+one attribute's value, exactly so a reader that knows only one of them sees
+nothing rather than a value it would misread.
+
+It also leaves room for the thing §12 has already named. A per-food density
+matched to a USDA food arrives as `{ fdc_id, g_per_ml }` and sits beside the other
+two; under a bare number it would be indistinguishable from a typed override. A
+ledger shape that cannot be extended without a migration is the wrong one to pick
+when the record already says what is coming.
+
+`food/density` joins `docs/eavt-vocabulary.md` under `food/`, and the Consequences
+above should be read as naming it.
+
+### §4's "measures" is a costume, and this record is the last place that can afford one
+
+§4 grants the override to "a user who measures a density themselves". Nobody will.
+The population taking that exit is the squash and cordial case — a bottle the five
+classes do not name — and the figure reaching the field is a remembered or looked-up
+one far more often than a weighed one. The app cannot tell the two apart and must
+not imply it can.
+
+The word is load-bearing in the wrong direction twice. [ADR-0060](0060-an-amount-is-entered-in-its-panels-unit.md)
+§2 named what would reopen its refusal as "a per-food density that is _measured_
+rather than derived", so a typed figure called measured appears to satisfy a test
+it does not. And §12 argues that "a class is checkable by someone holding the
+bottle" where a figure in grams per millilitre is not — which makes the typed
+override the **least** evidenced thing in this design, not the most.
+
+**It is an asserted density, not a measured one.** §4 should read that a user whose
+food no class fits asserts a figure directly, and that nothing derives it. It is
+the user's own claim about their own food, disclosed at the point of use and
+overridable like the class, and it is admissible on exactly those grounds and not
+on being a measurement.
+
+Asking the exit for a source alongside the figure was considered and refused: the
+app cannot verify free text either, so it would charge a second question at the
+moment the user has already failed to find their food, and buy disclosure theatre
+rather than evidence. §12 rejects that trade by name.
+
+### Memory is scoped to the context it was formed in
+
+The pre-fill amendment says context sets the opening unit and "whatever unit that
+food was **last entered in** wins over the context default". Unqualified, that
+retires the context rule almost entirely: a food with any history at all takes its
+memory, so "a recipe ingredient list opens on grams" only ever fires on a food
+nobody has touched.
+
+The scenario that shows it is a can of Coke. Logged and drunk in millilitres for
+months, then added to a recipe — where it is a thing measured **into** something,
+which is the entire reason the context rule exists. A flat memory rule opens it in
+millilitres there, and the rule that was supposed to decide the case never runs.
+
+**So memory is read per context, not per food.** What a food was last entered in
+_as a recipe ingredient_ seeds a recipe ingredient list; what it was last _logged_
+in seeds the log sheet. A food with no history in the context it is being reached
+in takes that context's default — grams in a recipe, the panel's own unit in a
+direct log.
+
+This costs a second memory to read and means one food can open differently in two
+places, which is the objection worth stating: §1 holds that a density is a property
+of the food and not of the screen. It is not breached. The density is one fact on
+one twin and both units stay available everywhere; what is scoped is only which
+unit the field opens on, which was already a per-context rule the moment context
+was allowed to set a default at all.
