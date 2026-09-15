@@ -38,12 +38,22 @@ one does — what a coverage hole forbids is the strip, never the row.
 
 The other 174 ship their representative under its RESIDUAL name, which is §5's
 strip, and a flank steak therefore reads `Beef, flank, steak` rather than `Beef,
-flank, steak, separable lean and fat, trimmed to 0" fat, choice`. 174 names
-actually lose a segment: a group that merged on §3's punctuation clause alone
-has nothing to strike out and keeps the name it had. No strip was refused for
-want of a free name (ADR-0062 §3), and a refused one would leave the row under
-the name it had rather than dropping either side.
+flank, steak, separable lean and fat, trimmed to 0" fat, choice`. It is a count
+of groups rather than of names, because a group that merged on §3's punctuation
+clause alone has nothing to strike out and ships under the name it already had.
+No strip was refused for want of a free name (ADR-0062 §3), and a refused one
+would leave the row under the name it had rather than dropping either side.
 
-4 head phrases move, and what is left after ADR-0104 removed the cooked half is
-purely butchery: separation, trim and grade. `scripts/usda-collapse.mjs` names
+4 of the corpus's 488 head phrases move, and what is left after ADR-0104 removed
+the cooked half is purely butchery: separation, trim and grade. The other 484
+have nothing to collapse and are not listed, because a table of them would be
+that many zeroes padding an account of four. `scripts/usda-collapse.mjs` names
 the four and the generation stops if a fifth arrives.
+
+Every figure above is re-derived from `public/usda/search-index.json` and
+`usda-drop-census.json` by `scripts/usda-account-check.mjs`, which `pnpm check`
+runs: the per-head counts off the shipped rows, the absorbed counts off the
+census's `"stage": "collapse"` rows, and this file rebuilt from them and
+compared byte for byte. A committed artifact makes a change visible to a
+reviewer; only the gate makes a STALE one visible, and #156 is the case where
+the second half was missing.

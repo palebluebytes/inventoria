@@ -84,6 +84,7 @@ import {
   collapseAccount,
   collapseCorpus,
   collapseReach,
+  headPhraseCount,
 } from "./usda-collapse.mjs";
 import {
   compareToPublished,
@@ -1126,14 +1127,23 @@ async function main() {
   // ADR-0103 §9's third requirement, written here rather than printed only: a
   // committed account is what makes "this rule removed forty foods" a thing a
   // diff shows moving (#156).
+  //
+  // THIS IS THE ONLY WRITER, and `scripts/usda-account-check.mjs` is a reader
+  // that rebuilds the same text and compares it. The gate could equally have
+  // written the file — every figure in it is derivable from the two committed
+  // artifacts, which is what makes the comparison possible at all — and it
+  // deliberately does not: an account regenerable without the corpus it
+  // describes being regenerated is an account that goes green by being rewritten,
+  // which is the shape of #156. Written from here, a moved number is a corpus
+  // that moved.
   await writeFile(
     COLLAPSE_ACCOUNT_PATH,
     collapseAccount(reach, {
       before: named.length,
       after: survivors.length,
+      heads: headPhraseCount(named, app),
       groups_merged,
       groups_shipped_whole,
-      names_stripped: collapsedNames.stripped,
       names_refused: collapsedNames.refused,
     })
   );

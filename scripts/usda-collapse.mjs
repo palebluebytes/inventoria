@@ -422,6 +422,27 @@ export function collapseReach(before, after, app) {
 }
 
 /**
+ * How many head phrases a corpus holds.
+ *
+ * The denominator {@link collapseReach}'s answer is read against, and its own
+ * function for the reason the account gives about itself: "four heads move" is
+ * only an account of the rule's reach beside the number of heads it could have
+ * moved. Exported because two callers need the same denominator — the generator,
+ * which has the corpus the collapse read, and `usda-account-check.mjs`, which
+ * reconstructs it from the shipped rows and the census — and a denominator
+ * spelled twice is the count-in-three-files drift #162 measured.
+ *
+ * @param {Collapsible[]} rows
+ * @param {AppModule} app
+ * @returns {number}
+ */
+export function headPhraseCount(rows, app) {
+  return new Set(
+    rows.map((row) => app.descriptionSegments(row.food.description).head)
+  ).size;
+}
+
+/**
  * ADR-0103 §9's committed account, as Markdown.
  *
  * §9 asks for three things and this is the third: **generation emits a per-head
@@ -435,8 +456,20 @@ export function collapseReach(before, after, app) {
  * record went into — is `docs/research/usda-drop-census.json`, and restating 381
  * rows here would be a second copy of it to drift from.
  *
+ * **Every figure it states is one the shipped artifacts can prove on their own**
+ * (#437). That is a constraint on this function rather than a property of it:
+ * `scripts/usda-account-check.mjs` rebuilds the whole text from
+ * `public/usda/search-index.json` and the census's `collapse` stage and compares
+ * it byte for byte, so a figure only the archives can reach would be a figure
+ * the gate has to skip — and a gate that skips a number is how the ranking audit
+ * went blind (#156). The strip's own tally is the one that went: `stripped`
+ * counts NAMES that moved, and no committed artifact carries the name a survivor
+ * had before the strip, so the account counts the GROUPS shipping under a
+ * residual name instead. The generator still holds the two to each other, in
+ * `usda-bundle.mjs`, where both numbers exist.
+ *
  * @param {{ head: string, rows: number, after: number, absorbed: number }[]} reach
- * @param {{ before: number, after: number, groups_merged: number, groups_shipped_whole: number, names_stripped: number, names_refused: number }} corpus
+ * @param {{ before: number, after: number, heads: number, groups_merged: number, groups_shipped_whole: number, names_refused: number }} corpus
  * @returns {string} the file's whole text
  */
 export function collapseAccount(reach, corpus) {
@@ -540,26 +573,41 @@ export function collapseAccount(reach, corpus) {
     ),
     "",
     wrap(
-      `The other ${n(corpus.groups_merged - corpus.groups_shipped_whole)} ship ` +
+      `The other ${n(corpus.groups_merged - corpus.groups_shipped_whole - corpus.names_refused)} ship ` +
         "their representative under its RESIDUAL name, which is §5's strip, " +
         "and a flank steak therefore reads `Beef, flank, steak` rather than " +
         '`Beef, flank, steak, separable lean and fat, trimmed to 0" fat, ' +
-        `choice\`. ${n(corpus.names_stripped)} names actually lose a segment: a ` +
-        "group that merged on §3's punctuation clause alone has nothing to " +
-        "strike out and keeps the name it had. " +
+        "choice`. It is a count of groups rather than of names, because a group " +
+        "that merged on §3's punctuation clause alone has nothing to strike out " +
+        "and ships under the name it already had. " +
         (corpus.names_refused === 0
           ? "No strip was refused for want of a free name (ADR-0062 §3), and a " +
             "refused one would leave the row under the name it had rather than " +
             "dropping either side."
-          : `${n(corpus.names_refused)} keep the name they had, because another ` +
-            "row already answers to the residual (ADR-0062 §3).")
+          : `${n(corpus.names_refused)} of them kept the name they had for ` +
+            "want of a free one (ADR-0062 §3): another row already answers to " +
+            "the residual, so the strip was not made and neither row dropped.")
     ),
     "",
     wrap(
-      `${reach.length} head phrases move, and what is left after ADR-0104 removed ` +
-        "the cooked half is purely butchery: separation, trim and grade. " +
-        "`scripts/usda-collapse.mjs` names the four and the generation stops if " +
-        "a fifth arrives."
+      `${reach.length} of the corpus's ${n(corpus.heads)} head phrases move, and ` +
+        "what is left after ADR-0104 removed the cooked half is purely " +
+        "butchery: separation, trim and grade. " +
+        `The other ${n(corpus.heads - reach.length)} have nothing to collapse ` +
+        "and are not listed, because a table of them would be that many zeroes " +
+        "padding an account of four. `scripts/usda-collapse.mjs` names the four " +
+        "and the generation stops if a fifth arrives."
+    ),
+    "",
+    wrap(
+      "Every figure above is re-derived from `public/usda/search-index.json` " +
+        "and `usda-drop-census.json` by `scripts/usda-account-check.mjs`, which " +
+        "`pnpm check` runs: the per-head counts off the shipped rows, the " +
+        'absorbed counts off the census\'s `"stage": "collapse"` rows, and this ' +
+        "file rebuilt from them and compared byte for byte. A committed " +
+        "artifact makes a change visible to a reviewer; only the gate makes a " +
+        "STALE one visible, and #156 is the case where the second half was " +
+        "missing."
     ),
   ].join("\n")}\n`;
 }
