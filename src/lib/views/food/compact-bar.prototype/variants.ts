@@ -28,6 +28,28 @@
  * every edge in the block, internal and outer alike, drawn as gaps over an ink
  * ground so nothing is ever a doubled 4px seam.
  *
+ * ── MEASURED, in Chrome at a 500px viewport (2026-09-15) ──────────────────
+ *
+ *   now  154.1px   the groove alone is 62.4 of it
+ *   A    100.0px   −35%
+ *   B     50.0px   −68%
+ *   C     50.0px at the foot — but 52.0 more at the head, and 20.8 of margin
+ *                 under it. **102px of band in total, 2px MORE than A.**
+ *
+ * That last line is the one reading could not have produced, and it is close to
+ * fatal for C: the split does not save band, it moves 52px of it from the thumb
+ * end to the head, where the week strip and the date already are. What C buys
+ * is a thin bar under the hand; what it pays is the same screen budget plus an
+ * eye that has to travel the whole page to read its own target.
+ *
+ * **And B has a width floor.** Its row is a 104.4px chip (the select sizes to
+ * "BREAKFAST", its widest option) plus five floored doors plus five 2px seams =
+ * 354.4px, so at 320px the plate's `scrollWidth` is 354 against a 320 box and
+ * the Search mark hangs 34.4px off the screen. It fits a 360px phone to the
+ * pixel (360/360) and everything above. The failure is intermittent rather than
+ * flat, because the fifth door is `past` and ADR-0059 §4 only adds it once the
+ * meal HAS a past: a 320px phone is fine until the day it is not.
+ *
  * Nothing here ships. The winner gets rewritten into `WayInBar.svelte` and
  * `WayInRail.svelte` properly, and the rest stays on this branch.
  */
@@ -46,10 +68,10 @@ export const VARIANT_NAMES: Record<Variant, string> = {
 
 /** A one-line note under the name, so each variant's bill is on screen too. */
 export const VARIANT_NOTES: Record<Variant, string> = {
-  A: "~102px. Zero outer padding; every rule 2px, drawn as gaps over ink. Keeps all nine controls one tap away.",
-  B: "~52px. One row: a meal chip plus five marks. The meal costs a second tap and the OS picker.",
-  C: "~52px at the foot. The meal tabs stick to the head of the day; target and doors at opposite ends.",
-  now: "~150px. Two 48px rows and ~54px of chrome, with the captions.",
+  A: "100px measured, against 154 shipped. Zero outer padding; every rule 2px, drawn as gaps over ink. All nine controls one tap away.",
+  B: "50px. One row: a meal chip plus five marks. Costs a second tap, and overflows a 320px phone once the meal has a past.",
+  C: "50px at the foot — but 52 more at the head, so 102px of band in total. Moves the space rather than saving it.",
+  now: "154px measured. Two 48px rows and 54px of chrome, with the captions.",
 };
 
 function isVariant(v: string | null): v is Variant {

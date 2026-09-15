@@ -50,17 +50,19 @@
      design being judged, so it uses raw hex and raw pixels on purpose. */
   .proto-bar {
     position: fixed;
-    left: 50%;
-    /* The TOP of the screen, unlike the meal-header round's bar: the subject
-       here IS the foot of the band, and a debug bar sitting on it would cover
-       the one thing being judged. */
-    top: calc(8px + env(safe-area-inset-top, 0px));
-    transform: translateX(-50%);
+    /* **The right edge, vertically centred**, which is the only place on a
+       phone this round leaves free. The foot is the subject in all three
+       variants and the head is C's, so a debug bar at either end covers the
+       thing being judged; the middle covers nothing but a list of empty
+       meals. */
+    right: 4px;
+    top: 50%;
+    transform: translateY(-50%);
     z-index: 9999;
     display: flex;
     align-items: stretch;
     gap: 2px;
-    max-width: min(94vw, 30rem);
+    max-width: min(60vw, 22rem);
     background: #101014;
     color: #fff;
     border-radius: 10px;
@@ -99,5 +101,19 @@
   .proto-label small {
     color: #9ca3af;
     font-size: 10px;
+  }
+  /* On a phone the debug chrome was taller than the bar it is there to switch:
+     the note wrapped into a column and covered the day. The key and the name
+     are what the switcher needs to say; the note is read on a desktop. */
+  @media (max-width: 520px) {
+    .proto-bar {
+      max-width: 62vw;
+    }
+    .proto-label {
+      padding: 4px 8px;
+    }
+    .proto-label small {
+      display: none;
+    }
   }
 </style>
