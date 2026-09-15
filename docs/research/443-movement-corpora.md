@@ -407,3 +407,63 @@ Decline Dumbbell Bench Press             Smith Machine Close-Grip Bench Press
 - **It is a US gym vocabulary**, which matters less here than it did for food: the lifts have the same names in a British gym. There is no origin-word problem, so no ADR-0056 analogue is needed.
 
 **Coverage, which is the real finding.** `swimming` → **0 rows**, `yoga` → **0 rows**, `running` → 2, `cycling` → 2, `walk` → 8 (_measured_). Against `squat` → 56, `bench press` → 21, `deadlift` → 24, `row` → 53. Map #441 item 7 scopes this domain to "runs, lifts, swims, classes" — this corpus covers the lifts magnificently and **three of those four words badly or not at all**.
+
+---
+
+## 7. ExerciseDB / AscendAPI, and the other commercial APIs
+
+**Primary sources.** [ascendapi.com](https://ascendapi.com/) (the vendor, "Previously ExerciseDB"); [docs.ascendapi.com](https://docs.ascendapi.com/llms.txt); the [ExerciseDB v1 OpenAPI spec](https://docs.ascendapi.com/api-reference/exercisedb-v1/exercisedb-v1.json); [github.com/ExerciseDB/exercisedb-api](https://github.com/exercisedb/exercisedb-api). All _read_ 2026-09-15.
+
+### 7.1 It rules itself out, in its own documentation
+
+The vendor publishes a caching policy, and it is the whole answer. Verbatim from [docs.ascendapi.com/guides/caching](https://docs.ascendapi.com/guides/caching.md):
+
+> Caching of AscendAPI data is only permitted if your current plan explicitly allows it. If you are unsure whether your plan includes caching rights, check the features listed on your product page or contact us before implementing any caching layer.
+>
+> [...]
+>
+> If your plan **does not permit caching**, you must not store any data returned by the API. All requests must be made in real-time.
+
+A bundled corpus is the maximal case of caching: permanent, offline, redistributed to every installer of the app. Whatever a paid plan's caching right turns out to be, "store the whole dataset inside a shipped PWA and never call again" is not it, and the policy is explicit that media URLs must **never** be stored permanently because they rotate weekly (Monday 00:00 UTC).
+
+Three further disqualifiers, each independent:
+
+1. **It needs a key.** The v1 OpenAPI spec declares `"security": [{"RapidAPIKey": []}]` on the exercise endpoints (_measured_). No backend means no place to keep a key. Measured live: `https://exercisedb.p.rapidapi.com/exercises` returns **401** `{"message":"Invalid API key."}`; the once-free `https://exercisedb-api.vercel.app/api/v1/exercises` returns **402 Payment required** / `DEPLOYMENT_DISABLED`; `https://v1.exercisedb.dev/api/v1/exercises` returns **429**.
+2. **The free tier is a bait, not a distribution.** The landing page advertises "ExerciseDB V1 API (Free Version) — 1,500 exercises with GIFs. No sign-up, no API key — just call the endpoint directly", while the docs index describes v1 as "over 2,000 structured exercises" and the README's own playground warning reads "⚠️ These endpoints are for exploration only and **not recommended for production integration** — strict rate limits and potential instability may apply." Free plans are capped at "**1,000 requests per hour** per API key" ([rate limiting guide](https://docs.ascendapi.com/guides/ratelimiting.md)).
+3. **It is a moving target under a business.** The product renamed itself from ExerciseDB to AscendAPI, the free hosted endpoint moved and then broke, and v1 (2,000 exercises) now sits beside v2 (11,000). Compare ADR-0047, which retired the FDC API for a dated archive precisely so that a vendor's operational decisions stop being our problem.
+
+**Gap, recorded rather than dropped.** The Terms of Use are behind a `dub.sh` redirect (`https://dub.sh/exercisedb-api-tos`) that serves a Vercel bot-check to every non-browser client. Three fetch attempts (curl with a browser user-agent, and WebFetch) returned **403 / 429 "Vercel Security Checkpoint"**. `ascendapi.com/terms` and `ascendapi.com/pricing` both return HTTP 200 but render the landing-page shell with no terms and no prices. **So the actual licence granted to a paying subscriber is unverified.** The caching policy above is the vendor's own published rule and is enough to settle bundling; the ToS would only matter if someone wanted to argue for a runtime integration, which the key requirement already kills.
+
+### 7.2 What it carries, for completeness
+
+Fields on a v1 exercise, from the OpenAPI spec's own filter parameters and response shapes (_measured_): `exerciseId`, `name`, `imageUrl`, `bodyParts`, `targetMuscles`, `secondaryMuscles`, `equipments`, `exerciseType`, plus instructions. Its filter vocabulary is richer than the open sets — `pectorals`, `trapezius` as distinct muscles rather than wger's 15 or Free Exercise DB's 17 — and v2 adds videos and multilingual names.
+
+**It does not carry MET.** The strings `met`, `metValue`, `calorie` and `energy` appear nowhere in the 115,121-byte v1 OpenAPI specification (_measured_). The most commercially serious exercise dataset surveyed still has no energy figure, which is the strongest available evidence that §1's answer is a property of the domain and not of the free datasets' poverty.
+
+The GitHub repository `ExerciseDB/exercisedb-api` is **AGPL-3.0**, but it contains the API _server_, not the data: a recursive listing of its `main` tree returns **zero `.json` or `.csv` files** (_measured_, via the GitHub trees API). Self-hosting the code gets you no exercises.
+
+### 7.3 Other commercial sources, briefly
+
+- **wrkout.xyz** — the upstream Free Exercise DB maintainer's paid successor, advertised in his own repository README: "If you are looking for a complete dataset with over 2,500+ exercises, 10,000+ images [...] which can be used in commerical projects". On [wrkout/exercises.json#305](https://github.com/wrkout/exercises.json/issues/305) he prices a full dataset export as "some pretty substantial one-off payment", and states the images "are created by myself using 3D software with skeleton & muscles models" — which, unlike the free repo's images, is a clean provenance claim. Same shape as ExerciseDB: no MET, and a commercial negotiation rather than a licence.
+- **ExRx.net** — named in [yuhonas/free-exercise-db#13](https://github.com/yuhonas/free-exercise-db/issues/13) as a probable source of the scraped images. All rights reserved; no redistribution.
+- **MuscleWiki** — no published licence and no official public API; the "APIs" in circulation are undocumented endpoints. Out on the same ground as the food work's rejected scrapes.
+
+---
+
+## 8. Other open candidates that surfaced
+
+### 8.1 everkinetic/data
+
+[github.com/everkinetic/data](https://github.com/everkinetic/data) — "Open data project based on http://everkinetic.com created by Greg Priday", **CC-BY-SA-4.0** (its `LICENSE.md` is the full CC BY-SA 4.0 text; GitHub detects `"spdx_id": "CC-BY-SA-4.0"`). **293 exercises** (_measured_ from `exercises.json`, 396,095 bytes). Fields: `id`, `id_num`, `id_hex`, `name`, `title`, `url`, `primer`, `type` (compound/isolation), `primary`, `secondary`, `equipment`, `images`, `img`, `steps`, `tips`. No MET, no `met`/`calorie` key (_measured_).
+
+It is a smaller, share-alike-encumbered Free Exercise DB with the same shape and a third of the rows. Its only distinguishing field is `primer` — a one-line plain-English summary (`"This is an exercise for the chest."`) of the kind a search result row wants. Not a candidate on its own; worth knowing it exists because its `type`/`primary`/`secondary`/`equipment` vocabulary is close enough to Free Exercise DB's to be a cross-check on a disputed row.
+
+### 8.2 What is not out there
+
+A deliberate negative result, because "we looked" is part of the finding. Searching GitHub for exercise datasets above 200 stars returns **exactly one repository**: `yuhonas/free-exercise-db` (_measured_, via the GitHub search API). Searches for a Compendium-derived dataset return only single-digit-star personal projects (`michael-m-2983/metbrowser`, "Viewer for activity data and MET values from the 2011 Compendium"; `brazoramonk-arch/compendium-of-physical-activities`) — nobody maintains a canonical machine-readable Compendium, which is why §3.2's ingestion is a scrape.
+
+Also checked and not pursued, with the reason:
+
+- **The Youth Compendium of Physical Activities** (Butte et al., 2018) — a separate corpus for ages 6–18. Out of scope for an adult app, and the 2024 family already supplies an Older Adult edition should age-banding ever matter.
+- **Apple HealthKit `HKWorkoutActivityType` and Google Health Connect's exercise types** — enumerations of ~80 activity kinds with no MET, no muscles, and platform licences. They are also device-integration vocabularies, which map #441 rules out of scope entirely.
+- **The 2011 Compendium** — superseded by 2024, which the authors present as replacing it. Relevant only because most third-party MET tables floating around the web are 2011-derived, so a corpus claiming MET values should be checked against 2024 before being trusted.
