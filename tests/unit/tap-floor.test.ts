@@ -951,7 +951,10 @@ describe("the floor, swept", () => {
       else if (b.kind === "drawn") how.drawn++;
     }
 
-    expect(how).toEqual({ declared: 129, drawn: 26, sanctioned: 6 });
+    // 131 and not 129 since #453: the meal chip and its four panel tiles are
+    // the app's own picker now, where a native `<select>` was one box carrying
+    // `ui/Select`'s floor. Two rules declare the five.
+    expect(how).toEqual({ declared: 131, drawn: 26, sanctioned: 6 });
     // Every box lands in exactly one column. Without this the two figures above
     // could both be right while a box fell out of the sweep between them.
     expect(how.declared + how.drawn + how.sanctioned).toBe(SWEEP.groups.size);

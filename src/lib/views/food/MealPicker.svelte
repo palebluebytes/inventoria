@@ -185,7 +185,11 @@
     {#each MEAL_TYPES as meal_type (meal_type)}
       <span class="mp-ghost" aria-hidden="true">{meal_type.toUpperCase()}</span>
     {/each}
-    <span class="mp-live">{target.toUpperCase()}</span>
+    <!-- No class of its own: `.mp-word > *` already places every child in the
+         one cell, so a name here would be a name no rule reaches (ADR-0097).
+         What distinguishes it from its four ghosts is that it is the one
+         without `aria-hidden`. -->
+    <span>{target.toUpperCase()}</span>
   </span>
   <!-- Drawn rather than typed, for `ui/Select`'s reason: `▾` falls outside every
        unicode-range Epilogue is served in, so a glyph would be whatever fallback
