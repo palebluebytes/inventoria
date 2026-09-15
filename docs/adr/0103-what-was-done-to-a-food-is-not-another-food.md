@@ -883,3 +883,119 @@ rather than edited out.
 `docs/research/188-consolidation-bar.json` was re-read
 in the same pass; two of its 56 labels were stale and C1 and C2 are identical
 either side, which is what a set that ranks by `fdcId` owes.
+
+## Amendment (2026-09-15, #438): the bar was re-measured whole, and the collapse moves neither condition
+
+This record already carries two readings of
+[#188](https://github.com/palebluebytes/inventoria/issues/188)'s bar, one in each
+of the Amendments above. Both were taken **between** tickets — the first after
+the collapse and before §5's strip, the second after the strip — and both are
+checkpoints. This is the measurement the map was chartered on: the pre-registered
+bar against the corpus that ships, with the rule whole.
+
+**C1 25 of 44 and C2 31 of 44, before the collapse and after it.** Not one of the
+44 gating queries changed either verdict, and 40 of the 44 are identical to the
+row. The full table is `docs/research/188-consolidation-bar.md` §9; the four
+queries that moved at all are `beef` 412 rows to 135, `pork` 131 to 93, `lamb`
+117 to 65 and `ham` 53 to 33. No multi-word query moved. The British tripwire
+stays intact at 16 of 17 and moves one figure, `gammon` 8 rows to 4.
+
+No gold row left the corpus, no `fdcId` was re-pinned, and all 56 human labels
+still name the rows as they ship. **No gold-set amendment is owed**, and the fact
+is recorded rather than left as an absence: the 2026-09-14 convention exists so
+that an edit to a pre-registered set cannot be silent, which means a non-edit
+should not be either.
+
+### `beef` does not clear the page cap, and neither does `lamb`
+
+The Context of this record opens on `beef` answering with 949 rows and the map's
+sharpest single question is whether collapsing them reaches 80/20 mince. It does
+not.
+
+`beef` answers with **135** rows against a 50-row page and its gold row sits at
+uncapped rank **115**. The row's position inside its own result set is _worse_
+than before the rule: the rows above it fell 198 to 114 and the rows below it
+fell 213 to 20, so the collapse took most of what it took from beneath the row
+the bar is trying to reach. That is not a fault in §2's axes. It is what
+collapsing butchery permutations does to a head whose plain mince was never
+ranked near the top to begin with. It is also the strongest evidence this arc has
+produced for §11's own reading: §6 fires this rule corpus-wide, so no two of the
+134 rows standing beside the gold one differ only in a collapsing axis — that is
+what §3's key guarantees — and the rule has nothing left to take. What remains for
+`beef` is a ranking or paging question.
+
+`lamb` answers with **65** rows and its gold row sits at uncapped rank **57**,
+seven short of the page. Here the removal was entirely from above — 108 rows
+above it became 56, the eight below it stayed eight — and it still misses. `lamb`
+is the closest this rule comes to fixing a query outright, and "closest" is the
+finding.
+
+### §11 is ratified on what it said the rule could not do, and was optimistic about what it could
+
+§11 named eight queries the collapse would do **literally nothing** for and seven
+it would reach.
+
+The eight are **8 for 8**: `cheese`, `oil`, `flour`, `egg`, `salmon`, `cream`,
+`butter` and `mince` are identical either side of the collapse, to the row.
+
+The seven are **4 for 7**: `beef`, `lamb`, `pork` and `gammon` moved; `chicken`
+(71 rows), `turkey` (52) and `chicken thigh` (10) did not move at all, and one
+query §11 did not name, `ham`, did. The cause is ADR-0104, which landed between
+§11's measurement and the shipped rule: what was collapsible in `chicken` and
+`turkey` was preparation, and the cooked half of the corpus was gone before this
+rule ever ran. `docs/research/190-corpus-account.md` states the same thing from
+the other side — four head phrases move, and what is left after ADR-0104 is
+purely butchery — and the #435 Amendment already found it once, in `Nuts` and
+`Seeds`.
+
+A pre-registered claim that is exactly right about a rule's limits and
+over-hopeful about its reach is wrong in the better direction, and §11's refusal
+to reinterpret C2 is what makes the scoring possible at all.
+
+### §11's refusal stands, and the residue is filed
+
+Twenty-four of the 44 gating queries pass both conditions; twelve fail both,
+seven fail C1 alone and one fails C2 alone. Thirteen queries still answer with
+more than 25 rows: the four above, and nine this rule never touched — `cheese`
+100, `chicken` 71, `oil` 70, `flour` 63, `turkey` 52, `bread` 49, `butter` 39,
+`beans` 39, `cream` 31.
+
+§11 says a head that is genuinely a hundred foods is not a membership problem and
+wants a ranking or a paging instrument. That is still true and this record still
+declines to build it, and it now declines to absorb it into prose either:
+[#451](https://github.com/palebluebytes/inventoria/issues/451) carries the nine
+heads and the two unreachable gold rows with their numbers. Retrieval pollution
+remains [#407](https://github.com/palebluebytes/inventoria/issues/407)'s.
+
+Reinterpreting C2 after seeing which queries fail is the move #188 was written to
+prevent. The bar stands as registered, the rule did not clear it, and this record
+says so.
+
+### The registration baseline is not re-derivable, and the comparison drawn against it is a cross-set one
+
+`USDA_INDEX_PATH` re-derives a baseline **only within one `schema_version`**, and
+this is worth stating because every reading in this record compares one corpus
+version against another.
+
+Pointed at the 4,238-row schema-8 index the bar was registered against, today's
+harness reports C1 **22** of 44 rather than the registered 24. C2 reproduces at
+27 of 44, and so do the unreachable split — three past the cap, one absent — and
+the multi-word pair. C1 does not, for two reasons that are both about this branch
+rather than about that corpus: ADR-0104 made `raw` a fact on the row and schema 8
+carries no such field, so `readRowRank` returns 0 for all 4,238 rows and the key
+ties uniformly; and two frecency keys
+([#165](https://github.com/palebluebytes/inventoria/issues/165),
+[#320](https://github.com/palebluebytes/inventoria/issues/320)) plus
+`CANONICAL_ROWS` all landed on 2026-09-13 or later, against a bar registered on
+2026-09-11.
+
+Which of the two accounts for the two points is not separated, because the
+reading is reported as **not comparable** rather than as a corrected baseline.
+The consequence is for #438's hand-off, which tabled "24/44 at registration
+against 25/44 now" and read the one-point gain as a re-pin: the gain is measured
+across a changed ranking as well as a changed pin, and the registered 24 is not a
+number this branch can reproduce. The 2026-09-14 gold-set amendment in
+`docs/research/188-consolidation-bar.json` is untouched by this, because it
+measured its re-pin both ways over one corpus with one build, which is the only
+kind of comparison this section is arguing for. The like-for-like statement about
+the collapse is the one this Amendment opens with.
