@@ -50,7 +50,9 @@
  * `usda-app-module.mjs`, which is ADR-0047 §4's import-don't-copy rule. What a
  * WRITTEN verdict does to the finished corpus — the rows ADR-0061 §5 removes by
  * hand and the names ADR-0056 gives — is `usda-adjudication.mjs`; this file
- * decides when those passes run, and that file decides what they do.
+ * decides when those passes run, and that file decides what they do. ADR-0103's
+ * collapse, which is the opposite kind of thing — mechanical, and carrying no
+ * judgement a human reached — is `usda-collapse.mjs`, on the same division.
  */
 
 import { createHash } from "node:crypto";
@@ -74,6 +76,13 @@ import {
   serialiseNutrientStore,
 } from "./usda-artifacts.mjs";
 import {
+  assertCollapseReach,
+  assertCollapsedRowsShip,
+  collapseAccount,
+  collapseCorpus,
+  collapseReach,
+} from "./usda-collapse.mjs";
+import {
   compareToPublished,
   fetchPublishedArchives,
 } from "./usda-releases.mjs";
@@ -93,6 +102,13 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const MANIFEST_PATH = join(ROOT, "scripts", "usda-backup.manifest.json");
 /** Where the committed artifacts live, and where `pnpm build` picks them up. */
 const ARTIFACT_DIR = join(ROOT, "public", "usda");
+/** ADR-0103 §9's committed per-head account, which this run also writes. */
+const COLLAPSE_ACCOUNT_PATH = join(
+  ROOT,
+  "docs",
+  "research",
+  "190-corpus-account.md"
+);
 
 /**
  * The datasets the corpus is built from, in the manifest's own naming. Survey is
@@ -193,6 +209,9 @@ export const BUNDLE_DATASETS = ["Foundation Foods", "SR Legacy"];
  * @property {ReadonlySet<number>} SPLIT_TWIN_NDB_NUMBERS
  * @property {readonly (readonly [number, string, string, string])[]} SUPERSEDED_RECORDS
  * @property {ReadonlySet<number>} SUPERSEDED_FDC_IDS
+ * @property {(description: string) => string} collapseGroupKey
+ * @property {(description: string) => boolean} mayRepresentGroup
+ * @property {(description: string) => { head: string, tail: string[] }} descriptionSegments
  */
 
 /**
@@ -871,12 +890,23 @@ async function main() {
   const twinNames = assertTwinNamesRetrieve(groups, filtered, app);
   const superseded = assertSupersededSurvive(filtered, supersededFired, app);
   const {
-    survivors,
+    survivors: named,
     renamed,
     adjudicated: adjudicated_names,
     origin_dropped,
     fortification,
+    enrichment_duplicate,
+    frozen_mirror,
   } = applyShippedNames(filtered, app);
+
+  // ADR-0103's collapse, LAST: §3's residual description is computed from the
+  // name the row will actually ship under, so a segment ADR-0056 has already
+  // taken cannot come back to split a group. It is the same argument
+  // `applyShippedNames` gives for where it puts the frozen-mirror rule.
+  const { survivors, collapsed, groups_merged, groups_shipped_whole } =
+    collapseCorpus(named, app);
+  const reach = collapseReach(named, survivors, app);
+  const collapsing_heads = assertCollapseReach(reach);
 
   // After the corpus, never before: both of ADR-0049 §3's filters ask what the
   // FINISHED corpus retrieves, so a group's members are compared against the
@@ -903,6 +933,11 @@ async function main() {
     buildVocabularySection(vocabulary.expansions, manifest.vocabulary),
     buildLocalVocabularySection(app.LOCAL_VOCABULARY)
   );
+  // ADR-0051 §2's survivor assertion, inherited whole (ADR-0103 §9). Asked of
+  // the finished ROWS rather than of the pass's own output, so that a filter or
+  // a rename added after the collapse cannot turn it into a silent deletion of
+  // 381 foods. Nothing is written until it returns.
+  const collapsed_rows = assertCollapsedRowsShip(index.foods, collapsed);
   // Nothing is written until this returns: an entry whose expected row has moved
   // stops the generation (ADR-0049's #141 Amendment).
   const hand_written = admitLocalVocabulary(index, app);
@@ -917,7 +952,7 @@ async function main() {
   );
   console.log(
     `\n${identities.toLocaleString("en-GB")} food identities across ${archives.length} archives, ` +
-      `${twinned} twinned; ${survivors.length.toLocaleString("en-GB")} survive the filters ` +
+      `${twinned} twinned; ${reference_foods.length.toLocaleString("en-GB")} survive the filters ` +
       `(${dropped.brand_specific} brand-specific, ${dropped.processed} packaged or processed, ` +
       `${dropped.prepared} prepared or composite, ` +
       `${dropped.adjudicated_dish} of ${adjudicated_dishes} dishes adjudicated by hand, ` +
@@ -957,6 +992,32 @@ async function main() {
       `${fortification.refused} keep it because another row already answers ` +
       "to the name it would leave"
   );
+  // The two name rules that DROP rather than rename, reported for the reason
+  // every other tally here is. They went unstated while the first line printed
+  // the FINISHED corpus size, which hid the gap; it now prints what the
+  // food-kind filters left, so the run has to account for every row between.
+  console.log(
+    `  ${enrichment_duplicate} then leave as the unenriched half of a pair, ` +
+      `and ${frozen_mirror} as a frozen copy of a cut the corpus keeps fresh`
+  );
+  // ADR-0103's collapse, reported at the granularity §9's account asks for:
+  // rows in, rows out, per head phrase. The four are every head it MOVES —
+  // seven carry a segment the roster claims — and `assertCollapseReach` has
+  // just refused a fifth (#435). The same table is committed by this run to
+  // `docs/research/190-corpus-account.md`.
+  console.log(
+    `  ${collapsed_rows} rows then collapse into ${groups_merged} groups of ` +
+      `more than one under ${collapsing_heads} head phrases, leaving ` +
+      `${survivors.length.toLocaleString("en-GB")}; ${groups_shipped_whole} of ` +
+      "those groups hold no record eligible to represent them and ship their " +
+      "fullest panel under its own whole name"
+  );
+  for (const { head, rows, after, absorbed } of reach)
+    console.log(
+      `    ${head.padEnd(8)} ${String(rows).padStart(4)} -> ` +
+        `${String(after).padStart(4)}  (${absorbed} absorbed)`
+    );
+
   const aliased = index.foods.filter((row) => row.also);
   const aliasBytes = aliased.reduce(
     (total, row) => total + JSON.stringify(row.also).length + ',"also":'.length,
@@ -972,7 +1033,7 @@ async function main() {
     `  ${aliased.length} of them answer to a name the merge discarded ` +
       `(${aliased.reduce((n, row) => n + row.also.length, 0)} aliases, ` +
       `${aliasBytes.toLocaleString("en-GB")} bytes of the index); ` +
-      `all ${twinNames} archived names retrieve; ` +
+      `all ${twinNames} archived names retrieve the row the merge made; ` +
       `${superseded} superseded record${superseded === 1 ? " keeps" : "s keep"} a survivor`
   );
   console.log(
@@ -1007,9 +1068,22 @@ async function main() {
   await mkdir(ARTIFACT_DIR, { recursive: true });
   await writeFile(join(ARTIFACT_DIR, "search-index.json"), indexText);
   await writeFile(join(ARTIFACT_DIR, "nutrient-store.json"), nutrientText);
+  // ADR-0103 §9's third requirement, written here rather than printed only: a
+  // committed account is what makes "this rule removed forty foods" a thing a
+  // diff shows moving (#156).
+  await writeFile(
+    COLLAPSE_ACCOUNT_PATH,
+    collapseAccount(reach, {
+      before: named.length,
+      after: survivors.length,
+      groups_merged,
+      groups_shipped_whole,
+    })
+  );
   console.log(
-    `\nwritten to ${ARTIFACT_DIR}/search-index.json and ` +
-      `${ARTIFACT_DIR}/nutrient-store.json`
+    `\nwritten to ${ARTIFACT_DIR}/search-index.json, ` +
+      `${ARTIFACT_DIR}/nutrient-store.json and ` +
+      "docs/research/190-corpus-account.md"
   );
 }
 
