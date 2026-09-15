@@ -77,7 +77,7 @@ export type FoodChoice =
       food: FoodResult;
       amount: number;
       /** The unit `amount` is in, which on a food carrying a Density Class the
-       *  log recorded rather than the panel implying (ADR-0105 §7). */
+       *  log recorded rather than the panel implying (ADR-0108 §7). */
       unit: MeasuredUnit;
     }
   | ({
@@ -124,7 +124,7 @@ export type FoodChoice =
       editEntityId?: string;
       /**
        * What kind of liquid this food is, where the capture form asked
-       * (ADR-0105 §1). The second door to a millilitre basis is this form, where
+       * (ADR-0108 §1). The second door to a millilitre basis is this form, where
        * the user ticks `ml` themselves: no Open Food Facts tags exist to pre-fill
        * from, and they are already answering questions about the food, so the
        * class question costs nothing extra here. Absent on a per-100 g capture,
@@ -189,7 +189,7 @@ export type StagerSeed =
       food: FoodResult;
       amount: number;
       /** The unit `amount` is in, which on a food carrying a Density Class the
-       *  log recorded rather than the panel implying (ADR-0105 §7). */
+       *  log recorded rather than the panel implying (ADR-0108 §7). */
       unit: MeasuredUnit;
     }
   /**

@@ -90,6 +90,7 @@
     meal_type,
     selectedDate,
     onClose,
+    onLogged,
     edit = null,
     editLabel = false,
     initialMethod = undefined,
@@ -100,6 +101,16 @@
     meal_type: MealType;
     selectedDate: Date;
     onClose: () => void;
+    /**
+     * The Consumption Events this sheet has just WRITTEN, so the day can put
+     * them on screen (#440).
+     *
+     * Fired only on an add. Every commit path here can also be an edit — `edit`
+     * is set, the sheet logs a replacement and retracts the original — and a
+     * replacement is a fresh id for a row the user is already looking at, which
+     * is the one case the three rules must not act on.
+     */
+    onLogged?: (ids: string[]) => void;
     /**
      * Method to open on, for a host that has one but no `wayIn` (the
      * Recipe browser reopening itself). A header-opened sheet passes only
@@ -207,7 +218,7 @@
   //
   // This is the LOG's memory, and it seeds a log sheet alone. What the same food
   // was last measured into a recipe at is a different fact and seeds a different
-  // screen (ADR-0105 §7, as amended): a can of Coke drunk in millilitres for
+  // screen (ADR-0108 §7, as amended): a can of Coke drunk in millilitres for
   // months is still a thing measured INTO something the first time it reaches an
   // ingredient list, and a memory read per food rather than per context would
   // retire that rule almost entirely.
@@ -411,7 +422,7 @@
         // The amount is put into the panel's unit before it is divided: a gram
         // entry against a per-100 ml panel is a real amount stated in the other
         // unit, and dividing it unconverted would freeze an 8% error into
-        // history. The panel itself is untouched (ADR-0105 §5).
+        // history. The panel itself is untouched (ADR-0108 §5).
         const factor =
           amountAgainstBasis(
             choice.amount,
@@ -444,6 +455,7 @@
           breakdown
         );
         if (edit) await retractConsumptionEvent(edit.id, newId);
+        else onLogged?.([newId]);
       } else {
         // Three custom writer paths, chosen by what the choice carries:
         //   • a `manualEntry` envelope → saveManualFood (ADR-0035): a calories-only
@@ -555,6 +567,7 @@
             selectedDate
           );
           if (edit) await retractConsumptionEvent(edit.id, newId);
+          else onLogged?.([newId]);
         }
       }
       onClose();
@@ -562,6 +575,19 @@
     } catch (e: any) {
       return { ok: false, message: e.message ?? String(e) };
     }
+  }
+
+  /**
+   * What both recipe editors do when they finish: report whatever they logged,
+   * then close.
+   *
+   * They report **none** for the two things that are not an arrival — a
+   * correction by supersession, and a template-only save — so the sheet does not
+   * have to know which mode either of them was in.
+   */
+  function commitRecipe(logged?: string[]) {
+    if (logged?.length) onLogged?.(logged);
+    onClose();
   }
 
   // One label for every terminal commit in this sheet: "Log" (ADR-0035 §UI — the
@@ -623,7 +649,7 @@
             {selectedDate}
             {template}
             onEdit={() => editRecipe(template.entity)}
-            onCommitted={onClose}
+            onCommitted={commitRecipe}
             bind:requestSave={recipeRequestSave}
             bind:saveReady={recipeSaveReady}
           />
@@ -633,7 +659,7 @@
             {selectedDate}
             mode={recipeView.mode}
             template={recipeView.template}
-            onCommitted={onClose}
+            onCommitted={commitRecipe}
             bind:requestSave={recipeRequestSave}
             bind:saveReady={recipeSaveReady}
             bind:saveLabel={recipeSaveLabel}

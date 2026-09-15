@@ -117,6 +117,7 @@ import {
   laneChainOf,
   type PairedDevice,
 } from "../stores/paired-devices";
+import type { LaneScope } from "./lane-scope";
 import {
   DEPOSIT_CEILING_BYTES,
   StoreUnreachableError,
@@ -153,7 +154,16 @@ export const DEPOSIT_CHUNK_BUDGET_BYTES = 256 * 1024;
  */
 export interface WakeLedger {
   /**
-   * The **oldest** rows a holder of `above` lacks; empty once the walk is done.
+   * The **oldest** rows a holder of `above` lacks **inside `scope`**; empty
+   * once the walk is done.
+   *
+   * The two narrowings are independent and both apply, exactly as they do on a
+   * first sync: `above` is what the peer already holds, and `scope` is what
+   * this wake may carry down this lane (ADR-0105 §9) — the lane's own scope
+   * where the root is awake, and the intersection with the Facet's where
+   * Rations is. A partial deposit is sound rather than clever because the
+   * vector has an axis per Tracked Domain: what goes out raises only the marks
+   * for the domains it carried (§5).
    *
    * Oldest is in the name because it is the requirement rather than a
    * preference. A deposit may be cut short by the ceiling, and the only thing
@@ -168,7 +178,8 @@ export interface WakeLedger {
   oldestAbove(
     after: LedgerCursor | null,
     budgetBytes: number,
-    above: VersionVector
+    above: VersionVector,
+    scope: LaneScope
   ): Promise<LedgerRow[]>;
   /** Appends one chunk with its stamps intact, returning how many rows were new. */
   write(rows: LedgerRow[], final: boolean): Promise<number>;
@@ -265,6 +276,22 @@ export interface WakeOptions {
    * revocation that stranded mail at a lane nobody reads (§10).
    */
   roster: readonly string[];
+  /**
+   * The Tracked Domains **this wake** may carry down **this lane** (ADR-0105
+   * §9): the waking Facet's scope intersected with the lane's own.
+   *
+   * A wake serves a lane its Facet's scope meets, and deposits only the domains
+   * that Facet holds — so a root wake carries the whole of whatever the lane
+   * is, and a Rations wake on a jar-wide lane carries food and its deletions
+   * and leaves the other five domains to the root's wake.
+   *
+   * It is required rather than defaulted, for {@link WakeOptions.roster}'s
+   * reason: the honest default is unreachable from here. This module holds one
+   * pairing and knows nothing about which Facet is open, and defaulting to the
+   * lane's own scope would have a Rations wake deposit Media the day a caller
+   * forgot it — a wrong sentence rather than a missing one.
+   */
+  scope: LaneScope;
   ceilingBytes?: number;
   chunkBudgetBytes?: number;
   draw?: RandomBytes;
@@ -341,12 +368,14 @@ const highestTaken = (device: PairedDevice): number | null =>
 const asked = ({
   keep,
   roster,
+  scope,
   ceilingBytes = DEPOSIT_CEILING_BYTES,
   chunkBudgetBytes = DEPOSIT_CHUNK_BUDGET_BYTES,
   draw = randomBytes,
 }: WakeOptions): Required<WakeOptions> => ({
   keep,
   roster,
+  scope,
   ceilingBytes,
   chunkBudgetBytes,
   draw,
@@ -583,6 +612,8 @@ interface DepositWork {
   chunkBudgetBytes: number;
   draw: RandomBytes;
   roster: readonly string[];
+  /** What this wake may carry down this lane (ADR-0105 §9). */
+  scope: LaneScope;
   /** The index this deposit acknowledges, from {@link takeFromPeer}. */
   acknowledges: number | null;
 }
@@ -619,6 +650,7 @@ async function depositLane(
     chunkBudgetBytes,
     draw,
     roster,
+    scope,
     acknowledges,
   }: DepositWork
 ): Promise<{
@@ -639,6 +671,7 @@ async function depositLane(
   const head = utf8.encode(JSON.stringify(envelope));
   const delta = await outstandingDelta(device, ledger, {
     chunkBudgetBytes,
+    scope,
     roomBytes: ceilingBytes - DEPOSIT_GENERATION_BYTES - chunkCost(head.length),
   });
 
@@ -687,7 +720,14 @@ async function depositLane(
 }
 
 /**
- * The rows this deposit carries: everything the peer lacks, up to the ceiling.
+ * The rows this deposit carries: everything the peer lacks **inside this
+ * wake's scope**, up to the ceiling.
+ *
+ * **The scope is spent here and nowhere else on this path**, which is what
+ * makes a partial deposit one narrowing of one read rather than a second kind
+ * of deposit: `brings` below is folded from the rows that actually went, so a
+ * wake that carried one Facet's domains raises only those domains' marks and
+ * leaves the rest for the wake that holds them (ADR-0105 §5 and §9).
  *
  * **The ceiling drains rather than refuses.** A delta larger than one deposit
  * leaves its oldest chunks now; the collector takes them and acknowledges this
@@ -701,8 +741,9 @@ async function outstandingDelta(
   ledger: WakeLedger,
   {
     chunkBudgetBytes,
+    scope,
     roomBytes,
-  }: { chunkBudgetBytes: number; roomBytes: number }
+  }: { chunkBudgetBytes: number; scope: LaneScope; roomBytes: number }
 ): Promise<{
   chunks: Uint8Array[];
   brings: VersionVector;
@@ -719,7 +760,8 @@ async function outstandingDelta(
     const page = await ledger.oldestAbove(
       after,
       chunkBudgetBytes,
-      device.peer_vector
+      device.peer_vector,
+      scope
     );
     if (page.length === 0) return { chunks, brings, rows, jammed: false };
     const body = utf8.encode(page.map(datomLine).join(""));

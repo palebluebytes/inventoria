@@ -1,4 +1,5 @@
 <script lang="ts">
+  import FieldCaption from "../../ui/FieldCaption.svelte";
   import Segmented from "../../ui/Segmented.svelte";
   import {
     isAssertableFigure,
@@ -8,7 +9,7 @@
   import type { DensityClassId } from "../../food/density-class";
 
   // "What kind of liquid is this?" — the five classes, and the exit for a bottle
-  // they do not cover (ADR-0105 §1/§4). It is the whole of the question and
+  // they do not cover (ADR-0108 §1/§4). It is the whole of the question and
   // none of the commit: it reports an answer and never writes one, because the
   // two screens that ask it commit at different moments. The amount field asks
   // it mid-entry and confirms with a button of its own; the capture form asks it
@@ -16,7 +17,7 @@
   //
   // Each option names the thing, not the number: you pick by recognising your
   // bottle. Showing `0.92 g/ml` beside it would ask you to validate a figure you
-  // have no way to check, which is exactly the trade ADR-0105 §12 refuses for a
+  // have no way to check, which is exactly the trade ADR-0108 §12 refuses for a
   // model's per-food density. §9 puts the figure on the basis caption the moment
   // you choose, and the source explainer carries the account.
   let {
@@ -93,11 +94,11 @@
   {#if chosen === OTHER}
     <!-- The exit, so a bottle the five classes do not cover is not a dead end.
          It is the user's own claim about their own food and never a measurement
-         the app could check (ADR-0105 §4, as amended): nobody puts a bottle on a
+         the app could check (ADR-0108 §4, as amended): nobody puts a bottle on a
          scale and divides, and the figure reaching this field is a remembered or
          looked-up one far more often than a weighed one. -->
     <div class="typed">
-      <label class="typed-label" for={figureId}>Grams per millilitre</label>
+      <FieldCaption for={figureId}>Grams per millilitre</FieldCaption>
       <input
         id={figureId}
         class="typed-num"
@@ -125,10 +126,9 @@
     align-items: center;
     gap: var(--space-xs);
   }
-  .typed-label {
-    font-size: var(--step-n1);
-    font-weight: 700;
-  }
+  /* The caption carries no class of its own: `FieldCaption` owns its look
+     (ADR-0100 §5) and `class` is a placement channel this row has no use for,
+     so passing one would wear a name no rule reaches (ADR-0097). */
   /* Its own box rather than ui/Input: the field is one number wide and sits
      inline beside its label, where Input draws a full-width stacked field.
      Floored on the axis that could fail a finger (ADR-0093 §3). */

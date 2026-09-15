@@ -44,7 +44,7 @@
   //
   // On a food published by volume the control also carries the `g`/`ml` toggle
   // that CHOOSES the unit, and that toggle is the only door to the Density Class
-  // question (ADR-0105 §1/§6): on a classified food it switches units, and on an
+  // question (ADR-0108 §1/§6): on a classified food it switches units, and on an
   // unclassified one tapping `g` is what asks. The capability is offered by the
   // same control that earns it, so there is deliberately no separate "weigh this
   // instead?" prompt — a prompt that exists only to be a prompt is a worse
@@ -91,7 +91,7 @@
      *  the head row that the sum keys share. Null on a panel-less food, and
      *  then the keys have that row to themselves. */
     caption?: string | null;
-    /** What this food's twin asserts about its density (ADR-0105 §4). Absent on
+    /** What this food's twin asserts about its density (ADR-0108 §4). Absent on
      *  every food nobody has classified, which is the standing state. */
     density?: FoodDensity | undefined;
     /** The class the food's own source names, where it names exactly one — the
@@ -105,17 +105,17 @@
 
   // Whether this food can answer in both units at all: a volume panel plus a
   // density to bridge them. A gram panel is already weighed and has nothing to
-  // ask (ADR-0105's curated stand-in amendment turns on exactly this).
+  // ask (ADR-0108's curated stand-in amendment turns on exactly this).
   let offeredIn = $derived<MeasuredUnit>(panelUnit ?? unit);
   // The figure this food's class resolves to, read once: it decides whether the
   // toggle can switch at all, whether a portion stated in the other unit still
-  // offers a chip (ADR-0105 §8), and what the basis caption weighs (§9).
+  // offers a chip (ADR-0108 §8), and what the basis caption weighs (§9).
   let gPerMl = $derived(densityGramsPerMl(density));
   let weighable = $derived(gPerMl !== undefined);
   // Whether the toggle is drawn at all. A volume food that can already be
   // weighed always offers it; one that cannot offers it only where the host can
   // take the answer, because a question with nowhere to put its answer is a
-  // control that does nothing — which is the surface ADR-0105 §1 rejects, read
+  // control that does nothing — which is the surface ADR-0108 §1 rejects, read
   // the other way round.
   let offersUnits = $derived(
     offeredIn === "ml" && (weighable || onAssertDensity !== undefined)
@@ -199,12 +199,12 @@
   // What the question currently amounts to, or null while it amounts to nothing.
   // Seeded from the source's proposal when the question opens, because a
   // pre-filled row IS an answer waiting to be confirmed — and never a written
-  // class until it is (ADR-0105's pre-fill amendment).
+  // class until it is (ADR-0108's pre-fill amendment).
   let answer = $state<FoodDensity | null>(null);
 
   // Switching units keeps the same quantity of food in the box: 250 ml of olive
   // oil becomes 230 g, not 250 g. It is the one conversion in the app and it is
-  // licensed by the class the user asserted (ADR-0105 §1), so it cannot run
+  // licensed by the class the user asserted (ADR-0108 §1), so it cannot run
   // until there is one — which is why tapping `g` on an unclassified food asks
   // rather than switches.
   function switchTo(next: MeasuredUnit) {
@@ -359,7 +359,7 @@
 
   {#if offersUnits}
     <!-- The unit toggle: the door to the Density Class question, and on a
-         classified food the switch between the two units (ADR-0105 §1). It sits
+         classified food the switch between the two units (ADR-0108 §1). It sits
          under the amount box rather than inside it, and the reason is
          structural: that box IS the <label> that takes the tap (ADR-0093, #338)
          and a <label> may hold only the one labelable element it names, so a
@@ -383,7 +383,7 @@
     <!-- The class question, inline under the field it is about. A BottomSheet
          would put the amount you were typing behind a backdrop to answer a
          question about that amount, and five short options is a row of cells
-         rather than a screen (ADR-0105 §1).
+         rather than a screen (ADR-0108 §1).
 
          Segmented again, and here the contract matters more: on a ToggleGroup a
          mis-tap on the class you had just chosen would clear the density off the
@@ -401,7 +401,7 @@
            millilitre products whose tags name exactly one class — the very case
            the pre-fill exists for — tapping the highlighted option would do
            nothing at all. It is also what "the source pre-fills, and the user
-           confirms" (ADR-0105's pre-fill amendment) literally asks for. -->
+           confirms" (ADR-0108's pre-fill amendment) literally asks for. -->
       <Button
         variant="primary"
         disabled={answer === null}

@@ -65,15 +65,15 @@ What a `nutrition/info` panel's figures are measured against, held on its `servi
 _Avoid_: Serving size (when the basis is meant), per-100g, the panel's grams
 
 **Amount unit**:
-The unit an amount of a food is entered, logged and scaled in — `g` or `ml` for a food measured against its Panel basis, `serving` for one whose panel is a whole-serving total. It answers "what am I typing?", where the Panel basis answers "what are these figures per?", and on a food with no Density Class the two are the same value: the unit is read from the basis, it is not a choice, and nothing converts (ADR-0060 §1/§2). On a food that carries a class they come apart — an oil published per 100 ml is entered in grams — and the amount is converted through the class's figure on the way to the panel. That is the one place in the app anything converts between a volume and a weight, and it is licensed by a class the user asserted rather than by an assumption (ADR-0105 §7). Because the two can differ, an amount travels with its unit rather than as a bare number that a reader re-derives from the food. Code asks `isMeasuredUnit` rather than testing for grams, because "is this amount a measurement?" is the real question at every scaler, label and edit gate. It is a persisted shape: it rides on `recipe/ingredients`, on the frozen `event/instantiation` rows, and inside the `event/quantity` string.
+The unit an amount of a food is entered, logged and scaled in — `g` or `ml` for a food measured against its Panel basis, `serving` for one whose panel is a whole-serving total. It answers "what am I typing?", where the Panel basis answers "what are these figures per?", and on a food with no Density Class the two are the same value: the unit is read from the basis, it is not a choice, and nothing converts (ADR-0060 §1/§2). On a food that carries a class they come apart — an oil published per 100 ml is entered in grams — and the amount is converted through the class's figure on the way to the panel. That is the one place in the app anything converts between a volume and a weight, and it is licensed by a class the user asserted rather than by an assumption (ADR-0108 §7). Because the two can differ, an amount travels with its unit rather than as a bare number that a reader re-derives from the food. Code asks `isMeasuredUnit` rather than testing for grams, because "is this amount a measurement?" is the real question at every scaler, label and edit gate. It is a persisted shape: it rides on `recipe/ingredients`, on the frozen `event/instantiation` rows, and inside the `event/quantity` string.
 _Avoid_: Grams (when any measured amount is meant), the gram unit, weight, panel unit (that is the **Panel basis**)
 
 **Portion**:
-One household measure a food's source publishes, carried on the twin's `food/portions` — `1 medium` standing at 118 g, `1 can (330 ml)` at 330 ml. It is source data and never a nutrition reading, and it is the app's whole answer to "how much is one of these?": tapping it fills the AmountField with the amount it stands at. That unit is a field of its own (`grams` or `millilitres`, exactly one present) rather than an overloaded number, so a reader that knows only weights sees no portion for a drink instead of treating a volume as one. A portion stated in the unit the field does not take offers no chip **on a food with no Density Class**, because filling it in would be the density conversion the app refuses; on a food that carries one it offers a chip in the field's own unit, marked `≈` because the source stated a volume and the weight beside it is this app's reading of it. See ADR-0030, ADR-0060 and ADR-0105.
+One household measure a food's source publishes, carried on the twin's `food/portions` — `1 medium` standing at 118 g, `1 can (330 ml)` at 330 ml. It is source data and never a nutrition reading, and it is the app's whole answer to "how much is one of these?": tapping it fills the AmountField with the amount it stands at. That unit is a field of its own (`grams` or `millilitres`, exactly one present) rather than an overloaded number, so a reader that knows only weights sees no portion for a drink instead of treating a volume as one. A portion stated in the unit the field does not take offers no chip **on a food with no Density Class**, because filling it in would be the density conversion the app refuses; on a food that carries one it offers a chip in the field's own unit, marked `≈` because the source stated a volume and the weight beside it is this app's reading of it. See ADR-0030, ADR-0060 and ADR-0108.
 _Avoid_: Serving (which is the Panel basis, a different fact), portion size, household unit, gram weight
 
 **Density Class**:
-The kind of liquid a user says a food is — water-like, milk-like, juice, oil, or beer/wine — from which the app reads a density in grams per millilitre. It is what makes a food published per 100 ml weighable at all. The twin stores the class and never the figure, on one `food/density` whose value names which kind of answer it holds: what the user asserted is "this is an oil", 0.92 g/ml is our reading of that assertion, and a reading is derived so that improving a class improves every food under it. Each class figure is measured over every food of that kind the USDA corpus states a volume portion for, admitted only at eight or more foods and a CV of 2% or under, and pinned in `density-class.ts` with the evidence and the match pattern that selected its members; `pnpm check` re-measures them and fails rather than rewriting one. A food no class fits takes a figure the user asserts directly — their own claim about their own food, admissible on that ground and never on being a measurement the app could check — and a food with neither stays in millilitres and is still fully loggable — which is the standing case rather than the edge one, since only about a third of Open Food Facts' millilitre products can be classified from their own tags. Those tags are where the class is proposed from: a source that names exactly one class pre-fills the picker, anything ambiguous opens it empty, and a class is never written the user has not seen. Reading the source's own classification is not the app inferring one — a class is checkable by somebody holding the bottle, where a figure in grams per millilitre is not. Which unit the field then opens on is the one thing about a density that is not a property of the food: it is read per context and per what that food was last entered in _there_, so a recipe ingredient list and a log sheet may open the same carton differently while both offer both units. See ADR-0105.
+The kind of liquid a user says a food is — water-like, milk-like, juice, oil, or beer/wine — from which the app reads a density in grams per millilitre. It is what makes a food published per 100 ml weighable at all. The twin stores the class and never the figure, on one `food/density` whose value names which kind of answer it holds: what the user asserted is "this is an oil", 0.92 g/ml is our reading of that assertion, and a reading is derived so that improving a class improves every food under it. Each class figure is measured over every food of that kind the USDA corpus states a volume portion for, admitted only at eight or more foods and a CV of 2% or under, and pinned in `density-class.ts` with the evidence and the match pattern that selected its members; `pnpm check` re-measures them and fails rather than rewriting one. A food no class fits takes a figure the user asserts directly — their own claim about their own food, admissible on that ground and never on being a measurement the app could check — and a food with neither stays in millilitres and is still fully loggable — which is the standing case rather than the edge one, since only about a third of Open Food Facts' millilitre products can be classified from their own tags. Those tags are where the class is proposed from: a source that names exactly one class pre-fills the picker, anything ambiguous opens it empty, and a class is never written the user has not seen. Reading the source's own classification is not the app inferring one — a class is checkable by somebody holding the bottle, where a figure in grams per millilitre is not. Which unit the field then opens on is the one thing about a density that is not a property of the food: it is read per context and per what that food was last entered in _there_, so a recipe ingredient list and a log sheet may open the same carton differently while both offer both units. See ADR-0108.
 _Avoid_: Density (when the class is meant), liquid type, specific gravity, the conversion factor
 
 **Reference food**:
@@ -251,12 +251,12 @@ A meal as it was logged on an earlier day: its foods _and_ their amounts. Copyin
 _Avoid_: Repeat (that word means recurrence _scheduling_ in this app — `EventRecurrenceField`, `ScheduleRuleEditor`), duplicate, clone, re-log, copy meal
 
 **Way in**:
-One of the five ways to put something in a meal: copy a **Past meal**, enter one yourself, log a recipe, scan a barcode, search (ADR-0059). All five sit on the day's **Way-in bar**, and none is a control in a meal's header any more (ADR-0101 §1). There is no `+` — it never named an action, it opened a sheet that then asked which of these you meant, so it was a lobby rather than a door. Each way in opens its own single-purpose sheet carrying no method dock, since the bar already chose. Every control's own name states its meal, because the roster is drawn once per meal and four identical names cannot be told apart; the sheet's title drops it again, because by then the meal is settled by the tap that opened it. Its caption on the bar drops it too, and for a sharper version of the same reason: there is one bar for the whole day, so a caption naming a meal would be wrong three times in four the moment a tab moved. A way in whose sheet could only disappoint is absent rather than disabled — the past-meal control appears only once that meal has history.
+One of the five ways to put something in a meal: copy a **Past meal**, enter one yourself, log a recipe, scan a barcode, search (ADR-0059). All five sit on the day's **Way-in bar**, and none is a control in a meal's header any more (ADR-0101 §1). There is no `+` — it never named an action, it opened a sheet that then asked which of these you meant, so it was a lobby rather than a door. Each way in opens its own single-purpose sheet carrying no method dock, since the bar already chose. Every control's own name states its meal, because the roster is drawn once per meal and four identical names cannot be told apart; the sheet's title drops it again, because by then the meal is settled by the tap that opened it. On the bar a way in is **its mark and nothing else** — the caption under it was the fourth gloss and is gone with the second row (ADR-0101, amended 2026-09-15), so the name lives on `aria-label` and in the legend the day's ⓘ unfolds. A way in whose sheet could only disappoint is absent rather than disabled — the past-meal control appears only once that meal has history. **What you log arrives on screen**, in three rules the day applies once the row exists: nothing moves if it is already wholly inside the **Band**, the meal goes to the top of the band where the whole meal fits there, and otherwise the row's own foot goes to the foot of the band (ADR-0107). The band is the scrollport minus whatever is standing in front of the row, which on a phone is this bar — an act whose result lands underneath the control that caused it is the case those rules exist for.
 _Avoid_: Entry / meal entry (this app spends _entry_ on a manually entered food, ADR-0035), add button, plus button, Door (ADR-0034 already uses that for the routes into the label form), Method (that is a **FoodStager** staging tab, which is what a way in replaces)
 
 **Way-in bar**:
-The one surface the day's five **Way in**s live on — a tab list of the four meal types, and below it the five ways into whichever meal is selected (ADR-0101). One bar per day, not one row per meal, which is what took twenty controls down to five. The rail below the tabs is the selected tab's **panel** and not a row of toggles wearing tab roles: its contents belong to the chosen meal and change with it, since the past-meal control appears only for a meal with history. The meal is **chosen and never inferred** — the clock picks the first one and only a tab moves it afterwards, because a target that decides where a tap lands may not move on its own. Below `BREAKPOINTS.sheet` it is pinned to the visible **Band**'s bottom edge, where the hand is; at and above it, sticky at the head of the day's column, where a bar rising from the far end of a large screen would be imitating a device that is not there. It shares one slot with the **Selection bar** and folds out of it when a Selection takes the screen, on both layouts — a control that cannot act does not hold space. It links nowhere, so it is not a way out of the Facet (ADR-0078 §1).
-_Avoid_: **Dock** (that word is the pinned foot of a _sheet_), meal bar, add bar, footer, action bar, toolbar, sticky bar, tab bar (the **Selection bar** covers one of those, and this is not it)
+The one surface the day's five **Way in**s live on — **one line**: a meal chip, then the five marks (ADR-0101, amended 2026-09-15). One bar per day, not one row per meal, which is what took twenty controls down to five, and one row rather than two, which took it from 154px of the **Band** to 50. It was a tab list over a captioned rail for one release; the tab pattern's claim was honest — the rail really was the chosen meal's panel, since the past-meal control appears only for a meal with history — and it was worth 48px and no more. Every cell in it is a paper tile on an ink ground, so the bar's outer edge and each seam inside it are one `--edge-width` drawn once; the line wraps onto two rows where the marks stop fitting beside the chip, which is a fact about the bar's own width and not about the window's. The meal is **chosen and never inferred** — the clock picks the first one and only the chip moves it afterwards, because a target that decides where a tap lands may not move on its own. It stands in three places, one per width. Below `BREAKPOINTS.sheet` it is pinned to the visible **Band**'s bottom edge, where the hand is; at and above it, sticky at the head of the day's column, where a bar rising from the far end of a large screen would be imitating a device that is not there; and above `BREAKPOINTS.wide` it leaves the head of the column for the left-hand **Flank**, opposite the **Rail**, because a screen that wide has room to show what you can add beside what you have added rather than over it. It shares one slot with the **Selection bar** and folds out of it when a Selection takes the screen, on both layouts — a control that cannot act does not hold space. It links nowhere, so it is not a way out of the Facet (ADR-0078 §1).
+_Avoid_: **Dock** (that word is the pinned foot of a _sheet_), meal bar, add bar, footer, action bar, toolbar, sticky bar, tab bar (the **Selection bar** covers one of those, and this is not it), tab list (it was one, and stopped being one)
 
 **Way out**:
 The one control that hands logged food to another person: it sits beside the panel's name inside a nutrition panel, and it is the mirror of a **Way in** rather than a sixth control in the meal header, which gains nothing. There is one on a meal's own panel, one on the full day's and one on a **Selection**'s, the same control at three scales — a meal's panel is reached by tapping the meal's name, which always works, or its subtotal line, which an empty meal does not have, and a Selection's by the hand-off verb on the **Selection bar**. Every scale costs the same two taps, which is why the Selection bar's verb is a door to the panel rather than a one-tap route to a code. The panel then _turns into_ the **Send code** and back: it opens no second surface, and once a code is minted there is no back button, because the code is live and an affordance that looked like undo would be one. It is present on every platform, iOS included: nothing about sending touches the storage partition, and it was hidden there only to avoid supporting a platform in some of its cases and not others. See ADR-0074 §1 and §3 and its 2026-09-01 amendment, ADR-0082 §3, and ADR-0088 §9.
@@ -289,7 +289,7 @@ _Avoid_: Share, sync (that is your own devices, and it is a different session mo
 
 **Send code**:
 The single-use secret that addresses one Meal send: a room id and a fresh 256-bit AES-GCM key, about 100 characters, never fewer than 128 bits and never spoken aloud. One shape with two carriers, a QR in the same room and a **link** everywhere else (`/food/#r=…&k=…`, the secret in the fragment so it reaches no server, minted at Rations because a meal is Rations' — ADR-0084 §5). It dies on one successful delivery, on any refusal, on the sender cancelling, or after five minutes, and there is no retry on a spent one. Because a send is synchronous, a pasted code is already dead by the time it is scrollback. See ADR-0072 §3 to §6.
-_Avoid_: **Pairing code** (both are per-act; they differ in which Facet mints them and in what they carry — a Send code is Rations' and addresses a meal, a Pairing code is the root's and carries no pairing secret), pairing secret (what a Pairing code exists to avoid carrying), password, invite, room id (which is half of it), wormhole code
+_Avoid_: **Pairing code** (both are per-act; they differ in what they address and in what they carry — a Send code addresses a meal on its way to another person, a Pairing code addresses one of your own devices and carries no pairing secret. Which Facet mints one no longer tells them apart: Rations mints both since ADR-0108 §10), pairing secret (what a Pairing code exists to avoid carrying), password, invite, room id (which is half of it), wormhole code
 
 **Meal payload**:
 What crosses the wire in a Meal send: the **winning** datoms of one Past meal's reference closure, in the **Ledger export**'s NDJSON grammar but under its own `artifact` (`inventoria-meal`), its own `schema_version`, and an envelope declaring which `event:consume_` ids are the closure's roots. It omits exactly three attributes, `twin/raw_provenance`, `food/label_photos` and `food/photo_base64`, and carries every other one verbatim. It is never a Ledger export and the two readers refuse each other by name, because two formats whose merge rules differ must not share one. Bounded at 1 MiB of **decoded** bytes, counted as they decode. See ADR-0073.
@@ -316,7 +316,7 @@ The one thing the Relay ever says, sent to both parties the moment a room holds 
 _Avoid_: Handshake, hello, ready message, signalling (there is no rendezvous), presence (nothing is subscribed to)
 
 **Paired Device**:
-One of your own devices, held in `localStorage` and **never** as a datom, because a revocation cannot live in an append-only log that the revoked device also writes to. **The record holds derived, per-lane chain state and never a reusable credential**: nothing in it can regenerate the pairing, only advance it, so a stolen record opens at most one outstanding **Deposit** per **Lane**. It also holds the peer's last-stated **Device roster**, replaced whole by each Deposit, **how many consecutive unproductive Wakes this pairing has burned** and **the day it last produced something**, coarsened to the calendar date and never finer. No pairing secret is remembered — it is destroyed at the end of **Pairing**. The name is typed **locally, about the peer, after the act**, and a row reads by short `device_id` until it is named. Pairing is symmetric and pairwise: there is no main device, no hub and no revocation authority, and deleting a pairing on either side severs it with no message. **Unpairing is two-phase, and the ordering is the whole mechanism**: the record is marked revoked and kept whole, both lane objects are deleted, and only then is the record removed — so a withdrawal that could not reach the Store is **pending** rather than lost, and is retried on any later open. A marked record is deposited to, collected from and stated to nobody from the mark onward. The surface claims exactly what the deletes achieve: _unpairing removes anything that has not yet been picked up_, scoped to those two devices, with the qualifier that a peer which has not noticed may leave one more sealed object nothing can open. **Where another pairing would still stand it says one thing more**, because revocation across a household completes at the rate of its least-used device: _your other devices are not unpaired from it here; each device is unpaired on itself, so one you have not opened stays paired with it until you do._ It states what the act does and never what the household looks like, and at a household of two it is not said at all. Silence is the revocation signal, because a message can be suppressed. At K = 200 consecutive unproductive Wakes a pairing **stops**: this device touches neither of its keys again and the section shows the **one-sided state**. The stop is lossless and it never unpairs — both ledgers are intact, the Store still holds the outstanding delta, and the way back is the user's, which is to unpair here too or to pair again. The list of them is the **Paired devices** section of the root's Settings (ADR-0084 §6), which is also where the act lives, and that section's last-met date and one-sided state are **the only staleness this design ever shows**: no spinner, no toast and no badge anywhere, because the stale device cannot know what it has not got and opening it _is_ the Collection. See ADR-0075 §3, §4 and §12, and ADR-0096 §9 and §11.
+One of your own devices, held in `localStorage` and **never** as a datom, because a revocation cannot live in an append-only log that the revoked device also writes to. **The record holds derived, per-lane chain state and never a reusable credential**: nothing in it can regenerate the pairing, only advance it, so a stolen record opens at most one outstanding **Deposit** per **Lane**. It also holds the peer's last-stated **Device roster**, replaced whole by each Deposit, **how many consecutive unproductive Wakes this pairing has burned** and **the day it last produced something**, coarsened to the calendar date and never finer. No pairing secret is remembered — it is destroyed at the end of **Pairing**. The name is typed **locally, about the peer, after the act**, and a row reads by short `device_id` until it is named. Pairing is symmetric and pairwise: there is no main device, no hub and no revocation authority, and deleting a pairing on either side severs it with no message. **Unpairing is two-phase, and the ordering is the whole mechanism**: the record is marked revoked and kept whole, both lane objects are deleted, and only then is the record removed — so a withdrawal that could not reach the Store is **pending** rather than lost, and is retried on any later open. A marked record is deposited to, collected from and stated to nobody from the mark onward. The surface claims exactly what the deletes achieve: _unpairing removes anything that has not yet been picked up_, scoped to those two devices, with the qualifier that a peer which has not noticed may leave one more sealed object nothing can open. **Where another pairing would still stand it says one thing more**, because revocation across a household completes at the rate of its least-used device: _your other devices are not unpaired from it here; each device is unpaired on itself, so one you have not opened stays paired with it until you do._ It states what the act does and never what the household looks like, and at a household of two it is not said at all. Silence is the revocation signal, because a message can be suppressed. At K = 200 consecutive unproductive Wakes a pairing **stops**: this device touches neither of its keys again and the section shows the **one-sided state**. The stop is lossless and it never unpairs — both ledgers are intact, the Store still holds the outstanding delta, and the way back is the user's, which is to unpair here too or to pair again. The list of them is the **Paired devices** section, which is also where the act lives: one module, drawn on the root's Settings and again on **Rations settings**, because a Rations user has no route to the root's copy (ADR-0078 §7) and a pending revocation or a stopped pairing the user cannot reach is stranded (ADR-0108 §10). **Every row names what its lane carries**, in the **Tracked Domains**' own names, which is the only place the app can explain an absence the user would otherwise read as a sync failure. A **Facet-scoped wipe** does not unpair: the record is about devices, and severing the lane in the same act would guarantee the wipe never reached the peer (ADR-0108 §8). That section's last-met date and one-sided state are **the only staleness this design ever shows**: no spinner, no toast and no badge anywhere, because the stale device cannot know what it has not got and opening it _is_ the Collection. See ADR-0075 §3, §4 and §12, and ADR-0096 §9 and §11.
 _Avoid_: Trusted device, linked device, primary device, hub, account, **Devices screen** (ADR-0075 §4's phrase, retired — the screen never existed and now never will)
 
 **Version vector**:
@@ -343,16 +343,24 @@ _Avoid_: Fetch, download, poll, receive, pickup, read (bare — a Collection dep
 One direction of one pairing; a pairing has two. Its address and its seal key come off one ratchet under different labels, indexed on collections and never on the clock, so an address is fixed by the absence itself and rotates at the first contact afterwards. A **Wake** touches exactly one key per Lane, which is what keeps the operator from joining one exchange to the next. See ADR-0096 §3 and §4.
 _Avoid_: Channel, queue, mailbox, direction (bare), stream
 
+**Lane scope**:
+The **Tracked Domains** a pairing carries, and the whole of what narrows it: a pairing carries the rows of the domains held by the **Facet** the pairing act ran in, and the root's scope is the whole **Jar**. Each side states its Facet's domains when the first sync opens and the scope is the **intersection**, so root to root is the whole Jar, Rations to Rations is food, and Rations to root is food, with nobody choosing. **It binds rows and never the peer**: nothing learns which Facets the other device has installed, and a Rations-only phone paired with a laptop that also has the root is ordinary rather than an edge case. It is not a promise that the root cannot see what lands, because one origin is one Jar (#286). The predicate is **derived** from `src/lib/facets/registry.ts` and never authored, the same derivation a **Facet-scoped wipe** takes its own from. It is kept on the **Paired Device** record, one pairing per device pair, and pairing again re-scopes it: widening leaves the new domains' marks absent, which is a first sync of them, and narrowing leaves the dropped domains' marks standing. The act lives on both Facets' settings surfaces, so a pairing made from Rations is a food lane and one made from the root is jar-wide. See ADR-0108 §1 to §4 and §10.
+_Avoid_: Filter, partition, allowlist, sync scope, Facet scope (which is a URL path in the manifest)
+
 **Wake**:
-One open of the app, however long it stays open. It is the unit convergence is priced in, and the unit the design's promise is stated in — _your data reaches your other device the first time you open the app on each of them; the batch after that needs a second open on each_. **A wake is not one sync.** A session syncs as often as it has reason to: it **deposits** whenever its delta grows, debounced by seconds and flushed best-effort on hide, and it **collects** on open and then no more than hourly, skipped when nothing has changed locally and nothing is owed. Both bounds are rate limits rather than a schedule, which is why the promise stays stated in opens and no duration appears in it. A Wake is **productive** for a pairing when an acknowledgement arrived or a **Collection settled**, and a Wake that was productive in none of its syncs burns one of that pairing's K = 200; a take that imported rows and settled nothing is **not** productive, because it will repeat identically. The count is in Wakes and never in syncs — a session that polls eight times against an absent peer is one unproductive Wake, or K = 200 quietly becomes K = 25. **A wake is an open of the root Facet**, so a user who only ever opens Rations never converges. See ADR-0096 §3, §7 and §11, and §3's 2026-09-06 Amendment.
+One open of the app, however long it stays open. It is the unit convergence is priced in, and the unit the design's promise is stated in — _your data reaches your other device the first time you open the app on each of them; the batch after that needs a second open on each_. **A wake is not one sync.** A session syncs as often as it has reason to: it **deposits** whenever its delta grows, debounced by seconds and flushed best-effort on hide, and it **collects** on open and then no more than hourly, skipped when nothing has changed locally and nothing is owed. Both bounds are rate limits rather than a schedule, which is why the promise stays stated in opens and no duration appears in it. A Wake is **productive** for a pairing when an acknowledgement arrived or a **Collection settled**, and a Wake that was productive in none of its syncs burns one of that pairing's K = 200; a take that imported rows and settled nothing is **not** productive, because it will repeat identically. The count is in Wakes and never in syncs — a session that polls eight times against an absent peer is one unproductive Wake, or K = 200 quietly becomes K = 25. **A wake is an open of a Facet**, and it **serves** every lane that Facet's scope meets while depositing only the domains that Facet holds: a root wake carries whatever the lane is, and a Rations wake on a jar-wide lane carries food and its deletions and leaves the other five domains to the root's wake. A lane a Facet meets no part of is not touched at all, and burns none of that pairing's K — the counter is per-pairing and blind to which Facet woke, or a pairing served by both would count toward 200 twice. **Two wakes at one origin never overlap**: each of a wake's syncs is an **Errand** and runs inside an origin-scoped lock, so the loser waits and then finds the lane already advanced. See ADR-0096 §3, §7 and §11, §3's 2026-09-06 Amendment, the 2026-09-13 Amendment, and ADR-0108 §9.
 _Avoid_: Session (which is the Relay's room), sync, tick, poll, app launch (an already-open app that is reopened is a new wake)
 
+**Errand**:
+One of a **Wake**'s syncs, run whole and alone: either a full round — collect, acknowledge, deposit — across every **Paired Device**, or the deposit-only round the delta growing triggers. It is the unit of serialisation and that is why it has a name: an errand reads a **Lane**'s standing before it writes one, so two that interleaved would settle their disagreement before either wrote, and a lock around a write alone would close nothing. **Two errands never overlap at one origin** — a browser tab beside the installed app is two opens over one jar and one **Ledger** — and the loser waits rather than skipping, because a wake that declined to run is an open that did not collect. Where the runtime will not give up a lock the errand runs anyway, in all three shapes of that: no Web Locks at all, an accessor that throws, and a request refused before it was ever granted. `src/lib/p2p/wake-lock.ts`, and see ADR-0096's 2026-09-13 Amendment.
+_Avoid_: Job, task, run, cycle, transaction (nothing here rolls back), sync (which is what an errand does, not what it is)
+
 **Pairing**:
-The act that makes two of your own devices **Paired Devices**: a **Pairing code** shown on one and read on the other, then a whole foreground first sync, shown on both sides. It starts from the **Paired devices** section of the root's Settings, which expands in place rather than opening a second surface. **It is not complete until the first sync completes**, and it leaves nothing behind if abandoned — no row exists on either side until then. It is **idempotent and replacing**, keyed by `device_id`, and it promises nothing about _which_ device it will pair, because that is not learned until the act is spent. See ADR-0096 §8.
+The act that makes two of your own devices **Paired Devices**: a **Pairing code** shown on one and read on the other, then a whole foreground first sync, shown on both sides. It starts from the **Paired devices** section — the root's Settings, or **Rations settings** — which expands in place rather than opening a second surface. **It is not complete until the first sync completes**, and it leaves nothing behind if abandoned — no row exists on either side until then. It is **idempotent and replacing**, keyed by `device_id`, and it promises nothing about _which_ device it will pair, because that is not learned until the act is spent. See ADR-0096 §8.
 _Avoid_: Linking, connecting, adding a device, sync setup, **Devices screen**, Scan (the reader control is **"Read a code"**, because Scan is already Rations' way in and this reader refuses what that one accepts)
 
 **Pairing code**:
-The single-use secret addressing one **Pairing** act: a room id and a fresh 256-bit key, the **Send code**'s shape put to a different job, minted on the **root** where a Send code is minted at Rations. Two carriers, a QR and the bare code pasted, and **never a link** — there is no distance to cross between two devices you are holding, and a URL-shaped QR is a link in the operating system's hands whatever this app calls it, so the code **must not parse as a URL**. Dead when the pairing completes, on cancel, or after five minutes. It **carries no pairing secret**: that is minted inside the sealed room, so a photograph of a spent code is worth nothing. See ADR-0096 §8.
+The single-use secret addressing one **Pairing** act: a room id and a fresh 256-bit key, the **Send code**'s shape put to a different job, minted wherever the act runs, which is either Facet's settings surface. Two carriers, a QR and the bare code pasted, and **never a link** — there is no distance to cross between two devices you are holding, and a URL-shaped QR is a link in the operating system's hands whatever this app calls it, so the code **must not parse as a URL**. Dead when the pairing completes, on cancel, or after five minutes. It **carries no pairing secret**: that is minted inside the sealed room, so a photograph of a spent code is worth nothing. See ADR-0096 §8.
 _Avoid_: **Send code** (that is Rations' and addresses a meal), pairing secret (which no longer crosses in the code), pairing link, invite, QR (that is one of its two carriers)
 
 ### Notes and checklists
@@ -514,7 +522,7 @@ A **Facet-scoped wipe** written down as a datom, so a peer that was asleep appli
 _Avoid_: Tombstone (spent on the retraction row ADR-0079 refused, and this is not one), remote wipe, delete marker, sync delete, wipe record
 
 **Deletion notice**:
-The one-shot sentence a device shows after applying a **Carried deletion**: what went from **this** device, counted, and said once. It is a completed act and never a prompt, and it carries **no undo**, which would be the recoverability claim ADR-0096 §17 refuses. It names the Tracked Domains this build recognised among the carried prefixes rather than a label the wiping device froze, because a peer that does not recognise a prefix deleted nothing under it. It is kept in `localStorage` until it is read and could not be a datom: it is a fact about this device's own copy, and a datom would travel. Two acts arriving before one reading merge into one notice rather than queueing. The root Facet draws it and Rations does not, because a **Wake** is an open of the root.
+The one-shot sentence a device shows after applying a **Carried deletion**: what went from **this** device, counted, and said once. It is a completed act and never a prompt, and it carries **no undo**, which would be the recoverability claim ADR-0096 §17 refuses. It names the Tracked Domains this build recognised among the carried prefixes rather than a label the wiping device froze, because a peer that does not recognise a prefix deleted nothing under it. It is kept in `localStorage` until it is read and could not be a datom: it is a fact about this device's own copy, and a datom would travel. Two acts arriving before one reading merge into one notice rather than queueing. The root Facet draws it and Rations does not, which is now a fact about the surface rather than about the **Wake**: both Facets wake and either can apply a Carried deletion, so Rations listens and records, and a notice its open leaves waits to be read on the next open of the root.
 _Avoid_: Toast, banner, alert (`Alert` is the primitive it is drawn with, not what it is), sync warning, undo prompt
 
 **Un-precached artifact**:
@@ -530,6 +538,19 @@ _Avoid_: Route, deep link, intent, entry point (which names the URL, not what ar
 These ADRs establish this vocabulary and forbid alternatives to it. The `_Avoid_` lines
 here matter more than most: the recurring failure is inventing a fourth thing that
 already exists as one of these.
+
+What **earns** a new member is ADR-0100: reach (a change of one mind landing in two or
+more copies, after subtracting every site an existing member already serves) or a gap
+the platform and the roster both lack, and then the deletion test — it must remove more
+surface than it adds, and never widen an existing member's variant axis to absorb a
+stranger. A member is named for its purpose or for the platform control it wraps, never
+for its appearance, and it lands with every copy converted in one change.
+
+This section is the prose half of the roster; `tests/unit/support/ui-roster.ts` is the
+machine-readable half a gate reads, and the two are edited together. A member's
+**internal class names are its own** — a caller reaches a primitive's look by handing it
+a `class`, never by writing one of its names — and
+`tests/unit/primitive-internals.test.ts` holds that at zero (#413).
 
 **BottomSheet**:
 The one sheet primitive (`ui/BottomSheet.svelte`). Every sheet in the app is this
@@ -586,20 +607,39 @@ _Avoid_: Footer, action bar, toolbar, sticky bar, **Way-in bar** (that is a perm
 The box a Facet's screens are drawn into — one centred, capped column that is the
 only thing on the page which scrolls. There are two of them, `App.svelte` and
 `Rations.svelte`, and **one rule**: `.main` in `src/app.css`, shared, because a
-rule copied into both shells is the same defect twice and was. Its width is
-`--measure-solo` (54rem) below the **shell breakpoint** and `--measure` (72rem)
-above it, where Rations spends the extra on a `--rail` (22rem) beside the
-timeline. The shell breakpoint is `breakpoints.ts`'s `shell`, 1180px, and it is
-the second of the app's two shape breakpoints: 768 carries the overlay's shape and
-the root's Sidebar flip, 1180 carries this. See ADR-0091 §2 and §8.
+rule copied into both shells is the same defect twice and was. The box that
+scrolls and the column that is capped are **two elements**: `.main` scrolls and
+keeps the gutter, `.shell-column` inside it takes the cap and the centring. A cap
+on the scroll box draws the scrollbar down the middle of a wide window instead of
+at its edge, which reads as a pane inside the app rather than as the page's own.
+The column's width is `--measure-solo` (54rem) below the **shell breakpoint**,
+`--measure` (72rem) above it, where Rations spends the extra on a **Flank**
+beside the timeline, and `--measure-wide` (88rem) in Rations alone above the
+**widest breakpoint**, where it spends it on a second one. The shell breakpoint
+is `breakpoints.ts`'s `shell`, 1180px; the widest is its `wide`, 1440px. Those
+are two of the app's three shape breakpoints: 768 carries the overlay's shape and
+the root's Sidebar flip. See ADR-0091 §2 and §8, and ADR-0101's Amendment.
 _Avoid_: Layout, container, wrapper, page (which is the surface inside the shell),
 frame (spent on the brutalist edge/elevation tokens)
+
+**Flank**:
+Either of the two fixed columns the widest Rations shell stands either side of
+the meal timeline: the **Way-in bar**'s on the left (`--way`, 22rem, above the
+widest breakpoint) and the **Rail** on the right (`--rail`, 22rem, above the
+shell breakpoint). One width for both, so the timeline between them reads as
+centred, but two tokens, because they answer to two different contents. The word
+is the pair; each one keeps its own name. Left is what you do to the day and
+right is what the day came to, which is why the ways in take the side a reader
+starts from. See ADR-0101's Amendment.
+_Avoid_: Sidebar, column (which is any of the three), gutter (the shell's own
+padding), Rail for the left one (`WayInRail` is already the five ways in
+themselves)
 
 **Rail**:
 The second region Rations' shell opens above the shell breakpoint, to the right of
 the meal timeline, holding the day's numbers — a month calendar over the Nutrition
-accordion. It is reference material beside the subject, which is why it takes the
-right and the timeline keeps the reading edge. It is deliberately **not pinned**:
+accordion. The right-hand **Flank**. It is reference material beside the subject,
+which is why it takes the right and the timeline keeps the reading edge. It is deliberately **not pinned**:
 pinning wants the rail held as one unit and its blocks are siblings of the
 timeline rather than children of a rail, so a pinned rail is a rail with a real
 element and that is the trigger to reopen it. See ADR-0091 §2 and §4.
@@ -655,6 +695,23 @@ not move, where you are does. Decoupled from bits-ui's automatic first-candidate
 highlight, which used to supply both and meant neither. See ADR-0090 §3.
 _Avoid_: Selected, active, focused row, best match
 
+**SecretField**:
+The one masked field with a way to reveal it (`ui/SecretField.svelte`): `ui/Input` in a
+box, with an eye button pinned over the field's right edge that flips `type` between
+`password` and `text`. It owns the mask state, the toggle, and the toggle's accessible
+name — built here from one `reveals` word, so "Show …" and "Hide …" cannot be worded
+two ways or half-shipped. The toggle sits **over** the field rather than beside it, and
+that is measured: a flex sibling let the field's intrinsic monospace width overflow its
+sheet. The `padding-right` it costs and the button's width are one token, so the gap
+cannot drift from the thing it leaves room for, and `z-index: 2` keeps the button above
+`ui/Input`'s own `z-index: 1` — without it the button takes no clicks. No bits-ui: the
+platform has `type="password"` (ADR-0068 §1). The two copies it replaced had each been
+fixed twice for one cause — `z-index: 2` at #375, `2.75rem → var(--tap-min)` at #361 —
+which is the bill ADR-0100 §1's trigger was paid in.
+See ADR-0100, ADR-0093 and ADR-0095 §3.
+_Avoid_: Password field, PasswordInput, a second reveal toggle, `.reveal-toggle` as a
+caller's class
+
 **Segmented**:
 A single-choice control whose selection must persist once made: mode switches, sex
 and goal pickers (`ui/Segmented.svelte`). See ADR-0036.
@@ -673,6 +730,52 @@ recording switch in the app is this component — the platform already supplies 
 control, so bits-ui has nothing to add here. A name is not optional, and the row's
 typography is the caller's `class`. See ADR-0068.
 _Avoid_: Toggle, tick box, a second checkbox skin
+
+**Disclosure**:
+The one control that opens one region (`ui/Disclosure.svelte`): the `<button>`, its
+`aria-expanded`, the `aria-controls` naming the region, the tap floor, the focus ring
+and the mark beside the label. **Not a bits-ui `Accordion`** — every one of that
+component's contributions is between-item behaviour, it omits the header/region links
+anyway, and its content mounts and unmounts rather than carrying the `hidden` attribute
+`aria-expanded` describes (ADR-0068 §1, as amended). `RecipeBuilder`'s accordion is the
+counter-example and stays on bits: many items, roving focus, a multiple-open policy.
+It owns the **trigger and not the region**, because at four of its five sites the two
+boxes have different parents; `controls` is a required prop instead, so a trigger with
+no region is unexpressible, and `tests/unit/disclosure.test.ts` resolves every id.
+Three visual shapes cost **zero variants**: the mark is a snippet (a hole, free however
+many callers fill it), defaulting to the drawn caret and switched off with `mark={null}`
+where the label _is_ the mark. The caret is drawn because `▸`/`▾` fall outside every
+unicode-range Epilogue is served in. The cap-height repair lives here; the title's
+size, weight, tracking and case do **not** — those are the caller's, or a section
+header's look would bind every future disclosure.
+See ADR-0100 and ADR-0068 §1.
+_Avoid_: Accordion (for one item), Collapsible, Expander, InfoToggle, a second
+disclosure, and the five it replaced — `.aggregates-toggle`, `.header-icon-btn`'s ⓘ,
+two `.info-btn` copies and `EndingLine`'s `.plain`
+
+**FieldCaption**:
+The line that names the control under it (`ui/FieldCaption.svelte`): a real `<label>`
+and the `for` that binds it, which is what no class can carry and why this is a
+component rather than a rule (ADR-0100 §4). Its look — `--step-n1`, weight 800,
+uppercase, ink — is `.field-caption` in `src/app.css`, declared there because a caption
+over a **group** cannot be a `<label for>` at all: a radio row, a toggle row and a
+segmented date range have no one labelable control, so `ui/Segmented`, `ui/ToggleGroup`
+and bits-ui's `DateRangePicker.Label` name theirs with a `<span id>` and
+`aria-labelledby` and reach the same class. `for` is required and takes no fallback.
+The **gap under it is the caller's**, not the primitive's, because eight of the sites
+sit in a flex column that already gaps them. There are **no variants**: `MediaEngagementModal`'s
+mono ink chip was the one caller that wanted one and converged instead, since a branch
+serving one caller is the sentence ADR-0040 refused `Chip` with. Seventeen rules in
+eight settings went at #383, two of them outside the type scale and two not uppercase.
+`tests/unit/field-caption.test.ts` holds both halves at zero: every `<label for>` in
+`src/` is this component's, and no rule outside `app.css` redeclares the look.
+See ADR-0100 and ADR-0095 §3.
+_Avoid_: Label, FormLabel, field label, a second caption skin, and the eight it
+replaced — `.form-group label` (×4), `.field-label` (two files, two elements),
+`.nudge-label`, `.fl`, `.kcal-label` / `.mini-flabel`, `.cf-lbl`, `.cf-reason-code`'s
+type, `.cf-pack > span` and `ReadPairingCode`'s `.label`. A `<label>` that **wraps**
+its control is a different device and stays one: there the label is the tap target
+(`ui/Checkbox`, `AmountField`, `NutrientCard`).
 
 **Input**:
 The one single-line field (`ui/Input.svelte`): a native `<input>` in a wrapper, wearing
@@ -742,8 +845,15 @@ _Avoid_: Chip, pill, tag, label
 **Button**:
 The canonical interactive frame primitive (`ui/Button.svelte`). A control that toggles
 a selection is a Button whose variant reflects the selected state, not a new
-primitive. See ADR-0039 and ADR-0040.
-_Avoid_: Selected chip, toggle button (as a distinct component)
+primitive. It carries the tap floor on **both** axes, which matters for a button whose
+whole content is a mark: `variant="ghost"` plus a mark element is what a bare icon
+control is, and there is deliberately no `IconButton` — "icon" names the mark, and a
+control you press is a Button (ADR-0100 §6). Where a mark can be **content**, it is; the
+`::before` recipe in ADR-0098 §3 is for a mark with no element to hang on, and its last
+four wearers left at #316 and #390.
+See ADR-0039, ADR-0040, ADR-0098 §2 and ADR-0100.
+_Avoid_: Selected chip, toggle button (as a distinct component), IconButton, and the
+four bespoke mark buttons it replaced — two `.info-btn`, `.card-reset`, `.nudge-reset`
 
 **Card**:
 The canonical container frame primitive (`ui/Card.svelte`), carrying the ADR-0038
@@ -778,7 +888,7 @@ unit can never be typed into it. On a food published by volume it also carries t
 Density Class question: on a classified food it switches units, and on an
 unclassified one tapping `g` is what asks. The capability is offered by the same
 control that earns it, so there is deliberately no separate prompt asking whether
-you would like to weigh this instead. See ADR-0023, ADR-0060 and ADR-0105.
+you would like to weigh this instead. See ADR-0023, ADR-0060 and ADR-0108.
 _Avoid_: QuantityGrams, quantity field, gram field, gram picker, unit picker (it is
 the **Amount unit** toggle, and it is part of this control rather than beside it)
 
@@ -792,7 +902,7 @@ carrying a Density Class it also says what that basis weighs — `Per 100 ml
 without reopening an argument already settled, and there is deliberately no badge,
 tag or tint beside it. The Source explainer carries the rest, one tap deeper: which
 class was asserted, what it resolved to, and that the figure is measured over
-reference foods rather than read off this label. See ADR-0060 and ADR-0105.
+reference foods rather than read off this label. See ADR-0060 and ADR-0108.
 _Avoid_: Serving size (as a caption), per-100 label
 
 **Chip**:

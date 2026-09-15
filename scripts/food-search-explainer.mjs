@@ -78,6 +78,8 @@ const STAGE_ORDER = ["food_kind", "variant", "name"];
 const RULE_ORDER = [
   "brand_specific",
   "processed",
+  "foodservice_record",
+  "drink_powder",
   "reconstituted_drink",
   "prepared",
   "adjudicated_dish",
@@ -120,6 +122,14 @@ const RULE_BLURB = {
   adjudicated_dish: [
     "A dish, read one row at a time",
     "USDA files nine composite dishes under a category the prepared-food filter cannot take without deleting 120 real ingredients with them.",
+  ],
+  foodservice_record: [
+    "Published for a kitchen, not a shopper",
+    'A catering pack of sliced ham, foodservice ketchup, restaurant American cheese. The word <em>restaurant</em> reaches all seven and nothing else &mdash; and one of them, <span class="rec">Ham, sliced, restaurant</span>, was the single row a typed <span class="rec">ham</span> returned, hiding 47 real hams behind it.',
+  ],
+  drink_powder: [
+    "A powder you make a drink out of",
+    'Cocoa mixes, lemonade powder, flavour mixes, protein powders. The category is the whole of the safety: curry, garlic and onion powder, unsweetened cocoa, icing sugar, baobab and tomato powder are all ingredients and all filed elsewhere, so reading <em>powder</em> without <span class="rec">Beverages</span> would take the spice rack.',
   ],
   reconstituted_drink: [
     "A powder made up into a drink",

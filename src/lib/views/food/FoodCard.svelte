@@ -67,7 +67,7 @@
      * The unit that amount is in. The host seeds it — only the host knows
      * whether this food is being measured INTO something or consumed, which is
      * what decides the opening unit on a food that can answer in either
-     * (ADR-0105 §7, as amended) — and the control writes back to it when the
+     * (ADR-0108 §7, as amended) — and the control writes back to it when the
      * user switches, because an amount that left here as a bare number would be
      * re-derived wrongly by every reader that read its unit off the food.
      */
@@ -160,7 +160,7 @@
 
   // The density and the source's own proposal, both read off the payload every
   // other mark on this card reads from. A proposal is not a class: it opens the
-  // picker and is never written until the user has seen it (ADR-0105's pre-fill
+  // picker and is never written until the user has seen it (ADR-0108's pre-fill
   // amendment).
   let density = $derived(asserted ?? readFoodDensity(payload.attributes));
   let prefill = $derived(
@@ -250,7 +250,7 @@
   <!-- The density and the source's proposal are read off the same twin every
        other mark on this card is read from, so no host re-derives either and the
        staging screen and the edit sheet cannot come to different conclusions
-       about the same carton (ADR-0105 §1: a density is a property of the food).
+       about the same carton (ADR-0108 §1: a density is a property of the food).
 
        Keyed on the entity because the question the picker asks is about THIS
        food: staging another one is a new control, not the same control with a

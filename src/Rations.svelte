@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount } from "svelte";
+  import { onDestroy, onMount } from "svelte";
   import { dbClient } from "./lib/db/db.client";
   import { runStartupErrands } from "./lib/facets/startup";
   import type { Facet } from "./lib/facets/registry";
@@ -9,6 +9,9 @@
     type ReceiveOpening,
   } from "./lib/p2p/receive-link";
   import { isIosSafariTab } from "./lib/p2p/safari-tab";
+  import { openAppWake } from "./lib/p2p/wake-errand";
+  import type { OpenWake } from "./lib/p2p/wake-cadence";
+  import { watchCarriedDeletions } from "./lib/stores/carried-deletion-notice";
   import Badge from "./lib/ui/Badge.svelte";
   import FoodView from "./lib/views/FoodView.svelte";
   import CodeHandover from "./lib/views/food/CodeHandover.svelte";
@@ -122,6 +125,43 @@
   // instead of racing an unset worker and rejecting with "not initialized".
   const initPromise = handover ? null : dbClient.init("/inventoria.db");
 
+  /**
+   * This open's wake, kept so its triggers can be dropped with the app.
+   *
+   * **Rations wakes** (ADR-0105 §9, amending ADR-0096 §7). A wake is an open of
+   * a Facet rather than an open of the root, and this Facet's scope is food —
+   * so this open serves every lane it meets, collects whatever a peer left, and
+   * deposits food and its deletions and nothing else. That last clause is what
+   * closes
+   * [#415](https://github.com/palebluebytes/inventoria/issues/415): a
+   * Facet-scoped wipe performed in this install now deposits its Carried
+   * deletion on this open instead of waiting for the root to be opened.
+   *
+   * **It is not a way out of this Facet** (ADR-0078). It reaches no root
+   * screen, mounts no root view module and draws nothing; the pairing surface
+   * is #423's, and until it lands the act still lives only on the root's
+   * Settings.
+   */
+  let wake: OpenWake | null = null;
+  /**
+   * The listener for a peer's Carried deletion, attached **before** the wake
+   * that applies one (ADR-0096 §12): the worker announces it once, so a
+   * broadcast with nobody listening is a deletion the person is never told
+   * about.
+   *
+   * Rations draws no notice — `CarriedDeletionNotice` is the root's screen —
+   * and this is still Rations', because the record it writes is `localStorage`
+   * and waits to be read. Without it a deletion applied under a Rations-only
+   * open would be lost rather than deferred.
+   */
+  let watching: (() => void) | null = null;
+  let unmounted = false;
+  onDestroy(() => {
+    unmounted = true;
+    wake?.close();
+    watching?.();
+  });
+
   onMount(async () => {
     // A page that is handing the code over opens nothing and asks for nothing
     // (ADR-0082 §8): no database, no persistence request, no corpus fetch and
@@ -141,6 +181,14 @@
     try {
       await initPromise;
       dbReady = true;
+      watching = watchCarriedDeletions();
+      wake = openAppWake("food");
+      // The shell can be torn down inside the awaits above, in which case
+      // `onDestroy` has already run and found nothing to close.
+      if (unmounted) {
+        wake.close();
+        watching();
+      }
     } catch (e) {
       dbError = e instanceof Error ? e.message : String(e);
     }
@@ -196,34 +244,42 @@
 {:else}
   <div class="rations">
     <main class="main">
-      {#if dbError}
-        <!-- The root reports this in the Sidebar's footer badge. Rations has no
-             sidebar to put it in, and a food screen that silently never becomes
-             ready is the one failure a user cannot read off the page. -->
-        <Badge class="w-full justify-center" variant="error">
-          ✕ DB Error — {dbError}
-        </Badge>
-      {/if}
+      <!-- The capped, centred column, and the whole of why it is a box of its
+           own: `.main` is the scroll container, and a cap on the scroll
+           container draws the scrollbar down the middle of a wide screen
+           instead of at the edge of the window (`src/app.css`, ADR-0091 §2 as
+           amended). The wrapper takes the cap; the scroll stays outside it. -->
+      <div class="shell-column">
+        {#if dbError}
+          <!-- The root reports this in the Sidebar's footer badge. Rations has no
+               sidebar to put it in, and a food screen that silently never becomes
+               ready is the one failure a user cannot read off the page. -->
+          <Badge class="w-full justify-center" variant="error">
+            ✕ DB Error — {dbError}
+          </Badge>
+        {/if}
 
-      <!-- The link lands here (ADR-0084 §5), and the surface it opens is the
-           food screen's. There is no Tab to wander off, which is ADR-0073 §10's
-           clause satisfied by the shape rather than by an effect: leaving this
-           screen is leaving Rations, and the payload, the socket and the code
-           all die with the page. The Scan door's own code is cleared inside
-           FoodView. -->
-      <!-- `hasPages` is this shell saying what it can hold (ADR-0091 §5). Above
-           the shell breakpoint the food screen shows Settings or Recipes
-           instead of the day, and the header's icons are the navigation between
-           them. The root mounts the same screen in its Food tab and passes
-           nothing, because a page behind a navigation sidebar, one tab away
-           from the root's own Settings, would be a second door to a surface
-           that already has one. -->
-      <FoodView
-        {dbReady}
-        {receiveLink}
-        hasPages
-        onReceiveClose={() => (receiveLink = null)}
-      />
+        <!-- The link lands here (ADR-0084 §5), and the surface it opens is the
+             food screen's. There is no Tab to wander off, which is ADR-0073 §10's
+             clause satisfied by the shape rather than by an effect: leaving this
+             screen is leaving Rations, and the payload, the socket and the code
+             all die with the page. The Scan door's own code is cleared inside
+             FoodView. -->
+        <!-- `hasPages` is this shell saying what it can hold (ADR-0091 §5). Above
+             the shell breakpoint the food screen shows Settings or Recipes
+             instead of the day, and the header's icons are the navigation between
+             them. The root mounts the same screen in its Food tab and passes
+             nothing, because a page behind a navigation sidebar, one tab away
+             from the root's own Settings, would be a second door to a surface
+             that already has one. -->
+        <FoodView
+          {dbReady}
+          {receiveLink}
+          hasPages
+          shell="food"
+          onReceiveClose={() => (receiveLink = null)}
+        />
+      </div>
     </main>
 
     <!-- Rations registers its own service worker and prompts its own clients.

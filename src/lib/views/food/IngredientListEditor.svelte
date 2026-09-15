@@ -32,6 +32,7 @@
   import IngredientAmountSheet from "./IngredientAmountSheet.svelte";
   import FoodItemRow from "./FoodItemRow.svelte";
   import NutrientPreview from "./NutrientPreview.svelte";
+  import FieldCaption from "../../ui/FieldCaption.svelte";
 
   // The shared ingredient-list surface behind both the recipe builder
   // (Consolidate/Define) and the instantiation editor (Instantiate/Correct):
@@ -267,7 +268,7 @@
      repeating a kcal/protein headline here only invited the eye to check one
      against the other. -->
 <div class="ing-head">
-  <span class="fl">Ingredients ({ingredients.length})</span>
+  <span class="section-head">Ingredients ({ingredients.length})</span>
 </div>
 <ul class="ings">
   {#each ingredients as ing, i (ing.entity)}
@@ -311,7 +312,7 @@
      ingredient by hand was only ever a way of saying it. -->
 {#if servingsMode === "makes"}
   <div class="yield-row">
-    <label class="fl" for="recipe-yield">Makes (servings)</label>
+    <FieldCaption for="recipe-yield">Makes (servings)</FieldCaption>
     <input
       id="recipe-yield"
       class="tin yield-in"
@@ -334,7 +335,7 @@
        predict (ADR-0106 §7). Grams, with no unit beside it, because a scale is
        the only place this number can have come from (§2). -->
   <div class="yield-row">
-    <label class="fl" for="recipe-batch-weight">Batch weight (g)</label>
+    <FieldCaption for="recipe-batch-weight">Batch weight (g)</FieldCaption>
     <input
       id="recipe-batch-weight"
       class="tin yield-in weight-in"
@@ -359,7 +360,7 @@
        may be overridden here for this occasion alone; the override never
        reaches the template (§3). -->
   <div class="yield-row">
-    <label class="fl" for="recipe-batch-weight">Batch weight (g)</label>
+    <FieldCaption for="recipe-batch-weight">Batch weight (g)</FieldCaption>
     <input
       id="recipe-batch-weight"
       class="tin yield-in weight-in"
@@ -372,7 +373,7 @@
     />
   </div>
   <div class="yield-row">
-    <label class="fl" for="recipe-portion-weight">You ate (g)</label>
+    <FieldCaption for="recipe-portion-weight">You ate (g)</FieldCaption>
     <input
       id="recipe-portion-weight"
       class="tin yield-in weight-in"
@@ -386,9 +387,11 @@
   </div>
   {#if servingsReadout !== undefined}
     <!-- The count still appears and still means "how many servings this occasion
-         is", but it is read out of the weight rather than typed into (§6). -->
+         is", but it is read out of the weight rather than typed into (§6). It
+         names no control, so it takes the section caption rather than
+         `FieldCaption`, which requires something to be `for` (ADR-0100 §5). -->
     <div class="yield-row">
-      <span class="fl">Servings</span>
+      <span class="section-head">Servings</span>
       <output class="servings-out" data-testid="occasion-servings"
         >{servingsReadout}</output
       >
@@ -398,7 +401,7 @@
   <!-- A recipe nobody weighed offers the count and nothing else (§7). "I didn't
        weigh this" has an honest answer already, and it is this one. -->
   <div class="yield-row">
-    <label class="fl" for="recipe-servings">Servings</label>
+    <FieldCaption for="recipe-servings">Servings</FieldCaption>
     <!-- A fraction of a serving is a thing people eat, and while this field
          stepped in whole ones from a floor of 1 it was not sayable: the spinner
          could not reach half a portion, and the keypad `inputmode="numeric"`
@@ -424,7 +427,7 @@
      than read off a source panel, but there is no reason to read them
      differently — the old three-macro pill row showed strictly less. -->
 <div class="recipe-figures" data-testid="recipe-figures">
-  <span class="fl">{figuresLabel}</span>
+  <span class="section-head">{figuresLabel}</span>
   <NutrientPreview
     breakdown={visibleTotal}
     testid="recipe-nutrient-breakdown"
@@ -467,18 +470,17 @@
 {/if}
 
 <style>
-  .fl {
+  /* Not a caption and out of #383's reach set: these two name a *section* —
+     the ingredient list, and the figures under it — rather than a control, so
+     there is nothing for a `for` to point at. They keep the type they had. */
+  .section-head {
     display: block;
     font-size: var(--step-n2);
     font-weight: 700;
     text-transform: uppercase;
-    margin: var(--space-s) 0 var(--space-3xs);
   }
   .ing-head {
     margin-top: var(--space-m);
-  }
-  .ing-head .fl {
-    margin: 0;
   }
   .ings {
     list-style: none;
@@ -520,7 +522,7 @@
     gap: var(--space-s);
     margin-top: var(--space-m);
   }
-  .yield-row .fl {
+  .yield-row :global(.field-caption) {
     margin: 0;
   }
   /* Sized for what it holds — a serving count is one or two digits, so the field
@@ -548,7 +550,7 @@
   .recipe-figures {
     margin-top: var(--space-s);
   }
-  .recipe-figures .fl {
+  .recipe-figures .section-head {
     margin: 0 0 var(--space-2xs);
   }
 </style>

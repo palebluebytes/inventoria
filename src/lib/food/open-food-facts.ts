@@ -176,8 +176,8 @@ export interface OFFProduct {
      * OFF's own classification of the product in its language-neutral taxonomy
      * (`["en:beverages", "en:fruit-juices"]`) — the sibling of the free-text
      * {@link categories}, and what the Density Class pre-fill reads
-     * ({@link offCategoryTagsFromTwin}, ADR-0105). Declared so a reader is not
-     * casting its way into the raw blob; ADR-0105's 2026-09-15 amendment ruled
+     * ({@link offCategoryTagsFromTwin}, ADR-0108). Declared so a reader is not
+     * casting its way into the raw blob; ADR-0108's 2026-09-15 amendment ruled
      * that this field carries none of the hazard `product_quantity_unit` does,
      * which is why that one stays undeclared and this one may join.
      */
@@ -307,7 +307,7 @@ export function offPackQuantityFromTwin(
  * OFF's own category tags for a SAVED twin — `["en:beverages",
  * "en:fruit-juices"]` — the third sibling of {@link offPackUnitFromTwin} and
  * {@link offPackQuantityFromTwin}, and what the Density Class pre-fill is
- * proposed from (ADR-0105's pre-fill amendment).
+ * proposed from (ADR-0108's pre-fill amendment).
  *
  * This works on every `gtin:` twin ever scanned, with no migration and no
  * re-fetch: `lookupBarcode` passes no `fields` parameter and the mapper stores

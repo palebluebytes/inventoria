@@ -7,7 +7,8 @@
 **Implemented:** §2's four "Your data" rows and §3 by [#311](https://github.com/palebluebytes/inventoria/issues/311) and [#335](https://github.com/palebluebytes/inventoria/issues/335) — the Facet-scoped export and wipe at #311, then the un-narrowed Ledger import and the persistence badge at #335, all four in `src/lib/views/food/FoodDataSection.svelte` under §7's "Your data" heading. The import is the root's own `src/lib/views/ledger/LedgerImport.svelte`, taking a DOM id and nothing else, because §3's whole point is that it is not narrowed; the badge is `src/lib/views/storage/PersistenceBadge.svelte`, split out of `StorageStatus` on §2's badge/figure line, and the per-origin usage figure stays at the root with the reading that feeds it. §7's three sections are three. What is left open here is §8, which [ADR-0083](0083-a-gate-that-names-one-entry-point-proves-one-facet.md) §4 amended.  
 **Amended by:** [ADR-0083](0083-a-gate-that-names-one-entry-point-proves-one-facet.md) §4 (§8's heading overreaches its own argument: the registry already holds a build half, and the rule is that it carries no field re-recording a conclusion whose reason is discarded)  
 **Amended by:** [ADR-0084](0084-a-hand-off-belongs-to-the-facet-that-owns-what-it-carries.md) §6 (§9's reasoning reached _pairing_ and its conclusion wrote _p2p_: meal send and receive belong to Rations under that record's §1, and only own-device convergence stays root-only)  
-**Amended by:** [ADR-0086](0086-an-entity-has-exactly-one-owner-and-the-owner-is-a-tracked-domain.md) §2 (§5's "two log-export consents, not one" dissolves into two device settings: neither entity recorded an act, so there is no consent to count per Facet)
+**Amended by:** [ADR-0086](0086-an-entity-has-exactly-one-owner-and-the-owner-is-a-tracked-domain.md) §2 (§5's "two log-export consents, not one" dissolves into two device settings: neither entity recorded an act, so there is no consent to count per Facet)  
+**Amended by:** [ADR-0105](0105-a-pairing-is-scoped-to-the-facet-its-act-ran-in.md) (§9's _a food-only user therefore has no p2p at all_ is now false in both halves, because a lane scoped to a Facet's own domains passes clause (b) where a jar-wide pairing failed it; §2's table gains a Paired devices row)
 
 ## Context
 
@@ -334,3 +335,49 @@ The heading is corrected here rather than rewritten in place, because the decisi
 record of what was decided on 2026-09-01 and this is evidence that its own summary line was
 broader than the reasoning under it. §8's refusal of a settings-block table is unaffected, and
 ADR-0083 §10 declines the check it offered.
+
+## Amendment (2026-09-14): §2's table gains a Paired devices row, and §9's p2p bullet is false in both halves
+
+§9 wrote a one-shot permission — _the first p2p design to reach `main` may
+overturn it by arguing against §1_ — and both halves of the conclusion it
+guarded have now fallen. The record's header names the later record; this is
+what it changed, written here rather than into the decision text above, so that
+what was decided on 2026-09-01 stays readable as what was decided then.
+
+**§2's table gains a tenth block**, on clause (b):
+
+| Block          | Root  | Rations | Why                                                          |
+| -------------- | ----- | ------- | ------------------------------------------------------------ |
+| Paired devices | stays | ✓       | (b) — the Facet's own act creates the convergence it governs |
+
+Clause (b) reads _the Facet's own act creates the thing the control governs_,
+and that is now literally true of pairing: a pairing act run in Rations scopes
+its lane to the domains Rations holds, so the convergence the Devices list
+governs is one Rations itself made. §9 judged the same clause failed, and it was
+right about what it was looking at — a **jar-wide** pairing is the root's act
+over every domain, and Rations governing it would be a Facet with a control over
+five domains its user cannot see. The scoping is the whole of the difference.
+
+**§9's second bullet — _the p2p pairing UI_ — is false in both halves.** Its
+first half is the placement: _the answer §1 gives today is root-only_. Its
+second is the consequence: _a food-only user therefore has no p2p at all_. Meal
+send and receive went to Rations first, and own-device pairing follows, so a
+food-only user now has both. §9's other two bullets — the raw ledger view, the
+storage usage figure and Developer Options; and the jar-wide wipe — stand
+unrevised.
+
+**The clause was spent once and is not being spent again.** §9's permission was
+taken by the record that moved meal send and receive. The later scoping record
+does not claim it a second time: it argues against §1 head-on, on the ground
+that a lane narrowed to a Facet's own domains passes clause (b) where a jar-wide
+one fails it, and that is an argument §9 had not seen rather than a licence
+being reused.
+
+**What this costs the surface, named because §7 fixed its shape.** _Rations
+settings_ was three sections; it is four, and the new one is the first control
+there that reaches another device. §7's reason for a pinned full-height sheet —
+a destructive action and a run that reports progress for minutes — now covers a
+second run of that kind, which is the first sync. The section sits directly
+under **Your data**, because the wipe above it is the control the scoping
+record's §8 is about: "Delete all my food data" takes food's rows and food's
+`localStorage` and unpairs nothing.

@@ -42,7 +42,7 @@
   // the twin it is a fact about is the caller's (FoodCard reads both off the
   // same payload). On a food carrying one the amount's unit and the panel's
   // basis can differ, and the factor below is the only place that matters: the
-  // amount is put into the panel's unit and the panel is left alone (ADR-0105
+  // amount is put into the panel's unit and the panel is left alone (ADR-0108
   // §5 — a density sits beside a panel and never rescales one).
   let {
     panel = undefined,
@@ -63,7 +63,7 @@
      *  memory there decide the opening unit) and the control writes back to it
      *  when the user switches. */
     unit: MeasuredUnit;
-    /** What this food's twin asserts about its density (ADR-0105 §4). */
+    /** What this food's twin asserts about its density (ADR-0108 §4). */
     density?: FoodDensity | undefined;
     /** The class this food's own source names, where it names exactly one. */
     prefill?: DensityClassId | undefined;
@@ -75,7 +75,7 @@
   // unit, not the **Panel basis** itself, which is the `serving_size` string.
   let panelUnit = $derived(basisUnit(panel?.serving_size));
   // The caption says what the figures are per AND, on a classified food, what
-  // that basis weighs: `Per 100 ml (≈103 g)` (ADR-0105 §9). The `≈` is the whole
+  // that basis weighs: `Per 100 ml (≈103 g)` (ADR-0108 §9). The `≈` is the whole
   // of the surface signal; the source explainer carries the rest.
   let caption = $derived(
     basisCaption(panel?.serving_size, densityGramsPerMl(density))
@@ -83,7 +83,7 @@
 
   // The amount total: the full panel scaled from its own basis to the typed
   // amount, with that amount put into the panel's own unit first. The panel
-  // itself is never rewritten (ADR-0105 §5); what moves is the number divided
+  // itself is never rewritten (ADR-0108 §5); what moves is the number divided
   // by it, and on every food carrying no density that move is the identity.
   let factor = $derived(
     panel

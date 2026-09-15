@@ -447,15 +447,11 @@ const ADJUDICATED_VARIANT_GROUPS: readonly AdjudicatedVariantGroup[] = [
     ],
   },
   {
-    why: "A chocolate milk drink filed under `Beverages`. They leave with the seven chocolate milks so that `chocolate milk` returns nothing rather than returning a drink powder. This group listed six rows and now lists two: `isReconstitutedDrink` takes the other four — 171874, 171879, 173184 and 174160, each of them a powder the description says was made up with milk — and takes them a stage earlier, so naming them here would strand the verdict. The two left are the two the rule is right not to reach: an almond milk that is shelf-stable rather than reconstituted, and the DRY mix, which says `powder` and never says it was prepared. Both are still drink products, which is what this group is for, and the shrinkage is the argument for the rule: a hand-written list of six was doing by name what one shape now does.",
+    why: "A chocolate almond milk filed under `Beverages`. It leaves with the seven chocolate milks so that `chocolate milk` returns nothing rather than returning a shelf-stable almond drink. This group listed six rows, then two, and now one: `isReconstitutedDrink` took four of them and `isDrinkPowder` has since taken the fifth, each a stage earlier and each by shape rather than by fdcId. The one left is the one no rule is right to reach — it says neither `powder` nor `mix` nor `prepared with`, being a carton of drink rather than something made up into one. A hand list of six worn down to one by two rules is the direction this roster is meant to move in.",
     rows: [
       [
         173187,
         "Beverages, chocolate almond milk, unsweetened, shelf-stable, fortified with vitamin D2 and E",
-      ],
-      [
-        174159,
-        "Beverages, chocolate-flavor beverage mix for milk, powder, with added nutrients",
       ],
     ],
   },

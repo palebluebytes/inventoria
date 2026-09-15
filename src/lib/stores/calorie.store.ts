@@ -180,7 +180,7 @@ export interface ScaleChange {
   /** The target twin's panel and density, read when the Scale tier opened. A
    *  scaled amount keeps the unit it was logged in, so the density is needed for
    *  the same reason the panel is: a gram amount against a per-100 ml panel has
-   *  to be converted before it can be divided (ADR-0105 §5). */
+   *  to be converted before it can be divided (ADR-0108 §5). */
   source: IngredientSource;
   /** The food twin the replacement points at. */
   ref: string;
@@ -262,6 +262,11 @@ export async function scaleLoggedFoods(
  * `partitionCopyable` has already removed what cannot be reproduced, so `lost`
  * here counts only appends that actually threw.
  *
+ * The ids it returns are the events it actually wrote, in the order it wrote
+ * them, and never the ones it lost — #440 waits for every id it is handed to
+ * appear in the day, so an id for an append that threw would hold that wait open
+ * forever.
+ *
  * `mintEventId` is the receive path's one seam into this operation (ADR-0073 §5,
  * amending ADR-0058). Accepting a sent meal **is** this copy with a wire in
  * front of it — the same re-log of frozen fields into the recipient's own meal
@@ -274,12 +279,12 @@ export async function copyPastMeal(
   meal_type: string,
   selectedDate: Date,
   mintEventId?: (item: ConsumptionEvent) => string
-): Promise<{ copied: number; lost: number }> {
-  let copied = 0;
+): Promise<{ copied: number; lost: number; ids: string[] }> {
   let lost = 0;
+  const ids: string[] = [];
   for (const item of items) {
     try {
-      await logFoodConsumption(
+      const id = await logFoodConsumption(
         item.target as string,
         item.quantity as string,
         meal_type,
@@ -292,13 +297,16 @@ export async function copyPastMeal(
         item.metrics,
         mintEventId?.(item)
       );
-      copied += 1;
+      ids.push(id);
     } catch (e) {
       appError("copying a logged food failed", e);
       lost += 1;
     }
   }
-  return { copied, lost };
+  // `copied` is `ids.length` and stays in the shape callers already destructure:
+  // the tally reads a number and #440 reads the ids, and deriving one from the
+  // other at each call site is how the two would come to disagree.
+  return { copied: ids.length, lost, ids };
 }
 
 /**
@@ -374,7 +382,7 @@ export interface LabelFoodInput {
   portions?: Portion[];
   /**
    * What kind of liquid this food is, on a panel the user declared per 100 ml
-   * (ADR-0105 §1). Written as given; absent on every gram capture, which has
+   * (ADR-0108 §1). Written as given; absent on every gram capture, which has
    * nothing to ask.
    */
   density?: FoodDensity;
@@ -449,7 +457,7 @@ export async function saveLabelFood(input: LabelFoodInput): Promise<string> {
 
 /**
  * Records what kind of liquid a food is, on a twin already in the ledger
- * (ADR-0105 §1/§4).
+ * (ADR-0108 §1/§4).
  *
  * One datom on one attribute, and latest-wins settles a user who changes their
  * mind — which is the whole reason `food/density` is one key whose VALUE names
@@ -627,7 +635,7 @@ export async function moveLoggedFoodsToMeal(
  * above this offers both units, so a unit re-derived here would silently
  * contradict what the user just typed. The logged quantity string is spelled in
  * the unit that reaches it, and the scaling factor puts that amount into the
- * panel's own unit first (ADR-0105 §5) rather than rewriting the panel.
+ * panel's own unit first (ADR-0108 §5) rather than rewriting the panel.
  *
  * Returns the id of the Consumption Event that replaced the old one, or `null`
  * when there was nothing to scale from (no target, or a twin carrying no

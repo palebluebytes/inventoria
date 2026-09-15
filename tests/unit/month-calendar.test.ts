@@ -24,6 +24,7 @@ import type { ConsumptionEvent } from "../../src/lib/food/consumption-state";
  */
 
 const DAY = "src/lib/views/food/DailyDashboard.svelte";
+const DISCLOSURE = "src/lib/ui/Disclosure.svelte";
 const MONTH = "src/lib/views/food/MonthCalendar.svelte";
 const SHELL = `@media (min-width: ${BREAKPOINTS.shell}px)`;
 
@@ -142,10 +143,13 @@ describe("the month's chrome is drawn, not typed", () => {
   it("is one shape at two rotations, and the shape the app already draws", () => {
     const path = (file: string) =>
       readSource(file).match(/ d="(M7 6[^"]*)"/)?.[1];
-    // The same triangle the Nutrition disclosure draws, so the app has one
-    // solid caret rather than two that can drift.
+    // The same triangle the disclosure caret draws, so the app has one solid
+    // caret rather than two that can drift. It was read off `DailyDashboard`
+    // until #316 moved the Nutrition fold onto `ui/Disclosure`; the shape is
+    // the primitive's now, which is where a caret that several screens share
+    // should have been read from all along.
     expect(path(MONTH)).toBeDefined();
-    expect(path(MONTH)).toBe(path(DAY));
+    expect(path(MONTH)).toBe(path(DISCLOSURE));
     // Drawn once and turned, so the pair cannot drift apart either.
     expect(monthCode.match(/M7 6 L17 12 L7 18 Z/g)).toHaveLength(2);
     expect(decl(ruleOf(MONTH, ".month-arrow.back"), "transform")).toBe(

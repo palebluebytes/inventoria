@@ -159,6 +159,8 @@ export const BUNDLE_DATASETS = ["Foundation Foods", "SR Legacy"];
  * @property {(description: string) => boolean} isProcessedProduct
  * @property {(foodCategory: string | undefined, description: string) => boolean} isPreparedProduct
  * @property {(description: string) => boolean} isReconstitutedDrink
+ * @property {(description: string) => boolean} isFoodserviceRecord
+ * @property {(foodCategory: string | undefined, description: string) => boolean} isDrinkPowder
  * @property {(foodCategory: string | undefined, description: string) => boolean} isCookedForm
  * @property {readonly (readonly [number, string, string])[]} ADJUDICATED_DISHES
  * @property {(description: string) => boolean} isDryBasisRecord

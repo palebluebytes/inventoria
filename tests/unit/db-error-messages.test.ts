@@ -138,6 +138,8 @@ const ALLOWED_INTERPOLATIONS: Record<string, Record<string, string>> = {
   "src/lib/db/version-vector.ts": {
     "describeMarker(device_id)":
       "the originating device while it is label-sized, its shape when it is not",
+    "describeMarker(domain_id)":
+      "a Tracked Domain's id while it is label-sized, its shape when it is not",
   },
   "src/lib/db/ledger-export.ts": {
     "describeBytes(bytes)": "a size, from the export's own accounting",

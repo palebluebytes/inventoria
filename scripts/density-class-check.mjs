@@ -1,7 +1,7 @@
 /**
- * Do the pinned Density Class figures still hold? (ADR-0105 §2 and §3, #429)
+ * Do the pinned Density Class figures still hold? (ADR-0108 §2 and §3, #429)
  *
- * ADR-0105 §3 pins each class figure as a written constant and refuses to
+ * ADR-0108 §3 pins each class figure as a written constant and refuses to
  * compute it at build time: the USDA corpus is regenerated from time to time,
  * and a computed figure would move between releases with nobody deciding that it
  * should — the silence ADR-0060 §2 objected to, relocated. Pinning makes the
@@ -60,7 +60,7 @@ function median(ascending) {
 /**
  * The density a food states, in g/ml, or `null` where it states none.
  *
- * A food counts once however many volume portions it carries, because ADR-0105
+ * A food counts once however many volume portions it carries, because ADR-0108
  * §2's n is a count of foods: `Oil, olive` states a cup, a tablespoon and a
  * teaspoon, and letting all three vote would weight it three times against a
  * food that states one. The median rather than the mean for the same reason one
@@ -92,7 +92,7 @@ const to = (value, decimals) => Number(value.toFixed(decimals));
 /**
  * The foods a class's match pattern selects out of the corpus.
  *
- * The pattern travels with the figure (ADR-0105 §2) rather than a list of names
+ * The pattern travels with the figure (ADR-0108 §2) rather than a list of names
  * doing so, and that is the half which makes the gate able to notice anything: a
  * pinned list stays a pinned list after the corpus drops a member, where a
  * pattern re-selects and the count moves.
@@ -111,7 +111,7 @@ export function selectClass(foods, pattern) {
 }
 
 /**
- * The four numbers ADR-0105 §2 records beside a class figure, measured over the
+ * The four numbers ADR-0108 §2 records beside a class figure, measured over the
  * foods that class selected.
  *
  * Two of them are decisions rather than arithmetic, and both are what make the
@@ -148,7 +148,7 @@ export function classStats(foods) {
 /**
  * Everything the corpus no longer says about a pinned class.
  *
- * Nothing here rewrites a figure. ADR-0105 §3's argument for pinning is that a
+ * Nothing here rewrites a figure. ADR-0108 §3's argument for pinning is that a
  * computed figure moves between releases with nobody deciding it should, and a
  * gate that quietly adopted the new measurement would be that same silence with
  * an extra step. So each kind of movement is reported and left for a human:
@@ -156,7 +156,7 @@ export function classStats(foods) {
  *  - `figure` — the class's g/ml, at the two decimals the app reads;
  *  - `members` — how many foods, or how many portions, the pattern now selects;
  *  - `spread` / `cv` — the evidence recorded beside the figure;
- *  - `bar` — the class no longer clears ADR-0105 §2's n >= 8 and CV <= 2%,
+ *  - `bar` — the class no longer clears ADR-0108 §2's n >= 8 and CV <= 2%,
  *    which is a decision about whether it may ship at all rather than drift.
  *
  * @param {readonly object[]} foods every food in the corpus
@@ -206,16 +206,16 @@ export function driftFindings(foods, classes, bar = undefined) {
 /**
  * A refused class that the corpus would now admit.
  *
- * ADR-0105 §2 refused syrup and spirits on measurements, and kept both in the
+ * ADR-0108 §2 refused syrup and spirits on measurements, and kept both in the
  * record so a later reader finds the numbers that stopped them. Watching them is
  * the same argument as pinning the five that shipped, pointed the other way: a
  * refusal that quietly became wrong is as much a silence as a figure that
  * quietly moved. Clearing the bar does not admit a class — it says a decision is
- * available, and ADR-0105 §2's own admission is "statistical AND gated", so the
+ * available, and ADR-0108 §2's own admission is "statistical AND gated", so the
  * figure would still have to be pinned by hand.
  *
  * @param {readonly object[]} foods every food in the corpus
- * @param {readonly object[]} refused the classes ADR-0105 §2 measured and refused
+ * @param {readonly object[]} refused the classes ADR-0108 §2 measured and refused
  * @param {{ minFoods: number, maxCvPercent: number }} bar
  */
 export function refusalFindings(foods, refused, bar) {
@@ -262,7 +262,7 @@ export function formatReport(findings) {
       kind === "admissible"
         ? `  ERR ${id} was refused and would now be admitted: ${show(measured)}\n` +
           `      it was refused because ${show(pinned)}\n` +
-          `      Admitting it is a decision, not an update: ADR-0105 §2 admits a\n` +
+          `      Admitting it is a decision, not an update: ADR-0108 §2 admits a\n` +
           `      class statistically AND by hand.`
         : `  ERR ${id}: ${kind} was ${show(pinned)}, the corpus now states ${show(measured)}`
     )
@@ -299,7 +299,7 @@ async function main(root) {
     console.error(
       `\n${formatReport(findings)}\n\n` +
         `      ${findings.length} pinned Density Class figure(s) no longer match\n` +
-        `      public/usda/search-index.json. Nothing here rewrites them: ADR-0105\n` +
+        `      public/usda/search-index.json. Nothing here rewrites them: ADR-0108\n` +
         `      §3 pins a figure so that moving one is a decision somebody makes.\n`
     );
     process.exit(1);

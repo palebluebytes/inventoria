@@ -34,8 +34,16 @@
  */
 
 import { readFileSync, readdirSync, statSync } from "node:fs";
+import { registerHooks } from "node:module";
 import { join, relative } from "node:path";
 import { pathToFileURL } from "node:url";
+
+import { resolve } from "./ts-resolve-hook.mjs";
+
+// The registry imports its domain half, and the app writes that import without
+// a file extension because it is written for a bundler. This gate reads the
+// roster by importing it, so it needs the same hook the build gates register.
+registerHooks({ resolve });
 
 const ROOT = process.cwd();
 const SRC = join(ROOT, "src");

@@ -298,7 +298,7 @@ describe("rememberedAmount", () => {
 
 describe("rememberedUnit", () => {
   it("answers which unit this food was last logged in", () => {
-    // The memory half of ADR-0105 §7's opening-unit rule, and a reader of its
+    // The memory half of ADR-0108 §7's opening-unit rule, and a reader of its
     // own: the amount above refuses a mismatch and must keep refusing, which a
     // single function choosing the unit could not report.
     const older = { ...ate("food:oil", "dinner", "250ml"), time: 8_000 };
@@ -329,7 +329,7 @@ describe("rememberedIngredientUnit", () => {
   it("is null for a food no recipe uses, which takes the recipe default", () => {
     // What this food was last DRUNK in is not consulted here: a can of Coke
     // logged in millilitres for months is still a thing measured into something
-    // the first time it reaches an ingredient list (ADR-0105 §7, as amended).
+    // the first time it reaches an ingredient list (ADR-0108 §7, as amended).
     expect(rememberedIngredientUnit([oilInMl], "food:cola")).toBeNull();
     expect(rememberedIngredientUnit([], "food:oil")).toBeNull();
   });

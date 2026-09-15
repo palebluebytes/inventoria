@@ -33,7 +33,7 @@ export interface ReferenceIngredient {
  * that twin says about its density.
  *
  * The density is here rather than looked up separately because an amount can now
- * be stated in a unit the panel's basis is not (ADR-0105 §7): a gram entry
+ * be stated in a unit the panel's basis is not (ADR-0108 §7): a gram entry
  * against a per-100 ml panel has to be converted before it can be divided, and a
  * resolver that handed back only the panel would leave every caller either doing
  * that itself or silently not doing it. It is absent on every food nobody has
@@ -110,7 +110,7 @@ export function deriveRecipeNutrition(
     // ingredient would take the serving arm and 330 ml would mean 330 servings.
     //
     // A measured amount is put into the panel's own unit before it is divided
-    // (ADR-0105 §5): 92 g of an oil published per 100 ml is 100 ml of it, and
+    // (ADR-0108 §5): 92 g of an oil published per 100 ml is 100 ml of it, and
     // dividing the 92 would have been an 8% error wearing the right unit.
     const factor = isMeasuredUnit(ing.unit)
       ? amountAgainstBasis(

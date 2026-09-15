@@ -545,7 +545,7 @@ test.describe("Visual Catalog Generator", () => {
 
     if (payload.tracking !== undefined) {
       const isChecked = await page
-        .locator(".field-card:has-text('REQUIRES CONFIRMATION') .checkbox")
+        .locator(".field-card:has-text('REQUIRES CONFIRMATION') .toggle-tick")
         .evaluate((el) => el.classList.contains("checked"));
       if (isChecked !== payload.tracking) {
         await page

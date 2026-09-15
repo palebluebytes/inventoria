@@ -1,5 +1,5 @@
 // ---------------------------------------------------------------------------
-// A food's density: what the twin holds, and what it resolves to (ADR-0105)
+// A food's density: what the twin holds, and what it resolves to (ADR-0108)
 // ---------------------------------------------------------------------------
 //
 // `density-class.ts` holds the five classes and the measurement that admitted
@@ -27,7 +27,7 @@ export const FOOD_DENSITY_ATTR = "food/density";
 
 /**
  * A density asserted as one of the five classes — what the user said their
- * bottle IS. The figure is never stored beside it (ADR-0105 §4): 0.92 is our
+ * bottle IS. The figure is never stored beside it (ADR-0108 §4): 0.92 is our
  * reading of "this is an oil", and a reading belongs derived, so improving a
  * class improves every food filed under it.
  */
@@ -39,7 +39,7 @@ export interface DensityByClass {
  * A density asserted as a bare figure, for a food no class fits — squash,
  * cordial, a cooking coconut tin.
  *
- * It is an **asserted** density and never a measured one, and ADR-0105's
+ * It is an **asserted** density and never a measured one, and ADR-0108's
  * 2026-09-15 amendment is emphatic about the difference: nobody puts a bottle on
  * a scale and divides. The figure reaching this field is a remembered or
  * looked-up one far more often than a weighed one, the app cannot tell those
@@ -54,7 +54,7 @@ export interface DensityByFigure {
 
 /**
  * What `food/density` holds: one attribute whose value names which kind of
- * answer it is (ADR-0105 §4, as amended).
+ * answer it is (ADR-0108 §4, as amended).
  *
  * Two attributes were refused for a reason that is structural rather than
  * tidiness. Latest-datom-wins is **per attribute**, so a food moving from a
@@ -64,7 +64,7 @@ export interface DensityByFigure {
  *
  * `food/portions` has the same shape for the same reason — its `grams` /
  * `millilitres` siblings are fields inside one value — and the shape leaves room
- * for what ADR-0105 §12 has already named: a per-food density matched to a USDA
+ * for what ADR-0108 §12 has already named: a per-food density matched to a USDA
  * food arrives as a third variant and sits beside these two, where under a bare
  * number it would be indistinguishable from a typed override.
  */
@@ -101,7 +101,7 @@ export function densityClassOf(id: DensityClassId): DensityClass | undefined {
  * Guarded once, here, rather than trusted: this value crosses the ledger as JSON
  * and can arrive from an older build, a hand-edited import or one of your own
  * devices. A malformed one reads as *no density*, which is the standing state a
- * volume food is already in and never a wrong figure (ADR-0105 §6).
+ * volume food is already in and never a wrong figure (ADR-0108 §6).
  */
 export function readFoodDensity(
   attributes: Record<string, unknown> | undefined
@@ -141,7 +141,7 @@ export function densityGramsPerMl(
  * An amount entered in `from`, expressed in `to`.
  *
  * The **one door** in the app through which a volume becomes a weight: it
- * converts only on a density the user asserted (ADR-0105 §1), and the sum behind
+ * converts only on a density the user asserted (ADR-0108 §1), and the sum behind
  * it is `convertMeasured`, which knows nothing about where a figure came from.
  * With no density the two units cannot be bridged and this returns undefined
  * rather than the ratio-1 pretence ADR-0060 §2 refuses — the caller then has a
@@ -161,7 +161,7 @@ export function convertAmount(
  * An amount, expressed in whatever unit the panel's own basis is stated in —
  * the number every scaler divides by `parseBasisQuantity` (ADR-0021's formula).
  *
- * This is the seam ADR-0105 §5 turns on: a gram entry against a per-100 ml
+ * This is the seam ADR-0108 §5 turns on: a gram entry against a per-100 ml
  * panel converts the AMOUNT and never the panel. Rescaling the assay to an
  * assumed basis is what ADR-0048 §3 forbids, and a rewritten panel is also
  * unreadable afterwards, since nothing would distinguish it from one the source
@@ -194,7 +194,7 @@ export function amountAgainstBasis(
  * Each option names **what you have**, never what it resolves to. You pick by
  * recognising your bottle, and showing `0.92 g/ml` beside it would ask you to
  * validate a number you have no way to check — which is exactly the trade
- * ADR-0105 §12 refuses for a model's per-food density. The figure is not hidden:
+ * ADR-0108 §12 refuses for a model's per-food density. The figure is not hidden:
  * §9 puts it on the basis caption the moment you choose, and the source
  * explainer carries the full account.
  *
@@ -210,7 +210,7 @@ export const DENSITY_CLASS_OPTIONS: Record<DensityClassId, string> = {
 };
 
 /**
- * What the source explainer says about a food's density (ADR-0105 §9).
+ * What the source explainer says about a food's density (ADR-0108 §9).
  *
  * The screen itself carries one mark and one only — the `≈` on the basis caption
  * — and everything else about the reading lives here, one tap deeper. That split
@@ -261,7 +261,7 @@ export function densityNote(density: FoodDensity | undefined): string | null {
  * Reading these is not the app inferring a class. An OFF product arrives
  * carrying its own classification, and mapping `en:olive-oils` to the oil class
  * is the same act as `offPanelBasis` reading `product_quantity_unit` — a source
- * assertion consulted, not a judgement invented (ADR-0105's pre-fill amendment).
+ * assertion consulted, not a judgement invented (ADR-0108's pre-fill amendment).
  *
  * Three structural facts about OFF's taxonomy constrain everything below, and
  * each of them breaks an assumption that looks safe:
@@ -350,7 +350,7 @@ const CLASS_TAGS: Record<DensityClassId, readonly string[]> = {
  * Carrying one of these does not make a product unclassifiable — the user can
  * still say what it is. It makes it un-PRE-fillable, which is the whole of the
  * claim: a wrong pre-fill converts a question into a nod, and a nod is what
- * ADR-0105 §2's "a guess wearing the costume of a measurement" describes.
+ * ADR-0108 §2's "a guess wearing the costume of a measurement" describes.
  */
 export const CONTRA_TAGS: readonly string[] = [
   // Concentrates and cordials: a juice tag on something you dilute.
@@ -396,7 +396,7 @@ export const CONTRA_TAGS: readonly string[] = [
  * The class a source's own tags name, or undefined where they name none, more
  * than one, or one beside something no class covers.
  *
- * **Undefined is the common answer and is not a failure.** ADR-0105 measured the
+ * **Undefined is the common answer and is not a failure.** ADR-0108 measured the
  * full 2026-09-14 dump — 4,747,804 products — and found that of the 201,821 sold
  * in millilitres, 77.47% carry tags at all while only 35.76% resolve to exactly
  * one class. The gap between those two numbers is the finding: having tags and
@@ -411,7 +411,7 @@ export const CONTRA_TAGS: readonly string[] = [
  * rather than the one that was measured.
  *
  * The caller opens the picker on what this returns and **never writes it**
- * (ADR-0105's pre-fill amendment). A pre-fill is a proposal the user confirms,
+ * (ADR-0108's pre-fill amendment). A pre-fill is a proposal the user confirms,
  * and it is confirmable in a way a figure is not: a class is checkable by
  * somebody holding the bottle — you can see "juice" on a bottle of squash and
  * know it is wrong — where `1.04 g/ml` could never be checked by anyone.
@@ -434,7 +434,7 @@ export function densityClassFromCategoryTags(
 
 /**
  * Where an amount is being entered, which is what decides the opening unit on a
- * food that can answer in either (ADR-0105 §7, as amended).
+ * food that can answer in either (ADR-0108 §7, as amended).
  *
  * `"recipe"` is an ingredient list — a thing measured **into** something.
  * `"log"` is a food being consumed. Unqualified "grams the default" would open a
@@ -447,7 +447,7 @@ export type AmountContext = "recipe" | "log";
  * this food was last entered in **here**.
  *
  * `remembered` is read per context and never per food, which is the correction
- * ADR-0105's 2026-09-15 amendment makes to itself. A flat per-food memory
+ * ADR-0108's 2026-09-15 amendment makes to itself. A flat per-food memory
  * retires the context rule almost entirely: a can of Coke logged and drunk in
  * millilitres for months, then added to a recipe — where it is a thing measured
  * into something, which is the entire reason the context rule exists — would
@@ -459,7 +459,7 @@ export type AmountContext = "recipe" | "log";
  * a density is absent, which is most foods.
  *
  * The split is only ever about which unit the field OPENS on. Both units stay
- * available wherever the food is reached, so ADR-0105 §1's "a density is a
+ * available wherever the food is reached, so ADR-0108 §1's "a density is a
  * property of the food, not of the screen" is not breached: the density is one
  * fact on one twin, and a food classified once answers in grams everywhere.
  */

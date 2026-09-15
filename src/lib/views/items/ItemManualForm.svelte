@@ -3,6 +3,7 @@
   import { saveAcquisitionTwin } from "../../stores/acquisition.store";
   import Card from "../../ui/Card.svelte";
   import Button from "../../ui/Button.svelte";
+  import FieldCaption from "../../ui/FieldCaption.svelte";
   import Input from "../../ui/Input.svelte";
   import Textarea from "../../ui/Textarea.svelte";
   import Select from "../../ui/Select.svelte";
@@ -78,7 +79,7 @@
   <h2>Add Digital Twin Manually</h2>
   <form onsubmit={handleManualSubmit} class="form-grid">
     <div class="form-group">
-      <label for="manual-name">Item Name *</label>
+      <FieldCaption for="manual-name">Item Name *</FieldCaption>
       <Input
         id="manual-name"
         bind:value={manualName}
@@ -87,7 +88,7 @@
     </div>
 
     <div class="form-group">
-      <label for="manual-brand">Brand</label>
+      <FieldCaption for="manual-brand">Brand</FieldCaption>
       <Input
         id="manual-brand"
         bind:value={manualBrand}
@@ -96,7 +97,7 @@
     </div>
 
     <div class="form-group">
-      <label for="manual-image">Image URL</label>
+      <FieldCaption for="manual-image">Image URL</FieldCaption>
       <Input
         id="manual-image"
         type="text"
@@ -106,7 +107,7 @@
     </div>
 
     <div class="form-group">
-      <label for="manual-status">Initial Status</label>
+      <FieldCaption for="manual-status">Initial Status</FieldCaption>
       <Select
         id="manual-status"
         bind:value={manualStatus}
@@ -118,7 +119,7 @@
     </div>
 
     <div class="form-group">
-      <label for="manual-tags">Tags (comma-separated)</label>
+      <FieldCaption for="manual-tags">Tags (comma-separated)</FieldCaption>
       <Input
         id="manual-tags"
         type="text"
@@ -128,7 +129,7 @@
     </div>
 
     <div class="form-group full-width">
-      <label for="manual-desc">Description</label>
+      <FieldCaption for="manual-desc">Description</FieldCaption>
       <Textarea
         id="manual-desc"
         bind:value={manualDescription}
@@ -137,7 +138,7 @@
     </div>
 
     <div class="form-group full-width">
-      <label for="manual-note">Note</label>
+      <FieldCaption for="manual-note">Note</FieldCaption>
       <Textarea
         id="manual-note"
         bind:value={manualNote}
@@ -173,11 +174,6 @@
     display: flex;
     flex-direction: column;
     gap: var(--space-3xs);
-  }
-  .form-group label {
-    font-size: var(--step-n2);
-    font-weight: 600;
-    text-transform: uppercase;
   }
   .full-width {
     grid-column: span 2;

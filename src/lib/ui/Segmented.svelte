@@ -42,7 +42,7 @@
 </script>
 
 <div class="segmented-field">
-  <span class="segmented-label" id={labelId}>{label}</span>
+  <span class="field-caption segmented-label" id={labelId}>{label}</span>
   <RadioGroup.Root
     class="seg-row"
     value={value ?? ""}
@@ -76,13 +76,12 @@
     width: 100%;
     container-type: inline-size;
   }
+  /* The look is `.field-caption` in `src/app.css`, shared with `ui/FieldCaption`
+     and with `ReportsPage`'s date range — the three captions in the app that
+     name a *group* rather than a control, and so cannot be a `<label for>`
+     (#383, ADR-0100 §4). The gap under it is placement and stays here. */
   .segmented-label {
-    display: block;
     margin-bottom: var(--space-2xs);
-    font-size: var(--step-n1);
-    font-weight: 800;
-    text-transform: uppercase;
-    color: var(--ink);
   }
 
   /* bits-ui renders these elements itself, so target them with :global.

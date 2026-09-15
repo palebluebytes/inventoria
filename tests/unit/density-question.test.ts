@@ -1,5 +1,5 @@
 /**
- * The class question itself (ADR-0105 §1), which two screens ask: the amount
+ * The class question itself (ADR-0108 §1), which two screens ask: the amount
  * field mid-entry, and the hand-capture form as one field among many.
  *
  * `render` reaches the row, the words on it, and what the exit reveals. What it
@@ -28,7 +28,7 @@ describe("the question offers every class and a way past them", () => {
   it("names the thing and never the number", () => {
     // You pick by recognising your bottle. Showing `0.92 g/ml` beside it would
     // ask you to validate a figure you have no way to check, which is the trade
-    // ADR-0105 §12 refuses for a model's per-food density.
+    // ADR-0108 §12 refuses for a model's per-food density.
     const { body } = render(DensityQuestion, { props: { onAnswer: () => {} } });
     // The cells' own words, not the whole document: a bits-ui id carries digits
     // and `1` is a real class figure, so the loose reading convicts the markup

@@ -114,7 +114,7 @@ describe("every deposit of a round states the whole list", () => {
     ];
     const { errand, store, held } = await withJar(rows);
 
-    await errand.depositToPeers(store, EMPTY_LEDGER);
+    await errand.depositToPeers("root", store, EMPTY_LEDGER);
 
     expect((await envelopeOn(held, rows[0])).roster).toEqual([
       "dev_c",
@@ -145,7 +145,7 @@ describe("every deposit of a round states the whole list", () => {
     ];
     const { errand, store, held } = await withJar(rows);
 
-    await errand.depositToPeers(store, EMPTY_LEDGER);
+    await errand.depositToPeers("root", store, EMPTY_LEDGER);
 
     expect((await envelopeOn(held, rows[0])).roster).toEqual(["dev_stopped"]);
   });
@@ -154,7 +154,7 @@ describe("every deposit of a round states the whole list", () => {
     const rows = [await pairing("dev_b", 1)];
     const { errand, store, held } = await withJar(rows);
 
-    await errand.depositToPeers(store, EMPTY_LEDGER);
+    await errand.depositToPeers("root", store, EMPTY_LEDGER);
 
     expect(await envelopeOn(held, rows[0])).toEqual({
       acknowledges: null,
@@ -173,7 +173,7 @@ describe("every deposit of a round states the whole list", () => {
     ];
     const { errand, store, held } = await withJar(rows);
 
-    await errand.depositToPeers(store, EMPTY_LEDGER);
+    await errand.depositToPeers("root", store, EMPTY_LEDGER);
 
     expect((await envelopeOn(held, rows[0])).roster).toEqual([]);
   });
@@ -195,7 +195,7 @@ describe("every deposit of a round states the whole list", () => {
       },
     };
 
-    await errand.depositToPeers(severing, EMPTY_LEDGER);
+    await errand.depositToPeers("root", severing, EMPTY_LEDGER);
 
     // One lane written, not two: the second row was re-read and had been
     // severed by the time its turn came.
@@ -206,8 +206,8 @@ describe("every deposit of a round states the whole list", () => {
     const rows = [await pairing("dev_revoked", 2, { revoked: true })];
     const { errand, store, held } = await withJar(rows);
 
-    await errand.convergeWithPeers(store, EMPTY_LEDGER);
-    await errand.depositToPeers(store, EMPTY_LEDGER);
+    await errand.convergeWithPeers("root", store, EMPTY_LEDGER);
+    await errand.depositToPeers("root", store, EMPTY_LEDGER);
 
     // Depositing and collecting stop at the mark (§11), which is the half that
     // was always local, immediate and unforgeable.
@@ -218,7 +218,7 @@ describe("every deposit of a round states the whole list", () => {
     const rows = [await pairing("dev_b", 1), await pairing("dev_c", 2)];
     const { errand, store, held } = await withJar(rows);
 
-    await errand.convergeWithPeers(store, EMPTY_LEDGER);
+    await errand.convergeWithPeers("root", store, EMPTY_LEDGER);
 
     expect((await envelopeOn(held, rows[0])).roster).toEqual(["dev_c"]);
     expect((await envelopeOn(held, rows[1])).roster).toEqual(["dev_b"]);

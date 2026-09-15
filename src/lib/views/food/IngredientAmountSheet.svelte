@@ -53,7 +53,7 @@
     name: string;
     amount: number;
     /** The unit `amount` is in. On a food carrying a Density Class this is what
-     *  the row was entered in and not what its panel implies (ADR-0105 §7), so
+     *  the row was entered in and not what its panel implies (ADR-0108 §7), so
      *  it is handed in and handed back rather than re-derived here. */
     unit: MeasuredUnit;
     /** The food's household portions (ADR-0030) plus any synthesised serving,
@@ -72,7 +72,7 @@
     onExplainSource?: (kind: FoodSourceKind) => void;
     /** Tap-through on a dietary mark — the on-pack claims explainer. */
     onExplainDietary?: (verdict: DietaryVerdict) => void;
-    /** The user has said what kind of liquid this food is (ADR-0105 §1). The
+    /** The user has said what kind of liquid this food is (ADR-0108 §1). The
      *  twin behind this sheet already exists, so the host persists it rather
      *  than carrying it to a commit the way a staging screen does. Omit on a
      *  host with nowhere to put it, and the field offers only the panel's unit. */

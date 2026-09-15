@@ -66,7 +66,7 @@ export interface RecipeIngredient {
  *
  * It resolves the panel AND the density together because the derivation needs
  * both: an ingredient's amount may be stated in a unit the panel's basis is not
- * (ADR-0105 §7), and converting it is what the density is for. A resolver
+ * (ADR-0108 §7), and converting it is what the density is for. A resolver
  * handing back only the panel was what this was until #430, and every caller
  * would have compiled unchanged while silently dropping the conversion.
  */
@@ -242,7 +242,7 @@ export function parseLoggedQuantity(quantity: string | undefined): {
  * is a gram row against a per-100 ml panel, and re-deriving the unit here would
  * silently relabel it as millilitres. Nothing converts on the way in; the
  * conversion belongs to {@link deriveRecipeNutrition}, which puts the amount
- * into the panel's own unit before dividing (ADR-0105 §5).
+ * into the panel's own unit before dividing (ADR-0108 §5).
  */
 export function ingredientFromFood(
   food: FoodResult,

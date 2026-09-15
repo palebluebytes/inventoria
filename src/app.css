@@ -118,18 +118,27 @@
      Flat lengths, not `clamp()`s, and that is the point rather than an
      oversight: the Utopia scales above are generated for 360→1240px and are
      frozen at their maximum past that, so above 1240 the only thing that can
-     respond to a wider window is the layout. These three are what it responds
+     respond to a wider window is the layout. These five are what it responds
      with. `rem` rather than `px` because a measure is a count of characters per
      line, which follows the reader's own font size — unlike a breakpoint, which
      is a fact about the window and is stated in px (`lib/ui/breakpoints.ts`).
 
-     `--rail` is declared beside the two caps rather than in the day screen that
-     draws it, because it is the second of the two things `--measure` is spent
-     on: a rail whose width disagreed with the column it sits in is a gap
-     nobody declared. */
+     `--rail` and `--way` are declared beside the three caps rather than in the
+     day screen that draws them, because they are what `--measure` and
+     `--measure-wide` are spent on: a flank whose width disagreed with the
+     column it sits in is a gap nobody declared.
+
+     `--way` matches `--rail` and that is chosen rather than coincidental: above
+     the widest breakpoint the day is a timeline between two flanks — the ways
+     in on the left, the day's numbers on the right — and two flanks of one
+     width is what makes the timeline read as centred. They are two tokens
+     because they answer to two different contents, and either may move without
+     dragging the other. */
   --measure-solo: 54rem;
   --measure: 72rem;
+  --measure-wide: 88rem;
   --rail: 22rem;
+  --way: 22rem;
 
   /* The width of a drawn line, for the places where a line is drawn by
      something other than a border: a grid whose `gap` shows its own background
@@ -140,6 +149,20 @@
      against the viewport can express. Rhythm is the space scale's; this is not
      rhythm, and `--space-3xs` (4.5px) would draw a band instead of a line. */
   --hairline: 1px;
+
+  /* `--edge`'s weight as a bare length, and `--hairline`'s heavier sibling.
+     The two exist for the same reason and differ only in which border they
+     answer to: a line drawn by something other than a border cannot reach a
+     shorthand, so a grid whose `gap` shows its ink ground through as a rule has
+     to name the weight itself. The Way-in bar is the first box to draw the HEAVY
+     rule that way (ADR-0101, amended 2026-09-15), and it draws every rule it
+     has that way — the outer edge and each internal seam are one gap over one
+     ground, which is the
+     only construction where two adjacent cells cannot add up to a 4px seam
+     beside a 2px edge. Derived from nothing on purpose: it is `--edge`'s 2px
+     written once more, because `--edge` is `2px solid var(--ink)` and there is
+     no way to read a part out of it. */
+  --edge-width: 2px;
 
   /* ── The visible band ──────────────────────────────────────────────────────
      The part of the page a person can actually see right now. Declared here
@@ -271,7 +294,17 @@ body {
 
 /* ── The shell ───────────────────────────────────────────────────────────────
  * The box every Facet's screens are drawn into: one column, centred, capped,
- * and the only thing on the page that scrolls (ADR-0091 §2).
+ * and the only thing on the page that scrolls (ADR-0091 §2, as amended).
+ *
+ * **The box that scrolls and the column that is capped are two boxes, and that
+ * is the amendment.** They used to be one: `.main` carried `overflow-y: auto`
+ * and `max-width` together, so the scrollbar was drawn at the right-hand edge
+ * of a 1152px column with the rest of the window grey beside it — a page-height
+ * bar floating in the middle of a wide screen, which reads as a pane inside the
+ * app rather than as the page's own. Splitting them moves the bar to the edge of
+ * the window, where a scrollbar belongs, and changes nothing else: `.main` keeps
+ * the padding, so the column is inset exactly as far as it was, and it keeps the
+ * scroll, so the one-scroll-box claim below is untouched.
  *
  * **Here rather than in a component, because there are two shells and one
  * rule.** `src/App.svelte` and `src/Rations.svelte` each carried this block,
@@ -284,11 +317,6 @@ body {
  * Svelte scopes that to 0,2,0 against this 0,1,0, which is what keeps "one
  * rule" honest.
  *
- * The cap is unconditional, not an override inside a breakpoint. A cap that
- * exists only above a width is a cap that is missing everywhere it was not
- * thought about, and `--measure-solo` is wider than the widths below the first
- * breakpoint anyway, so writing it once costs a phone nothing.
- *
  * There is no `padding-bottom` here on purpose, and nothing should add one:
  * this is the `overflow-y: auto` box, and a scroll container's own bottom
  * padding at the end of its scroll range is the one piece of box geometry
@@ -298,10 +326,24 @@ body {
   flex: 1;
   padding: var(--space-m) var(--space-s);
   width: 100%;
-  max-width: var(--measure-solo);
-  margin-inline: auto;
   overflow-y: auto;
   position: relative;
+}
+
+/* The column the cap and the centring moved onto, and the only child either
+ * shell puts inside `.main`. It is a plain wrapper on purpose: no `transform`,
+ * no `filter`, no `contain`, because every sheet and every pinned bar in the
+ * app is `position: fixed` and would take this box as its containing block if
+ * it ever became one.
+ *
+ * The cap is unconditional, not an override inside a breakpoint. A cap that
+ * exists only above a width is a cap that is missing everywhere it was not
+ * thought about, and `--measure-solo` is wider than the widths below the first
+ * breakpoint anyway, so writing it once costs a phone nothing. */
+.shell-column {
+  width: 100%;
+  max-width: var(--measure-solo);
+  margin-inline: auto;
 }
 
 /* The gutter: a phone spends its width on the content and a desktop can afford
@@ -340,7 +382,73 @@ body {
    The number is `lib/ui/breakpoints.ts`'s `shell`, and `tests/unit/breakpoints.test.ts`
    is what holds this literal and that constant together. */
 @media (min-width: 1180px) {
-  .main {
+  .shell-column {
     max-width: var(--measure);
   }
+}
+
+/* Rations grows a third region here: the ways into the day leave the head of
+   the timeline for a flank of their own on the left, so the day is a timeline
+   between two flanks (ADR-0101's Amendment). The shell has to hold all three,
+   and `--measure` cannot — at 1152 the two flanks and the two gaps take 784 of
+   it and leave the timeline 368px, which is a phone's column on a desktop
+   screen.
+
+   **Rations alone, unlike the two caps above.** The third region is the day
+   screen's shape and no root screen has one: the root renders the same day
+   behind a navigation sidebar and keeps the two-region grid it already has
+   (ADR-0091, Consequences), so widening its shell here would buy six
+   single-column screens nothing and stretch their measure past the point a line
+   is comfortable to read. `.rations` is the Facet, named the same way
+   `DailyDashboard` names it, and `tests/unit/shell.test.ts` holds the class
+   name and this selector together.
+
+   The number is `lib/ui/breakpoints.ts`'s `wide`, and `tests/unit/breakpoints.test.ts`
+   is what holds this literal and that constant together. */
+@media (min-width: 1440px) {
+  .rations .shell-column {
+    max-width: var(--measure-wide);
+  }
+}
+
+/* ── The caption over a control ──────────────────────────────────────────────
+ * The look `ui/FieldCaption` draws, declared once for the two kinds of site
+ * that draw it (#383, ADR-0100).
+ *
+ * **Here rather than inside the primitive, because two populations share the
+ * look and only one of them can take the element.** A caption over a single
+ * control is a `<label for>`, and that is the component's — ADR-0100 §4, since
+ * an element and an association are not declarations. A caption over a *group*
+ * cannot be: a radio row, a toggle row and a segmented date range have no one
+ * labelable control between them, so `ui/Segmented`, `ui/ToggleGroup` and
+ * bits-ui's `DateRangePicker.Label` each name their group with a `<span id>`
+ * and `aria-labelledby`. Those three shared only declarations with the other
+ * thirteen, and ADR-0100 §4's ladder says declarations alone may be a shared
+ * class.
+ *
+ * They were three byte-identical copies of the six lines below, and they are
+ * the reason 800 won: `.segmented-label` and `.togglegroup-label` are the only
+ * settings in the app that were ever reached by reference, and `ReportsPage`
+ * reached for the same numbers unprompted months later with no primitive to
+ * copy (#346). Seven settings across fifteen rules disagreed; these three did
+ * not.
+ *
+ * A caller's own rule beats this one without `!important` and without
+ * thinking about it: Svelte scopes a component's `.x` to 0,2,0 against this
+ * 0,1,0, which is what makes placement the caller's and the look nobody's but
+ * this rule's. `tests/unit/field-caption.test.ts` holds the population at
+ * zero, so a sixteenth caption cannot re-declare the look somewhere else.
+ *
+ * **The gap under a caption is not here, and the three copies did carry one.**
+ * Eight of the fifteen sites sit in a flex column that already gaps them, so a
+ * `margin-bottom` in this rule would be a line seven callers then had to undo
+ * through `:global` — a caller's rule cannot reach a class it hands a component
+ * any other way. Distance is placement, and placement is the caller's; what
+ * wants a margin says so where it is drawn. */
+.field-caption {
+  display: block;
+  font-size: var(--step-n1);
+  font-weight: 800;
+  text-transform: uppercase;
+  color: var(--ink);
 }

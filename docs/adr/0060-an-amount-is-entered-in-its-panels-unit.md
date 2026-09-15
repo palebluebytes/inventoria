@@ -2,7 +2,7 @@
 
 **Status:** Accepted  
 **Date:** 2026-08-26  
-**Amended by:** [ADR-0105](0105-a-volume-food-is-weighed-by-the-class-you-say-it-is.md) (§1's unit becomes choosable, §2's refusal is lifted and §6's dropped portion is offered, on a food carrying an asserted density)  
+**Amended by:** [ADR-0108](0108-a-volume-food-is-weighed-by-the-class-you-say-it-is.md) (§1's unit becomes choosable, §2's refusal is lifted and §6's dropped portion is offered, on a food carrying an asserted density)  
 **Implemented:** #169 `2287b5d` (the unit union), #170 `f49c2e8` (the amount field and the basis caption), #171 `ed7d394` (the logged quantity), #172 `4e69f6b` (the portion's own unit), #173 `ae98b01` (the third basis), `7edfa9b` (one basis type), `be55daa` (the guarded contribution)
 
 This record amends [ADR-0052](0052-a-drinks-panel-is-carried-per-100-ml.md) §2 (the

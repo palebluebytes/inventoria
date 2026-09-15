@@ -1,5 +1,6 @@
 <script lang="ts">
   import { untrack } from "svelte";
+  import type { FacetId } from "../facets/registry";
   import { createQueryStore } from "../stores/datoms.store";
   import { HLC_ORDER_DESC } from "../db/hlc";
   import {
@@ -107,6 +108,7 @@
   import Card from "../ui/Card.svelte";
   import { enterBackStop, leaveBackStop } from "../ui/back-stack";
   import Badge from "../ui/Badge.svelte";
+  import Disclosure from "../ui/Disclosure.svelte";
   import ReceivedMealPanel from "./food/ReceivedMealPanel.svelte";
   import type { SendCode } from "../p2p/send-code";
   import type { ReceiveOpening } from "../p2p/receive-link";
@@ -117,6 +119,7 @@
     receiveLink = null,
     onReceiveClose,
     hasPages = false,
+    shell,
   }: {
     dbReady: boolean;
     /**
@@ -146,6 +149,17 @@
      * there would be a second door to a surface that already has one.
      */
     hasPages?: boolean;
+    /**
+     * Which Facet's shell mounted this screen (ADR-0076 §6).
+     *
+     * `hasPages` above is this shell saying what it can *hold*; this is it
+     * saying who it *is*, and the two are not the same question — the root
+     * draws the whole of this screen in its Food tab without being Rations.
+     * Required rather than defaulted, because both shells are two lines apart
+     * and the settings sheet below decides which Facet an act performed on it
+     * runs in (ADR-0108 §1).
+     */
+    shell: FacetId;
   } = $props();
 
   // ── Receiving a meal ─────────────────────────────────────────────────────
@@ -338,7 +352,7 @@
     amount: number;
     /** The unit `amount` is in, which on a food carrying a Density Class is a
      *  choice the log recorded rather than a fact re-derivable from the panel
-     *  (ADR-0105 §7). */
+     *  (ADR-0108 §7). */
     unit: MeasuredUnit;
     panel?: NutritionInfo;
     portions: Portion[];
@@ -390,6 +404,17 @@
    * Any of them supersedes whatever a previous copy had to say, so the note
    * goes first.
    */
+  /**
+   * The Consumption Events a way in has just written onto the day (#440).
+   *
+   * A fresh array per act — the day watches its identity, so reassigning is the
+   * signal and mutating would be silence. Set by every path that ADDS a row and
+   * by none that corrects one: an amount edit and an instantiation correction
+   * both retract and replace, which mints an id for a row already on screen, and
+   * a meal arriving from a paired device is not something this person just did.
+   */
+  let just_logged = $state<string[]>([]);
+
   function enterMeal(meal_type: MealType, kind: WayIn) {
     copy_note = null;
     if (kind === "past") {
@@ -423,6 +448,9 @@
       const day = selectedDate;
       const { copyable, lost } = partitionCopyable(meal.items);
       const result = await copyPastMeal(copyable, target, day);
+      // Only what it actually wrote: the day waits for every id before it
+      // moves, so an id for an append that threw would hold the wait open.
+      just_logged = result.ids;
       const text = copyTally(result.copied, result.lost + lost.length);
       copy_note = text ? { meal_type: target, text, day: dayKeyOf(day) } : null;
     } finally {
@@ -691,7 +719,7 @@
     unit: AmountUnit;
     /** The panel to divide by AND what the twin says about its density: a
      *  scaled amount keeps the unit it was logged in, and putting that into the
-     *  panel's own unit is what the density is for (ADR-0105 §5). */
+     *  panel's own unit is what the density is for (ADR-0108 §5). */
     source: IngredientSource;
     ref: string;
   }
@@ -1116,16 +1144,15 @@
             {@render todayMark()}
           </button>
         {/if}
-        <button
-          type="button"
+        <Disclosure
           class="header-icon-btn"
-          aria-expanded={aboutOpen}
-          aria-controls={aboutId}
+          open={aboutOpen}
+          controls={aboutId}
           aria-label="About the food screen"
-          onclick={() => (aboutOpen = !aboutOpen)}
+          onToggle={() => (aboutOpen = !aboutOpen)}
         >
-          {@render infoMark()}
-        </button>
+          {#snippet mark()}{@render infoMark()}{/snippet}
+        </Disclosure>
       {/if}
       <!-- The standing controls, drawn from the roster rather than listed again
            here, so the header keeps its members and their left-to-right order by
@@ -1249,6 +1276,7 @@
     {scalePreview}
     {scaleNotes}
     {selectionBar}
+    justLogged={just_logged}
   />
 {/if}
 
@@ -1266,7 +1294,12 @@
   <!-- Rations settings: the OFF login, the contribution default, the nutrition
        targets, Rations' own Local Logs card and its Your data block — the
        Facet's one named, full-height surface (ADR-0080 §7). -->
-  <FoodSettingsSheet {dbReady} inline={onPage} onClose={() => (page = null)} />
+  <FoodSettingsSheet
+    {dbReady}
+    {shell}
+    inline={onPage}
+    onClose={() => (page = null)}
+  />
 {:else if page === "recipes"}
   <!-- The recipe library. Browses every saved recipe and opens one to review or
        amend; its "New recipe" writes a template only. No path through it logs,
@@ -1332,6 +1365,7 @@
     editLabel={edit_label}
     wayIn={way_in ?? undefined}
     onClose={closeSheet}
+    onLogged={(ids) => (just_logged = ids)}
     onMealCode={takeMealCode}
   />
 {/if}
@@ -1369,6 +1403,7 @@
     template={instantiate_template}
     edit={instantiate_edit}
     onClose={closeInstantiation}
+    onLogged={(ids) => (just_logged = ids)}
   />
 {/if}
 
@@ -1521,6 +1556,7 @@
     template={recipe_template}
     initialIngredients={recipe_seed}
     onClose={closeRecipe}
+    onLogged={(ids) => (just_logged = ids)}
   />
 {/if}
 
@@ -1616,8 +1652,14 @@
   }
   /* Top-right icons — the ⓘ that unfolds the blurb and the gear that opens the
      food settings sheet. Bare (no box), opposite the title, aligned to the
-     header's top. */
-  .header-icon-btn {
+     header's top.
+
+     **Anchored under `.header-actions` and reached with `:global` since #316.**
+     The ⓘ is `ui/Disclosure` now, and a class handed to a component carries no
+     scoping hash — so a plain `.header-icon-btn` rule would dress its two
+     plain-`<button>` neighbours and silently skip it. Anchoring keeps the one
+     rule and lets it land on all three. */
+  .header-actions :global(.header-icon-btn) {
     flex: 0 0 auto;
     display: flex;
     align-items: center;
@@ -1633,18 +1675,18 @@
     cursor: pointer;
     transition: transform 0.1s ease-out;
   }
-  .header-icon-btn svg {
+  .header-actions :global(.header-icon-btn svg) {
     width: 1.5rem;
     height: 1.5rem;
   }
   /* The recipe mark rides a child WayInIcon, which sizes itself for the meal
      header's smaller squares, so it is reached here with `:global` and sized to
      match its two neighbours. */
-  .header-icon-btn :global(.entry-icon) {
+  .header-actions :global(.header-icon-btn .entry-icon) {
     width: 1.5rem;
     height: 1.5rem;
   }
-  .header-icon-btn:hover {
+  .header-actions :global(.header-icon-btn:hover) {
     color: var(--text-secondary);
   }
   /* The page you are on, inverted — ink and paper, which is how this frame
@@ -1657,15 +1699,15 @@
      difference between "a door" and "where you are". Hover is switched back off
      on it — a control that greys on hover reads as leaving the state it is
      showing, and this one goes nowhere. */
-  .header-icon-btn[aria-current="page"],
-  .header-icon-btn[aria-current="page"]:hover {
+  .header-actions :global(.header-icon-btn[aria-current="page"]),
+  .header-actions :global(.header-icon-btn[aria-current="page"]:hover) {
     background: var(--ink);
     color: var(--paper);
   }
-  .header-icon-btn:active {
+  .header-actions :global(.header-icon-btn:active) {
     transform: scale(0.92);
   }
-  .header-icon-btn:focus-visible {
+  .header-actions :global(.header-icon-btn:focus-visible) {
     outline: 2px solid var(--ink);
     outline-offset: 2px;
   }

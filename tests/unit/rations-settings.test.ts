@@ -1,8 +1,11 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { render } from "svelte/server";
 import LogSettingsSection from "../../src/lib/views/logs/LogSettingsSection.svelte";
+import PairedDevicesSection from "../../src/lib/views/pairing/PairedDevicesSection.svelte";
 import { facetOf } from "../../src/lib/facets/registry";
 import { readCode, readSource } from "./support/source";
+import { trackedSvelteFiles } from "./support/markup";
+import { stubLocalStorage } from "./support/local-storage";
 
 /**
  * Rations settings (#310): the food gear's one named, full-height surface, and
@@ -227,5 +230,162 @@ describe("the persistence badge goes and the usage figure does not (ADR-0080 §2
     expect(DATA).toMatch(/refreshPersistenceState\(\)/);
     expect(DATA).not.toMatch(/\bshown\b/);
     expect(BADGE).not.toMatch(/\bshown\b/);
+  });
+});
+
+describe("Rations carries the whole pairing surface (ADR-0105 §10)", () => {
+  it("mounts it as the Facet its acts run in", () => {
+    // §1: a pairing carries the domains of the Facet the pairing act ran in,
+    // and the section is where that Facet is known. The literal is the whole of
+    // what the surface needs, and it is never worked out from the URL
+    // (ADR-0076 §6).
+    expect(SHEET).toMatch(/<PairedDevicesSection[^>]*facetId="food"/);
+  });
+
+  it("draws it under Rations' shell and not under the root's", () => {
+    // §1 again, from the side the sheet cannot settle on its own: the root
+    // draws the whole of this screen in its Food tab, and an act performed
+    // there ran in the root, because a Facet is an install (ADR-0076 §1) and
+    // not a tab. Two cards in one root document would disagree about what a
+    // pairing means, and §4 would have the food one silently re-scope a
+    // jar-wide lane the other made.
+    expect(SHEET).toMatch(
+      /\{#if shell === "food"\}\s*<PairedDevicesSection[^>]*\/>\s*\{\/if\}/
+    );
+    // The shell is threaded rather than sniffed, and both entry points say
+    // which they are: a screen cannot ask what mounted it.
+    expect(readSource("src/App.svelte")).toMatch(/<FoodView[^>]*shell="root"/s);
+    expect(readSource("src/Rations.svelte")).toMatch(/shell="food"/);
+  });
+
+  it("keeps one pairing card per document, so the ways in keep one id each", () => {
+    // What the rule above buys, and the reason this card needs no per-copy id
+    // scheme: the root holds its own `SettingsView` copy under every tab, so a
+    // second card drawn beside it would make `#pair-show-btn` an ambiguous
+    // selector rather than a duplicate that shows (#335). Nothing else on the
+    // card carries an id.
+    const CARD = readSource(
+      "src/lib/views/pairing/PairedDevicesSection.svelte"
+    );
+    expect(CARD).toContain('id="pair-show-btn"');
+    expect(CARD).toContain('id="pair-read-btn"');
+    expect(CARD).not.toMatch(/\$\{facetId\}-pair-/);
+  });
+
+  it("reaches the root's module by reference, and is not a second copy", () => {
+    // ADR-0095, and ADR-0078 §1 is what permits it: the rule binds *screens*,
+    // and a shared component is not a crossing. A copy under the food tree is
+    // exactly what that record exists to refuse, so the population is
+    // discovered rather than named.
+    //
+    // **The sweep is keyed on what the card says, not on what it is called.**
+    // A filename filter passes a copy renamed on its way into the food tree,
+    // which is the shape a copy actually arrives in; the two ways in are this
+    // card's own words and nothing else in `src/` draws them.
+    const drawsTheAct = trackedSvelteFiles().filter((file) => {
+      const source = readSource(file);
+      return source.includes("Show a code") && source.includes("Read a code");
+    });
+    expect(drawsTheAct).toEqual([
+      "src/lib/views/pairing/PairedDevicesSection.svelte",
+    ]);
+    // And both callers reach that one file rather than a sibling beside them.
+    expect(SHEET).toContain(
+      'import PairedDevicesSection from "../pairing/PairedDevicesSection.svelte"'
+    );
+    expect(readSource("src/lib/views/SettingsView.svelte")).toContain(
+      'import PairedDevicesSection from "./pairing/PairedDevicesSection.svelte"'
+    );
+  });
+
+  it("renders the act, the list and both of §11's states under either Facet", async () => {
+    // The states are not chrome: a pending revocation is the half that stops
+    // the lanes and retries its withdrawal on a later open, and under ADR-0078
+    // §7 Rations has no route to the root's copy of either.
+    const jar = JSON.stringify([
+      {
+        device_id: "dev_b0c1d2e3f4",
+        name: null,
+        deposit: {
+          direction: "a2b",
+          state: "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+          index: 0,
+        },
+        collect: {
+          direction: "b2a",
+          state: "AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE=",
+          index: 0,
+        },
+        peer_vector: {},
+        scope: ["food"],
+        unproductive_wakes: 200,
+      },
+    ]);
+    stubLocalStorage({ seed: { inventoria_paired_devices: jar } });
+    try {
+      // The store reads the jar when its module is first imported, so the
+      // section is re-imported here — and `svelte/server` with it, because a
+      // reset graph gives the component a different Svelte instance from the
+      // one this file imported and rendering across the two leaves the SSR
+      // context empty.
+      vi.resetModules();
+      const [{ render: renderFresh }, Section] = await Promise.all([
+        import("svelte/server"),
+        import("../../src/lib/views/pairing/PairedDevicesSection.svelte"),
+      ]);
+      for (const facetId of ["food", "root"] as const) {
+        const { body } = renderFresh(Section.default, { props: { facetId } });
+        expect(body).toContain("Show a code");
+        expect(body).toContain("Read a code");
+        expect(body).toContain("Rename");
+        expect(body).toContain("Unpair");
+        expect(body).toContain("Carries Food.");
+        // §11's stopped-at-K state, which has to say so somewhere the user can
+        // reach — and on Rations that is here or nowhere.
+        expect(body).toContain("one-sided");
+      }
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("draws the same two ids under either Facet, because one card is live at a time", () => {
+    // The per-copy id scheme this replaces was bought by drawing the card under
+    // both shells: the root renders `SettingsView` under every tab and merely
+    // hides it, so a second card in the food gear's sheet made `#pair-show-btn`
+    // an ambiguous selector rather than a duplicate that shows (#335). The
+    // sheet now draws it under Rations alone, so the collision cannot arise and
+    // the ids stay the ones every selector already written names.
+    const ids = (facetId: "food" | "root") =>
+      [
+        ...render(PairedDevicesSection, { props: { facetId } }).body.matchAll(
+          /id="([^"]+)"/g
+        ),
+      ].map(([, id]) => id);
+
+    for (const facetId of ["food", "root"] as const) {
+      expect(ids(facetId)).toEqual(["pair-show-btn", "pair-read-btn"]);
+    }
+  });
+
+  it("takes nobody anywhere, so the Facet still contains no way out", () => {
+    // ADR-0078 §1: Rations gains a screen of its own and no link to the root's.
+    const { body } = render(PairedDevicesSection, {
+      props: { facetId: "food" },
+    });
+    expect(body).not.toContain("<a ");
+    // The rendered markup alone would pass a button that navigated by script,
+    // and `pnpm check:facets` does not reach this: `checkViewContainment`
+    // counts `views/pairing/` among the jar-wide modules no domain owns, so the
+    // new Rations-to-root-view edge is *unjudged* rather than approved. These
+    // three files are the whole of what that edge brought in, and none of them
+    // names a route out.
+    for (const file of [
+      "src/lib/views/pairing/PairedDevicesSection.svelte",
+      "src/lib/views/pairing/ShowPairingCode.svelte",
+      "src/lib/views/pairing/ReadPairingCode.svelte",
+    ]) {
+      expect(readCode(file)).not.toMatch(/href|window\.open|location\s*[.=]/);
+    }
   });
 });

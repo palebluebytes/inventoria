@@ -22,7 +22,7 @@
     <summary>{label}</summary>
     <dl class="rows">
       {#each rows as row (row.key)}
-        <div class="row nutrient-{row.key}">
+        <div class="breakdown-row nutrient-{row.key}">
           <dt>{row.label}</dt>
           <dd>{row.value}</dd>
         </div>
@@ -50,14 +50,14 @@
     flex-direction: column;
     border-top: 1px solid var(--border, var(--ink));
   }
-  .row {
+  .breakdown-row {
     display: flex;
     justify-content: space-between;
     align-items: baseline;
     gap: var(--space-s);
     padding: var(--space-3xs) var(--space-xs);
   }
-  .row + .row {
+  .breakdown-row + .breakdown-row {
     border-top: 1px solid var(--border-subtle, var(--border));
   }
   dt {

@@ -31,84 +31,78 @@ const DAY = "src/lib/views/food/DailyDashboard.svelte";
 
 const WIDE = `@media (min-width: ${BREAKPOINTS.sheet}px)`;
 const SHELL = `@media (min-width: ${BREAKPOINTS.shell}px)`;
+const WIDEST = `@media (min-width: ${BREAKPOINTS.wide}px)`;
 
 /** The one `src/app.css` rule for `selector`, under the at-rule `at`. */
 const appRule = (selector: string, at: string | null = null) =>
   ruleIn(appSheet(), selector, at, "src/app.css");
 
 describe("one shell rule, written once and shared by both Facets", () => {
-  it("declares the three measures as tokens, widest first when the shell splits", () => {
-    // The numbers the prototype settled (#337). They are tokens rather than
-    // literals because three files read them — the shell's two caps and the
-    // rail's column — and a rail whose width disagreed with the column it sits
-    // in is a gap nobody declared.
+  it("declares the measures as tokens, widest first when the shell splits", () => {
+    // The numbers the prototype settled (#337), and the two the third region
+    // added. They are tokens rather than literals because the files that read
+    // them are not the files that declare them — the shell's three caps, the
+    // rail's column and the flank opposite it — and a flank whose width
+    // disagreed with the column it sits in is a gap nobody declared.
     expect(tokenOf("--measure-solo")).toBe("54rem");
     expect(tokenOf("--measure")).toBe("72rem");
+    expect(tokenOf("--measure-wide")).toBe("88rem");
     expect(tokenOf("--rail")).toBe("22rem");
+    // Equal to the rail by decision rather than by accident: the widest day is
+    // a timeline between two flanks, and two flanks of one width is what makes
+    // the timeline read as centred. Two tokens, so either may move alone.
+    expect(tokenOf("--way")).toBe("22rem");
   });
 
-  it("centres and caps `.main` at every width", () => {
-    // The reported defect: `max-width` with no `margin-inline`, so a 1920px
-    // screen drew an ~864px column hugging the left edge. Both halves are
-    // unconditional now — a cap that only exists above a breakpoint is a cap
-    // that is missing wherever it was not thought about.
+  it("caps the column and scrolls the box around it", () => {
+    // The two used to be one box, and the scrollbar was the tell: `.main`
+    // carried `overflow-y: auto` and `max-width` together, so on a wide screen
+    // a full-height scrollbar was drawn down the middle of the window with grey
+    // either side of it, reading as a pane inside the app rather than as the
+    // page's own. The cap and the centring moved onto a wrapper; the scroll
+    // stayed outside it.
+    //
+    // Both halves are asserted, because either one drifting back onto `.main`
+    // brings the bar back inboard.
+    const column = appRule(".shell-column");
+    expect(decl(column, "max-width")).toBe("var(--measure-solo)");
+    expect(decl(column, "margin-inline")).toBe("auto");
+
     const main = appRule(".main");
-    expect(decl(main, "max-width")).toBe("var(--measure-solo)");
-    expect(decl(main, "margin-inline")).toBe("auto");
+    expect(decl(main, "overflow-y")).toBe("auto");
+    expect(decl(main, "max-width")).toBeUndefined();
+    expect(decl(main, "margin-inline")).toBeUndefined();
+
+    // The wrapper is minted in the two shells, so the rule and the element are
+    // held together here the way `.rations` and the day's grid are below: a
+    // renamed wrapper would leave the cap applying to nothing, with the app
+    // looking merely wide and the suite green.
+    for (const shell of [APP_SHELL, RATIONS_SHELL]) {
+      expect(readFileSync(shell, "utf8")).toContain('class="shell-column"');
+    }
   });
 
   it("widens the measure where the shell splits, and only the measure", () => {
-    const wide = appRule(".main", SHELL);
+    const wide = appRule(".shell-column", SHELL);
     expect(decl(wide, "max-width")).toBe("var(--measure)");
     // §3: the grid is the day's shape. Written here it would outlive the screen
     // it was drawn for and auto-place a page into the timeline's column.
     expect(decl(wide, "display")).toBeUndefined();
   });
 
-  it("gives the last meal room under it, on the last child at every width", () => {
-    // Not a desktop rule, although the desktop shell is where it was noticed:
-    // the reason is about boxes rather than widths, and the timeline is the last
-    // child of the day at every one of them.
-    //
-    // The `--space-2xl` term is the one this test has always been about, and it
-    // survives at both widths. What ADR-0101 §3 added to it below 768 is the
-    // MEASURED height of the pinned Way-in bar standing over the day's last
-    // rows — a second question (what is covering the foot of the screen), asked
-    // only where something is. Above 768 the bar is in flow and the reserve goes
-    // back to being room and nothing else.
-    expect(decl(ruleOf(DAY, ".timeline"), "padding-bottom")).toBe(
-      "calc(var(--space-2xl) + var(--way-in-bar-h, 0px))"
-    );
-    expect(decl(ruleOf(DAY, ".timeline", WIDE), "padding-bottom")).toBe(
-      "var(--space-2xl)"
-    );
-  });
-
-  it("keeps the room under the last meal off the scroll container", () => {
-    // `.main` is the `overflow-y: auto` box, and its own bottom padding at the
-    // end of the scroll range is the one piece of box geometry browsers have
-    // historically disagreed about. The room goes on the last child instead.
-    //
-    // The rules are counted before they are read: an empty list satisfies "none
-    // of these declares a bottom padding" while proving nothing, and a renamed
-    // or moved `.main` is exactly how the list would empty.
-    const mains = appSheet().filter((r) => r.selectors.includes(".main"));
-    expect(mains.map((r) => r.at)).toEqual([null, WIDE, SHELL]);
+  it("widens Rations alone where the day grows its third region", () => {
+    // Unlike the two caps above, which both Facets take. The third region is
+    // the day screen's shape and no root screen has one: the root renders the
+    // same day behind a navigation sidebar and keeps the two-region grid, so
+    // widening its shell here would buy six single-column screens nothing and
+    // stretch their measure past a comfortable line.
+    const widest = appRule(".rations .shell-column", WIDEST);
+    expect(decl(widest, "max-width")).toBe("var(--measure-wide)");
     expect(
-      mains.filter((r) => decl(r, "padding-bottom") !== undefined)
+      appSheet().filter(
+        (r) => r.at === WIDEST && r.selectors.includes(".shell-column")
+      )
     ).toEqual([]);
-  });
-
-  it("leaves neither shell declaring `.main` itself", () => {
-    // The defect was duplicated character for character between the two, which
-    // is the same defect twice and was fixed once. A component rule would also
-    // beat the shared one: Svelte scopes it to 0,2,0 against this rule's 0,1,0.
-    for (const shell of [APP_SHELL, RATIONS_SHELL]) {
-      const own = rulesOf(styleOf(shell)).filter((r) =>
-        r.selectors.includes(".main")
-      );
-      expect(own).toEqual([]);
-    }
   });
 });
 
@@ -198,6 +192,63 @@ describe("the two regions are the day's shape, not the shell's", () => {
     // above as a constant. The trigger for reopening it is a real rail element.
     const wide = rulesOf(styleOf(DAY)).filter((r) => r.at === SHELL);
     expect(wide.map((r) => decl(r, "position")).filter(Boolean)).toEqual([]);
+  });
+});
+
+describe("the widest day is a timeline between two flanks", () => {
+  it("lays the timeline on its side and gives the ways in a fixed flank", () => {
+    // ADR-0101's Amendment: above `wide` the ways into the day leave the head
+    // of the timeline for a column of their own, opposite the rail. The flank
+    // is fixed for the rail's reason — what it holds is sized by what it says,
+    // five ways in at the tap floor and four meal names — and the meals take
+    // the slack.
+    const timeline = ruleOf(DAY, ":global(.rations) .timeline", WIDEST);
+    expect(decl(timeline, "flex-direction")).toBe("row");
+    // The flank is as tall as its contents, the meals as tall as the day.
+    // Without this they stretch to each other, which both puts a column of
+    // white under the bar and takes the sticky's travel away: an item already
+    // the height of its container has nowhere to go.
+    expect(decl(timeline, "align-items")).toBe("flex-start");
+
+    const slot = ruleOf(
+      DAY,
+      ":global(.rations) .timeline > .way-in-slot",
+      WIDEST
+    );
+    expect(decl(slot, "flex")).toBe("0 0 var(--way)");
+
+    const meals = ruleOf(DAY, ":global(.rations) .timeline > .meals", WIDEST);
+    expect(decl(meals, "flex")).toBe("1");
+    // `minmax(0, 1fr)`'s flexbox spelling, and there for the reason the day's
+    // grid gives it: a long food name shrinks this box rather than pushing the
+    // flank off the screen.
+    expect(decl(meals, "min-width")).toBe("0");
+  });
+
+  it("keeps the meals in a box of their own, so the flank has something to stick against", () => {
+    // The wrapper is what makes the flank stickable at all. A grid item's
+    // containing block is its own grid area, so a slot placed in one cell of a
+    // grid over the meals has no travel; a flex item's is the flex container,
+    // and the container is as tall as this box. It is invisible below `wide`:
+    // it carries the gap the timeline used to carry directly.
+    const meals = ruleOf(DAY, ".meals");
+    expect(decl(meals, "display")).toBe("flex");
+    expect(decl(meals, "flex-direction")).toBe("column");
+    expect(decl(meals, "gap")).toBe("var(--space-m)");
+    expect(readFileSync(DAY, "utf8")).toContain('<div class="meals">');
+  });
+
+  it("adds a shape rather than changing one, so every baseline below it still holds", () => {
+    // `wide` is above the `chromium` project's 1280, which `shell` may never be
+    // (#337 Q21). The difference is that this shape is purely additive: at 1439
+    // the day is exactly the two-region screen the desktop baselines were taken
+    // against, so nothing below the query is un-photographed. What defends the
+    // query itself is `layout-invariants.spec.ts`, which sweeps Rations at
+    // 1920x1080 and therefore stands inside it.
+    expect(BREAKPOINTS.wide).toBeGreaterThan(BREAKPOINTS.shell);
+    expect(readFileSync("tests/layout-invariants.spec.ts", "utf8")).toContain(
+      "1920"
+    );
   });
 });
 

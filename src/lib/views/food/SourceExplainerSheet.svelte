@@ -33,7 +33,7 @@
     standIn?: CuratedStandIn;
     /**
      * What this food's twin says about its density, when it says anything
-     * (ADR-0105 §9). The origin sheet is where the disclosure belongs for the
+     * (ADR-0108 §9). The origin sheet is where the disclosure belongs for the
      * same reason the stand-in's does: a class the user asserted and a figure
      * the app read out of it IS an origin story, and the screen carries only the
      * `≈` on the caption. Absent on every food nobody has classified, which
@@ -107,7 +107,7 @@
   {/if}
 
   {#if weighing}
-    <!-- How this food comes to have a weight at all (ADR-0105 §9). It sits with
+    <!-- How this food comes to have a weight at all (ADR-0108 §9). It sits with
          the origin because that is what it is: the class is the user's, the
          figure behind it is the USDA reference tables', and the panel above is
          still whoever published it. The screen itself says only `≈`. -->

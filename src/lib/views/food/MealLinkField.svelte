@@ -2,6 +2,7 @@
   import { readPastedLink } from "../../p2p/pasted-link";
   import type { SendCode } from "../../p2p/send-code";
   import Alert from "../../ui/Alert.svelte";
+  import FieldCaption from "../../ui/FieldCaption.svelte";
   import Input from "../../ui/Input.svelte";
 
   // **The paste affordance on the Scan way in** (ADR-0082 §13).
@@ -61,7 +62,7 @@
 </script>
 
 <div class="meal-link" data-testid="meal-link-field">
-  <label for={fieldId}>Handed a meal link? Paste it here.</label>
+  <FieldCaption for={fieldId}>Handed a meal link? Paste it here.</FieldCaption>
   <Input id={fieldId} bind:value={pasted} oninput={read} />
   {#if refused}
     <Alert variant="warning">{refused}</Alert>
@@ -75,9 +76,5 @@
     gap: var(--space-3xs);
     margin-top: var(--space-s);
     text-align: left;
-  }
-  label {
-    font-size: var(--step-n2);
-    color: var(--text-secondary);
   }
 </style>

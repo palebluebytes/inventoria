@@ -1,6 +1,6 @@
 /**
  * What a twin says about its density, and what a reader may conclude from it
- * (ADR-0105 §1, §4 and the pre-fill amendment).
+ * (ADR-0108 §1, §4 and the pre-fill amendment).
  *
  * `density-class.test.ts` holds the other half — that the five figures are the
  * ones the corpus measures. Nothing here re-measures a class: these are
@@ -100,7 +100,7 @@ describe("a malformed density reads as no density, never a wrong figure", () => 
 
 describe("the one place a volume becomes a weight (§1)", () => {
   it("converts both ways through the asserted class", () => {
-    // 100 ml of olive oil is 92 g, and the 78 kcal of error ADR-0105 opens with
+    // 100 ml of olive oil is 92 g, and the 78 kcal of error ADR-0108 opens with
     // is the difference between reading that and assuming 1 g/ml.
     expect(convertAmount(100, "ml", "g", { class: "oil" })).toBe(92);
     expect(convertAmount(92, "g", "ml", { class: "oil" })).toBe(100);
@@ -267,7 +267,7 @@ describe("an amount is put into the panel's own unit, never the other way round"
   });
 });
 
-describe("the explainer says how the weight came about (ADR-0105 §9)", () => {
+describe("the explainer says how the weight came about (ADR-0108 §9)", () => {
   it("names the class, the figure, and what measured it", () => {
     // Three things, because three things are true and each could be misread on
     // its own: what the user asserted, what the app read it as, and where that

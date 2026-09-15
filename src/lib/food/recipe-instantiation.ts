@@ -62,7 +62,7 @@ export interface Instantiation {
  * referenced twin's nutrition panel; `resolveName` its display name, denormalized
  * onto the row (falling back to the raw `ref` if the twin cannot be resolved);
  * it yields the twin's panel and density together, because a row's amount may be
- * stated in a unit that panel's basis is not (ADR-0105 §7).
+ * stated in a unit that panel's basis is not (ADR-0108 §7).
  * Yield is only carried here, not applied to the rows: the rows are the batch as
  * cooked, and dividing by yield happens once, in the headline.
  *

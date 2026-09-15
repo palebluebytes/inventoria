@@ -3,7 +3,8 @@
   import { get } from "svelte/store";
   import { onDestroy } from "svelte";
   import BottomSheet from "../../ui/BottomSheet.svelte";
-  import Input from "../../ui/Input.svelte";
+  import FieldCaption from "../../ui/FieldCaption.svelte";
+  import SecretField from "../../ui/SecretField.svelte";
 
   // **Media settings** (ADR-0080 §4): a setting lives beside the thing it
   // configures, not with its Facet. The TMDB key is a user credential for a
@@ -34,8 +35,6 @@
   // a ledger read.
   let tmdbKey = $state(get(secretsStore).tmdb_api_key);
 
-  let showTmdb = $state(false);
-
   // Straight to localStorage on blur, never a datom (ADR-0034 §8), trimmed like
   // any pasted credential.
   function persistTmdbKey() {
@@ -54,50 +53,14 @@
 <BottomSheet isOpen title="Media settings" {onClose}>
   <div class="settings-form">
     <div class="form-group">
-      <label for="tmdb-api-key">TMDB API Key</label>
-      <div class="secret-field">
-        <Input
-          id="tmdb-api-key"
-          type={showTmdb ? "text" : "password"}
-          bind:value={tmdbKey}
-          onblur={persistTmdbKey}
-          placeholder="TMDB API key..."
-        />
-        <button
-          type="button"
-          class="reveal-toggle"
-          aria-label={showTmdb ? "Hide TMDB API key" : "Show TMDB API key"}
-          aria-pressed={showTmdb}
-          onclick={() => (showTmdb = !showTmdb)}
-        >
-          {#if showTmdb}
-            <svg
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              aria-hidden="true"
-              ><path
-                d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"
-              ></path><line x1="1" y1="1" x2="23" y2="23"></line></svg
-            >
-          {:else}
-            <svg
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              aria-hidden="true"
-              ><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"
-              ></path><circle cx="12" cy="12" r="3"></circle></svg
-            >
-          {/if}
-        </button>
-      </div>
+      <FieldCaption for="tmdb-api-key">TMDB API Key</FieldCaption>
+      <SecretField
+        id="tmdb-api-key"
+        reveals="TMDB API key"
+        bind:value={tmdbKey}
+        onblur={persistTmdbKey}
+        placeholder="TMDB API key..."
+      />
       <span class="help-text"
         >Used for importing movie and TV digital twins. Stored on this device
         only, never in the synced database.</span
@@ -116,58 +79,6 @@
     display: flex;
     flex-direction: column;
     gap: var(--space-3xs);
-  }
-  .form-group label {
-    font-weight: 700;
-    font-size: var(--step-n1);
-    text-transform: uppercase;
-  }
-  /* The field is `ui/Input` (#375) and says nothing about its own look. This
-     wrapper exists for the reveal toggle alone: it is the box that button is
-     positioned against, and the padding below is the one thing a caller
-     drawing an adornment over a field has to say — reached through `:global`
-     because the field is another component's element. */
-  .secret-field {
-    position: relative;
-    display: flex;
-  }
-  /* Leave room for the reveal toggle so masked text never runs under it. One
-     token for both, so the gap cannot drift from the button's width. */
-  .secret-field :global(input) {
-    padding-right: var(--tap-min);
-  }
-  .reveal-toggle {
-    position: absolute;
-    top: 0;
-    right: 0;
-    height: 100%;
-    /* Was 2.75rem — Apple's 44pt (ADR-0089 §3). The field it sits in carries
-       the floor, so `height: 100%` clears it; the width is this rule's own. */
-    min-height: var(--tap-min);
-    width: var(--tap-min);
-    /* Above the field, which is `ui/Input` and carries `z-index: 1` of its own.
-       Without this the button paints and, worse, *takes its clicks* under a
-       transparent field: same document order as before, different stacking. */
-    z-index: 2;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 0;
-    border: none;
-    background: transparent;
-    color: var(--ink);
-    cursor: pointer;
-  }
-  .reveal-toggle svg {
-    width: 1.25rem;
-    height: 1.25rem;
-  }
-  .reveal-toggle:hover {
-    color: var(--text-secondary);
-  }
-  .reveal-toggle:focus-visible {
-    outline: 2px solid var(--ink);
-    outline-offset: -2px;
   }
   .help-text {
     font-size: var(--step-n2);

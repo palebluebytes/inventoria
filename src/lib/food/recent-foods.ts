@@ -169,7 +169,7 @@ export function rememberedAmount(
  * Which unit this food was last **logged** in, or null where it has never been
  * logged as a measurement.
  *
- * The sibling {@link rememberedAmount} needs, and the memory half of ADR-0105
+ * The sibling {@link rememberedAmount} needs, and the memory half of ADR-0108
  * §7's opening-unit rule: context sets the default and what this food was last
  * entered in **here** overrides it. Reporting the unit is a different question
  * from seeding the amount, which is why it is a second reader rather than a

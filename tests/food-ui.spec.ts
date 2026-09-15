@@ -1743,7 +1743,7 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
 
     // Declaring `ml` is the SECOND door to a volume basis, and this form asks
     // the class outright: no Open Food Facts tags exist to pre-fill from, and
-    // the person filling this in is holding the bottle (ADR-0105 §1). It is
+    // the person filling this in is holding the bottle (ADR-0108 §1). It is
     // optional — a food saved without one simply stays in millilitres (§6).
     const classes = page.locator('[data-testid="cf-density-classes"]');
     await expect(classes).toBeVisible();
@@ -1797,7 +1797,7 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
 
   // ── The Density Class question, and the toggle that is its only door ──────
   //
-  // ADR-0105 §1. Everything the control renders at first paint is pinned in
+  // ADR-0108 §1. Everything the control renders at first paint is pinned in
   // `tests/unit/amount-field.test.ts` against SSR; what lands here is the half
   // SSR cannot reach — a tap on `g` opening the picker, and a picked class
   // switching the field under it.
@@ -1885,7 +1885,7 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
 
     // The figures say what will be logged at the weight on screen, so the panel
     // is being divided by the millilitres those grams are, not by the grams
-    // (ADR-0105 §5): 250 ml at 824 kcal/100 ml is 2,060 kcal, and dividing the
+    // (ADR-0108 §5): 250 ml at 824 kcal/100 ml is 2,060 kcal, and dividing the
     // 230 unconverted would have read 1,895. Read off the breakdown rather than
     // the commit button, which says "Log" and nothing else on every flow in this
     // sheet (ADR-0035 §UI) and never carried a figure to assert.
@@ -2485,7 +2485,9 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
 
     // Recipe builder open, seeded with oats 50 g + banana 150 g = 323 kcal.
     await selectTwoAndBuild(page);
-    await expect(page.locator(".ing-head .fl")).toHaveText("Ingredients (2)");
+    await expect(page.locator(".ing-head .section-head")).toHaveText(
+      "Ingredients (2)"
+    );
     await expect(
       page.locator('[data-testid="recipe-figures"] .nutrient-calories strong')
     ).toContainText("323 kcal");
@@ -2503,7 +2505,9 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     // The sheet closes and the add sticks: still one Oats row (no duplicate),
     // its amount folded 50 g + 50 g → 100 g, and the total reflects the merge.
     await expect(addSheet).toBeHidden();
-    await expect(page.locator(".ing-head .fl")).toHaveText("Ingredients (2)");
+    await expect(page.locator(".ing-head .section-head")).toHaveText(
+      "Ingredients (2)"
+    );
     const oatsRow = page.locator(".recipe-ingredient", {
       hasText: "Mock Oats",
     });
@@ -3085,14 +3089,14 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
       1
     );
 
-    // The five are on the bar, in the panel belonging to the meal the tab says.
-    // Scoped to the panel that is NOT hidden, because bits keeps all four
-    // mounted and hides three (ADR-0101 §1): unscoped this counts twenty, and a
-    // sixth way in would be invisible in that number.
+    // The five are on the bar, for whichever meal the chip is on. No scoping is
+    // needed any more and that is the point of the selector changing: the bar
+    // used to be a tab list that mounted four panels and hid three, so this
+    // count had to be taken inside the one on screen or it read twenty. One
+    // rail is rendered now (ADR-0101, amended 2026-09-15), so the bare count is
+    // the roster, and a sixth way in would show up in it.
     await selectMeal(page, "breakfast");
-    await expect(
-      page.locator('[role="tabpanel"]:not([hidden]) .rail > button')
-    ).toHaveCount(5);
+    await expect(page.locator(".way-in-bar .rail > button")).toHaveCount(5);
   });
 
   test("the meal's panel shows what the meal carries, and no reading of a day", async ({

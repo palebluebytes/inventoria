@@ -847,7 +847,7 @@ describe("dedupePortions", () => {
   });
 });
 
-describe("a portion may be offered in either unit (ADR-0105 §8)", () => {
+describe("a portion may be offered in either unit (ADR-0108 §8)", () => {
   // A 330 ml can of something the user has said is a juice, 1.04 g/ml.
   const CAN: Portion = {
     label: "1 can",
@@ -903,7 +903,7 @@ describe("a portion may be offered in either unit (ADR-0105 §8)", () => {
   });
 });
 
-describe("the caption says what the basis weighs (ADR-0105 §9)", () => {
+describe("the caption says what the basis weighs (ADR-0108 §9)", () => {
   it("adds the weight on a volume basis the user has classified", () => {
     expect(basisCaption("100 ml", 1.03)).toBe("Per 100 ml (≈103 g)");
     expect(basisCaption("330 ml", 1.03)).toBe(

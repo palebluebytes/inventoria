@@ -6,7 +6,7 @@ import {
   REFUSED_DENSITY_CLASSES,
 } from "../../src/lib/food/density-class";
 // A plain-Node gate script, deliberately outside the app's tsconfig: it reads a
-// file already in the repo and runs inside `pnpm check` (ADR-0105 §3).
+// file already in the repo and runs inside `pnpm check` (ADR-0108 §3).
 // @ts-ignore
 import {
   portionDensity,
@@ -17,7 +17,7 @@ import {
   refusalFindings,
 } from "../../scripts/density-class-check.mjs";
 
-// The measurement behind the Density Class table (ADR-0105 §2, #429).
+// The measurement behind the Density Class table (ADR-0108 §2, #429).
 //
 // A density here is always grams per millilitre, derived from a USDA portion
 // that states both: `1 tbsp = 13.5 g` is a measurement of the substance, and
@@ -57,7 +57,7 @@ describe("portionDensity", () => {
 // A food states a density once, however many portions it happens to carry.
 // `Oil, olive` states a cup, a tablespoon and a teaspoon; counting all three
 // would let a food with more rows outvote one with fewer, and the class's n
-// would stop being a count of foods. ADR-0105 §2's n is foods, its parenthetical
+// would stop being a count of foods. ADR-0108 §2's n is foods, its parenthetical
 // is portions, and the figure is a median of medians.
 describe("foodDensity", () => {
   it("takes the median of a food's volume portions, not their mean", () => {
@@ -91,7 +91,7 @@ describe("foodDensity", () => {
   });
 });
 
-// The four numbers ADR-0105 §2 records beside every figure. Two of them are a
+// The four numbers ADR-0108 §2 records beside every figure. Two of them are a
 // choice, and the pinned figures are only reproducible because the choice is
 // fixed: the spread of a class is measured against its LIGHTEST member, and its
 // CV is a population standard deviation over the per-food medians rather than a
@@ -134,7 +134,7 @@ describe("classStats", () => {
   });
 });
 
-// A class selects its members by a pattern recorded WITH the figure (ADR-0105
+// A class selects its members by a pattern recorded WITH the figure (ADR-0108
 // §2), not by a list of food names. The pattern is the reproducible half: a
 // pinned list would still be a pinned list after the corpus dropped a member,
 // and the gate would have nothing to notice.
@@ -197,7 +197,7 @@ describe("selectClass", () => {
   });
 });
 
-// What the gate does when a figure has moved (ADR-0105 §3). It never rewrites a
+// What the gate does when a figure has moved (ADR-0108 §3). It never rewrites a
 // pinned value: the corpus being regenerated is a decision for a human, and the
 // whole argument for pinning is that a figure which moves on its own moves with
 // nobody deciding it should. So every kind of movement lands as a finding, and
@@ -248,7 +248,7 @@ describe("driftFindings", () => {
   });
 
   it("reports a class that stopped clearing its own bar", () => {
-    // ADR-0105 §2 admits a class at n >= 8 foods and CV <= 2%. `milk-like`
+    // ADR-0108 §2 admits a class at n >= 8 foods and CV <= 2%. `milk-like`
     // already sits at exactly 8, so a corpus collapse touching one milk row
     // fails the bar, which is the bar working rather than a thing to route
     // around.
@@ -264,7 +264,7 @@ describe("driftFindings", () => {
   });
 });
 
-// The two classes ADR-0105 §2 measured and refused. They are in the record so a
+// The two classes ADR-0108 §2 measured and refused. They are in the record so a
 // later reader finds the numbers that stopped them — syrup at CV 8.99% over a
 // 44.4% spread, spirits at 2.63% — and the gate watches them for the same reason
 // it watches the five that shipped: if the corpus moves far enough that a
@@ -306,7 +306,7 @@ describe("refusalFindings", () => {
 
 // The gate itself, run over the corpus that ships. Everything above tests a rule
 // against a fixture; this is the one that would fail if a regenerated corpus
-// moved a figure, and it is the whole point of pinning them (ADR-0105 §3).
+// moved a figure, and it is the whole point of pinning them (ADR-0108 §3).
 describe("the shipped Density Class table", () => {
   const corpus = JSON.parse(
     readFileSync("public/usda/search-index.json", "utf8")

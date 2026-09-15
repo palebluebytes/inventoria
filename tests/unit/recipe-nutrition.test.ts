@@ -223,7 +223,7 @@ describe("deriveRecipeNutrition — full breakdown", () => {
   });
 });
 
-describe("a gram ingredient against a volume panel (ADR-0105 §5)", () => {
+describe("a gram ingredient against a volume panel (ADR-0108 §5)", () => {
   // An oil Open Food Facts publishes per 100 ml, at 824 kcal per 100 ml.
   const OIL: IngredientSource = {
     panel: {

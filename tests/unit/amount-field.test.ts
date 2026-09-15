@@ -1,5 +1,5 @@
 /**
- * What the amount control renders on a food published by volume (ADR-0105 §1).
+ * What the amount control renders on a food published by volume (ADR-0108 §1).
  *
  * `render` reaches the markup — whether the toggle is drawn at all, which unit
  * it shows as chosen, what the label names, and what number the box holds. It
@@ -43,7 +43,7 @@ describe("a food measured by weight has no choice to make", () => {
 
 describe("a food published by volume is offered the question", () => {
   it("draws the toggle even with no density, because tapping `g` is the ask", () => {
-    // The door IS the toggle (ADR-0105 §1): the control that offers the
+    // The door IS the toggle (ADR-0108 §1): the control that offers the
     // capability is the one that earns it, so there is no separate prompt and
     // no second surface to find.
     const { body } = render(AmountField, {
@@ -87,7 +87,7 @@ describe("a food published by volume is offered the question", () => {
 
   it("draws no toggle where the host has nowhere to put the answer", () => {
     // A question whose answer goes nowhere is a control that does nothing, which
-    // is the surface ADR-0105 §1 rejects read the other way round. A food that
+    // is the surface ADR-0108 §1 rejects read the other way round. A food that
     // can already be weighed still offers the switch, because switching is not
     // asking.
     const unanswerable = render(AmountField, {

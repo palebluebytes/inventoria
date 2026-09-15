@@ -70,7 +70,7 @@ export interface RecipeIngredientsRow {
 
 /**
  * Every recipe's `recipe/ingredients` list, newest first — the recipe context's
- * memory of which unit a food was last measured into a dish in (ADR-0105 §7).
+ * memory of which unit a food was last measured into a dish in (ADR-0108 §7).
  *
  * Newest first is the whole of the ordering requirement: the first list holding
  * a food is the last one it was put into. HLC order rather than `time`, like

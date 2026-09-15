@@ -21,6 +21,29 @@ import Select from "../../src/lib/ui/Select.svelte";
 // element choice, which is read off the row's contents rather than a flag.
 
 describe("Button", () => {
+  /**
+   * **The floor, on both axes, because the sweep cannot check one of them.**
+   * `tap-floor.test.ts`'s `narrowness()` convicts a box declaring a `width`,
+   * `max-width` or `min-width` under the floor; a box declaring **none at all**
+   * reads as unbounded, because shrink-to-fit is a fact about rendered content
+   * rather than about a stylesheet.
+   *
+   * That is not hypothetical, twice over. `ui/Disclosure` shipped a 21.6x48 ⓘ
+   * through every gate at #316 and a rebaseline found it, not a test; and
+   * `ui/Button` was the one member of the roster still carrying `min-height`
+   * alone when #390 came to adopt it for three buttons whose entire content is
+   * a 1.75rem mark. Every other content-sized member declares both — `ui/Row`,
+   * `ui/BottomSheet`, `ui/ToggleGroup`, `ui/Disclosure`.
+   *
+   * Read off the token rather than a number, so a change to `--tap-min` moves
+   * this with it.
+   */
+  it("declares the tap floor on both axes", () => {
+    const btn = ruleOf("src/lib/ui/Button.svelte", ".btn");
+    expect(decl(btn, "min-height")).toBe("var(--tap-min)");
+    expect(decl(btn, "min-width")).toBe("var(--tap-min)");
+  });
+
   it("emits variant and size classes (defaults: primary / md)", () => {
     const { body } = render(Button, { props: {} });
     expect(body).toContain("btn-primary");

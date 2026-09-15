@@ -279,7 +279,7 @@ export function formatPortionLabel(amount: number, unit: string): string {
  * millilitre field would be a density conversion performed silently at ratio 1
  * (ADR-0060 §2/§6). On a food carrying a Density Class it is neither silent nor
  * at ratio 1, so `gPerMl` — the figure that class resolves to — lets such a
- * portion match after all (ADR-0105 §8). Without one §6 stands exactly as
+ * portion match after all (ADR-0108 §8). Without one §6 stands exactly as
  * written and the portion is refused.
  *
  * **An exact-unit match always wins.** A source may publish two servings of one
@@ -366,7 +366,7 @@ export function portionLabelIsBareWeight(label: string): boolean {
  * repeat it ("30 g — 30 g"), so it's dropped and the chip reads plainly.
  *
  * `shown` is what the chip will actually FILL, which differs from the source's
- * own magnitude only on a portion crossing the two units (ADR-0105 §8): a
+ * own magnitude only on a portion crossing the two units (ADR-0108 §8): a
  * 330 ml can read into a gram field is "1 can — ≈304 g". The `≈` is the whole
  * of the signal and it is doing real work — it says estimate without reopening
  * an argument already settled (§9) — and it is what keeps the chip from claiming
@@ -404,7 +404,7 @@ export function formatPortionPreset(
  * amount at all. The other is stated in a unit the field does not take, and that
  * one is now **conditional**: filling it in would be a density conversion done
  * silently at ratio 1 (ADR-0060 §2/§6) only where there is no density, and on a
- * food carrying a Density Class it is neither silent nor at ratio 1 (ADR-0105
+ * food carrying a Density Class it is neither silent nor at ratio 1 (ADR-0108
  * §8). `gPerMl` is that class's figure; without one §6 stands exactly as
  * written. Neither case is hypothetical — Open Food Facts publishes a drink
  * powder's serving as the prepared 100 ml against a per-100 g panel, and a
@@ -586,7 +586,7 @@ export function measuredUnitFrom(token: string): MeasuredUnit {
  *
  * A measured amount answers with its own unit, which on a food carrying a
  * Density Class is the one the user chose and not the one the panel implies
- * (ADR-0105 §7). A whole-serving entry names no measured unit at all
+ * (ADR-0108 §7). A whole-serving entry names no measured unit at all
  * ({@link isMeasuredUnit}), and the panel's own is the honest fallback: a
  * caller re-opening one is rebuilding an amount out of the panel anyway, so the
  * unit it comes back in is the panel's by construction.
@@ -609,7 +609,7 @@ export function enteredUnit(
  * nothing about where the figure came from or what licenses using it. That is
  * `density.ts`'s `convertAmount`, which resolves a Density Class the user
  * asserted and then calls this — the one door, with this as the one sum behind
- * it (ADR-0105 §1).
+ * it (ADR-0108 §1).
  *
  * The split is here rather than there because this module owns {@link
  * MeasuredUnit} and `density.ts` already imports it; putting the sum the other
@@ -683,7 +683,7 @@ export function amountDefaults(unit: MeasuredUnit): AmountDefaults {
  * never gave, which is the one thing this function exists not to do.
  *
  * `gPerMl` — the figure a food's Density Class resolves to — adds what that
- * basis weighs: `Per 100 ml (≈103 g)` (ADR-0105 §9). Absent on every food
+ * basis weighs: `Per 100 ml (≈103 g)` (ADR-0108 §9). Absent on every food
  * nobody has classified, which captions exactly as it always did.
  */
 export function basisCaption(
@@ -702,7 +702,7 @@ export function basisCaption(
       ? `Per ${quantity} ${unit}`
       : `Per serving (${quantity} ${unit})`;
   // What that basis weighs, on a food the user has said what kind of liquid it
-  // is (ADR-0105 §9): `Per 100 ml (≈103 g)`. The `≈` is the whole of the surface
+  // is (ADR-0108 §9): `Per 100 ml (≈103 g)`. The `≈` is the whole of the surface
   // signal, and it is doing real work — it says estimate without reopening an
   // argument already settled. A badge, tag or tint is deliberately not added:
   // ADR-0041's 2026-08-06 amendment removed exactly such a marker from inferred

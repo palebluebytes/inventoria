@@ -1,5 +1,5 @@
 // ---------------------------------------------------------------------------
-// Density Classes (ADR-0105 §2)
+// Density Classes (ADR-0108 §2)
 // ---------------------------------------------------------------------------
 //
 // A food published per 100 ml cannot be weighed, and ADR-0060 §2 refused to fix
@@ -15,7 +15,7 @@
 // that kind USDA states a volume portion for. On 100 ml of olive oil, assuming
 // 1 g/ml is wrong by 78 kcal; the class leaves 0.73% of that.
 //
-// Three properties are load-bearing, each a decision recorded in ADR-0105:
+// Three properties are load-bearing, each a decision recorded in ADR-0108:
 //
 //  - Admission is STATISTICAL and gated (§2): n >= 8 distinct foods and CV <= 2%,
 //    with the figure, the n, the spread, the CV and the exact match pattern that
@@ -81,7 +81,7 @@ export interface DensityClass {
 }
 
 /**
- * What a class must measure before it may ship (ADR-0105 §2).
+ * What a class must measure before it may ship (ADR-0108 §2).
  *
  * Eight foods because a figure standing on fewer is one food's rounding away
  * from moving, and 2% because that is the width at which a class figure stops
@@ -101,7 +101,13 @@ export const DENSITY_CLASSES: readonly DensityClass[] = [
   {
     id: "water-like",
     figure: 1.0,
-    evidence: { foods: 15, portions: 23, spreadPercent: 4.7, cvPercent: 1.2 },
+    // Re-pinned when this arc met main: the corpus consolidation (ADR-0103) took
+    // two of the fifteen foods this class selected, so the evidence moved 15/23
+    // to 13/21 and the CV 1.2% to 1.27%. **The figure did not move** — the class
+    // still reads 1.00 and still clears §2's bar of eight foods at 2% — so this
+    // records what the corpus now states rather than deciding anything new. The
+    // gate is what made it a decision instead of a drift.
+    evidence: { foods: 13, portions: 21, spreadPercent: 4.7, cvPercent: 1.27 },
     // Tap water and anything brewed through it. Coffee and tea are water that
     // has been through a leaf: the corpus states them at 1.0009-1.0182.
     pattern: { category: "Beverages", name: /^Beverages, water,|brewed/i },
@@ -159,7 +165,7 @@ export const DENSITY_CLASSES: readonly DensityClass[] = [
 ];
 
 /**
- * A class ADR-0105 §2 measured and refused, kept so a later reader finds the
+ * A class ADR-0108 §2 measured and refused, kept so a later reader finds the
  * numbers that stopped it rather than re-deriving them.
  *
  * Neither is curated around: both take the typed override of §4. The gate

@@ -100,10 +100,21 @@ describe("the two boxes that owe a reservation hold it", () => {
     expect(reservedIn(styleOf("src/lib/ui/Row.svelte"))).toEqual([".row"]);
   });
 
-  it("the way-in rail's cells reserve --shadow-1-reach, which is Button's (§2)", () => {
-    expect(reservedIn(styleOf("src/lib/views/food/WayInRail.svelte"))).toEqual([
-      ".rail :global(.way-in-cell)",
-    ]);
+  it("the way-in rail no longer owes one, because it no longer draws one", () => {
+    // §2's first worked site was the rail's cells, and it was a `ui/Button`
+    // reshaped from outside: its `--shadow-1` fell outside the grid track, and
+    // the last cell's was clipped by the bar while the others fell into a gap.
+    // ADR-0101's 2026-09-15 amendment took the frame off those cells altogether
+    // — every tile in the one-line bar is drawn by the plate it sits in — so
+    // there is no shadow to reserve for, and a reservation here would be 2px of
+    // margin held for a shadow nobody paints.
+    //
+    // The record's rule is untouched and this is it being applied: a box
+    // reserves where a shadow must be contained or covered, and stops when the
+    // shadow goes. `ui/Row` below is now its only site.
+    expect(reservedIn(styleOf("src/lib/views/food/WayInRail.svelte"))).toEqual(
+      []
+    );
   });
 
   it("ui/Button is deliberately not converted (§4)", () => {

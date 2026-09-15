@@ -56,7 +56,7 @@ describe("sourceFromIngredients / nameFromIngredients", () => {
 
   it("resolves the twin's density beside its panel", () => {
     // Both, together, because the derivation needs both: an ingredient's amount
-    // may be stated in a unit the panel's basis is not (ADR-0105 §7), and the
+    // may be stated in a unit the panel's basis is not (ADR-0108 §7), and the
     // density is what converts it. Absent on a food nobody has classified,
     // which is the standing case.
     const oil: RecipeIngredient = {

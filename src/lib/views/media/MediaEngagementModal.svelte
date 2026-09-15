@@ -4,6 +4,7 @@
   import { updateMediaStatus, enrichMediaTwin } from "../../stores/media.store";
   import Badge from "../../ui/Badge.svelte";
   import Button from "../../ui/Button.svelte";
+  import FieldCaption from "../../ui/FieldCaption.svelte";
   import Input from "../../ui/Input.svelte";
   import Select from "../../ui/Select.svelte";
   import Textarea from "../../ui/Textarea.svelte";
@@ -155,7 +156,7 @@
     >
       <!-- Status -->
       <div class="form-group">
-        <label for="event-status-select">Status</label>
+        <FieldCaption for="event-status-select">Status</FieldCaption>
         <Select
           id="event-status-select"
           bind:value={formStatus}
@@ -171,7 +172,9 @@
       <!-- Book progress fields -->
       {#if media.type === "book" && (formStatus === "started" || formStatus === "progress")}
         <div class="form-group">
-          <label for="event-pages-read">Pages Read (Optional)</label>
+          <FieldCaption for="event-pages-read"
+            >Pages Read (Optional)</FieldCaption
+          >
           <Input
             id="event-pages-read"
             type="number"
@@ -185,7 +188,7 @@
       {#if media.type === "tv" && (formStatus === "started" || formStatus === "progress")}
         <div class="flex gap-2">
           <div class="form-group flex-1">
-            <label for="event-season">Season</label>
+            <FieldCaption for="event-season">Season</FieldCaption>
             <Input
               id="event-season"
               type="number"
@@ -194,7 +197,7 @@
             />
           </div>
           <div class="form-group flex-1">
-            <label for="event-episode">Episode</label>
+            <FieldCaption for="event-episode">Episode</FieldCaption>
             <Input
               id="event-episode"
               type="number"
@@ -207,7 +210,7 @@
 
       <!-- Rating & Review -->
       <div class="form-group">
-        <label for="event-rating">Rating (1-5)</label>
+        <FieldCaption for="event-rating">Rating (1-5)</FieldCaption>
         <!-- The field `ui/Select` was made generic for. `formRating` is
              `number | undefined` and stays that way end to end: `No Rating` is
              an option whose value *is* `undefined`, not a sentinel string that
@@ -228,7 +231,7 @@
       </div>
 
       <div class="form-group">
-        <label for="event-review">Review / Comments</label>
+        <FieldCaption for="event-review">Review / Comments</FieldCaption>
         <Textarea
           id="event-review"
           bind:value={formReview}
@@ -354,17 +357,6 @@
     display: flex;
     flex-direction: column;
     gap: var(--space-2xs);
-  }
-
-  .form-group label {
-    font-family: var(--font-mono);
-    font-size: var(--step-n1);
-    font-weight: 700;
-    text-transform: uppercase;
-    background: var(--ink);
-    color: var(--paper);
-    padding: var(--space-3xs) var(--space-2xs);
-    align-self: flex-start;
   }
 
   .dock {

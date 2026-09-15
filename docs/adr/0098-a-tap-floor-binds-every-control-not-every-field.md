@@ -148,3 +148,52 @@ recipe rather than extracting it.
 measurement in it — four copies, two identical pairs, byte-identical including
 their comment, and identical before this change — is the evidence the refusal
 rests on.
+
+## Amendment (2026-09-14, #390): §3's recipe has a precondition, and it is now the exception
+
+§3 says that where a control's drawn mark is smaller than `--tap-min`, the mark
+stays and the target grows: the button gives up its own border and background,
+carries the floor on both axes, and a `::before` draws the mark at its old size,
+absolutely centred, with hover and disabled relocated onto the pseudo-element.
+
+**That recipe has a precondition §3 never states: the mark is drawn in CSS.**
+Everything gymnastic about it — the absolute centring, the `z-index: -1`, the
+`isolation: isolate` keeping the pseudo inside its button, the three relocated
+states — exists only because a pseudo-element is the only box available when the
+mark is not content. Pass the mark as content and there is nothing to centre
+absolutely and nothing to relocate: an ordinary element draws it, an ordinary
+scoped rule dresses it, and the button around it carries the floor.
+
+All four sites this record's recipe reached are gone by that route. Two ⓘ marks
+went at #316 onto `ui/Disclosure`, which takes a `mark` snippet; `.card-reset`
+and `.nudge-reset` went at #390 onto `ui/Button`, which takes children. None of
+them needed a new primitive, which is what ADR-0100 refused, and the Amendment
+below its Consequences already withdrew this record's prediction that one was
+needed.
+
+**§3 stands and still applies** wherever a mark genuinely is drawn in CSS —
+a `::before` rule is the right tool for a mark with no element to hang on. What
+changes is the order of the questions. Ask whether the mark can be content
+first; reach for §3 only when it cannot.
+
+### §2's floor was half a floor, and the sweep could not say so
+
+§2 put the floor on the primitive rather than at the call sites, and that is
+what made this adoption cheap. But `ui/Button` declared `min-height` alone, and
+a button whose entire content is a 1.75rem mark is content-sized in the other
+direction — so adopting it would have drawn a ~46px-wide target while every gate
+stayed green.
+
+`tests/unit/tap-floor.test.ts` cannot catch this class of defect, and the reason
+is structural rather than an oversight: `narrowness()` convicts a box that
+**declares** a width under the floor, and a box declaring none at all reads as
+unbounded, because a shrink-to-fit width is a fact about rendered content. The
+same hole let #316 ship a 21.6x48 ⓘ, which a rebaseline found rather than a
+test.
+
+So `ui/Button` now declares the floor on **both** axes, joining `ui/Row`,
+`ui/BottomSheet`, `ui/ToggleGroup` and `ui/Disclosure`; it was the only
+content-sizable member that did not. `tests/unit/ui-primitives.test.ts` asserts
+both against the token. The blast radius is every button in the app that was
+narrower than 48px — all of them controls, all of them therefore under §1 — so
+what this widens is coverage rather than any exemption.

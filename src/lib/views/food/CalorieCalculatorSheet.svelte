@@ -1,6 +1,8 @@
 <script lang="ts">
   import { untrack } from "svelte";
   import BottomSheet from "../../ui/BottomSheet.svelte";
+  import FieldCaption from "../../ui/FieldCaption.svelte";
+  import Button from "../../ui/Button.svelte";
   import Segmented from "../../ui/Segmented.svelte";
   import {
     computeEnergyAndMacros,
@@ -214,21 +216,22 @@
 
     <!-- Metric only (kg/cm): Mifflin-St Jeor is natively metric (ADR-0033 §1). -->
     <div class="metrics">
-      <label class="field">
-        <span class="field-label">Age</span>
+      <div class="field">
+        <FieldCaption for="calc-age">Age</FieldCaption>
         <input
           type="number"
           class="num"
           min="0"
           step="1"
           inputmode="numeric"
+          id="calc-age"
           data-field="age"
           placeholder="years"
           bind:value={ageRaw}
         />
-      </label>
-      <label class="field">
-        <span class="field-label">Height</span>
+      </div>
+      <div class="field">
+        <FieldCaption for="calc-height">Height</FieldCaption>
         <span class="num-with-unit">
           <input
             type="number"
@@ -236,15 +239,16 @@
             min="0"
             step="any"
             inputmode="decimal"
+            id="calc-height"
             data-field="height"
             placeholder="cm"
             bind:value={heightRaw}
           />
           <span class="unit">cm</span>
         </span>
-      </label>
-      <label class="field">
-        <span class="field-label">Weight</span>
+      </div>
+      <div class="field">
+        <FieldCaption for="calc-weight">Weight</FieldCaption>
         <span class="num-with-unit">
           <input
             type="number"
@@ -252,13 +256,14 @@
             min="0"
             step="any"
             inputmode="decimal"
+            id="calc-weight"
             data-field="weight"
             placeholder="kg"
             bind:value={weightRaw}
           />
           <span class="unit">kg</span>
         </span>
-      </label>
+      </div>
     </div>
 
     <!-- Four-way IOM PAL activity picker + a one-sentence explanation. -->
@@ -324,7 +329,7 @@
 
         <!-- Manual nudge on the final calorie number. -->
         <div class="nudge">
-          <label class="nudge-label" for="calc-nudge">Adjust calories</label>
+          <FieldCaption for="calc-nudge">Adjust calories</FieldCaption>
           <span class="num-with-unit">
             <input
               id="calc-nudge"
@@ -339,14 +344,17 @@
             />
             <span class="unit">kcal</span>
           </span>
-          <button
-            type="button"
+          <Button
+            variant="ghost"
+            size="sm"
             class="nudge-reset"
             data-nudge-reset
             disabled={nudgeKcal === null}
             onclick={resetNudge}
-            aria-label="Reset calories to the computed value">↺</button
+            aria-label="Reset calories to the computed value"
           >
+            <span class="reset-mark">↺</span>
+          </Button>
         </div>
         {#if floored}
           <p class="hint floor-note" data-floor-note>
@@ -382,20 +390,16 @@
     font-size: var(--step-n1);
   }
 
+  /* A `<div>` since #383, not a `<label>`: the caption inside it is a real
+     `<label for>` now, and a label inside a label is not markup. */
   .field {
-    display: block;
     margin: 0 0 var(--space-m);
-    padding: 0;
-    border: none;
   }
-  .field-label {
-    display: block;
-    padding: 0;
-    margin: 0 0 var(--space-2xs);
-    font-size: var(--step-n1);
-    font-weight: 800;
-    text-transform: uppercase;
-    color: var(--ink);
+  /* The caption is `ui/FieldCaption`; this is the distance under it, which is
+     placement and so stays here (#383). */
+  .field :global(.field-caption),
+  .nudge :global(.field-caption) {
+    margin-bottom: var(--space-2xs);
   }
 
   .hint {
@@ -432,8 +436,11 @@
   .num {
     width: 100%;
     min-width: 0;
-    /* The field is the target — its `<label class="field">` wraps the caption
-       too, so the label's box is the pair rather than this one (ADR-0093). */
+    /* The input is the target, and takes the floor itself. It used to sit
+       inside a `<label class="field">` that wrapped the caption with it, so the
+       pair was one box; #383 made the caption its own `<label for>` and the
+       wrapper a `<div>`, which leaves this the smallest box accepting the tap
+       (ADR-0093). The line below was already here, so the floor did not move. */
     min-height: var(--tap-min);
     padding: var(--space-2xs) var(--space-xs);
     font-family: var(--font-mono);
@@ -519,59 +526,55 @@
     padding-top: var(--space-s);
     border-top: var(--edge);
   }
-  .nudge-label {
-    font-size: var(--step-n1);
-    font-weight: 800;
-    text-transform: uppercase;
-    color: var(--ink);
-  }
   .nudge .num {
     width: 6rem;
   }
-  .nudge-reset {
+  /* The reset is `ui/Button` since #390; what is left here is the mark it draws
+     and the one line the row it sits in needs.
+
+     ADR-0098 §3's recipe lived here — a `::before` drew the 1.75rem square with
+     `z-index: -1` behind the glyph, `isolation` kept the pseudo inside the
+     button, and hover and disabled were relocated onto it. That recipe exists
+     **only** because the mark was drawn in CSS instead of passed as content. A
+     button that takes children and carries the floor on both axes has nothing
+     to centre absolutely and nothing to relocate. */
+  .nudge :global(.nudge-reset) {
     flex-shrink: 0;
-    /* Mark and target, apart: the 1.75rem square is a ::before and the button's
-       own box carries the floor, so a 28px control gains a 48px target without
-       drawing a 48px square (ADR-0098 §3). `isolation` keeps the pseudo's
-       `z-index: -1` inside the button, behind its glyph. */
-    position: relative;
-    isolation: isolate;
-    min-width: var(--tap-min);
-    min-height: var(--tap-min);
     padding: 0;
+  }
+  .reset-mark {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    border: none;
-    background: none;
-    color: var(--ink);
-    font-size: var(--step-0);
-    line-height: 1;
-    cursor: pointer;
-  }
-  .nudge-reset::before {
-    content: "";
-    position: absolute;
-    inset: 0;
-    margin: auto;
-    z-index: -1;
     width: 1.75rem;
     height: 1.75rem;
     border: var(--edge);
     background: var(--paper);
+    color: var(--ink);
+    font-size: var(--step-0);
+    line-height: 1;
   }
-  .nudge-reset:hover:not(:disabled)::before {
+  /* **The mark responds to the button's state, and that is the caller's to
+     say.** `ui/Button` owns its own box — the floor, the frame, the focus ring,
+     `ghost`'s glow, and the `opacity: 0.6` it mutes a disabled control with. It
+     does not own `.reset-mark`, which is content this file passes in, so keying
+     that element's look off `:disabled` is not overriding the primitive; it is
+     the caller deciding what its own content looks like in a state the
+     primitive announces. Same shape as `.info-mark` under `ui/Disclosure`
+     (#316).
+
+     The disabled rule is load-bearing rather than decorative: the affordance
+     these buttons carry is that a card already at its baked default reads as
+     default from the muted control alone. Fading a hard `--edge` border to 60%
+     leaves it reading as a live box against the value field beside it, which is
+     what the rebaseline showed. */
+  .nudge :global(.nudge-reset:hover:not(:disabled) .reset-mark) {
     background: var(--ink);
-  }
-  .nudge-reset:hover:not(:disabled) {
     color: var(--paper);
   }
-  .nudge-reset:disabled::before {
+  .nudge :global(.nudge-reset:disabled .reset-mark) {
     border-color: var(--border-subtle, var(--border));
-  }
-  .nudge-reset:disabled {
     color: var(--border-subtle, var(--border));
-    cursor: default;
   }
   .floor-note {
     color: var(--ink);

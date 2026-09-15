@@ -215,7 +215,7 @@
                  `part` belongs to the segments inside it. -->
             <DateRangePicker.Root bind:value={range} weekStartsOn={1}>
               <div class="range">
-                <DateRangePicker.Label class="range-label">
+                <DateRangePicker.Label class="field-caption">
                   Range
                 </DateRangePicker.Label>
                 <div class="range-field">
@@ -452,12 +452,12 @@
     flex-direction: column;
     gap: var(--space-3xs);
   }
-  :global(.reports .range-label) {
-    font-size: var(--step-n1);
-    font-weight: 800;
-    text-transform: uppercase;
-    color: var(--ink);
-  }
+  /* The look is `.field-caption` in `src/app.css`. This caption names a *group*
+     — two inputs of date segments with no one labelable control between them —
+     so bits-ui draws it as a `<span id>` reached by `aria-labelledby`, and
+     `ui/FieldCaption`, which owns a `<label for>`, cannot be it. That is
+     ADR-0100 §4's ladder returning "a class" rather than "a component", and it
+     is why the look is declared where both populations can reach it (#383). */
   .range-field {
     display: flex;
     align-items: stretch;

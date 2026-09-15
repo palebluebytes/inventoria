@@ -302,14 +302,14 @@ describe("the bundled search index", () => {
     // 427 to 423 when `isReconstitutedDrink` took the eight made-up drink
     // mixes: four of them were the plain sibling of nothing else, and a row
     // whose only qualified twin has left stops being one.
-    expect(index.foods.filter((row) => row.plain_sibling).length).toBe(422);
+    expect(index.foods.filter((row) => row.plain_sibling).length).toBe(421);
     // Omitted rather than emitted false, like every other absent field.
     expect(index.foods.filter((row) => row.plain_sibling === false)).toEqual(
       []
     );
   });
 
-  it("holds 565 rows whose head phrase is a shelf label, under 18 labels", () => {
+  it("holds 550 rows whose head phrase is a shelf label, under 18 labels", () => {
     // ADR-0042's #154 Amendment, tripwired the way ADR-0055 §3 tripwired
     // `plainSibling`: the roster is hand-written, so a head phrase added or
     // misspelled shows up as a count here rather than as a quietly reordered
@@ -320,7 +320,7 @@ describe("the bundled search index", () => {
     // 578 to 571: seven of the eight drinks the reconstituted-drink rule takes
     // were filed under the `Beverages` shelf label, and the eighth under
     // `Alcoholic beverage`.
-    expect(shelved.length).toBe(565);
+    expect(shelved.length).toBe(550);
     const labels = new Set(
       shelved.map((row) => qualifiersOf(row.description)[0])
     );
@@ -373,7 +373,7 @@ describe("the bundled search index", () => {
   });
 
   it("is the surviving reference foods, and says which archives it came from", () => {
-    expect(index.foods.length).toBe(2437);
+    expect(index.foods.length).toBe(2418);
     expect(index.generated_from.map((a) => a.dataset)).toEqual([
       "Foundation Foods",
       "SR Legacy",
@@ -389,14 +389,14 @@ describe("the bundled search index", () => {
     // What the alias loop is skipped for, which is the whole reason
     // `bestNameKey` costs nothing on most rows.
     expect(index.foods.filter((row) => !(row.also ?? []).length).length).toBe(
-      2364
+      2345
     );
     // And what `SEARCH_RESULT_LIMIT` is a ceiling ON. Measured after ADR-0062
     // §1, because that is the set the list would have to render.
     // 734 to 727: seven of the eight rows the reconstituted-drink rule takes
     // are filed under a head phrase beginning with `b` — six `Beverages` and
     // one `Alcoholic beverage`.
-    expect(withoutStrayMentions(scoredFor("b")).length).toBe(721);
+    expect(withoutStrayMentions(scoredFor("b")).length).toBe(706);
   });
 
   // ── ADR-0048's invariant, over the artifact itself ────────────────────────
@@ -500,21 +500,19 @@ describe("the bundled search index", () => {
     expect(leaked.map((row) => row.description)).toEqual([]);
   });
 
-  it("answers 'protein powder' with the supplements, not the trademark", () => {
-    // #152. USDA rendered "Muscle Milk" in Title Case, so it read to the caps
-    // rule like any cultivar and led the query over the three generic powders
-    // behind it. What makes the drop correct is the second assertion, not the
-    // first: the denylist names one trademark, and ADR-0055 §7 refused the
-    // powder-or-supplement marker that would have taken the aisle with it.
-    const found = descriptionsFor("protein powder");
+  it("ships no Muscle Milk, and no protein powder to rank against it", () => {
+    // #152's denylist, asserted against the CORPUS rather than against a query.
+    // It used to be asserted by searching `protein powder` and checking the
+    // trademark did not lead the three generic powders behind it — and that
+    // query now returns nothing, because ADR-0104's drink-powder rule took all
+    // three. Left as it was, the trademark assertion would have passed over an
+    // empty list and gone on passing forever while testing nothing.
     expect(
-      found.filter((description) => /muscle milk/i.test(description))
+      index.foods.filter((row) => /muscle milk/i.test(row.description))
     ).toEqual([]);
-    expect(found.slice(0, 3)).toEqual([
-      "Beverages, Protein powder whey based",
-      "Beverages, Protein powder soy based",
-      "Beverages, Whey protein powder isolate",
-    ]);
+    // And the aisle it sat in is gone with it, which is the change ADR-0104's
+    // amendment argues and ADR-0055 §7 has to be read against.
+    expect(descriptionsFor("protein powder")).toEqual([]);
   });
 
   it("holds nothing its own filters would reject", () => {
@@ -778,9 +776,16 @@ describe("the bundled search index", () => {
     for (const kept of [
       // Both a factory input and a tub in a shop, and ADR-0055 §7's refusal of a
       // powder-or-supplement marker is what keeps them.
+      //
+      // `Beverages, Whey protein powder isolate` was the third of these and is
+      // gone, taken by ADR-0104's drink-powder rule. That is the case the note
+      // above already describes: #157 refused to widen a REGEX, and a refusal to
+      // widen a regex is not a promise that no other rule may ever take the row.
+      // These two survive it because the rule is scoped to the `Beverages`
+      // category and they are filed elsewhere — which is the whole of why it is
+      // scoped that way.
       "Soy protein isolate",
       "Soy protein isolate, potassium type",
-      "Beverages, Whey protein powder isolate",
     ]) {
       expect(descriptions).toContain(kept);
     }
@@ -1011,7 +1016,7 @@ describe("searchIndexRows", () => {
     // exactly the blanket "-ves" shape; the table below is what catches that,
     // by pinning "olives" to the singular it still has to answer.
     const merged = new Set(words.map(stemOf));
-    expect(words.length - merged.size).toBe(93);
+    expect(words.length - merged.size).toBe(92);
 
     expect(touched.map((w) => [w, stemOf(w), sharing(w)])).toEqual([
       ["additives", "additive", []],
@@ -1226,8 +1231,15 @@ describe("searchIndexRows", () => {
     // for a measurement stated over a description exactly as a rename does
     // (ADR-0056's Consequences), and the roster rule it was defending has not
     // changed.
+    // Now `Ice cream, soft serve, chocolate`, and that is a KNOWN-BAD lead
+    // pinned as one rather than a result being claimed. ADR-0104's drink-powder
+    // rule took the row that used to lead this, and what it uncovered is that
+    // the corpus holds no chocolate at all: every `Chocolate, dark, NN% cacao
+    // solids` row is dropped as a confection by the `Sweets` rule, which is a
+    // standing decision this change did not touch and only stopped hiding.
+    // `chocolate` answers with three ice creams and nothing else.
     expect(descriptionsFor("chocolate")[0]).toBe(
-      "Beverages, chocolate powder, no sugar added"
+      "Ice cream, soft serve, chocolate"
     );
   });
 
@@ -2076,7 +2088,7 @@ describe("searchIndexRows", () => {
       // the reconstituted-drink rule has since taken out of the corpus. A lead
       // that leaves with its row is not a lead lost, which is why `lost` is
       // still the invariant and still zero.
-      gained: 209,
+      gained: 208,
       lost: 0,
     });
   }, 30_000);

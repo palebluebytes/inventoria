@@ -52,7 +52,7 @@
 
   // An ingredient list is a thing measured INTO something, so a food that can be
   // weighed opens on grams here where the log sheet opens it on its panel's own
-  // unit (ADR-0105 §7, as amended).
+  // unit (ADR-0108 §7, as amended).
   //
   // Its memory is the recipes themselves, not the consumption log: what a food
   // was last measured into a dish in is the fact this screen is seeded by, and

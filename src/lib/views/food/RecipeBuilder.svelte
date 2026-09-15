@@ -21,6 +21,7 @@
   } from "../../food/batch-weight";
   import { Accordion } from "bits-ui";
   import Alert from "../../ui/Alert.svelte";
+  import FieldCaption from "../../ui/FieldCaption.svelte";
   import Textarea from "../../ui/Textarea.svelte";
   import IngredientListEditor from "./IngredientListEditor.svelte";
 
@@ -58,7 +59,9 @@
     /** Foods selected on the dashboard, seeded as ingredients (carry event_ids). */
     initialIngredients?: RecipeIngredient[];
     /** Called once the recipe is saved (and logged for consolidate/define). */
-    onCommitted: () => void;
+    /** Committed: the ids it LOGGED, so the day can put the new row on screen
+     *  (#440). Empty on `create`, which is template-only and logs nothing. */
+    onCommitted: (logged?: string[]) => void;
     /** The host's dock fires this to commit; readiness/label drive its button. */
     requestSave?: () => void;
     saveReady?: boolean;
@@ -217,6 +220,9 @@
         },
         mode === "edit" ? template?.entity : undefined
       );
+      // The row this save put on the day, if it put one there: #440 reveals it,
+      // and the two template-only modes below leave it empty on purpose.
+      let logged: string | null = null;
       // 3. Consolidate and Define both LOG the recipe onto the current day — a
       //    recipe you just built should appear on the day you built it (ADR-0022,
       //    amended). Edit stays template-only: it re-seeds only FUTURE
@@ -230,7 +236,7 @@
         // live display above and the projection's derivation, so the frozen
         // snapshot equals what the builder showed at the moment it was logged.
         // Panels are read in memory, so real food twins are never mutated.
-        await logRecipeConsumption(
+        logged = await logRecipeConsumption(
           recipeId,
           referenceIngredients,
           yieldNum,
@@ -253,7 +259,7 @@
           }
         }
       }
-      onCommitted();
+      onCommitted(logged ? [logged] : []);
     } catch (e: any) {
       status = "error";
       error = e.message ?? String(e);
@@ -303,13 +309,15 @@
 {#if !ready}
   <p class="loading">Loading recipe…</p>
 {:else}
-  <label class="fl" for="recipe-name">Name</label>
-  <input
-    id="recipe-name"
-    class="tin big"
-    placeholder="e.g. Overnight oats"
-    bind:value={recipeName}
-  />
+  <div class="name-field">
+    <FieldCaption for="recipe-name">Name</FieldCaption>
+    <input
+      id="recipe-name"
+      class="tin big"
+      placeholder="e.g. Overnight oats"
+      bind:value={recipeName}
+    />
+  </div>
 
   <IngredientListEditor bind:ingredients bind:recipeYield bind:batchWeight />
 
@@ -429,11 +437,12 @@
     padding: var(--space-l) 0;
     text-align: center;
   }
-  .fl {
-    display: block;
-    font-size: var(--step-n2);
-    font-weight: 700;
-    text-transform: uppercase;
+  /* The caption's distance from what is above it and from its own field —
+     placement, so it stays here while the look comes from `ui/FieldCaption`
+     (#383). The wrapper exists to be the scoped ancestor: a class handed to a
+     component carries no scoping hash, so a rule reaching one has to go
+     through `:global` under a box this file does own. */
+  .name-field :global(.field-caption) {
     margin: var(--space-s) 0 var(--space-3xs);
   }
   .tin {

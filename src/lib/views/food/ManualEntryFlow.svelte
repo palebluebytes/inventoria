@@ -6,6 +6,7 @@
   import { emptyPlateEstimate } from "../../food/plate-estimator";
   import { readImageAsDataUrl } from "../../food/image-file";
   import type { FoodChoice, ManualEntrySeed } from "../../food/food-staging";
+  import FieldCaption from "../../ui/FieldCaption.svelte";
   import Row from "../../ui/Row.svelte";
   import Textarea from "../../ui/Textarea.svelte";
 
@@ -279,7 +280,7 @@
 <!-- The one calorie field every intent leads with (the only number a manual
      entry carries), so quick/menu/plate never assemble it three ways. -->
 {#snippet kcalField()}
-  <label class="kcal-label" for={calId}>Calories</label>
+  <FieldCaption for={calId}>Calories</FieldCaption>
   <div class="kcal-field">
     <input
       id={calId}
@@ -371,7 +372,7 @@
         />
         {@render kcalField()}
         {#if intent === "menu"}
-          <label class="mini-flabel" for="manual-place">Place — optional</label>
+          <FieldCaption for="manual-place">Place — optional</FieldCaption>
           <input
             id="manual-place"
             class="mini-name"
@@ -380,9 +381,9 @@
             bind:value={place}
           />
         {/if}
-        <label class="mini-flabel" for="manual-ingredients"
-          >Ingredients — optional</label
-        >
+        <FieldCaption for="manual-ingredients">
+          Ingredients — optional
+        </FieldCaption>
         <Textarea
           id="manual-ingredients"
           rows={2}
@@ -445,13 +446,6 @@
     display: flex;
     flex-direction: column;
     gap: var(--space-s);
-  }
-  .kcal-label,
-  .mini-flabel {
-    font-size: var(--step-n2);
-    font-weight: 700;
-    text-transform: uppercase;
-    color: var(--text-secondary);
   }
   .kcal-field {
     display: flex;

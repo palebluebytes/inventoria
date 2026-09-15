@@ -2,7 +2,7 @@
 
 **Status:** Accepted  
 **Date:** 2026-08-06  
-**Amended by:** ADR-0043 §2 (the badge moves onto the portions row as one of several tags); the Amendment below, which supersedes §1, §3, §5, §6 of the original decision; and [ADR-0105](0105-a-volume-food-is-weighed-by-the-class-you-say-it-is.md) §11 (§3's client-side inference ban gains a second carve-out, for a density figure resolved from a class the user asserted)  
+**Amended by:** ADR-0043 §2 (the badge moves onto the portions row as one of several tags); the Amendment below, which supersedes §1, §3, §5, §6 of the original decision; and [ADR-0108](0108-a-volume-food-is-weighed-by-the-class-you-say-it-is.md) §11 (§3's client-side inference ban gains a second carve-out, for a density figure resolved from a class the user asserted)  
 **Implemented:** #90 `71424e5`, #91 `51c926e`, #92 `ec06149`, #93 `2b09ccc`
 
 ## Context

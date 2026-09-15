@@ -59,6 +59,26 @@ export const BREAKPOINTS = {
    * which is exactly the pair this file exists to keep in step.
    */
   shell: 1180,
+
+  /**
+   * Rations' day splits into three: the ways into the day leave the head of the
+   * timeline for a flank of their own on the left, opposite the rail
+   * (ADR-0101's Amendment), and Rations' column widens to `--measure-wide` to
+   * hold all three.
+   *
+   * **Above the desktop test viewport on purpose, unlike `shell`.** 1280 is the
+   * `chromium` project's width and nothing below 1440 may depend on being
+   * un-photographed, which is why this shape is additive: at 1439 the day is
+   * exactly the two-region screen every baseline was taken against. What
+   * defends it is `tests/layout-invariants.spec.ts`, which sweeps Rations at
+   * 1920x1080 and therefore stands inside this query.
+   *
+   * Read from CSS only. Which columns a screen has is a fact about the width
+   * and nothing else, so no `matchMedia` reads this one (`watchAtLeast` below
+   * says when a width earns a JavaScript reader, and a box being laid out is
+   * not it).
+   */
+  wide: 1440,
 } as const;
 
 /**

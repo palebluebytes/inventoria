@@ -221,31 +221,49 @@ function refsIn(value: unknown): string[] {
 }
 
 /**
+ * How each attribute that carries an entity reference yields the entities it
+ * points at. A table rather than a `switch` because its **keys** are a claim
+ * somebody else checks: `docs/eavt-vocabulary.md` marks every attribute that
+ * holds a reference, and `tests/unit/meal-payload.test.ts` partitions that set
+ * against these keys, so a new reference attribute has to be decided about at
+ * the moment it is coined (ADR-0105 §7). A `case` label is not data; this is.
+ */
+const REFERENCE_READERS = new Map<string, (value: unknown) => string[]>([
+  ["event/target", (value) => (typeof value === "string" ? [value] : [])],
+  [
+    "event/instantiation",
+    (value) =>
+      isRecord(value)
+        ? [
+            ...(typeof value.based_on === "string" ? [value.based_on] : []),
+            ...refsIn(value.ingredients),
+          ]
+        : [],
+  ],
+  ["recipe/ingredients", refsIn],
+]);
+
+/**
+ * The attributes {@link referencesOf} reads, which is the edge set a meal's
+ * closure is walked along and the same set a reader checks resolve inside a
+ * payload. It is exported so the claim above is checkable against something
+ * other than the source text.
+ */
+export const REFERENCE_ATTRIBUTES: readonly string[] = [
+  ...REFERENCE_READERS.keys(),
+];
+
+/**
  * The entities one datom points at.
  *
- * These four references are the whole of what a meal's closure is walked
- * through, and the same four are what a reader checks resolve inside a payload.
  * `value` arrives as the ledger's stored TEXT, which is the one place a shape
- * can genuinely be malformed, so it is guarded here rather than trusted and
- * caught later: a blob of the wrong shape yields no reference instead of
- * throwing mid-walk.
+ * can genuinely be malformed, so it is guarded in each reader rather than
+ * trusted and caught later: a blob of the wrong shape yields no reference
+ * instead of throwing mid-walk.
  */
 export function referencesOf(row: LedgerRow): string[] {
-  const value = parseDatomValue(row.attribute, row.value);
-  switch (row.attribute) {
-    case "event/target":
-      return typeof value === "string" ? [value] : [];
-    case "event/instantiation":
-      if (!isRecord(value)) return [];
-      return [
-        ...(typeof value.based_on === "string" ? [value.based_on] : []),
-        ...refsIn(value.ingredients),
-      ];
-    case "recipe/ingredients":
-      return refsIn(value);
-    default:
-      return [];
-  }
+  const read = REFERENCE_READERS.get(row.attribute);
+  return read ? read(parseDatomValue(row.attribute, row.value)) : [];
 }
 
 /**

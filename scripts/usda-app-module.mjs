@@ -90,6 +90,8 @@ export const FOOD_KIND_EXPORTS = [
   "isProcessedProduct",
   "isPreparedProduct",
   "isReconstitutedDrink",
+  "isFoodserviceRecord",
+  "isDrinkPowder",
   "isCookedForm",
   "ADJUDICATED_DISHES",
   "isDryBasisRecord",

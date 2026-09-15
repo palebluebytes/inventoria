@@ -416,7 +416,14 @@ describe("the header's icons are navigation above the breakpoint", () => {
   it("inverts the icon of the page you are on", () => {
     // Ink and paper, which is how this frame states selection — the same mark
     // the month calendar's chosen day wears.
-    const current = ruleOf(FOOD_VIEW, '.header-icon-btn[aria-current="page"]');
+    // Anchored under `.header-actions` and reached with `:global` since #316:
+    // the About ⓘ in that row is `ui/Disclosure` now, and a class handed to a
+    // component carries no scoping hash, so a plain `.header-icon-btn` rule
+    // would dress its two plain-`<button>` neighbours and skip it silently.
+    const current = ruleOf(
+      FOOD_VIEW,
+      '.header-actions :global(.header-icon-btn[aria-current="page"])'
+    );
     expect(decl(current, "background")).toBe("var(--ink)");
     expect(decl(current, "color")).toBe("var(--paper)");
   });
