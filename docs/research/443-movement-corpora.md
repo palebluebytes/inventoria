@@ -241,3 +241,169 @@ The problem is a different one: **crowdsourced inconsistency**, because these na
 - **No duplicates, but near-duplicates everywhere.** All 865 English names are distinct (_measured_ — 865 distinct lowercased names of 865). But `Bench Press`, `Benchpress Dumbbells`, and `Bench Press Narrow Grip` are three rows whose relationship is expressed only by a `variation_group` integer, and the second spells the head word as one word. `Bent Over Rowing`, `Bent Over Rowing Reverse` and `Bent Over Dumbbell Rows` alternate between `Rowing` and `Rows` as the head noun. The `head, qualifier` grammar that USDA search's ranking keys exploit is simply absent — the qualifier can be a prefix (`Barbell Lunges Standing`), a suffix (`Bench Press Narrow Grip`) or absent.
 - **Ordinals and junk in the head position.** `2 Handed Kettlebell Swing`, `4-count burpees`, `3D lunge warmup`, `1-Arm Half-Kneeling Lat Pulldown`, `45° lateral raises`, `1/2 Kneeling Thoracic Rotation`, `90/90 Breathing`, `Limber 11`, and — unambiguously rot — `Bear Walk 2` and `3008 Abdominal Crunch`. A leading digit defeats alphabetical ordering and a bare `2` as a disambiguator is a name nobody will search for.
 - **Casing is inconsistent**: `Barbell Ab Rollout` and `Zone 2 Running` alongside `4-count burpees` and `45° lateral raises`.
+
+---
+
+## 6. Free Exercise DB (yuhonas), and its upstream wrkout/exercises.json
+
+**Primary sources.** [github.com/yuhonas/free-exercise-db](https://github.com/yuhonas/free-exercise-db) — its [LICENSE.md](https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/LICENSE.md), [schema.json](https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/schema.json) and [dist/exercises.json](https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/dist/exercises.json); the upstream [github.com/wrkout/exercises.json](https://github.com/wrkout/exercises.json) and its [CONTRIBUTING.md](https://raw.githubusercontent.com/wrkout/exercises.json/master/CONTRIBUTING.md). Figures _measured_ 2026-09-15 from `dist/exercises.json`.
+
+### 6.1 Licence — the Unlicense on the text, and a hole under the images
+
+`LICENSE.md` is the plain Unlicense, verbatim at its head:
+
+> This is free and unencumbered software released into the public domain.
+>
+> Anyone is free to copy, modify, publish, use, compile, sell, or distribute this software, either in source code form or as a compiled binary, for any purpose, commercial or non-commercial, and by any means.
+
+GitHub's own licence detection agrees (`"spdx_id": "Unlicense"` on both repos, via the API). For the **JSON text** — names, muscles, equipment, instructions — that is the best licence answer in this whole survey: no attribution obligation, no share-alike, commercial use explicit.
+
+**The images are a separate and much worse story, and the maintainers say so themselves.** Upstream `CONTRIBUTING.md` states it in the repository, verbatim:
+
+> **NB:** Any help in creating digital copyright free images for each exercise would be extremely helpful.
+>
+> Currently all exercises have two images, these have been scrapped off the internet, therefore l do not own the copy right for these images and would advise against using them in comercial projects.
+
+The downstream maintainer's own position, on [yuhonas/free-exercise-db#2 "License of Images?"](https://github.com/yuhonas/free-exercise-db/issues/2), verbatim:
+
+> this project is a fork/reworking of [exercises.json](https://github.com/wrkout/exercises.json) [...] the derived project is licensed using [Unlicense license](https://github.com/wrkout/exercises.json/blob/master/LICENSE.md) though I actually have no idea where the images are from or if they are royalty free so usage would be at your own risk
+
+The still-open [yuhonas/free-exercise-db#13](https://github.com/yuhonas/free-exercise-db/issues/13) carries a reverse-image-search attribution to bodybuilding.com and a request to remove the images; the maintainer's reply proposes swapping in placeholders. **Treat the 1,746 image paths (_measured_) as unusable and do not bundle them.** The practical effect is small — they are also far too heavy to precache — but it must be a stated exclusion, not a silent one, in a repo that keeps `docs/icon-provenance.md`.
+
+**One residual doubt worth naming rather than burying.** The Unlicense on the _text_ is a dedication by people who, by their own account, did not author all of what they dedicated. Nobody in either repo's issue tracker has produced evidence that the instruction prose is copied (the #13 thread's most careful comment says the opposite: "The exercise descriptions, though, seem ok — at least I personally haven't been able to find any evidence of plagiarism"), and the prose reads as written-for-purpose. But the dedication's chain of title is asserted, not documented. If the choosing ticket takes this corpus, taking the **structured fields** (name, muscles, equipment, force, mechanic, category) and writing our own row prose is materially safer than shipping 571,706 characters of instructions (_measured_) whose author nobody can name.
+
+### 6.2 Size and shape
+
+**876 exercises** (_measured_). Eleven fields, every one of them on every row, with `null` where unknown:
+
+```
+category, equipment, force, id, images, instructions, level, mechanic,
+name, primaryMuscles, secondaryMuscles
+```
+
+Closed vocabularies, with the full distribution (_measured_):
+
+| Field              | Values    | Distribution                                                                                                                                                                       |
+| ------------------ | --------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `category`         | 7         | strength 584, stretching 123, plyometrics 61, powerlifting 38, olympic weightlifting 35, strongman 21, **cardio 14**                                                               |
+| `force`            | 3 + null  | pull 371, push 371, static 104, **null 30**                                                                                                                                        |
+| `mechanic`         | 2 + null  | compound 491, isolation 298, **null 87**                                                                                                                                           |
+| `equipment`        | 12 + null | barbell 170, dumbbell 123, other 122, body only 111, cable 81, **null 77**, machine 67, kettlebells 56, bands 20, medicine ball 17, exercise ball 12, foam roll 11, e-z curl bar 9 |
+| `level`            | 3         | beginner 525, intermediate 294, expert 57                                                                                                                                          |
+| `primaryMuscles`   | 17        | present on **876 / 876**                                                                                                                                                           |
+| `secondaryMuscles` | 17        | present on 604 / 876                                                                                                                                                               |
+
+**Bytes.** `dist/exercises.json` is **1,005,327 bytes raw / 167,211 gzipped** (_measured_). Dropping `instructions` and `images` — the two fields with the provenance doubt — leaves **208,686 raw / 19,062 gzipped** (_measured_) for all 876 rows and every structured field. Nineteen kilobytes. Precache weight is not a consideration.
+
+**Format.** One JSON file per exercise under `exercises/`, plus a built `dist/exercises.json` array, plus `dist/exercises.nd.json` (newline-delimited) via a `make` task, plus a JSON Schema the CI lints against. This is the only candidate that ships a **version-pinned, schema-validated, git-addressable artefact** — the same property that made USDA's dated archives bundleable under ADR-0047. There is no API and none is needed.
+
+### 6.3 MET: no
+
+No `met`, no `calorie`, no `energy` key anywhere in the corpus (_measured_ — the set of keys across all 876 rows is exactly the eleven above). Same verdict as wger: not absent data, an absent concept.
+
+### 6.4 Anatomy: yes, and it is richer than wger's on the axes that matter
+
+Seventeen muscles, `primaryMuscles` on **every** row, `secondaryMuscles` on 604. Crucially it also carries two axes wger does not:
+
+- **`force`: push / pull / static** — a real movement-pattern axis, populated on 846 of 876 rows.
+- **`mechanic`: compound / isolation** — populated on 789.
+
+That is most of the "anatomy layer" the map parks as an ambition, already typed and already closed-vocabulary.
+
+**But the anatomy degenerates exactly where the Compendium is strong.** All 14 cardio rows, verbatim with their primary muscle (_measured_):
+
+```
+Bicycling             | other   | ['quadriceps']
+Bicycling, Stationary | machine | ['quadriceps']
+Elliptical Trainer    | machine | ['quadriceps']
+Jogging, Treadmill    | machine | ['quadriceps']
+Prowler Sprint        | other   | ['hamstrings']
+Recumbent Bike        | machine | ['quadriceps']
+Rope Jumping          | other   | ['quadriceps']
+Rowing, Stationary    | machine | ['quadriceps']
+Running, Treadmill    | machine | ['quadriceps']
+Skating               | other   | ['quadriceps']
+Stairmaster           | machine | ['quadriceps']
+Step Mill             | machine | ['quadriceps']
+Trail Running/Walking | None    | ['quadriceps']
+Walking, Treadmill    | machine | ['quadriceps']
+```
+
+Thirteen of the fourteen are `quadriceps`, including `Rowing, Stationary` and `Skating`. This is not thin anatomy, it is **wrong** anatomy — a default value standing in for a judgement nobody made. Any wayfinding built on "you have not trained legs in nine days" would count a rowing session as a leg day.
+
+### 6.5 Dose shape: specified upstream, present on zero rows
+
+The upstream repo documents exactly the thing map #441 item 4 asks for. `CONTRIBUTING.md`, verbatim: "Exercises are more useful when you know how to measure them. [...] All exercises should have an accompanying `measure.json` file." And `types/measure.d.ts` types it:
+
+```ts
+export enum Fields {
+  reps = "reps",
+  time = "time",
+  distance = "distance",
+  weight = "weight",
+}
+export interface Measure {
+  requiredFields: Fields[];
+  optionalFields?: Fields[];
+  weightModifier?: WeightModifier;
+  weightUnit?: WeightUnit;
+  distanceUnit?: DistanceUnit;
+}
+```
+
+**Zero `measure.json` files exist.** The upstream tree holds **873 `exercise.json` and 0 `measure.json`** (_measured_, via the GitHub trees API at `master`). The dose shape is a documented intention with no data behind it, and yuhonas' fork does not carry the field at all. Worth knowing chiefly because it is independent confirmation that a per-row dose shape is the right model — someone else reached for it — and that we would be authoring it ourselves.
+
+The upstream also types two fields the fork drops and the ingestion arc would want: `aliases?: string[]` and `tips?: string[]`, plus three `category` values the fork's schema does not list (`crossfit`, `weighted bodyweight`, `assisted bodyweight`).
+
+### 6.6 Findability of Free Exercise DB's published names
+
+Verbatim, the first twenty names in `id` order (_measured_, unedited):
+
+```
+3/4 Sit-Up
+90/90 Hamstring
+Ab Crunch Machine
+Ab Roller
+Adductor
+Adductor/Groin
+Advanced Kettlebell Windmill
+Air Bike
+All Fours Quad Stretch
+Alternate Hammer Curl
+Alternate Heel Touchers
+Alternate Incline Dumbbell Curl
+Alternate Leg Diagonal Bound
+Alternating Cable Shoulder Press
+Alternating Deltoid Raise
+Alternating Floor Press
+Alternating Hang Clean
+Alternating Kettlebell Press
+Alternating Kettlebell Row
+Alternating Renegade Row
+```
+
+And the 21 rows matching `bench press` (_measured_):
+
+```
+Barbell Bench Press - Medium Grip        Dumbbell Bench Press
+Barbell Guillotine Bench Press           Dumbbell Bench Press with Neutral Grip
+Barbell Incline Bench Press - Medium Grip Hammer Grip Incline DB Bench Press
+Bench Press - Powerlifting               Machine Bench Press
+Bench Press - With Bands                 One Arm Dumbbell Bench Press
+Bench Press with Chains                  Reverse Band Bench Press
+Close-Grip Barbell Bench Press           Reverse Triceps Bench Press
+Decline Barbell Bench Press              Smith Machine Bench Press
+Decline Dumbbell Bench Press             Smith Machine Close-Grip Bench Press
+                                         Wide-Grip Barbell Bench Press
+                                         Wide-Grip Decline Barbell Bench Press
+```
+
+**Findability is good, and the failure mode is over-supply rather than absence** — the opposite of the Compendium's. All 876 names are distinct (_measured_). But:
+
+- **The qualifier has no fixed position or separator.** `Barbell Bench Press - Medium Grip` (prefix + dash), `Bench Press - With Bands` (dash), `Bench Press with Chains` (bare preposition), `Close-Grip Barbell Bench Press` (prefix), `Dumbbell Bench Press with Neutral Grip` (both). Upstream's `CONTRIBUTING.md` actually specifies a grammar — "`<exercise.name> (<exercise.equipment>)`", giving `Bench Press (Barbell)` — and **not one row in the fork follows it**. A ranking key that prices the head phrase, as the USDA work's do, has no stable head to price here.
+- **Abbreviations leak into names**: `Hammer Grip Incline DB Bench Press` uses `DB` where 123 other rows spell `Dumbbell`.
+- **Some names are not movement names at all**: `Adductor`, `Adductor/Groin`, `90/90 Hamstring` are muscles in the name slot.
+- **Leading digits and slashes**: `3/4 Sit-Up`, `90/90 Hamstring`, `Trail Running/Walking`.
+- **It is a US gym vocabulary**, which matters less here than it did for food: the lifts have the same names in a British gym. There is no origin-word problem, so no ADR-0056 analogue is needed.
+
+**Coverage, which is the real finding.** `swimming` → **0 rows**, `yoga` → **0 rows**, `running` → 2, `cycling` → 2, `walk` → 8 (_measured_). Against `squat` → 56, `bench press` → 21, `deadlift` → 24, `row` → 53. Map #441 item 7 scopes this domain to "runs, lifts, swims, classes" — this corpus covers the lifts magnificently and **three of those four words badly or not at all**.
