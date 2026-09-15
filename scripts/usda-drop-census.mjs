@@ -20,11 +20,18 @@
  * so that diff is readable.
  *
  * **It restates nothing.** The merge, the grouping, the seven food-kind
- * judgements, the variant drops and the name drops are all the generator's and
- * the app's own, reached through the same two seams `usda-bundle.mjs` uses. The
- * one thing here that is not borrowed is the ATTRIBUTION (see {@link attribute}),
- * and it is deliberately implementation-blind: it asks the predicate, it does
- * not read the predicate's tables.
+ * judgements, the variant drops, the name drops and ADR-0103's collapse are all
+ * the generator's and the app's own, reached through the same two seams
+ * `usda-bundle.mjs` uses. The one thing here that is not borrowed is the
+ * ATTRIBUTION (see {@link attribute}), and it is deliberately
+ * implementation-blind: it asks the predicate, it does not read the predicate's
+ * tables.
+ *
+ * **One stage is not a drop.** A collapsed row is not gone: ADR-0103 §4 keeps
+ * the food under another `fdcId`, and the census is where that identity is
+ * committed one line per row — `collapsed_into`. It is filed with the drops
+ * because from the index's side the row is absent either way, and a reader
+ * asking "where did this go?" needs one file to ask.
  *
  * **It asserts itself.** The rule ORDER below is mirrored from `buildCorpus`
  * rather than borrowed from it — the one place this file could fall out of step
@@ -48,6 +55,7 @@ import {
   groupByIdentity,
   readBundleArchives,
 } from "./usda-bundle.mjs";
+import { collapseCorpus } from "./usda-collapse.mjs";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const MANIFEST_PATH = join(ROOT, "scripts", "usda-backup.manifest.json");
@@ -441,7 +449,52 @@ async function main() {
     });
   }
 
-  const shipped = afterNames.length - enrichment.dropped.size - mirrors.size;
+  // ADR-0103's collapse, last of all and over the names that ship — where the
+  // generator runs it, and for its reason. Borrowed rather than replayed: the
+  // pass is mechanical, so there is a function to call, and calling it is what
+  // keeps this census from being a second reading of §4's chain.
+  //
+  // A collapsed row is the only drop in this file that names WHERE IT WENT.
+  // Every other rule here removes a food; this one keeps it under another row's
+  // `fdcId`, and §9 makes that identity the thing the generator refuses to
+  // publish without. So the census carries it per row, which is what lets a
+  // reader ask "what happened to `Beef, flank, steak, choice`?" and get a row
+  // back instead of a silence.
+  const collapsible = finalRows
+    .filter((row) => !mirrors.has(row.fdcId))
+    .map((row) => ({
+      food: {
+        fdcId: row.fdcId,
+        description: row.description,
+        foodNutrients: byId.get(row.fdcId).food.foodNutrients,
+      },
+    }));
+  const { collapsed } = collapseCorpus(collapsible, app);
+  for (const { row, into } of collapsed.values()) {
+    const fdcId = row.food.fdcId;
+    const s = byId.get(fdcId);
+    drops.push({
+      fdcId,
+      description: row.food.description,
+      dataType: s.food.dataType,
+      ...(s.food.foodCategory ? { foodCategory: s.food.foodCategory } : {}),
+      group: s.group.map((f) => f.description),
+      nutrients: s.food.foodNutrients.length,
+      calories:
+        s.food.foodNutrients.find((n) => n.nutrientId === 1008)?.value ?? null,
+      stage: "collapse",
+      rule: "collapsed_into",
+      collapsed_into: into.food.fdcId,
+      collapsed_into_description: into.food.description,
+      // Relational, like every rule below `food_kind`: what took this row is the
+      // sibling that shares its residual description, never a word in it.
+      because: [],
+      because_kind: "by_survivor",
+    });
+  }
+
+  const shipped =
+    afterNames.length - enrichment.dropped.size - mirrors.size - collapsed.size;
 
   // The census adds up or it is wrong. The rule ORDER above is mirrored from
   // `buildCorpus` rather than borrowed from it — the one place this script could
