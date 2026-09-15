@@ -306,7 +306,13 @@ describe("the bundled search index", () => {
     // name and a qualified one, and the collapse removes qualified rows by the
     // hundred: a cut whose only qualified twin was a trim or a grade stops
     // being anything's plain sibling.
-    expect(index.foods.filter((row) => row.plain_sibling).length).toBe(225);
+    // 225 to 235 under ADR-0103 §5's strip (#436), in the opposite direction
+    // and for ADR-0062 §2's reason: shortening 174 names MAKES prefix relations
+    // that did not exist. `Beef, flank, steak, separable lean and fat, trimmed
+    // to 0" fat, choice` is a prefix of nothing; `Beef, flank, steak` sits under
+    // `Beef, flank`, and takes `Beef, flank, steak, boneless, choice` under
+    // itself. Ten rows, nine of them a butchery cut meeting its own primal.
+    expect(index.foods.filter((row) => row.plain_sibling).length).toBe(235);
     // Omitted rather than emitted false, like every other absent field.
     expect(index.foods.filter((row) => row.plain_sibling === false)).toEqual(
       []
@@ -620,7 +626,11 @@ describe("the bundled search index", () => {
       // being deleted, so it is named here rather than removed silently.
       "Bread, whole-wheat, commercially prepared",
       "Syrups, maple",
-      "Beef, chuck for stew, separable lean and fat, select",
+      // `…, separable lean and fat, select` until ADR-0103 §5's strip (#436)
+      // took the two segments the group collapsed on. The row is fdc:170809
+      // throughout; what #144 had to leave standing is the record, not the name
+      // it wore when the pin was written.
+      "Beef, chuck for stew",
       "Flour, wheat, all-purpose, bleached",
       "Shortening, vegetable, household, composite",
       "Wheat flour, white, cake",
@@ -1130,10 +1140,11 @@ describe("searchIndexRows", () => {
       .filter((c) => c.should_lead)
       .filter((c) => descriptionsFor(c.head)[0] === c.should_lead)
       .map((c) => c.head);
-    // Eight: #143's own five, plus `almond milk`, whose two rows its note calls
-    // peers, plus `veal`, which #162's `wholeness` key reached. ADR-0055's keys
-    // neither added to this nor took from it — they reach a different class,
-    // which is the measurement that amendment reports.
+    // Nine: #143's own five, plus `almond milk`, whose two rows its note calls
+    // peers, plus `veal`, which #162's `wholeness` key reached, plus the two
+    // the paragraphs below account for. ADR-0055's keys neither added to this
+    // nor took from it — they reach a different class, which is the measurement
+    // that amendment reports.
     //
     // `yogurt` is ADR-0061's, and it is a GAIN rather than a key: #143 recorded
     // a 26-way tie led by `Yogurt, fruit variety, nonfat`, and dropping the
@@ -1152,8 +1163,19 @@ describe("searchIndexRows", () => {
     // #143's committed pre-registration and is left as it was written; the
     // disagreement is recorded in ADR-0042's #162 Amendment rather than edited
     // out of the artifact.
+    //
+    // `eggs` is the ninth and it is not a gain this corpus made. #436 re-read
+    // the gold set's labels off the index, and that case's `should_lead` still
+    // said `Eggs, Grade A, Large, egg whole` — a name ADR-0104 renamed months
+    // ago. The head has led fdc:748967 since, and the string comparison this
+    // test makes was failing against a label rather than against the corpus.
+    // The row is unmoved by §5's strip, which reaches Beef, Lamb, Pork and Veal
+    // and nothing else; what moved is what the file says the row is called. It
+    // is #143's own trap a third time (ADR-0104's Amendment, and the file's
+    // `repinned` note): a set keyed on a description measures the description.
     expect(leading).toEqual([
       "almond milk",
+      "eggs",
       "millet",
       "rice noodles",
       "teff",
@@ -1792,10 +1814,12 @@ describe("searchIndexRows", () => {
         "pork",
         "Pork, fresh, composite of trimmed leg, loin, shoulder, and spareribs, (includes cuts to be cured), separable lean and fat",
       ],
-      [
-        "lamb",
-        'Lamb, composite of trimmed retail cuts, separable lean and fat, trimmed to 1/4" fat, choice',
-      ],
+      // Four words since #436, and the same record throughout (fdc:172479):
+      // ADR-0103 §5's strip took `separable lean and fat, trimmed to 1/4" fat,
+      // choice` once the collapse had merged 52 Lamb rows. `pork` above keeps
+      // its long name because its group merged nothing — the strip is licensed
+      // by the collapse, never by the name.
+      ["lamb", "Lamb, composite of trimmed retail cuts"],
     ] as const) {
       expect([query, descriptionsFor(query)[0]]).toEqual([query, expected]);
     }
@@ -1817,13 +1841,17 @@ describe("searchIndexRows", () => {
     // group to the fuller panel rather than to the lower `fdcId` — so the lead
     // moves from the 1/8" row to the 0" choice one. `wholeness` is untouched and
     // is still what keeps a separated fat off the top; what this now also pins
-    // is that the collapse did not put one back. The name still over-reads, and
-    // shortening it to `Beef, composite of trimmed retail cuts` is #436's.
+    // is that the collapse did not put one back.
+    //
+    // #436 then took the words. Both leads are the same records they were —
+    // fdc:168619's group gave `beef` its row and nothing about the ranking
+    // moved — and both now read as the four or five words that name the cut,
+    // because ADR-0103 §5's strip is licensed once a group has merged.
     expect(descriptionsFor("beef")[0]).toBe(
-      'Beef, composite of trimmed retail cuts, separable lean and fat, trimmed to 0" fat, choice'
+      "Beef, composite of trimmed retail cuts"
     );
     expect(descriptionsFor("veal")[0]).toBe(
-      "Veal, composite of trimmed retail cuts, separable lean and fat"
+      "Veal, composite of trimmed retail cuts"
     );
   });
 
@@ -1882,28 +1910,36 @@ describe("searchIndexRows", () => {
     );
     // The marble score moved from 4/5 to 9 with ADR-0103's collapse: the two
     // are one seam fat at two grades, and §4's chain hands the group to the
-    // fuller panel. The case is unchanged — a query naming a fat still gets the
-    // fat it named — and the row it gets is the one that ships.
-    expect(descriptionsFor("seam beef")[0]).toBe(
-      "Beef, Wagyu, seam fat, Aust. marble score 9"
-    );
+    // fuller panel. #436 then took the grade off the name, because that is the
+    // segment the group collapsed on — `seam fat` is not a roster segment and
+    // stays, which is exactly why this case still reads as a fat. The row is
+    // the one that ships; the case is unchanged.
+    expect(descriptionsFor("seam beef")[0]).toBe("Beef, Wagyu, seam fat");
   });
 
-  it("pins the one lead ADR-0056 moved onto a separated fat", () => {
+  it("gives back the one lead ADR-0056 moved onto a separated fat", () => {
     // #151's precedent: collateral is pinned, not left to be rediscovered as a
-    // fresh bug. Measured over 3,976 sweep queries, the rename left 3,898 leads
-    // alone, emptied 7 that named an origin, and moved 71 — of which this is the
-    // only one that went from a food to the fat trimmed off one.
+    // fresh bug. Measured over 3,976 sweep queries, ADR-0056's rename left 3,898
+    // leads alone, emptied 7 that named an origin, and moved 71 — of which this
+    // was the only one that went from a food to the fat trimmed off one. It led
+    // `Beef, Wagyu, external fat, Aust. marble score 4/5`, because `aust`
+    // matched `Aust. marble score` in every Wagyu row and the fat row was the
+    // shortest of them, so `accounted` favoured it over `wholeness`.
     //
-    // `aust` matches `Aust. marble score` in both rows, so the query was always
-    // going to answer with Wagyu. Before the rename both candidates carried the
-    // same two extra words; after it, the fat row is short enough that the query
-    // accounts for more of it, and `accounted` sits above `wholeness`. It is a
-    // sweep-generated pair, not a phrase anyone types, and the tenderloin is
-    // still on screen.
+    // ADR-0103 §5's strip (#436) hands it back, and not by reaching for it. Six
+    // Wagyu rows carried a marble score and five of their groups merged, so
+    // five lose the grade from their names — `aust` stops matching them at all.
+    // The sixth, fdc:173979, is a group of ONE: nothing collapsed onto it, so §5
+    // forbids the strip and it keeps USDA's whole name, marble score included.
+    // It is now the only row in the corpus the query can reach, and it is a
+    // steak rather than a fat.
+    //
+    // The case is still here rather than deleted, because what it pins is that
+    // `aust` reaches exactly what the naming rules leave it reaching.
     expect(descriptionsFor("aust beef")[0]).toBe(
-      "Beef, Wagyu, external fat, Aust. marble score 4/5"
+      "Beef, Wagyu, loin, top loin steak/roast, separable lean and fat, Aust. marble score 9"
     );
+    expect(descriptionsFor("aust beef").length).toBe(1);
   });
 
   it("answers `napa` with raw pe-tsai, which is the same vegetable", () => {
@@ -2128,7 +2164,19 @@ describe("searchIndexRows", () => {
       // beat them on the four earlier keys has collapsed into another row. A
       // lead that stops needing the position key is not a lead lost, which is
       // why `lost` is still zero and `notFirst` does not move.
-      gained: 127,
+      //
+      // 127 to 135 with ADR-0103 §5's strip (#436), by the same mechanism
+      // ADR-0056's rename used and in both directions. Ten rows join — `Beef,
+      // round, tip round`, `Lamb, loin`, `Veal, leg (top round)` and seven like
+      // them — because a name that has stopped saying `separable lean and fat,
+      // trimmed to 1/8" fat, choice` is a query its longer rivals no longer
+      // account for. Two leave without becoming not-first: `Veal, separable fat`
+      // and `Pork, cured, ham, separable fat, boneless` kept their own names,
+      // and the rivals that used to beat them on the four baseline keys got
+      // shorter, so they lead under both orderings now and stop being counted.
+      // The other eighteen that changed are the same rows under their new
+      // names. `lost` is still zero.
+      gained: 135,
       lost: 0,
     });
   }, 30_000);

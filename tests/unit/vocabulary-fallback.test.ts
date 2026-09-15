@@ -307,7 +307,11 @@ describe("what the fallback buys, against the bars set before it was built", () 
     // is the one the entry recorded, which is what the generator re-measures.
     for (const [query, expected] of [
       ["caster sugar", "Sugars, granulated"],
-      ["gammon", "Pork, cured, ham, whole, separable lean and fat"],
+      // fdc:167875 throughout. ADR-0103 §5's strip (#436) took `separable lean
+      // and fat` once 14 Pork rows collapsed onto it, and the entry's `landsOn`
+      // moved with the corpus rather than the entry choosing a new row —
+      // `admitLocalVocabulary` refuses a generation where the two disagree.
+      ["gammon", "Pork, cured, ham, whole"],
       ["mange tout", "Peas, edible-podded"],
       ["natural yoghurt", "Yogurt, plain, whole milk"],
       ["plain flour", "Flour, wheat, all-purpose, bleached"],
@@ -339,7 +343,7 @@ describe("what the fallback buys, against the bars set before it was built", () 
     expect(hit.alias).toBe("gammon");
     expect(
       mapIndexRowToPayload(hit.row, hit.alias).attributes["food/name"]
-    ).toBe("Pork, cured, ham, whole, separable lean and fat (gammon)");
+    ).toBe("Pork, cured, ham, whole (gammon)");
   });
 
   it("reaches a hand-written key mid-type, as the derived ones are reached", () => {
