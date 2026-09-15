@@ -692,7 +692,7 @@ export async function saveRecipe(
  * `servings` is how many servings the occasion was, and it reaches the ledger as
  * the event's quantity rather than as a divisor: the caller has already scaled
  * the rows, so the numbers are settled before this runs and the count is only
- * there to be *said* (ADR-0105 §8). It is said through {@link quantityLabel},
+ * there to be *said* (ADR-0106 §8). It is said through {@link quantityLabel},
  * which ADR-0060 §4 makes the single site that spells an `event/quantity` — this
  * one wrote the literal `"1 serving"` until #424, reporting every instantiation
  * as one serving however many the cook had asked for.

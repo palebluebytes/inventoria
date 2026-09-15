@@ -48,7 +48,7 @@
     recipeYield: number | string;
     /**
      * `portions` mode only: how many servings this occasion is. Bound out so the
-     * saving surface can say it on the log (ADR-0105 §8). It is not a divisor by
+     * saving surface can say it on the log (ADR-0106 §8). It is not a divisor by
      * the time it leaves here — the rows have already been scaled by it — only
      * the word for how big the occasion was.
      */
@@ -226,7 +226,7 @@
     <!-- A fraction of a serving is a thing people eat, and while this field
          stepped in whole ones from a floor of 1 it was not sayable: the spinner
          could not reach half a portion, and the keypad `inputmode="numeric"`
-         produces has no decimal point to type one with (ADR-0105 §6). A
+         produces has no decimal point to type one with (ADR-0106 §6). A
          non-positive count is still refused, by `changeServings` rather than by
          the widget, which is where the refusal can say what it means. -->
     <input

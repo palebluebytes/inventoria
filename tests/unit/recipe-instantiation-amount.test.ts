@@ -36,7 +36,7 @@ function row(entity: string, name: string, amount: number): RecipeIngredient {
   };
 }
 
-describe("the serving count admits a fraction (ADR-0105 §6)", () => {
+describe("the serving count admits a fraction (ADR-0106 §6)", () => {
   it("steps freely and offers a decimal keypad", () => {
     // It stepped in whole servings from a floor of 1, so half a portion was not
     // sayable: the spinner could not reach it and `inputmode="numeric"` gives a
@@ -67,7 +67,7 @@ describe("the serving count admits a fraction (ADR-0105 §6)", () => {
   });
 });
 
-describe("a logged instantiation says how many servings it was (ADR-0105 §8)", () => {
+describe("a logged instantiation says how many servings it was (ADR-0106 §8)", () => {
   const loggedQuantity = async (servings?: number) => {
     (dbClient.append as any).mockClear();
     await logRecipeConsumption(

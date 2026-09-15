@@ -2592,7 +2592,7 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     await expect(figures).toContainText("323 kcal");
 
     // Half a portion, which the field refused to hold while it stepped in whole
-    // servings from a floor of 1 (ADR-0105 §6).
+    // servings from a floor of 1 (ADR-0106 §6).
     await servings.fill("0.5");
     await expect(figures).toContainText("161.5 kcal");
     await expect(
@@ -2605,7 +2605,7 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
 
     // The day says what was eaten. It read "1 serving" for every instantiation
     // however many the cook had asked for, because the quantity was a literal
-    // rather than a measurement (ADR-0105 §8).
+    // rather than a measurement (ADR-0106 §8).
     await page.locator("#log-recipe-btn").click();
     const breakfastSection = page.locator(
       '.meal-section:has(.meal-title-btn:text-is("BREAKFAST"))'
