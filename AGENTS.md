@@ -90,10 +90,12 @@ touch what you are about to change; do not read all of them by default.
 | Argue about the storage model                                  | `docs/append-only-ledger.md`                                                                                    |
 | Work an issue                                                  | `docs/agents/issue-tracker.md` — this repo's `gh` conventions                                                   |
 
-Work in flight is tracked as GitHub issues, not in a file, and triaged with the
-labels `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, and
-`wontfix`. `docs/history/` holds superseded planning documents and is not
-current; do not take direction from it.
+Work in flight is tracked as GitHub issues, not in a file. **The label
+vocabulary — what each triage and `wayfinder:` label means, and what it obliges —
+is `docs/agents/issue-tracker.md`**, and is not restated here for the reason this
+file does not restate `CODING_STANDARDS.md`: a vocabulary kept in two places
+drifts in one of them. `docs/history/` holds superseded planning documents and is
+not current; do not take direction from it.
 
 **Every commit on a ticket names it in a trailer** — `Closes #NN` when it finishes
 the ticket, `Refs #NN` when it advances one it does not finish. `CODING_STANDARDS.md`
