@@ -128,6 +128,23 @@ tests, and the honest cost of §3's refusal to watch the projection. What makes 
 tolerable is that the reporting is a parameter on the sheets rather than a
 convention: a path that logs and returns `void` is visible in the type.
 
+**The day is still moving when the row arrives, so the reveal waits for it to
+stop.** Found by building rather than by reading: consolidating a Selection into
+a recipe computed a 408px scroll and moved the row 113px, because that one act
+writes two appends — the recipe, then a retraction per ingredient it replaced —
+which land as separate projection updates, while the Way-in bar unfolds out of
+the Selection over 0.22s and the day's foot reserve changes with it. So the
+caller waits for two consecutive frames in which the page's own geometry has not
+moved, which covers all of that without naming any of it.
+
+**That wait carries a timer as well as frames, and the timer is the load-bearing
+half.** A tab that is not painting is handed no animation frames at all — zero in
+600ms, measured — so a wait built on `requestAnimationFrame` alone does not time
+out, it never ends, and the reveal is lost rather than late. The frames decide
+_when_; the 700ms timer guarantees _whether_. (The same absence makes
+`behavior: "smooth"` a no-op in such a tab, which is correct: a page nobody is
+looking at has nothing to animate.)
+
 **A scroll can be clamped and that is correct.** Rule 2 can ask for more travel
 than the page has, and the browser stops at the end of the range; the row is still
 wholly visible, because it is inside a meal whose foot fits. Measured in the app:

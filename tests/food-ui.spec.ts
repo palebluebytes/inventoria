@@ -2694,14 +2694,14 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
       1
     );
 
-    // The five are on the bar, in the panel belonging to the meal the tab says.
-    // Scoped to the panel that is NOT hidden, because bits keeps all four
-    // mounted and hides three (ADR-0101 §1): unscoped this counts twenty, and a
-    // sixth way in would be invisible in that number.
+    // The five are on the bar, for whichever meal the chip is on. No scoping is
+    // needed any more and that is the point of the selector changing: the bar
+    // used to be a tab list that mounted four panels and hid three, so this
+    // count had to be taken inside the one on screen or it read twenty. One
+    // rail is rendered now (ADR-0101, amended 2026-09-15), so the bare count is
+    // the roster, and a sixth way in would show up in it.
     await selectMeal(page, "breakfast");
-    await expect(
-      page.locator('[role="tabpanel"]:not([hidden]) .rail > button')
-    ).toHaveCount(5);
+    await expect(page.locator(".way-in-bar .rail > button")).toHaveCount(5);
   });
 
   test("the meal's panel shows what the meal carries, and no reading of a day", async ({

@@ -180,9 +180,68 @@
     // first would scroll to the top of a group that is still growing downwards.
     if (!ids.every((id) => dayItems.some((item) => item.id === id))) return;
     revealed = ids;
-    // The rows exist in the projection now; `tick` is what puts them in the DOM.
-    tick().then(() => revealLogged(ids));
+    // The rows exist in the projection now; `tick` is what puts them in the DOM,
+    // and `whenStill` is what waits for them to stop moving in it.
+    tick().then(() => whenStill(() => revealLogged(ids)));
   });
+
+  /**
+   * Run `act` once the day has stopped moving under it.
+   *
+   * **The row arrives before the day has finished changing, and measuring it
+   * then aims at where it used to be.** Found by building: consolidating a
+   * Selection into a recipe computed a 408px scroll and moved the row 113px,
+   * because that one act writes TWO appends — the recipe, then a retraction per
+   * ingredient it replaced — and each lands as its own projection update, while
+   * the Way-in bar is separately unfolding out of the Selection over
+   * `--fold` (0.22s) and the day's foot reserve is changing with it.
+   *
+   * So the wait is for stillness rather than for any of those in particular: two
+   * consecutive frames in which nothing this function can see has moved. That
+   * covers the second append, the fold, the reserve, and whatever the next act
+   * to do two things at once turns out to be — none of which this module would
+   * otherwise have any reason to know about.
+   *
+   * The deadline is what makes it safe on a page that never settles (a
+   * marquee, a spinner, a long transition somebody adds later): at 40 frames,
+   * roughly two thirds of a second, it acts on what it has. A reveal slightly
+   * off is better than a reveal that never comes.
+   */
+  function whenStill(act: () => void) {
+    let done = false;
+    const run = () => {
+      if (done) return;
+      done = true;
+      act();
+    };
+
+    let previous = Number.NaN;
+    let still = 0;
+    let frames = 0;
+    const look = () => {
+      if (done) return;
+      // The page's own geometry rather than any one element: the rows are being
+      // added to and removed from underneath this, so an element measured on one
+      // frame may not be in the tree on the next.
+      const now =
+        (dayEl?.getBoundingClientRect().height ?? 0) +
+        (dayEl?.closest<HTMLElement>(".main")?.scrollHeight ?? 0);
+      still = now === previous ? still + 1 : 0;
+      previous = now;
+      if (still >= 2 || ++frames > 40) run();
+      else requestAnimationFrame(look);
+    };
+    requestAnimationFrame(look);
+
+    // **The backstop, and it is not belt-and-braces.** A tab that is not
+    // painting is handed no frames at all — measured here at zero in 600ms — so
+    // a wait built on `requestAnimationFrame` alone does not time out, it simply
+    // never ends, and the reveal is lost rather than late. A timer runs in a
+    // background tab, so this is the arm that guarantees the act happens; the
+    // frames above are the arm that makes it happen at the right moment. The
+    // number is past both the fold (0.22s) and the frame deadline.
+    setTimeout(run, 700);
+  }
 
   /**
    * The free band: the scrollport, minus whatever is standing in front of the
