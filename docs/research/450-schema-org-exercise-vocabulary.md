@@ -201,3 +201,64 @@ Every `schema.org` page fetched carries `Note : You are viewing the development 
 _page_
 
 These two statements are in tension, and this note does not resolve it — the banner looks like a site-build artifact on the released host, but that is an inference, not a source. **It does not affect any finding above**, because every Q4 and Q5 claim was independently confirmed against `schemaorg-current-https.jsonld`, which is a versioned release artifact rather than a rendered page, and the two agreed everywhere they overlapped. Where only a page can testify (the usage band, the presence or absence of a maturity banner) the claim is marked _page_ and should be re-read against a release-tagged host if a ticket ever turns on it.
+
+---
+
+## 3. Q6 — the six existing verbs, checked one at a time
+
+`docs/eavt-vocabulary.md:311-313` declares `event/type` to be _"the event verb, a closed set of six"_ and names them. Checked against the release, the census is **four conform, two are home-made**:
+
+| Verb in this repo    | In schema.org? | Parent (`rdfs:subClassOf`) | Section  | Written at                                                 |
+| -------------------- | -------------- | -------------------------- | -------- | ---------------------------------------------------------- |
+| `ConsumeAction`      | **Yes**        | `schema:Action`            | core     | `src/lib/stores/calorie.store.ts:171`                      |
+| `WatchAction`        | **Yes**        | `schema:ConsumeAction`     | core     | `src/lib/media/engagement.ts:21`                           |
+| `ReadAction`         | **Yes**        | `schema:ConsumeAction`     | core     | `src/lib/media/engagement.ts:54`                           |
+| `ExerciseAction`     | **Yes**        | `schema:PlayAction`        | core     | `src/lib/habits/habits.ts:60`                              |
+| `OccurrenceAction`   | **No**         | —                          | —        | `src/lib/cal_events/cal_events.ts:241`                     |
+| `AcquisitionAction`  | **No**         | —                          | —        | `src/lib/ingestion/acquisition.ts:15`                      |
+
+_release_ for columns 2–4; _measured_ (repo at HEAD) for column 5.
+
+### 3.1 The four that exist, quoted
+
+```
+ConsumeAction    subClassOf Action         "The act of ingesting information/resources/food."
+WatchAction      subClassOf ConsumeAction  "The act of consuming dynamic/moving visual content."
+ReadAction       subClassOf ConsumeAction  "The act of consuming written content."
+ExerciseAction   subClassOf PlayAction     "The act of participating in exertive activity for the purposes of improving health and fitness."
+```
+
+_release_ (each is the term's complete `rdfs:comment`; none carries `isPartOf`, so all four are core.)
+
+### 3.2 The two that do not exist — established three ways
+
+Both were checked against every instrument that could show them:
+
+1. **Absent from the release.** Neither `schema:AcquisitionAction` nor `schema:OccurrenceAction` appears as an `@id`. A looser grep for `"schema:*[Aa]cquisi*"` and `"schema:*[Oo]ccurrenc*"` over the raw file returns **zero** matches of any kind — so there is no near-miss name either. _release_
+2. **404 on the live site.** `https://schema.org/AcquisitionAction` → **HTTP 404**; `https://schema.org/OccurrenceAction` → **HTTP 404**. _page_ (Controls on the same host, same minute: `https://schema.org/ExerciseAction` → 200, `https://schema.org/ConsumeAction` → 200.)
+3. **Not deprecated — never existed.** A term retired from the vocabulary lands in the attic, which is separately browsable. `https://attic.schema.org/AcquisitionAction` → **HTTP 404** and `https://attic.schema.org/OccurrenceAction` → **HTTP 404**, while `https://attic.schema.org/ExerciseAction` → 200 and `https://attic.schema.org/ConsumeAction` → 200 on the same host. _page_ So neither name is a schema.org term this app is holding on to past its deprecation; both are original coinages.
+
+The full census of `Action` subclasses in the release is **113 classes**, of which 5 are `pending` (`AuthenticateAction`, `LoginAction`, `PlayGameAction`, `ResetPasswordAction`, `SeekToAction`, plus `MoneyTransfer` under `TransferAction`) and the rest core. Neither minted name is among them. _release_
+
+### 3.3 What the repo's real convention turns out to be
+
+The ticket guessed: _"the repo's real convention is probably 'conform where schema.org has a name, mint where it does not' — but nothing states that"_. **The guess is right about the practice and right that nothing states it — and the practice is less deliberate than the guess implies.** The two coinages were not made the same way:
+
+- **`OccurrenceAction` is a recorded decision.** ADR-0011 mints it in as many words: _"Their logged completions use the new `event/type: \"OccurrenceAction\"` rather than reusing `\"ExerciseAction\"`."_ and defends it in Consequences: _"The `ExerciseAction` / `OccurrenceAction` distinction preserves semantic clarity in the ledger history."_ _measured_ So the map is right to call ADR-0011 a live counter-precedent — but note **what** it is a counter-precedent to. ADR-0011 does not reject a schema.org name in favour of a coinage; it rejects **reusing `ExerciseAction` for calendar completions**, and schema.org offers no better name for "a scheduled appointment happened". It is a counter-precedent to *over*-conforming, not to conforming.
+- **`AcquisitionAction` is undocumented.** `grep -rn 'AcquisitionAction' docs/adr/` returns **nothing** — no ADR mints it, argues for it, or mentions it. _measured_ It is declared in `docs/eavt-vocabulary.md:313` and `:350` and written at `src/lib/ingestion/acquisition.ts:15`, with no recorded reasoning anywhere. The ticket author's stated lack of confidence in it was well placed.
+
+**And `AcquisitionAction` is the one coinage that had conformant alternatives.** Unlike "an appointment occurred", "I acquired a physical item" is squarely inside a family schema.org already models in detail — `TransferAction` has ten subclasses, all core, several of which distinguish exactly the thing this app's `event/status` of `wanted` / `owned` is tracking:
+
+> **TakeAction** — The act of gaining ownership of an object from an origin. Reciprocal of GiveAction. … Unlike ReceiveAction, TakeAction implies that ownership has been transferred.
+> **ReceiveAction** — The act of physically/electronically taking delivery of an object that has been transferred from an origin to a destination. … Unlike TakeAction, ReceiveAction does not imply that the ownership has been transferred (e.g. I can receive a package, but it does not mean the package is now mine).
+> **BuyAction** — [`subClassOf TradeAction`] The act of giving money to a seller in exchange for goods or services rendered.
+
+_release_ There is also `WantAction` (`subClassOf ReactAction`, core) — _"The act of expressing a desire about the object."_ _release_ — which is a published name for precisely the `wanted` half of this app's acquisition status.
+
+**This is reported, not recommended.** Renaming a shipped verb in an append-only ledger is a migration question and it belongs to whoever owns the physical-items domain, not to this ticket. What #450 owes the map is the fact: **the repo has conformed four times, minted twice, recorded one of those two, and the unrecorded one is the only case where a schema.org name was available and not taken.**
+
+### 3.4 One conformance nuance on the food verb, since it bears on the pattern
+
+`ConsumeAction` is core and its use is conformant, but it is the **abstract parent**. schema.org publishes nine subclasses of it, two of which are the food cases exactly: `EatAction` — _"The act of swallowing solid objects."_ — and `DrinkAction` — _"The act of swallowing liquids."_ _release_ The app logs the parent for both.
+
+That is worth naming because it shows the repo's conformance is at the level of **the family, not the leaf**, and an exercise ticket choosing between `ExerciseAction` (the parent-level act) and something narrower is already inside an established house style. It also matters for ADR-0060's millilitre work, where solid/liquid is a distinction the app *does* make elsewhere — but that is not this ticket's business either.
