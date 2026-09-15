@@ -1,7 +1,7 @@
 <script lang="ts">
-  import { MEAL_TYPES, mealNearest, type MealType } from "../../food/meal-type";
+  import { mealNearest, type MealType } from "../../food/meal-type";
   import type { WayIn } from "../../food/ways-in";
-  import Select from "../../ui/Select.svelte";
+  import MealPicker from "./MealPicker.svelte";
   import WayInRail from "./WayInRail.svelte";
 
   // The **Way-in bar** (ADR-0101, and *Way-in bar* in `CONTEXT.md`): one bar for
@@ -47,13 +47,11 @@
   // arrives here as the platform's own picker instead, which is the trade
   // ADR-0095 §2 already made for every other one-of-N in the app.
   //
-  // The chip is `ui/Select` and not a `<select>` of its own: ADR-0095 §3 holds
-  // this element's population at exactly one, and the census in
-  // `tests/unit/ui-primitives.test.ts` fails on a second. What the bar does to it
-  // is re-skin it from outside, which is ADR-0098 §5's sanctioned shape — the
-  // primitive keeps the floor, the native picker and the caret, and the plate
-  // takes the frame off, because inside a plate whose seams are rules a border
-  // would be a second edge drawn on top of one.
+  // The chip was `ui/Select` for one release and is `MealPicker` now (#453): the
+  // platform's list is drawn by the platform, and on a device that meant an
+  // Android Material dialog inside a brutalist app. See that component for what
+  // refusing the native list cost, and ADR-0095's 2026-09-15 amendment for why
+  // the refusal is allowed at this one site and nowhere else.
   let {
     folded,
     dbReady,
@@ -112,14 +110,6 @@
   // screen is up, and only the chip moves the target afterwards. Which meal an
   // hour belongs to is `food/meal-type.ts`'s to say, not this bar's.
   let target = $state<MealType>(mealNearest(new Date()));
-
-  // Upper-cased in the option's text rather than by `text-transform`, so the
-  // accessible name really is "BREAKFAST" — the same spelling the tab carried,
-  // which is what keeps `tests/support/ways-in.ts` reaching it by name.
-  const mealOptions = MEAL_TYPES.map((meal_type) => ({
-    value: meal_type,
-    label: meal_type.toUpperCase(),
-  }));
 </script>
 
 <div class="way-in-bar" class:folded bind:offsetHeight={height}>
@@ -136,12 +126,7 @@
              amount of `border-right: 0` bookkeeping keeps that honest across a
              row whose cell count changes with the meal. -->
         <div class="plate">
-          <Select
-            class="meal-chip"
-            options={mealOptions}
-            bind:value={target}
-            aria-label="Which meal these land in"
-          />
+          <MealPicker {target} onTarget={(m) => (target = m)} />
           <!-- The rail in a box of its own, because the bar owns where things
                go and the rail owns what is in them. It is also the flex item
                whose minimum size decides the wrap above. -->
@@ -274,54 +259,9 @@
     flex: 999 1 auto;
   }
 
-  /* The chip reads as the row's subject rather than as a sixth door: ink ground,
-     paper letters, the one inverted tile on the line. That inversion is doing the
-     work the whole tab row used to do — it is the only thing on screen that says
-     which meal a tap lands in, so it may not read as one more button beside the
-     five that act.
-
-     `ui/Select` reshaped from outside, and every declaration here is taking
-     something OFF rather than restating it (ADR-0098 §5): the frame, because the
-     plate's seams already draw this tile's edges; the field's left and right
-     padding, because a 22rem flank and a 320px phone are both decided by how
-     wide this chip is; and the field's `--step-0`, because the word is a label
-     on a control rather than something to read. The floor, the native picker and
-     the caret are the primitive's and stay. */
-  .plate :global(.meal-chip) {
-    flex: 1 1 auto;
-    width: auto;
-  }
-  .plate :global(.meal-chip .select) {
-    background: var(--ink);
-    border: 0;
-    border-radius: 0;
-    padding: 0 calc(var(--space-s) + var(--space-3xs)) 0 var(--space-2xs);
-    color: var(--paper);
-    font-size: var(--step-n3);
-    font-weight: 700;
-    letter-spacing: 0.02em;
-  }
-  /* The list itself is the platform's, so its options are drawn in the
-     platform's colours and need the app's ink back. */
-  .plate :global(.meal-chip option) {
-    background: var(--paper);
-    color: var(--ink);
-  }
-  .plate :global(.meal-chip .select:hover:not(:disabled)),
-  .plate :global(.meal-chip .select:focus) {
-    /* The primitive tints on hover and turns its border on focus; on ink both
-       are invisible, and the focus ring below is the one that has to read. */
-    background: var(--ink);
-    box-shadow: none;
-  }
-  .plate :global(.meal-chip .select:focus-visible) {
-    outline: 2px solid var(--paper);
-    outline-offset: -4px;
-  }
-  .plate :global(.meal-chip .select-mark) {
-    right: var(--space-2xs);
-    color: var(--paper);
-  }
+  /* The chip and its panel are `MealPicker`'s own — it is this bar's child and
+     not a primitive, so its skin lives with it rather than being re-skinned from
+     out here. What stays this file's is the row it sits in. */
 
   /* The fold (ADR-0101 §6). `grid-template-rows: 1fr -> 0fr` because it is the
      only way to animate to and from a height nobody has measured — and this

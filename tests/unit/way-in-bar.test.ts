@@ -34,10 +34,6 @@ const allPast: Record<MealType, boolean> = {
   snack: true,
 };
 
-/** The `ui/Select` wrapper's class list, which is where the bar's skin lands. */
-const body_of_select_wrapper = (body: string) =>
-  /<div class="(select-wrapper[^"]*)"/.exec(body)?.[1] ?? "";
-
 const bar = (folded = false) =>
   render(WayInBar, {
     props: {
@@ -48,12 +44,12 @@ const bar = (folded = false) =>
     },
   }).body;
 
-/** The meal the chip has selected, off the one option marked `selected`. */
+/** The meal the chip is on, off the one tile the panel marks pressed. */
 const targetOf = (body: string): MealType | undefined => {
-  const value =
-    /<option[^>]*value="(\w+)"[^>]*selected/.exec(body)?.[1] ??
-    /<option[^>]*selected[^>]*value="(\w+)"/.exec(body)?.[1];
-  return MEAL_TYPES.find((meal) => meal === value);
+  const value = /class="mp-tile[^"]*" aria-pressed="true">(\w+)</.exec(
+    body
+  )?.[1];
+  return MEAL_TYPES.find((meal) => meal === value?.toLowerCase());
 };
 
 afterEach(() => vi.useRealTimers());
@@ -67,16 +63,49 @@ describe("one line, and the tab list it gave up (amended 2026-09-15)", () => {
     // here is the old bar coming back, and with it 104px of band — the groove,
     // its padding, the seam under it and a caption on every cell.
     expect(body).not.toMatch(/role="tab"/);
-    expect(body.match(/<option/g)).toHaveLength(MEAL_TYPES.length);
-    expect(body.match(/<button/g)).toHaveLength(WAYS_IN.length);
+    // The chip, the four meals in its panel, and the five ways in. The panel's
+    // four are in the markup rather than mounted-and-hidden like the old tab
+    // list's twenty: a popover is display:none until it is shown, and it holds
+    // four buttons rather than four panels of five.
+    expect(body.match(/<button/g)).toHaveLength(
+      1 + MEAL_TYPES.length + WAYS_IN.length
+    );
   });
 
-  it("reaches the picker through ui/Select, which the census holds at one", () => {
-    // ADR-0095 §3 keeps exactly one `<select>` in the tree and it is the
-    // primitive; `ui-primitives.test.ts` fails on a second. What the bar does is
-    // re-skin this one from outside (ADR-0098 §5), so the floor, the native
-    // picker and the caret stay the primitive's.
-    expect(body_of_select_wrapper(bar())).toContain("meal-chip");
+  it("opens its own panel, on the platform's popover and not a portal", () => {
+    // The chip stopped being `ui/Select` at #453: the platform draws a native
+    // select's list, and on a device that meant Android's Material dialog inside
+    // a brutalist app. What replaced it is `popover="auto"` — Baseline 2024, so
+    // both platforms — which is the top layer and light dismiss for free.
+    //
+    // Asserted in the server tier, which is the point: a bits-ui portal renders
+    // nothing here (#235), so choosing bits for this would have cost the panel
+    // its cheapest test layer. The element is in the tree, so the markup is.
+    const body = bar();
+    expect(body).toMatch(/popover="auto"/);
+    expect(body).toMatch(/popovertarget="meal-picker-/);
+    // The trigger says a panel exists and whether it is up. Not `role="menu"`:
+    // four buttons do not owe a menu's full keyboard contract.
+    expect(body).toMatch(/aria-controls="meal-picker-/);
+    expect(body).not.toMatch(/role="menu"/);
+  });
+
+  it("holds the chip at its widest word, whichever meal it is on", () => {
+    // Reported from a device: the chip's label changes with the meal, and a box
+    // that resizes with its contents moved the five marks beside it every time.
+    // Every name is rendered into one grid cell with all but the live one
+    // hidden, so the cell is as wide as the widest — measured by the browser in
+    // the real font rather than guessed at in `ch`.
+    //
+    // EVERY name and not the longest one: "longest string" is not "widest word"
+    // in a proportional face. It happens to be, for these four, and it would
+    // stop being true the first time one changed.
+    const body = bar();
+    for (const meal of MEAL_TYPES) {
+      expect(body).toContain(`>${meal.toUpperCase()}</span>`);
+    }
+    const ghosts = body.match(/class="mp-ghost[^"]*" aria-hidden="true"/g);
+    expect(ghosts).toHaveLength(MEAL_TYPES.length);
   });
 
   it("keeps ADR-0059's five and their labels, for the one meal on screen", () => {
@@ -118,9 +147,10 @@ describe("the meal is chosen and never inferred (§2)", () => {
 
     const body = bar();
     expect(targetOf(body)).toBe(mealNearest(new Date()));
-    // One option selected and not two: a `<select>` with several would show the
-    // last, and the target would then be decided by markup order.
-    expect(body.match(/selected/g)).toHaveLength(1);
+    // One tile pressed and not two, which is the same claim the old
+    // `<option selected>` count made: two would make the target a function of
+    // markup order.
+    expect(body.match(/aria-pressed="true"/g)).toHaveLength(1);
   });
 
   it("is a starting value and not a subscription", () => {

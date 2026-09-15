@@ -254,9 +254,21 @@ describe("a sheet over a sheet replaces it on a phone (§7)", () => {
  *   not an overlay either — it is the day's permanent Way-in bar, and ADR-0101
  *   §3's whole argument is that below the sheet breakpoint it belongs on the
  *   band's bottom edge because that edge is where the hand is.
+ *
+ *   `MealPicker` is the fourth and the odd one: its panel is `popover="auto"`,
+ *   so the BROWSER pins it — a popover is in the top layer and the UA stylesheet
+ *   already gives it `position: fixed`. The declaration is written out anyway,
+ *   because this roster's job is to know every box that leaves the flow, and a
+ *   surface that is pinned by a user-agent default rather than by this repo is
+ *   exactly the kind a sweep would otherwise miss. It is not a card and not an
+ *   overlay: it is four words over the chip that opened them, its `::backdrop`
+ *   is transparent on purpose, and `place()` writes its two inset values from
+ *   the chip's own rect because the top layer resolves them against the
+ *   viewport (#453).
  */
 const PINNED_OUTSIDE_THE_PRIMITIVE = [
   "src/lib/views/food/LabelPhotoReader.svelte",
+  "src/lib/views/food/MealPicker.svelte",
   "src/lib/views/food/SelectionBar.svelte",
   "src/lib/views/food/WayInBar.svelte",
 ];
