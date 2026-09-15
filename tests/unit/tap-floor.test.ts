@@ -916,6 +916,17 @@ describe("the floor, swept", () => {
    * — splitting one amount box into two boxes wearing two rules, which this
    * sweep keys by the element that takes the tap and would have read as one.
    *
+   * It rose 135 → 136 at #432, by ONE box for the **three** fields a batch
+   * weight added (ADR-0106): the template's remembered weight on the recipe
+   * editor, and the two the instantiation surface asks, what the dish weighed
+   * and how much was eaten. All three are `input.tin.yield-in.weight-in` in one
+   * file, and this sweep keys a group by the file and the element's own name —
+   * one box wearing one rule, said once. `.weight-in` is a width and nothing
+   * else; the floor comes from `.yield-in` beside it, which is why the box
+   * arrives `declared` rather than `drawn`. The serving count's own box did not
+   * move: on an occasion sized by the scale the count becomes an `<output>`,
+   * which is a read-out and takes no tap at all.
+   *
    * It rose 133 → 134 at #416, and by **one** box rather than the two the
    * ticket projected. The day's five way-in controls left the meal header for a
    * bar of their own (ADR-0101 §1), so `WayInRail`'s cell and `DailyDashboard`'s
@@ -935,7 +946,7 @@ describe("the floor, swept", () => {
       else if (b.kind === "drawn") how.drawn++;
     }
 
-    expect(how).toEqual({ declared: 135, drawn: 26, sanctioned: 6 });
+    expect(how).toEqual({ declared: 136, drawn: 26, sanctioned: 6 });
     // Every box lands in exactly one column. Without this the two figures above
     // could both be right while a box fell out of the sweep between them.
     expect(how.declared + how.drawn + how.sanctioned).toBe(SWEEP.groups.size);

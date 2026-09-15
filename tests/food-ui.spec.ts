@@ -2614,6 +2614,95 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     await expect(breakfastSection).toContainText("646 kcal");
   });
 
+  test("sizes an occasion by what the batch weighed, and freezes what it was a fraction of", async ({
+    page,
+  }) => {
+    await page.goto("/?mem=1");
+    await waitForDbReady(page);
+    await setupApiKeys(page);
+
+    // Build the recipe and say what the finished dish came to. 400 g is not the
+    // 200 g that went into it, and nothing offers to make it so: a pot does not
+    // weigh what went in (ADR-0106 §7).
+    const dinnerSection = await selectTwoAndBuild(page);
+    await page.locator("#recipe-name").fill("Dinner Combo");
+    await page.locator("#recipe-batch-weight").fill("400");
+    await page.locator("#save-recipe-btn").click();
+    await expect(dinnerSection).toContainText("Dinner Combo");
+
+    await openWayIn(page, "breakfast", "recipe");
+    await page.locator(".recipe-pick", { hasText: "Dinner Combo" }).click();
+
+    // The occasion opens on the remembered weight and one serving of it, and
+    // the count is a read-out rather than a field (ADR-0106 §6).
+    const figures = page.locator(
+      '[data-testid="recipe-figures"] .nutrient-calories strong'
+    );
+    await expect(page.locator("#recipe-batch-weight")).toHaveValue("400");
+    await expect(page.locator("#recipe-portion-weight")).toHaveValue("400");
+    await expect(page.locator('[data-testid="occasion-servings"]')).toHaveText(
+      "1 serving"
+    );
+    await expect(page.locator("#recipe-servings")).toHaveCount(0);
+    await expect(figures).toContainText("323 kcal");
+
+    // Half the pot on the plate: the fraction scales the rows (§5).
+    await page.locator("#recipe-portion-weight").fill("200");
+    await expect(figures).toContainText("161.5 kcal");
+    await expect(
+      page.locator(".recipe-ingredient", { hasText: "Mock Oats" })
+    ).toContainText("25g");
+    await expect(page.locator('[data-testid="occasion-servings"]')).toHaveText(
+      "0.5 servings"
+    );
+
+    // The day says what was eaten, as a weight rather than a count (§8).
+    await page.locator("#log-recipe-btn").click();
+    const breakfastSection = page.locator(
+      '.meal-section:has(.meal-title-btn:text-is("BREAKFAST"))'
+    );
+    await expect(breakfastSection).toContainText("200g");
+    await expect(breakfastSection).toContainText("161.5 kcal");
+
+    // Reopening it to correct: the denominator came back off the snapshot, so
+    // "actually I ate 300 g" has something to divide against.
+    await breakfastSection
+      .locator(".meal-item-card", { hasText: "Dinner Combo" })
+      .locator(".fi-name")
+      .click();
+    await expect(page.locator('[data-testid="instantiation-name"]')).toHaveText(
+      "Dinner Combo"
+    );
+    await expect(page.locator("#recipe-batch-weight")).toHaveValue("400");
+    await expect(page.locator("#recipe-portion-weight")).toHaveValue("200");
+  });
+
+  test("never writes an occasion's batch weight back onto the template (ADR-0106 §3)", async ({
+    page,
+  }) => {
+    await page.goto("/?mem=1");
+    await waitForDbReady(page);
+    await setupApiKeys(page);
+
+    const dinnerSection = await selectTwoAndBuild(page);
+    await page.locator("#recipe-name").fill("Dinner Combo");
+    await page.locator("#recipe-batch-weight").fill("400");
+    await page.locator("#save-recipe-btn").click();
+    await expect(dinnerSection).toContainText("Dinner Combo");
+
+    // This batch came out heavier. That is a fact about the occasion, not about
+    // the recipe: instance edits are instance-only (ADR-0022 §3).
+    await openWayIn(page, "breakfast", "recipe");
+    await page.locator(".recipe-pick", { hasText: "Dinner Combo" }).click();
+    await page.locator("#recipe-batch-weight").fill("600");
+    await page.locator("#log-recipe-btn").click();
+
+    // The template still remembers what it always did.
+    await openWayIn(page, "lunch", "recipe");
+    await page.locator(".recipe-pick", { hasText: "Dinner Combo" }).click();
+    await expect(page.locator("#recipe-batch-weight")).toHaveValue("400");
+  });
+
   test("corrects a past instantiation by supersession (retract-and-replace)", async ({
     page,
   }) => {

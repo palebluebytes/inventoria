@@ -125,6 +125,46 @@ describe("buildInstantiation", () => {
     expect(rowSum).toBe(headline.calories * 2);
   });
 
+  it("records what the occasion was a fraction of (ADR-0106 §5)", () => {
+    const snapshot = buildInstantiation(
+      "recipe:oatmeal",
+      INGREDIENTS,
+      1,
+      resolve,
+      resolveName,
+      480
+    );
+    // 160 g of a 480 g pot, and forever. Without the denominator the snapshot
+    // carries a numerator whose divisor is gone, and a correction reopening the
+    // editor to say "actually I ate 200 g" would have nothing to divide against.
+    expect(snapshot.batch_weight).toBe(480);
+  });
+
+  it("carries no batch weight for an occasion nobody weighed (§7)", () => {
+    const snapshot = buildInstantiation(
+      "recipe:oatmeal",
+      INGREDIENTS,
+      1,
+      resolve,
+      resolveName
+    );
+    // Absent, never zero: the serving count is the honest answer here, and a
+    // zero denominator would read as a weight the cook never took.
+    expect("batch_weight" in snapshot).toBe(false);
+  });
+
+  it("refuses a batch weight no scale could have shown", () => {
+    const snapshot = buildInstantiation(
+      "recipe:oatmeal",
+      INGREDIENTS,
+      1,
+      resolve,
+      resolveName,
+      0
+    );
+    expect("batch_weight" in snapshot).toBe(false);
+  });
+
   it("falls back to the ref when a name cannot be resolved (soft ref)", () => {
     const snapshot = buildInstantiation(
       "recipe:oatmeal",

@@ -31,7 +31,7 @@ import {
   buildInstantiation,
   type Instantiation,
 } from "../food/recipe-instantiation";
-import { RECIPE_BATCH_WEIGHT_ATTR } from "../food/batch-weight";
+import { RECIPE_BATCH_WEIGHT_ATTR, sanitizeWeight } from "../food/batch-weight";
 import {
   ingredientFromTwin,
   quantityLabel,
@@ -692,6 +692,44 @@ export async function saveRecipe(
 }
 
 /**
+ * How big one Recipe Instantiation was, as the surface that asked settled it
+ * (ADR-0106). Three numbers rather than one because a cook with a scale knows
+ * two different facts: a pot divided into portions, and what went on the plate.
+ *
+ * Nothing here is a divisor. The rows arrive already scaled to the occasion, so
+ * these say what the occasion *was* rather than doing anything to it.
+ */
+export interface OccasionSize {
+  /**
+   * How many servings the occasion was. The fallback quantity, and the only one
+   * a recipe nobody weighed has (ADR-0106 §7) — it is never derived from the row
+   * sum, which is a different quantity from a pot's weight.
+   */
+  servings?: number;
+  /** What the finished dish weighed, in grams, frozen onto the snapshot (§5). */
+  batch_weight?: number;
+  /** How much of that dish was eaten, in grams. The quantity, when present (§8). */
+  portion_weight?: number;
+}
+
+/**
+ * The pair, or nothing. A portion is a fraction *of* something, so neither half
+ * of it means anything alone: a portion with no batch behind it is a numerator
+ * whose denominator is gone, which is the very state ADR-0106 §5 freezes
+ * `batch_weight` to prevent. Both halves present or the occasion is sized by its
+ * count instead.
+ */
+function weighedOccasion(
+  occasion: OccasionSize
+): { batch_weight: number; portion_weight: number } | undefined {
+  const batch_weight = sanitizeWeight(occasion.batch_weight);
+  const portion_weight = sanitizeWeight(occasion.portion_weight);
+  return batch_weight !== undefined && portion_weight !== undefined
+    ? { batch_weight, portion_weight }
+    : undefined;
+}
+
+/**
  * Logs a recipe as a Recipe Instantiation — a Consumption Event carrying a frozen
  * `event/instantiation` snapshot beside its `event/metrics` headline (ADR-0022).
  * Both are derived from the referenced ingredient twins' real `nutrition/info`
@@ -702,13 +740,13 @@ export async function saveRecipe(
  * `resolve` yields each referenced twin's panel and `resolveName` its display name
  * (both from the in-memory builder, or a test double) — read, never mutated.
  *
- * `servings` is how many servings the occasion was, and it reaches the ledger as
- * the event's quantity rather than as a divisor: the caller has already scaled
- * the rows, so the numbers are settled before this runs and the count is only
- * there to be *said* (ADR-0106 §8). It is said through {@link quantityLabel},
- * which ADR-0060 §4 makes the single site that spells an `event/quantity` — this
- * one wrote the literal `"1 serving"` until #424, reporting every instantiation
- * as one serving however many the cook had asked for.
+ * `occasion` is how big the occasion was, and none of it is a divisor: the caller
+ * has already scaled the rows, so the numbers are settled before this runs and
+ * what arrives here is only there to be *said* and *kept* (ADR-0106 §5, §8).
+ * The quantity is spelled through {@link quantityLabel}, which ADR-0060 §4 makes
+ * the single site that spells an `event/quantity` — this one wrote the literal
+ * `"1 serving"` until #424, reporting every instantiation as one serving however
+ * many the cook had asked for.
  */
 export async function logRecipeConsumption(
   recipeId: string,
@@ -718,19 +756,24 @@ export async function logRecipeConsumption(
   resolveName: (ref: string) => string | undefined,
   meal_type: string,
   selectedDate: Date,
-  servings = 1
+  occasion: OccasionSize = {}
 ): Promise<string> {
+  const weighed = weighedOccasion(occasion);
   const snapshot = deriveRecipeNutrition(ingredients, recipeYield, resolve);
   const instantiation = buildInstantiation(
     recipeId,
     ingredients,
     recipeYield,
     resolve,
-    resolveName
+    resolveName,
+    weighed?.batch_weight
   );
   return logFoodConsumption(
     recipeId,
-    quantityLabel(servings, "serving"),
+    // The weight when one was taken, the count when none was (ADR-0106 §8).
+    weighed
+      ? quantityLabel(weighed.portion_weight, "g")
+      : quantityLabel(occasion.servings ?? 1, "serving"),
     meal_type,
     snapshot.calories,
     snapshot.protein,
@@ -762,7 +805,7 @@ export async function correctInstantiation(
   resolveName: (ref: string) => string | undefined,
   meal_type: string,
   selectedDate: Date,
-  servings = 1
+  occasion: OccasionSize = {}
 ): Promise<string> {
   const newId = await logRecipeConsumption(
     based_on,
@@ -772,7 +815,7 @@ export async function correctInstantiation(
     resolveName,
     meal_type,
     selectedDate,
-    servings
+    occasion
   );
   await retractConsumptionEvent(editId, newId);
   return newId;

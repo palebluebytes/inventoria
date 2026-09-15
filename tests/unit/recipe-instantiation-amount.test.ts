@@ -1,7 +1,10 @@
 import { describe, it, expect, vi } from "vitest";
 import { render } from "svelte/server";
 import IngredientListEditor from "../../src/lib/views/food/IngredientListEditor.svelte";
-import { logRecipeConsumption } from "../../src/lib/stores/calorie.store";
+import {
+  logRecipeConsumption,
+  type OccasionSize,
+} from "../../src/lib/stores/calorie.store";
 import { dbClient } from "../../src/lib/db/db.client";
 import { parseLoggedQuantity } from "../../src/lib/food/recipe-ingredient";
 import type { NutritionInfo } from "../../src/lib/food/nutrition";
@@ -99,9 +102,7 @@ describe("the template keeps both numbers (ADR-0106 §4)", () => {
     expect(body).toContain('id="recipe-batch-weight"');
   });
 
-  it("never asks a batch weight of the occasion it is not defining", () => {
-    // The instantiation surface asks its own two questions (§1); this one field
-    // is the template's remembered default.
+  it("never asks a batch weight of an occasion whose recipe carries none", () => {
     const { body } = render(IngredientListEditor, {
       props: {
         ingredients: [row("fdc:1", "Rice", 180)],
@@ -113,8 +114,60 @@ describe("the template keeps both numbers (ADR-0106 §4)", () => {
   });
 });
 
+describe("an occasion is a fraction of a weighed batch (ADR-0106 §1, §5)", () => {
+  const weighed = (props: Record<string, unknown> = {}) =>
+    render(IngredientListEditor, {
+      props: {
+        ingredients: [row("fdc:1", "Rice", 180)],
+        recipeYield: 1,
+        batchWeight: 480,
+        portionWeight: 160,
+        servingsMode: "portions",
+        ...props,
+      },
+    }).body;
+
+  it("asks what the dish weighed and how much was eaten", () => {
+    const body = weighed();
+    expect(
+      /<input[^>]*id="recipe-batch-weight"[^>]*>/.exec(body)?.[0] ?? ""
+    ).toContain('value="480"');
+    expect(
+      /<input[^>]*id="recipe-portion-weight"[^>]*>/.exec(body)?.[0] ?? ""
+    ).toContain('value="160"');
+    expect(body).toContain("You ate (g)");
+  });
+
+  it("puts the serving count beyond typing, and reads it out of the weight", () => {
+    // A 480 g pot the recipe calls four servings puts 120 g in a serving, so
+    // 160 g of it is a third of a serving more than one.
+    const body = weighed({ templateYield: 4 });
+    expect(body).not.toContain('id="recipe-servings"');
+    expect(body).toContain("1.333 servings");
+  });
+
+  it("reads out a fraction no whole-number field could have shown (§6)", () => {
+    // The record's own example: 250 g of a 400 g serving.
+    const body = weighed({
+      batchWeight: 1600,
+      portionWeight: 250,
+      templateYield: 4,
+    });
+    expect(body).toContain("0.625 servings");
+  });
+
+  it("says nothing about servings where the batch's division is not known", () => {
+    // Correcting a past occasion: its snapshot froze a yield of 1 over rows that
+    // are already the portion, so how many servings the batch made is not in it.
+    // The two weights still work, which is what §5 freezes the denominator for.
+    const body = weighed();
+    expect(body).toContain('id="recipe-portion-weight"');
+    expect(body).not.toContain("servings");
+  });
+});
+
 describe("a logged instantiation says how many servings it was (ADR-0106 §8)", () => {
-  const loggedQuantity = async (servings?: number) => {
+  const logged = async (occasion?: OccasionSize) => {
     (dbClient.append as any).mockClear();
     await logRecipeConsumption(
       "recipe:abc",
@@ -124,11 +177,18 @@ describe("a logged instantiation says how many servings it was (ADR-0106 §8)", 
       () => "Rice",
       "dinner",
       new Date("2026-09-14T12:00:00Z"),
-      servings
+      occasion
     );
     const datoms = (dbClient.append as any).mock.calls[0][0];
-    return datoms.find((d: any) => d.attribute === "event/quantity").value;
+    return {
+      quantity: datoms.find((d: any) => d.attribute === "event/quantity").value,
+      instantiation: datoms.find(
+        (d: any) => d.attribute === "event/instantiation"
+      ).value,
+    };
   };
+  const loggedQuantity = async (servings?: number) =>
+    (await logged(servings === undefined ? undefined : { servings })).quantity;
 
   it("records the count the cook asked for, not a hard-coded one serving", async () => {
     expect(await loggedQuantity(3)).toBe("3 servings");
@@ -152,5 +212,42 @@ describe("a logged instantiation says how many servings it was (ADR-0106 §8)", 
       amount: 1,
       unit: "serving",
     });
+  });
+
+  it("says what was eaten when the cook weighed the batch", async () => {
+    // 160 g of a 480 g pot. The count was never the measurement; the weight is.
+    const { quantity } = await logged({
+      servings: 1,
+      batch_weight: 480,
+      portion_weight: 160,
+    });
+    expect(quantity).toBe("160g");
+    expect(parseLoggedQuantity(quantity)).toEqual({ amount: 160, unit: "g" });
+  });
+
+  it("freezes what that portion was a fraction of (ADR-0106 §5)", async () => {
+    const { instantiation } = await logged({
+      servings: 1,
+      batch_weight: 480,
+      portion_weight: 160,
+    });
+    expect(instantiation.batch_weight).toBe(480);
+  });
+
+  it("keeps the count, and no denominator, for an occasion nobody weighed", async () => {
+    const { quantity, instantiation } = await logged({ servings: 2 });
+    expect(quantity).toBe("2 servings");
+    expect("batch_weight" in instantiation).toBe(false);
+  });
+
+  it("refuses a portion with no batch behind it", async () => {
+    // A numerator alone sizes nothing: it is a fraction of something, and
+    // without the something it is not the occasion's quantity either.
+    const { quantity, instantiation } = await logged({
+      servings: 2,
+      portion_weight: 160,
+    });
+    expect(quantity).toBe("2 servings");
+    expect("batch_weight" in instantiation).toBe(false);
   });
 });

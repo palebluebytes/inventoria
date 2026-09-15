@@ -4,7 +4,7 @@
 **Date:** 2026-09-14  
 **Amends:** [ADR-0022](0022-recipe-instantiations-as-editable-snapshots.md) (its servings amendment left the count as the only way to say how big an occasion was, and its logged quantity is a literal rather than a measurement)  
 **Charted by:** #428  
-**Implemented:** §6 (the count admits a fraction) and §8 (the quantity stops being a literal) — #424. §1 to §5 and §7, the batch weight itself, are not built.
+**Implemented:** §6 (the count admits a fraction) and §8 (the quantity stops being a literal) — #424. §1 to §5 and §7, the batch weight itself — #432, which also made §6's count a read-out and §8's quantity a weight.
 
 ## Context
 
