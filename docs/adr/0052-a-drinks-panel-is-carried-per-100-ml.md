@@ -347,3 +347,101 @@ already in the ledger keeps the portion it was given until it is looked up again
 **ADR-0108's Density Classes do not help here.** A class converts a volume the _user_
 asserted for a food they are holding. This is a mislabelled import, and no class is
 asserted at scan time.
+
+## Amendment (2026-09-15): the vocabulary is what OFF parses, not what this app can store, and a foreign unit is not a gram
+
+The amendment above set the reader's vocabulary to "every entry in
+`taxonomies/units.txt` whose `standard_unit:en` is `g` or `ml`", and excluded two
+families inside even that: `cup`/`tasse`, the teaspoon and the pinch. Both bounds
+were wrong, and #459 measured how wrong against 11,521 real rows carrying a
+`serving_size` — four daily deltas, `1789107652..1789452670`, read with OFF's own
+stored `serving_quantity` and `serving_quantity_unit` beside each string.
+
+### The scope was a subset of OFF's, and OFF's is the whole taxonomy
+
+`init_units_names` builds `$units_regexp` over `get_all_taxonomy_entries("units")`
+with **no filter on the standard unit** (`lib/ProductOpener/Units.pm`, read
+2026-09-15). Every entry is matchable, and `unit_to_g` converts with whatever
+`conversion_factor:en` the matched entry carries — so an energy, a percentage and a
+water hardness are each a token `normalize_serving_size` will read a
+`serving_quantity` off exactly as readily as a gram. `83 kcal (30 g)` is stored as
+**30 with the unit `kj`**.
+
+Scoping the reader to the entries this app can _store_ therefore made a token OFF
+_parses_ invisible, and an invisible token cannot be the second magnitude that
+refuses a string. The vocabulary is now the whole taxonomy: 507 spellings over 31
+units, each with its own `standard_unit:en` and `conversion_factor:en`. Two
+magnitudes in one standard unit compare; two in different ones never do, which is
+the whole of what a unit this app cannot store is needed for.
+
+The unaccented-Latin bound stays, and is now measured rather than assumed: of the
+11,521 rows, **none** named a unit in a spelling that needs an accent to write.
+
+### The household measure was excluded on a premise the corpus refutes
+
+The argument was that `1 cup (30 g)` is one serving stated two ways and that
+admitting the cup "would turn the commonest good US label into a refusal". That is
+true of the label and false of OFF's parsers, which is the only thing §2 is about.
+The cup is in `$units_regexp` and priced at 240 ml, so it decides
+`serving_quantity_unit` while the gram token decides `serving_quantity`. Verified
+live on 0094184560590: `0.25 cup (30 g)` is stored as **30 `ml`**. A 30 g bowl of
+cereal was being imported as 30 millilitres.
+
+Measured over the corpus, with a stored pair counted wrong when the string names no
+token of that size in that unit:
+
+|                                          | rows    |
+| ---------------------------------------- | ------- |
+| stored pair names no token of the string | 219     |
+| the rule dropped the portion             | 8       |
+| **the rule kept it**                     | **211** |
+
+206 of those 211 named a `cup`, `Cup`, `cups`, `tasse` or `taza`.
+
+The cost the exclusion was protecting is 291 portions the complete vocabulary now
+drops, and it does not survive being itemised: **274** have their number from one
+token and their unit from another — exactly what §2 exists to drop — **8** are
+arithmetic coincidences that are wrong anyway (`1 cup (240 g)` stored as 240 ml,
+where the cup's 240 ml happens to equal the label's 240 g), and **9** are genuinely
+right. All 9 are stale rows stored in `g` from before OFF taxonomised the cup; they
+become `ml` the next time OFF recomputes them. Nine right portions in 11,319, on a
+timer, against 282 wrong ones.
+
+`1 cup (240 ml)` is still one magnitude and still keeps its chip, because the cup's
+own price and the label agree. That is the shape the exclusion was reaching for, and
+a conversion keeps it where a blind spot could not.
+
+### The trailing `\b` is OFF's and is kept exactly
+
+A unit's match must end where OFF's ends. `normalize_serving_size` terminates on
+`\b`, so a `%` before a space or the end of the string is **not** a token OFF can
+see — there is no word boundary after it. A reader that saw one would refuse strings
+OFF reads correctly, so the reader keeps `\b` and declines those. The three rows in
+the corpus that still slip past the rule are of exactly this shape (`8 f (240 ml)`,
+`15 % vrn (65 g)`): their stored unit came from a token no current OFF could match
+either, and the rule below catches them instead.
+
+### A `serving_quantity_unit` that is neither gram nor millilitre
+
+The amendment above left this open in as many words — "nothing has measured whether
+it does". It does. Six of the 11,521 rows state a `serving_quantity_unit` of `kj`,
+`mmol/l` or `%`, because OFF writes whatever `standard_unit:en` the matched token
+carries and eighteen taxonomy entries carry something else.
+
+`isMillilitres` is false for every one of them, so the `ml`-else-`g` pair stored each
+as a **weight**: 0048500206836's `8 f (240 ml)` became a 240 g serving. That is
+ADR-0060 §2's invariant broken through a foreign unit rather than a missing one, and
+it is the same refusal ADR-0048 §3 already makes for an absent measure. A serving
+unit that is neither `g` nor `ml` now emits **no portion**. `soleMagnitudeUnit`
+declines on the same ground: it reads an energy so that the energy cannot be mistaken
+for a second gram, and then refuses to call it a weight.
+
+### What it comes to
+
+End to end over the corpus, counting a portion wrong when the string names no such
+magnitude in that unit: **208 wrong portions before, 0 after**, out of 10,998 the app
+still emits.
+
+**`ADAPTER_VERSION` moves to `"12"`**, forward-only like every widening above it: a
+product already in the ledger keeps the portion it was given until it is looked up
+again.

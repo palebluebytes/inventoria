@@ -49,7 +49,12 @@ import { getSecret } from "../stores/secrets";
 //     the one magnitude `serving_size` names, and emits no portion where the
 //     label names none either — rather than falling through to the grams it was
 //     never known to be (ADR-0052 §2's Amendment, #433). Forward-only like v10.
-const ADAPTER_VERSION = "11";
+// v12: the multi-magnitude rule reads OFF's whole units taxonomy rather than the
+//     twelve entries a portion can be stored in, so a household measure or an
+//     energy is a second magnitude rather than an invisible one; and a stated
+//     `serving_quantity_unit` that is neither g nor ml emits no portion rather
+//     than a weight (ADR-0052 §2's Amendment, #459). Forward-only like v10.
+const ADAPTER_VERSION = "12";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -432,11 +437,27 @@ function isMillilitres(unit: string | undefined): boolean {
 }
 
 /**
+ * The documentation's "either g or ml" is not what the field holds. OFF writes
+ * whatever `standard_unit:en` the token it matched carries, and its units
+ * taxonomy carries eighteen entries that are neither — an energy, a percentage,
+ * a water hardness. Of 11,521 real rows carrying a `serving_size`, six stated a
+ * `serving_quantity_unit` of `kj`, `mmol/l` or `%` (#459).
+ */
+function isGrams(unit: string | undefined): boolean {
+  return unit?.trim().toLowerCase() === "g";
+}
+
+/**
  * The unit a serving's magnitude is in: what OFF states, and where it states
  * nothing, what the label's one magnitude is in ({@link soleMagnitudeUnit}).
  * `undefined` where neither says — which is a refusal, not a grams default,
  * because an absent measure is not a zero and is not a gram either
  * (ADR-0048 §3, ADR-0052 §2's Amendment).
+ *
+ * A measure in a unit a portion cannot be stored in is the same refusal through
+ * a third door. `mmol/l` is not millilitres, so the old `isMillilitres`-else-grams
+ * pair called it grams and stored a 240 ml serving as 240 g — ADR-0060 §2's
+ * invariant broken by a foreign unit rather than a missing one (#459).
  *
  * Deriving from the label is sound here and was rejected for the multi-magnitude
  * case in the same breath, because the two are different questions: this one is
@@ -447,8 +468,10 @@ function servingUnit(
   serving_quantity_unit: string | undefined,
   serving_size: string | undefined
 ): MeasuredUnit | undefined {
-  if (serving_quantity_unit?.trim())
-    return isMillilitres(serving_quantity_unit) ? "ml" : "g";
+  if (serving_quantity_unit?.trim()) {
+    if (isMillilitres(serving_quantity_unit)) return "ml";
+    return isGrams(serving_quantity_unit) ? "g" : undefined;
+  }
   return soleMagnitudeUnit(serving_size);
 }
 
