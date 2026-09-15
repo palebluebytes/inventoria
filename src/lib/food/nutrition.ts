@@ -541,6 +541,28 @@ export function measuredUnitFrom(token: string): MeasuredUnit {
 }
 
 /**
+ * The measured unit an amount was ENTERED in, for a caller holding a logged or
+ * persisted {@link AmountUnit} and the panel it was measured against.
+ *
+ * A measured amount answers with its own unit, which on a food carrying a
+ * Density Class is the one the user chose and not the one the panel implies
+ * (ADR-0105 §7). A whole-serving entry names no measured unit at all
+ * ({@link isMeasuredUnit}), and the panel's own is the honest fallback: a
+ * caller re-opening one is rebuilding an amount out of the panel anyway, so the
+ * unit it comes back in is the panel's by construction.
+ *
+ * One expression of the rule, because three screens ask it — the amount editor,
+ * the log sheet's edit seed and the recipe row editor — and a fallback spelled
+ * three times is three chances to spell it differently.
+ */
+export function enteredUnit(
+  unit: AmountUnit,
+  serving_size: string | undefined
+): MeasuredUnit {
+  return isMeasuredUnit(unit) ? unit : basisUnit(serving_size);
+}
+
+/**
  * A measured unit spelled out, for a control that names what it takes ("Amount
  * (millilitres)") rather than suffixing a value with it. The long-form sibling
  * of `unitLabel`, which gives the short `g` / `ml` that rides beside a number.

@@ -67,8 +67,9 @@
     onAssertDensity?: (density: FoodDensity) => void;
   } = $props();
 
-  // What the panel's figures are per, and the unit they are stated in.
-  let basis = $derived(basisUnit(panel?.serving_size));
+  // What the panel's figures are per, and the unit they are stated in. The
+  // unit, not the **Panel basis** itself, which is the `serving_size` string.
+  let panelUnit = $derived(basisUnit(panel?.serving_size));
   let caption = $derived(basisCaption(panel?.serving_size));
 
   // The amount total: the full panel scaled from its own basis to the typed
@@ -91,7 +92,7 @@
 <AmountField
   bind:amount
   bind:unit
-  {basis}
+  {panelUnit}
   {portions}
   {caption}
   {density}

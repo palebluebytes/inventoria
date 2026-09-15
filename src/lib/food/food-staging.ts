@@ -1,5 +1,6 @@
 import type { FoodResult } from "./food-search";
 import type { MeasuredUnit, NutritionInfo, Portion } from "./nutrition";
+import type { FoodDensity } from "./density";
 import type { EntityPayload } from "../ingestion/ingest";
 import type { LabelCapture, ManualEntry, ManualEntryKind } from "./provenance";
 
@@ -121,6 +122,15 @@ export type FoodChoice =
        * on a fresh capture, where the barcode (or its lack) keys the save as before.
        */
       editEntityId?: string;
+      /**
+       * What kind of liquid this food is, where the capture form asked
+       * (ADR-0105 §1). The second door to a millilitre basis is this form, where
+       * the user ticks `ml` themselves: no Open Food Facts tags exist to pre-fill
+       * from, and they are already answering questions about the food, so the
+       * class question costs nothing extra here. Absent on a per-100 g capture,
+       * which has nothing to ask.
+       */
+      density?: FoodDensity;
     } & LabelCaptureSeed);
 
 /**

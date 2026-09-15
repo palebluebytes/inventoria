@@ -314,7 +314,7 @@ const CLASS_TAGS: Record<DensityClassId, readonly string[]> = {
  * claim: a wrong pre-fill converts a question into a nod, and a nod is what
  * ADR-0105 §2's "a guess wearing the costume of a measurement" describes.
  */
-const CONTRA_TAGS: readonly string[] = [
+export const CONTRA_TAGS: readonly string[] = [
   // Concentrates and cordials: a juice tag on something you dilute.
   "en:cordials",
   "en:squashes",
@@ -358,11 +358,19 @@ const CONTRA_TAGS: readonly string[] = [
  * The class a source's own tags name, or undefined where they name none, more
  * than one, or one beside something no class covers.
  *
- * **Undefined is the common answer and is not a failure.** Measured over the
- * full 2026-09-14 dump — 4,747,804 products — 77.47% of the 201,821 sold in
- * millilitres carry tags at all and only 35.76% resolve to exactly one class.
- * The gap between those two numbers is the finding: having tags and having
- * *discriminating* tags are different properties.
+ * **Undefined is the common answer and is not a failure.** ADR-0105 measured the
+ * full 2026-09-14 dump — 4,747,804 products — and found that of the 201,821 sold
+ * in millilitres, 77.47% carry tags at all while only 35.76% resolve to exactly
+ * one class. The gap between those two numbers is the finding: having tags and
+ * having *discriminating* tags are different properties.
+ *
+ * Those figures describe **the tag population, not this function's output**.
+ * {@link CONTRA_TAGS} narrows it further, by an amount nobody has counted: the
+ * measurement behind the 35.76% was of a rule that reads class tags alone, and
+ * the disqualifier list was added afterwards on the strength of the squash case
+ * rather than on a second count. So 35.76% is the ceiling here and not the
+ * figure, and anyone re-costing this design should measure the rule that ships
+ * rather than the one that was measured.
  *
  * The caller opens the picker on what this returns and **never writes it**
  * (ADR-0105's pre-fill amendment). A pre-fill is a proposal the user confirms,

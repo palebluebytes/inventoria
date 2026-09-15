@@ -37,7 +37,9 @@
   import { amountAgainstBasis, readFoodDensity } from "../../food/density";
   import {
     basisUnit,
+    enteredUnit,
     isMeasuredUnit,
+    NUTRITION_INFO_ATTR,
     isPer100Basis,
     parseBasisQuantity,
     scaleNutrition,
@@ -368,18 +370,15 @@
           amount,
           // The unit this event was logged in, which on a food carrying a
           // Density Class is what the user chose rather than what the panel
-          // implies. `parseLoggedQuantity` reads a whole-serving entry as one
-          // serving, and that is not an amount this screen can re-open, so the
-          // twin's own basis is the honest seed there.
-          unit: isMeasuredUnit(unit)
-            ? unit
-            : basisUnit(
-                (
-                  twin.attributes?.["nutrition/info"] as
-                    | NutritionInfo
-                    | undefined
-                )?.serving_size
-              ),
+          // implies.
+          unit: enteredUnit(
+            unit,
+            (
+              twin.attributes?.[NUTRITION_INFO_ATTR] as
+                | NutritionInfo
+                | undefined
+            )?.serving_size
+          ),
         };
       });
     }
@@ -480,6 +479,7 @@
             ingredientsText: choice.ingredientsText,
             nutrition: choice.nutrition as NutritionInfo,
             portions: choice.portions,
+            density: choice.density,
             labelPhotos:
               choice.labelPhotos ??
               (choice.photo_base64 ? [choice.photo_base64] : []),

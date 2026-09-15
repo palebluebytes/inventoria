@@ -13,8 +13,9 @@
     deriveIngredientMacros,
   } from "../../food/recipe-nutrition";
   import {
-    basisUnit,
+    enteredUnit,
     isMeasuredUnit,
+    NUTRITION_INFO_ATTR,
     type MeasuredUnit,
     type NutritionInfo,
     type Portion,
@@ -131,19 +132,14 @@
     };
   }
 
-  // The unit an editable row opens on. A `serving` row has no measured amount
-  // to edit and reaches this sheet only through the per-serving path, where the
-  // panel's own unit is the honest answer.
+  // The unit an editable row opens on: the one it was entered in, falling back
+  // to the panel's for a whole-serving row that names none.
   function editUnit(ing: RecipeIngredient): MeasuredUnit {
-    return isMeasuredUnit(ing.unit)
-      ? ing.unit
-      : basisUnit(
-          (
-            ing.payload.attributes["nutrition/info"] as
-              | NutritionInfo
-              | undefined
-          )?.serving_size
-        );
+    return enteredUnit(
+      ing.unit,
+      (ing.payload.attributes[NUTRITION_INFO_ATTR] as NutritionInfo | undefined)
+        ?.serving_size
+    );
   }
 
   function removeIngredient(entity: string) {

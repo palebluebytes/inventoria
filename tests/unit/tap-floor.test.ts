@@ -903,10 +903,12 @@ describe("the floor, swept", () => {
    *
    * It rose 134 → 135 at #430, by ONE box rather than the three that ticket
    * touched. `AmountField` gained a volume food's `g`/`ml` toggle and the class
-   * picker behind it (ADR-0105 §1), and both are `ui/Segmented` — a member
+   * question behind it (ADR-0105 §1), and both are `ui/Segmented` — a member
    * already in this sweep, counted once at the primitive and never per call
    * site. What arrived is the typed override's `input.typed-num`, the one box
-   * that file draws itself.
+   * `DensityQuestion` draws itself. That file was untracked while the count
+   * still read 134, and an untracked `.svelte` is invisible to
+   * `trackedSvelteFiles` — the same way `ui/Select` evaded every sweep at #378.
    *
    * The amount box did not move either, and that is a fact about where the
    * toggle went rather than luck. Drawn inside the box it would have cost the

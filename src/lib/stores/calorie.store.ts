@@ -96,6 +96,30 @@ export const recipeIngredientsStore = createQueryStore<RecipeIngredientsRow>(
   `SELECT entity, value FROM datoms WHERE attribute = 'recipe/ingredients' ORDER BY ${HLC_ORDER_DESC}`
 );
 
+/**
+ * The rows above as the ingredient lists they hold, newest first — the shape
+ * `rememberedIngredientUnit` walks.
+ *
+ * The parse lives here rather than in the sheet that reads it, because a datom's
+ * value arriving as JSON is a fact about the ledger and not about a screen
+ * (`CODING_STANDARDS.md` §2.2). A row that does not parse to a list is dropped
+ * rather than thrown on: this feeds a default, and a recipe written by a build
+ * that shaped its list differently should cost the user an opening unit, not the
+ * screen.
+ */
+export function recipeIngredientLists(
+  rows: readonly RecipeIngredientsRow[]
+): ReferenceIngredient[][] {
+  return rows.map((row) => {
+    try {
+      const parsed: unknown = JSON.parse(row.value);
+      return Array.isArray(parsed) ? (parsed as ReferenceIngredient[]) : [];
+    } catch {
+      return [];
+    }
+  });
+}
+
 /** Filters a consumption list to the events that fall on a given local day. */
 export function consumptionForDay(
   events: ConsumptionEvent[],
@@ -420,6 +444,12 @@ export interface LabelFoodInput {
   /** Household portions transcribed from the label, when any. */
   portions?: Portion[];
   /**
+   * What kind of liquid this food is, on a panel the user declared per 100 ml
+   * (ADR-0105 §1). Written as given; absent on every gram capture, which has
+   * nothing to ask.
+   */
+  density?: FoodDensity;
+  /**
    * The captured label photos (base64), first = display. Empty for a photo-less
    * manual entry — then neither `food/label_photos` nor the `food/photo_base64`
    * mirror is written (absent `food/label_photos` ⇒ no photo, ADR-0034 §5).
@@ -476,6 +506,7 @@ export async function saveLabelFood(input: LabelFoodInput): Promise<string> {
   if (input.ingredientsText?.trim())
     attributes["food/ingredients_text"] = input.ingredientsText.trim();
   if (input.portions?.length) attributes["food/portions"] = input.portions;
+  if (input.density) attributes[FOOD_DENSITY_ATTR] = input.density;
   if (input.labelPhotos.length > 0) {
     attributes["food/label_photos"] = input.labelPhotos;
     // Mirror the first photo into the singular attribute every current display

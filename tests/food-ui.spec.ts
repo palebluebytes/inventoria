@@ -1740,10 +1740,59 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     // about what a contribution can carry.
     await page.locator("#custom-name").fill("Olive Oil");
     await page.locator("#custom-cal").fill("810");
+
+    // Declaring `ml` is the SECOND door to a volume basis, and this form asks
+    // the class outright: no Open Food Facts tags exist to pre-fill from, and
+    // the person filling this in is holding the bottle (ADR-0105 §1). It is
+    // optional — a food saved without one simply stays in millilitres (§6).
+    const classes = page.locator('[data-testid="cf-density-classes"]');
+    await expect(classes).toBeVisible();
+    await classes.locator('[data-value="oil"]').click();
+
     await page.locator("#log-food-btn").click();
-    await expect(
-      page.locator(".meal-section", { hasText: "LUNCH" })
-    ).toContainText("Olive Oil");
+    const lunch = page.locator(".meal-section", { hasText: "LUNCH" });
+    await expect(lunch).toContainText("Olive Oil");
+
+    // And the class is on the twin, so re-opening the food offers grams with no
+    // question left to answer: 100 ml of it weighs 92 g.
+    await lunch.locator(".meal-item-card", { hasText: "Olive Oil" }).click();
+    const sheet = page.locator(".amount-sheet");
+    await sheet
+      .locator('[data-testid="amount-units"] [data-value="g"]')
+      .click();
+    await expect(page.locator('[data-testid="density-picker"]')).toHaveCount(0);
+    await expect(sheet.getByLabel("Amount in grams")).toHaveValue("92");
+  });
+
+  test("asks no class on a capture the user declares per 100 g", async ({
+    page,
+  }) => {
+    // §6 asks the class the first time grams are reached for, and on a per-100 g
+    // food grams are what the field already takes. The question never fires.
+    const SOLID = "0000000000073";
+    await page.route(`**/api/v3/product/${SOLID}.json`, async (route) => {
+      await route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify({
+          code: SOLID,
+          status: "success",
+          product: {
+            product_name: "Peanut Butter",
+            completeness: 0.375,
+            nutriments: { "energy-kcal_100g": 600, fat_100g: 50 },
+          },
+        }),
+      });
+    });
+
+    await page.goto("/?mem=1");
+    await waitForDbReady(page);
+    await openWayIn(page, "lunch", "scan");
+    await page.locator("#barcode-input").fill(SOLID);
+    await page.locator("#barcode-input").press("Enter");
+    await page.locator('[data-testid="poor-nudge-improve"]').click();
+
+    await expect(page.locator('[data-testid="cf-density"]')).toHaveCount(0);
   });
 
   // ── The Density Class question, and the toggle that is its only door ──────
@@ -1822,9 +1871,11 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     await expect(oil).toContainText("olive", { ignoreCase: true });
     await expect(picker).not.toContainText("0.92");
 
-    // Confirming it closes the question and switches the field: 100 ml of olive
-    // oil weighs 92 g, which is the 78 kcal of error this whole record is about.
-    await oil.click();
+    // Confirming it closes the question and switches the field. The confirm is a
+    // button and not the cell: a RadioGroup fires nothing when you tap the cell
+    // already checked, so on exactly the products the pre-fill exists for,
+    // tapping the highlighted option would do nothing at all.
+    await picker.locator('[data-testid="density-confirm"]').click();
     await expect(picker).toHaveCount(0);
     await expect(units.locator('[data-value="g"]')).toHaveAttribute(
       "data-state",
@@ -1860,10 +1911,15 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     await expect(picker).toBeVisible();
     await expect(picker.locator('[data-state="checked"]')).toHaveCount(0);
 
+    // Nothing to confirm until something is chosen.
+    const confirm = picker.locator('[data-testid="density-confirm"]');
+    await expect(confirm).toBeDisabled();
+
     // And it is not a dead end: the exit takes a figure the user asserts.
     await picker.locator('[data-value="other"]').click();
+    await expect(confirm).toBeDisabled();
     await page.locator("#density-figure").fill("1.2");
-    await picker.getByRole("button", { name: "Use this" }).click();
+    await confirm.click();
     await expect(picker).toHaveCount(0);
     await expect(page.getByLabel("Amount in grams")).toHaveValue("300");
 

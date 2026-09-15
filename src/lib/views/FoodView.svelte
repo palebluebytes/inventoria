@@ -55,6 +55,7 @@
   import {
     basisUnit,
     dedupePortions,
+    enteredUnit,
     isMeasuredUnit,
     isPer100Basis,
     parseBasisQuantity,
@@ -526,7 +527,7 @@
       // A measured log opens in the unit it was logged in, which is what the
       // user chose. The two fallbacks above rebuilt an amount out of the panel,
       // so they open in the panel's own unit by construction.
-      unit: isMeasuredUnit(unit) ? unit : basisUnit(panel?.serving_size),
+      unit: enteredUnit(unit, panel?.serving_size),
       panel,
       portions,
       // A twin-less event still carries the id it was logged against, and the

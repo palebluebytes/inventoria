@@ -13,8 +13,10 @@
   } from "../../food/food-staging";
   import { roundFoodDisplay, type MeasuredUnit } from "../../food/nutrition";
   import { rememberedIngredientUnit } from "../../food/recent-foods";
-  import { recipeIngredientsStore } from "../../stores/calorie.store";
-  import type { ReferenceIngredient } from "../../food/recipe-nutrition";
+  import {
+    recipeIngredientLists,
+    recipeIngredientsStore,
+  } from "../../stores/calorie.store";
   import { calorieDisplayDecimals } from "../../stores/device-settings";
   import BottomSheet from "../../ui/BottomSheet.svelte";
   import FoodStager from "./FoodStager.svelte";
@@ -63,14 +65,7 @@
   // uses is a property of that recipe, where which unit you measure it in is a
   // property of how you cook.
   let ingredientLists = $derived(
-    $recipeIngredientsStore.map((row) => {
-      try {
-        const parsed: unknown = JSON.parse(row.value);
-        return Array.isArray(parsed) ? (parsed as ReferenceIngredient[]) : [];
-      } catch {
-        return [];
-      }
-    })
+    recipeIngredientLists($recipeIngredientsStore)
   );
   const lastUnitFor = (entity: string): MeasuredUnit | null =>
     rememberedIngredientUnit(ingredientLists, entity);

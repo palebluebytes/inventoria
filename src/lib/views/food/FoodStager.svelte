@@ -124,6 +124,7 @@
   import Segmented from "../../ui/Segmented.svelte";
   import LabelPhotoReader from "./LabelPhotoReader.svelte";
   import CategoryPicker from "./CategoryPicker.svelte";
+  import DensityQuestion from "./DensityQuestion.svelte";
   import FoodCard from "./FoodCard.svelte";
   import ManualEntryFlow from "./ManualEntryFlow.svelte";
   import CommitButton from "./CommitButton.svelte";
@@ -636,6 +637,15 @@
   let effectiveUnit = $derived<"g" | "ml">(
     customBasis === "per_100ml" ? "ml" : "g"
   );
+  // What kind of liquid a hand-captured food is (ADR-0105 §1). This form is the
+  // SECOND door to a millilitre basis — the user ticks `ml` themselves rather
+  // than a source declaring it — so no Open Food Facts tags exist to pre-fill
+  // from, and it is asked outright. It costs nothing extra: the form is already
+  // a page of questions about this food.
+  //
+  // Never asked of a gram capture. §6 asks the class the first time grams are
+  // reached for, and on a per-100 g food grams are what the field already takes.
+  let customDensity = $state<FoodDensity | null>(null);
   // The pack size as OFF's own writable `quantity` field wants it: magnitude and
   // unit rejoined. Absent when no magnitude was given, so an untouched field
   // never overwrites a size OFF already holds.
@@ -1999,6 +2009,11 @@
         // An origin-badge edit (§7) pins the twin's own id so the host enriches
         // it in place; the barcode alone would mint a duplicate for a custom twin.
         editEntityId: editEntityId ?? undefined,
+        // Only from the millilitre arm: a gram panel is already weighed, and a
+        // class left over from a basis the user switched away from would be a
+        // fact about a food this form is no longer describing.
+        density:
+          effectiveUnit === "ml" ? (customDensity ?? undefined) : undefined,
         // The found-but-poor door's OFF record, so the host preserves its
         // provenance beside the correction (§6/§7 dual-origin). Absent otherwise.
         offPayload: captureOffPayload ?? undefined,
@@ -2653,6 +2668,21 @@
                     <p class="cf-basis-derived" data-testid="cf-basis-derived">
                       Values per {resolveServingSize(customBasis)}.
                     </p>
+                    {#if effectiveUnit === "ml"}
+                      <!-- The class question's second door (ADR-0105 §1). It is
+                      asked here and not deferred to the amount screen because
+                      this form already knows the answer is needed: a panel
+                      declared per 100 ml is a panel nothing can weigh, and the
+                      person filling this in is holding the bottle. Optional, and
+                      a food saved without one simply stays in millilitres (§6). -->
+                      <div class="cf-density" data-testid="cf-density">
+                        <DensityQuestion
+                          label="What kind of liquid is this? (optional)"
+                          testid="cf-density-classes"
+                          onAnswer={(next) => (customDensity = next)}
+                        />
+                      </div>
+                    {/if}
                     {#if contributionLosesNumbers}
                       <!-- Not a validation error: the panel is saved either way,
                       and this is only about what a contribution can say. OFF has
@@ -3434,6 +3464,11 @@
   }
   /* The basis picker (now a shared Segmented) stacked above its optional
      serving-grams field. */
+  /* The class question under the basis control, set off from the pack row above
+     it the way every other block on this form is. */
+  .cf-density {
+    margin-top: var(--space-s);
+  }
   .cf-basis {
     display: flex;
     flex-direction: column;

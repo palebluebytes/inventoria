@@ -50,7 +50,7 @@ describe("a food published by volume is offered the question", () => {
       props: {
         amount: 250,
         unit: "ml",
-        basis: "ml",
+        panelUnit: "ml",
         onAssertDensity: () => {},
       },
     });
@@ -65,7 +65,7 @@ describe("a food published by volume is offered the question", () => {
       props: {
         amount: 250,
         unit: "ml",
-        basis: "ml",
+        panelUnit: "ml",
         onAssertDensity: () => {},
       },
     });
@@ -78,7 +78,7 @@ describe("a food published by volume is offered the question", () => {
       props: {
         amount: 250,
         unit: "ml",
-        basis: "ml",
+        panelUnit: "ml",
         onAssertDensity: () => {},
       },
     });
@@ -91,7 +91,7 @@ describe("a food published by volume is offered the question", () => {
     // can already be weighed still offers the switch, because switching is not
     // asking.
     const unanswerable = render(AmountField, {
-      props: { amount: 250, unit: "ml", basis: "ml" },
+      props: { amount: 250, unit: "ml", panelUnit: "ml" },
     });
     expect(unitCells(unanswerable.body)).toEqual([]);
 
@@ -99,7 +99,7 @@ describe("a food published by volume is offered the question", () => {
       props: {
         amount: 250,
         unit: "ml",
-        basis: "ml",
+        panelUnit: "ml",
         density: { class: "juice" },
       },
     });
@@ -117,7 +117,7 @@ describe("the amount is in the unit the host handed down", () => {
       props: {
         amount: 92,
         unit: "g",
-        basis: "ml",
+        panelUnit: "ml",
         density: { class: "oil" },
         onAssertDensity: () => {},
       },
@@ -134,7 +134,7 @@ describe("the amount is in the unit the host handed down", () => {
       props: {
         amount: 330,
         unit: "ml",
-        basis: "ml",
+        panelUnit: "ml",
         density: { class: "juice" },
         onAssertDensity: () => {},
       },
@@ -150,7 +150,7 @@ describe("the amount is in the unit the host handed down", () => {
       props: {
         amount: 100,
         unit: "g",
-        basis: "ml",
+        panelUnit: "ml",
         density: { g_per_ml: 1.2 },
         onAssertDensity: () => {},
       },
