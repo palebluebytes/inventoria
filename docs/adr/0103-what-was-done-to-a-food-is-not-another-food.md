@@ -930,35 +930,43 @@ above it became 56, the eight below it stayed eight — and it still misses. `la
 is the closest this rule comes to fixing a query outright, and "closest" is the
 finding.
 
-### §11 is ratified on what it said the rule could not do, and was optimistic about what it could
+### §11's negative list is exact and its positive list scores nothing
 
 §11 named eight queries the collapse would do **literally nothing** for and seven
-it would reach.
+it "does the work on". The criterion below is the one the 2026-09-12 Amendment
+above already used against that same sentence — a query **crossing the 25-row
+cap** — and not the looser reading the phrase invites, because the looser reading
+is how a rule that moved four queries and cleared none gets written up as having
+worked.
 
-The eight are **8 for 8**: `cheese`, `oil`, `flour`, `egg`, `salmon`, `cream`,
-`butter` and `mince` are identical either side of the collapse, to the row.
+**The eight are 8 for 8.** `cheese`, `oil`, `flour`, `egg`, `salmon`, `cream` and
+`butter` from the gating roster, and `mince` from the British tripwire, are
+identical either side of the collapse, to the row.
 
-The seven are **4 for 7**: `beef`, `lamb`, `pork` and `gammon` moved; `chicken`
-(71 rows), `turkey` (52) and `chicken thigh` (10) did not move at all, and one
-query §11 did not name, `ham`, did. The cause is ADR-0104, which landed between
-§11's measurement and the shipped rule: what was collapsible in `chicken` and
-`turkey` was preparation, and the cooked half of the corpus was gone before this
-rule ever ran. `docs/research/190-corpus-account.md` states the same thing from
-the other side — four head phrases move, and what is left after ADR-0104 is
-purely butchery — and the #435 Amendment already found it once, in `Nuts` and
-`Seeds`.
+**The seven are 0 for 7.** Not one crosses the cap under this rule. `beef`,
+`pork` and `lamb` move and stay over it; `chicken` and `turkey` do not move at
+all, because what was collapsible in them was preparation and ADR-0104 had
+already taken the cooked half before this rule ran; `gammon` and `chicken thigh`
+were under the cap before it ran, for the same reason, so there was nothing left
+to carry across. The looser question — did the rule touch the query at all —
+answers four of the seven, `beef`, `pork`, `lamb` and `gammon`, plus one §11 did
+not name, `ham`.
 
-A pre-registered claim that is exactly right about a rule's limits and
-over-hopeful about its reach is wrong in the better direction, and §11's refusal
-to reinterpret C2 is what makes the scoring possible at all.
+This is the second time the 2026-09-12 Amendment's relocation of `beef` is
+confirmed. It moved `beef` off the positive list and filed it beside `cheese` on
+the grounds that what remained was retrieval and paging rather than membership;
+`beef` then fell further than any query in the roster and its gold row ended
+deeper in its own result set than it began. A pre-registered claim exact about a
+rule's limits and empty about its reach is wrong in the better direction, and
+§11's refusal to reinterpret C2 is what makes any of it scorable.
 
 ### §11's refusal stands, and the residue is filed
 
-Twenty-four of the 44 gating queries pass both conditions; twelve fail both,
-seven fail C1 alone and one fails C2 alone. Thirteen queries still answer with
-more than 25 rows: the four above, and nine this rule never touched — `cheese`
-100, `chicken` 71, `oil` 70, `flour` 63, `turkey` 52, `bread` 49, `butter` 39,
-`beans` 39, `cream` 31.
+Thirteen gating queries still answer with more than 25 rows: the four this rule
+moved, and nine it never touched, from `cheese` at 100 rows down to `cream` at 31. §9 of the note lists them with their counts; they are not restated here,
+because a figure kept in two ungated places is
+[#156](https://github.com/palebluebytes/inventoria/issues/156)'s trap in slower
+motion.
 
 §11 says a head that is genuinely a hundred foods is not a membership problem and
 wants a ranking or a paging instrument. That is still true and this record still
@@ -977,25 +985,19 @@ says so.
 this is worth stating because every reading in this record compares one corpus
 version against another.
 
-Pointed at the 4,238-row schema-8 index the bar was registered against, today's
-harness reports C1 **22** of 44 rather than the registered 24. C2 reproduces at
-27 of 44, and so do the unreachable split — three past the cap, one absent — and
-the multi-word pair. C1 does not, for two reasons that are both about this branch
-rather than about that corpus: ADR-0104 made `raw` a fact on the row and schema 8
-carries no such field, so `readRowRank` returns 0 for all 4,238 rows and the key
-ties uniformly; and two frecency keys
-([#165](https://github.com/palebluebytes/inventoria/issues/165),
-[#320](https://github.com/palebluebytes/inventoria/issues/320)) plus
-`CANONICAL_ROWS` all landed on 2026-09-13 or later, against a bar registered on
-2026-09-11.
+Pointed at the schema-8 index the bar was registered against, today's harness
+reports C1 **22** of 44 rather than the registered 24, and the cause is this
+branch rather than that corpus. ADR-0104 made `raw` a fact on the row; schema 8
+carries no such field, so the `raw` key `readRowRank` builds is 0 on all 4,238
+rows and ties uniformly, leaving the ranking one key short without saying so. Two
+frecency keys and `CANONICAL_ROWS` also postdate the registration. §9 of the note
+carries the full reading and what does reproduce.
 
-Which of the two accounts for the two points is not separated, because the
-reading is reported as **not comparable** rather than as a corrected baseline.
-The consequence is for #438's hand-off, which tabled "24/44 at registration
-against 25/44 now" and read the one-point gain as a re-pin: the gain is measured
-across a changed ranking as well as a changed pin, and the registered 24 is not a
-number this branch can reproduce. The 2026-09-14 gold-set amendment in
+What this costs is the comparison #438's hand-off drew, "24/44 at registration
+against 25/44 now", read there as a gold re-pin: the gain crosses a changed
+ranking as well as a changed pin, and the registered 24 is not a number this
+branch can reproduce. The 2026-09-14 gold-set amendment in
 `docs/research/188-consolidation-bar.json` is untouched by this, because it
-measured its re-pin both ways over one corpus with one build, which is the only
-kind of comparison this section is arguing for. The like-for-like statement about
-the collapse is the one this Amendment opens with.
+measured its re-pin both ways over one corpus with one build — the only kind of
+comparison this subsection is arguing for. The like-for-like statement about the
+collapse is the one this Amendment opens with.

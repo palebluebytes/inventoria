@@ -193,6 +193,15 @@ for the middle one. The left
 column is the registered reading and is **not** comparable to either; §9's last
 subsection is why.
 
+**Corpus size, which §6 registers as a sanity figure.** The shipped corpus is
+2,037 rows against a landing zone of 2,850-2,950, and §6 asks a rule landing far
+outside it to explain itself rather than marking it wrong. The explanation is the
+one §8 anticipated: the zone is the corpus before any head is adjudicated, and
+ADR-0104 then removed the cooked half rather than collapsing it. What **this**
+rule took is 2,418 rows to 2,037 across four heads, accounted head by head in
+`190-corpus-account.md`. The zone carries no pass or fail and is not restated
+here as one.
+
 ### Nothing changed verdict, and four queries changed size
 
 Of the 44 gating queries, **0 changed either verdict** and **40 are identical to
@@ -235,23 +244,36 @@ finding.
 
 ### §11's prediction, scored
 
-ADR-0103 §11 named seven queries the collapse would reach and eight it would do
-nothing for. Measured against the shipped rule:
+ADR-0103 §11 named eight queries the collapse would do **literally nothing** for
+and seven it "does the work on". The criterion scored here is the one that
+record's own 2026-09-12 Amendment used when it re-measured the same claim — a
+query **crossing the 25-row cap** — rather than the looser reading the phrase
+invites.
 
 - **The eight negatives are 8 for 8.** `cheese`, `oil`, `flour`, `egg`, `salmon`,
-  `cream`, `butter` and `mince` are identical to the row either side of the
-  collapse. §11 said this rule cannot help them and it cannot.
-- **The seven positives are 4 for 7.** `beef`, `lamb`, `pork` and `gammon` moved.
-  `chicken` (71 rows), `turkey` (52) and `chicken thigh` (10) did not move at all.
-  One query §11 did not name, `ham`, did.
-- **The reason is ADR-0104, which landed in between.** §11's table was measured
-  over the 4,238-row corpus. What was collapsible in `chicken` and `turkey` was
-  preparation, and by the time the rule ran the cooked half of the corpus was
-  already gone. `190-corpus-account.md` says the same thing from the other side:
+  `cream` and `butter` from the gating roster, and `mince` from the British
+  tripwire, are identical to the row either side of the collapse. §11 said this
+  rule cannot help them and it cannot.
+- **The seven positives are 0 for 7.** Not one crosses the cap under this rule.
+  `beef` at 135 rows, `pork` at 93 and `lamb` at 65 move and stay over it;
+  `chicken` at 71 and `turkey` at 52 do not move at all; and `gammon` (tripwire)
+  and `chicken thigh` (multi-word) had already fallen under the cap through
+  ADR-0104, at 8 rows and 10, so this rule had nothing left to carry across.
+- **On the looser question of whether the rule touched a query at all**, four of
+  the seven moved: `beef`, `pork` and `lamb`, all three still over the cap, and
+  `gammon` from 8 rows to 4. One query §11 did not name moved too — `ham`, 53 to 33.
+- **`chicken` and `turkey` did not move because ADR-0104 landed in between.**
+  §11's table was measured over the 4,238-row corpus. What was collapsible in
+  those two was preparation, and the cooked half of the corpus was gone before
+  this rule ran. `190-corpus-account.md` says the same thing from the other side:
   four head phrases move, and what is left after ADR-0104 is purely butchery.
 
-So the record's pessimism held exactly and its optimism did not, which is the
-better direction for a pre-registered claim to be wrong in.
+So §11's pessimism is exact and its optimism scores nothing, which is the better
+direction for a pre-registered claim to be wrong in. It is also a second
+confirmation of that record's 2026-09-12 Amendment, which moved `beef` off the
+positive list and filed it beside `cheese`: `beef` fell further than any query in
+the roster, 412 rows to 135, and its gold row ended **deeper** in its own result
+set than it began.
 
 ### The residue
 
