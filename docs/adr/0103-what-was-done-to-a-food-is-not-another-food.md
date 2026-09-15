@@ -2,6 +2,7 @@
 
 **Status:** Accepted  
 **Date:** 2026-09-12  
+**Implemented:** [#434](https://github.com/palebluebytes/inventoria/issues/434) — `src/lib/food/usda-collapse-roster.ts` (§2's roster, §3's two keys, §5's eligibility test) reached through `scripts/usda-app-module.mjs`'s seam (§9); [#435](https://github.com/palebluebytes/inventoria/issues/435) — `scripts/usda-collapse.mjs` (§3's grouping, §4's chain, §6's corpus-wide firing, §9's survivor assertion and §9's account at `docs/research/190-corpus-account.md`), run last from `scripts/usda-bundle.mjs` and replayed by `scripts/usda-drop-census.mjs`, which is where every collapsed row names its survivor. **§5's strip is outstanding** and is [#436](https://github.com/palebluebytes/inventoria/issues/436): survivors ship under the names USDA published, so a collapsed group's row still reads `Beef, composite of trimmed retail cuts, separable lean and fat, trimmed to 0" fat, choice`  
 **Amended by:** [ADR-0104](0104-the-corpus-is-ingredients-as-bought-and-not-yet-cooked.md), which keeps §2's as-bought line and replaces the §2–§4 collapse as the mechanism: the cooked records are removed rather than merged. It also corrects this record's Context, whose "the fix that reaches USDA's granularity is the fix that deletes quinoa" rests on a substring match of `/cooked/` that also matched the fourteen rows saying **un**cooked — against §10's own standing warning. Under a word boundary quinoa, teff, spelt and apricots all survive the cut
 
 This record amends [ADR-0055](0055-who-eats-a-food-ranks-it-and-never-drops-it.md)
@@ -593,3 +594,112 @@ steak and a bottom round roast being two foods, and the remaining distance is
 [#411](https://github.com/palebluebytes/inventoria/issues/411)'s and
 [#412](https://github.com/palebluebytes/inventoria/issues/412)'s — retrieval and
 paging — rather than membership's.
+
+## Amendment (2026-09-15, #435): the collapse shipped, and it reaches four heads rather than six
+
+The generator performs the collapse. `scripts/usda-collapse.mjs` groups the
+finished corpus on §3's key, picks one record per group by §4's chain, refuses a
+generation in which a collapsed row's survivor is not in the shipped index, and
+refuses one in which the rule moves a head phrase nobody expected. **Corpus 2,418
+→ 2,037**: 381 records of a cut already in the corpus now ship under the `fdcId`
+of the row that stands for them, in 179 groups.
+
+The survivors keep the names USDA published. §5's strip is licensed by the
+collapse having happened and is not part of this change, so `beef` still leads
+with `Beef, composite of trimmed retail cuts, separable lean and fat, trimmed to
+0" fat, choice` rather than with the four words that name it. That is
+[#436](https://github.com/palebluebytes/inventoria/issues/436).
+
+### The hand-off's table named six heads; four moved
+
+| head       |  rows | after | absorbed |
+| ---------- | ----: | ----: | -------: |
+| `Beef`     |   410 |   133 |      277 |
+| `Lamb`     |   116 |    64 |       52 |
+| `Pork`     |   130 |    92 |       38 |
+| `Veal`     |    43 |    29 |       14 |
+| **corpus** | 2,418 | 2,037 |      381 |
+
+`Nuts` and `Seeds`, which the hand-off's table gave as 74 → 72 and 46 → 45, are
+absent: both still hold 74 and 46 rows and the collapse touches neither. Their
+absence is [#434](https://github.com/palebluebytes/inventoria/issues/434)'s
+decision rather than a measurement that moved. The only thing that collapsed them was the
+preparation axis, and ADR-0104 owns cooked forms now: the eight roasted nut and
+seed rows are ingredients as bought, `roasted` is a stated non-preferred value,
+and a japanese chestnut merging onto its plain sibling would have **deleted** a
+row ADR-0104 argued for. The remaining 484 head phrases have nothing to collapse
+at all, because what is left after the cooked half is gone is purely butchery.
+
+### §5's coverage hole has five instances, and they are all beef
+
+The 2026-09-12 Amendment read the Consequences' "one is confirmed" as **none is
+confirmed**, and said no instance had been demonstrated. Shipping the rule
+demonstrated five, every one of them a cut USDA assayed `separable lean only` and
+no other way, at three grades: t-bone steak, bottom round roast, top sirloin
+petite roast/filet, ribeye cap steak and ribeye petite roast/filet.
+
+Each ships its fullest-panel record under that record's whole, unstripped name,
+which is exactly what that Amendment provides for — **what a hole forbids is the
+strip, never the row**. None of the five blocks a head, and ADR-0046 improves
+them rather than gating them. `CONTEXT.md`'s Coverage hole entry is corrected in
+the same change.
+
+### §9's survivor assertion cannot fail today, and is written for the pipeline that would let it
+
+ADR-0051 §2's assertion is inherited whole: every collapsed row names the `fdcId`
+it collapsed into, and generation stops if that id is not in the shipped index.
+The collapse runs **last** and picks its representative out of the group it is
+collapsing, so nothing between there and the artifact can take a survivor, and
+the check cannot fire against the pipeline as it stands. It is written anyway and
+the reason is stated rather than implied: the failure it guards is a filter, a
+rename or a drop added **after** the collapse, which would leave a dozen rows
+pointing at nothing and turn the collapse into a deletion of 381 foods. A unit
+test hands it a corpus with the survivor missing, so the refusal is proved to
+fire rather than assumed to.
+
+Running last is itself load-bearing and is §3's doing: the residual description is
+computed from the name the row will actually ship under, so a segment ADR-0056's
+strip has already taken cannot come back to split a group.
+
+### #188's two conditions do not move
+
+Measured over the shipped ranking with `pnpm usda:consolidation-bar`, before and
+after (`USDA_INDEX_PATH` points it at a pre-collapse index): **C1 25/44 and C2
+31/44, both unchanged**, with no gold row lost and none re-pinned — `beef` falls from
+412 rows to 135 and stays past the cap, `lamb` from 117 to 65, `pork` from 131 to 93. The §11 Amendment predicted exactly this shape for the pilot's collapse and
+it holds for the shipped one: the queries this rule reaches are queries it cannot
+take under 25, and the queries near the cap are not ones it reaches. Nothing here
+is a reason to reinterpret the bar, and this record still declines to.
+
+### Eight archived names stop retrieving, and #436 inherits them
+
+`assertTwinNamesRetrieve` asks its question of the MERGE, before the name passes,
+because it has to be asked of the names USDA actually wrote — so it certifies a
+corpus 381 rows larger than the one that ships, and the generator's report now
+says `retrieve the row the merge made` rather than claiming more.
+
+Measured against the shipped corpus, the collapse takes **eight** archived names
+with it: four twinned identities, each a `separable lean only` cut whose group
+kept the `separable lean and fat` row, so a query spelling out USDA's full
+description now matches nothing. That is the rule working rather than a defect —
+a collapsed row's name goes with the row, all 381 of them — and it is recorded
+here because **#436 is where it becomes answerable**. The `Beef` pilot's own
+collapse carried every name a group held as an alias, for exactly this reason,
+and it did so because it also performed §5's strip: once `Beef, flank, steak,
+separable lean and fat, trimmed to 0" fat, choice` ships as `Beef, flank, steak`,
+the words that found it are gone from the row and an alias is the only thing that
+keeps a keystroke working. Survivors here keep their whole published names, so
+the loss is eight names rather than 381, and the aliasing decision belongs beside
+the strip that makes it necessary.
+
+### The pilot refuses a corpus it can no longer measure
+
+`pnpm usda:beef-pilot` measures a collapse over the committed index, and the
+committed index is now the output of one — so every table it prints would come
+back zeros. A spent instrument still producing output is
+[#156](https://github.com/palebluebytes/inventoria/issues/156)'s trap, so it
+stops instead and names where the live account is:
+`docs/research/190-corpus-account.md` for §9's per-head table, committed and
+written by the generator, and `docs/research/usda-drop-census.json` for every
+collapsed row and the survivor it names. `USDA_INDEX_PATH` and `USDA_STORE_PATH` point it
+at a pre-collapse pair, which reproduces research note #191's numbers exactly.

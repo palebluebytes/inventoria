@@ -62,7 +62,7 @@ search needs no key and no network
 need relaying is an arbitrary page you share in, which a small Cloudflare Worker
 fetches so the browser can sidestep cross-origin limits.
 
-Those two files hold 2,444 rows of the 7,974 records USDA publishes.
+Those two files hold 2,037 rows of the 7,974 records USDA publishes.
 [docs/food-search.html](docs/food-search.html) explains how the search narrows them and
 what it discarded, and carries the whole corpus so you can search it there.
 
