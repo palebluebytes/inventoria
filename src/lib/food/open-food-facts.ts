@@ -172,6 +172,16 @@ export interface OFFProduct {
     // is omitted from the payload rather than emitted as empty/null.
     brands?: string;
     categories?: string;
+    /**
+     * OFF's own classification of the product in its language-neutral taxonomy
+     * (`["en:beverages", "en:fruit-juices"]`) — the sibling of the free-text
+     * {@link categories}, and what the Density Class pre-fill reads
+     * ({@link offCategoryTagsFromTwin}, ADR-0105). Declared so a reader is not
+     * casting its way into the raw blob; ADR-0105's 2026-09-15 amendment ruled
+     * that this field carries none of the hazard `product_quantity_unit` does,
+     * which is why that one stays undeclared and this one may join.
+     */
+    categories_tags?: string[];
     ingredients_text?: string;
     nova_group?: number;
     // OFF's NOVA evidence (adapter v6, ADR-0041 §7). `nova_group_debug` is the
@@ -291,6 +301,32 @@ export function offPackQuantityFromTwin(
   const raw = offProductFromTwin(attributes)?.product_quantity;
   const n = typeof raw === "string" ? Number(raw) : raw;
   return typeof n === "number" && Number.isFinite(n) && n > 0 ? n : undefined;
+}
+
+/**
+ * OFF's own category tags for a SAVED twin — `["en:beverages",
+ * "en:fruit-juices"]` — the third sibling of {@link offPackUnitFromTwin} and
+ * {@link offPackQuantityFromTwin}, and what the Density Class pre-fill is
+ * proposed from (ADR-0105's pre-fill amendment).
+ *
+ * This works on every `gtin:` twin ever scanned, with no migration and no
+ * re-fetch: `lookupBarcode` passes no `fields` parameter and the mapper stores
+ * the whole response as `provenance/raw`, so the tags have always been there.
+ * ADR-0076 §4 forbids *scoping* by `provenance/`, which reading a value out of
+ * it is not — the two readers above are the precedent.
+ *
+ * Empty for a non-OFF twin and for a product OFF has not categorised, which
+ * `densityClassFromCategoryTags` reads as "no pre-fill" either way: 24.24% of
+ * millilitre products carry no usable tags, and they are ordinary ones —
+ * Orangina, Red Bull, Bière 33cl.
+ */
+export function offCategoryTagsFromTwin(
+  attributes: Record<string, unknown> | undefined
+): string[] {
+  const tags = offProductFromTwin(attributes)?.categories_tags;
+  return Array.isArray(tags)
+    ? tags.filter((tag): tag is string => typeof tag === "string")
+    : [];
 }
 
 /**

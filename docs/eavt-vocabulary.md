@@ -180,6 +180,21 @@ aubergine`, because several independent readers show a food's name and only one 
   `millilitres` are siblings and exactly one of them is present, so a reader that knows
   only `grams` sees no portion for a drink rather than a weight it never was. Nothing
   converts between the two, at any point.
+- `density`: what kind of liquid the user says this food is, on a food published by
+  volume. One atomic value naming which kind of answer it holds, so a class reads as
+  `{ class: "oil" }` and a figure the user asserts reads as `{ g_per_ml: 1.2 }`
+  ([ADR-0105](adr/0105-a-volume-food-is-weighed-by-the-class-you-say-it-is.md) §4, as
+  amended). The figure is never stored beside the class: 0.92 is our reading of "this
+  is an oil", and it resolves from the pinned table in `src/lib/food/density.ts` on
+  every read, so a class figure that improves improves every food filed under it with
+  no migration. One attribute rather than two, because latest-datom-wins is per
+  attribute: a food moving from a typed figure to a class would take two datoms in the
+  right order, and a wrong order leaves it carrying both with nothing to arbitrate
+  them. It is a fact about the substance and never configuration, which is why it is a
+  datom and not a setting
+  ([ADR-0085](adr/0085-a-setting-is-never-a-datom-and-a-consent-is-not-a-setting.md)
+  draws that line). Absent on every food nobody has classified, which is the standing
+  case: such a food stays in millilitres and remains fully loggable.
 - `assessment`: one atomic Open Food Facts blob of consumer signals with no schema.org
   counterpart (`nova_group`, `nutri_score`, `eco_score`, `nutrient_levels`, `allergens`,
   `additives`, `labels`; ADR-0030). Read back by
