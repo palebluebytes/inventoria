@@ -5,6 +5,7 @@
 **Amends:** [ADR-0059](0059-the-meal-header-offers-every-way-in.md) §1 (a way in stops being a control in the meal header; the roster of five, their order, their labels and their single-purpose sheets are all untouched)  
 **Amends:** [ADR-0078](0078-a-facet-contains-no-way-out.md) §1 (Rations gains a permanent pinned surface; the no-way-_out_ rule it was written to protect is untouched, because this bar links nowhere)  
 **Amends:** [ADR-0088](0088-a-selection-is-a-mode-with-its-own-verbs-and-its-own-way-out.md) §3 (a Selection owns the foot of the screen on a phone and the head of the day's column on a desktop; it owns one slot either way)  
+**Amended by:** its own Amendment of 2026-09-15 ([#439](https://github.com/palebluebytes/inventoria/issues/439)) — §1's two rows become one and its tab list becomes a picker; §2 to §6 stand  
 **Implemented:** [#416](https://github.com/palebluebytes/inventoria/issues/416) — `src/lib/views/food/WayInBar.svelte` (§1, §2, §3, §5, §6), `src/lib/views/food/WayInRail.svelte` (the panel), `src/lib/views/food/DailyDashboard.svelte` (the slot, and the meal header losing its five), `src/lib/views/FoodView.svelte` (the Selection bar handed down as a snippet), `src/lib/views/food/SelectionBar.svelte` and `src/lib/views/food/ScaleTier.svelte` (§4), `src/lib/food/ways-in.ts` (the caption), `CONTEXT.md` (§7). The prototype that settled it is branch `prototype/meal-header-one-line` (14 commits, `?variant=E2` on the real food screen), and it is a primary source rather than the patch
 
 ## Context
@@ -383,3 +384,88 @@ account ADR-0099 §8 asks for is therefore about an absence: the third region is
 held by `tests/unit/shell.test.ts` reading the stylesheet, and by the 1920px
 layout sweep, and by no camera. A capture at this width is a ticket, not a claim
 this record makes.
+
+## Amendment (2026-09-15, #439): the bar is one line, and the tab list went with the captions
+
+**§1's two rows are one row, and §1's tab list is a picker.** The bar shipped at
+**154.1px** on a phone, measured: 96 of it two floored control rows, and 58 of it
+chrome — the bar's own `--space-2xs` a side, the groove's padding and border, the
+seam between groove and rail, a caption under every mark, and `--shadow-1-reach`
+reserved beside each cell. That is a fifth of the visible band spent on the frame
+rather than on the control, on the one screen this app is used on standing up.
+
+The floor is not negotiable (ADR-0093 §1, ADR-0098 §1), so only two numbers were
+ever available: **how many 48px rows the bar has, and how much chrome sits between
+them**. Three shapes were built on `prototype/way-in-bar-compact` and measured on
+the real food screen, which is where the numbers below come from:
+
+|     |                                                                                 | measured                                      |
+| --- | ------------------------------------------------------------------------------- | --------------------------------------------- |
+| A   | a fused plate: two rows, one ink ground, every rule a gap                       | 100px                                         |
+| B   | one line: the meal collapses to a chip beside the marks                         | **50px**                                      |
+| C   | split ends: the meal strip sticks at the head of the day, the doors at the foot | 50px at the foot, **and 52 more at the head** |
+
+C is the one worth recording as refused, because it reads as the cheapest and is
+not: its two boxes occupy **102px of band in total, 2px more than A**, so the
+split moves the cost to the head of the day rather than removing it — and it
+charges an eye that has to leave the thumb to read its own target. A was refused
+against B on the only axis left, which is the second row.
+
+### What B gives up, stated rather than absorbed
+
+**The tab pattern's claim.** §1's argument for `bits-ui Tabs` was honest and is
+worth keeping legible: the rail really was the selected tab's _panel_, since its
+contents change with the meal (ADR-0059 §4 drops the past-meal cell for a meal
+with no history), so the control was not a row of toggles wearing tab roles. A
+picker claims less — one of four values — and the five buttons beside it are then
+buttons that read it. **The claim was worth 48px of band and no more.** What the
+tab list brought in ARIA (a roving tabindex, arrow keys) arrives instead as the
+platform's own picker, which is the trade [ADR-0095](0095-a-shared-look-is-reached-by-reference-or-it-is-not-shared.md)
+§2 already made for every other one-of-N in this app.
+
+**A fourth gloss, and its function.** `wayInCaption` existed only because a cell
+taking a fifth of a line could afford a word. It is deleted rather than kept for a
+future caller ([ADR-0097](0097-a-class-name-in-markup-is-reached-by-a-rule-or-by-a-spec-or-it-is-deleted.md)),
+and the mark is now the whole of what a sighted user has to go on: `wayInLabel` is
+still the control's accessible name and its `title`, and `wayInLegend` behind the
+day's ⓘ is where a mark is explained in words. **This is the amendment's real
+risk** — five unglossed marks — and it is taken deliberately, because the word sat
+at `--step-n4`, the smallest step the scale has, under a mark drawn at 1.1rem,
+which is a label on a label.
+
+**A tile inside a plate is drawn by the plate.** Every cell — the chip and the
+five marks — is paper on an ink ground with a gap between, so the bar's outer edge
+and each internal seam are one `--edge-width` of one colour drawn once. That is
+what makes the rules _balanced_: two adjacent borders make a 4px seam beside a 2px
+edge, and no `border-right: 0` bookkeeping survives a row whose cell count changes
+with the meal. It also means the cells are bare `<button>`s rather than
+`ui/Button`s: ADR-0038's frame would be a border inside a border and
+[ADR-0102](0102-a-drop-shadow-is-reserved-where-a-box-must-contain-or-cover-it.md)
+§2's reserved reach would push the grid apart by 2px the one line does not have.
+So §2's first worked site stops owing a reservation, by no longer painting the
+shadow it was reserving for. The chip stays `ui/Select` — ADR-0095 §3 holds that
+element's population at exactly one — and is re-skinned from outside, which is
+ADR-0098 §5's sanctioned shape.
+
+### The narrow fallback is a wrap, not a width
+
+`lib/ui/breakpoints.ts` recommends a container query for a box that should answer
+its own width, and `ui/Segmented` uses one. A threshold was written here and
+thrown away, because **this app's root font size is not 16px and is not fixed**:
+it is a clamp against the viewport, measured at 18.32px, so `22.25rem` resolved to
+407px and stacked a 390px phone with room to spare. The sum it would have to
+encode moves for a second reason as well — the chip's own width rides that same
+fluid scale, and ADR-0059 §4 changes the cell count under it (354px with five
+marks, 304px with four).
+
+So the plate is a wrapping flex row and the line breaks on its contents: the
+rail's automatic minimum size _is_ five floored cells and their seams. The two
+places it bites are a 320px phone and the 22rem flank — one a window and one a
+column that has nothing to do with the size of the window, which is the case a
+media query could not have covered anyway.
+
+**What this does not change.** §2 (the meal is chosen and never inferred, the
+clock read once at mount), §3 (the anchor, and no new breakpoint), §4 (the shared
+slot and the fold), §5 (the bar's corner is the slot's corner) and the flank in
+the amendment above are all untouched. `tests/unit/way-in-bar.test.ts` carries
+each of them across the rewrite.
