@@ -38,9 +38,7 @@
  *
  * The roster it measures with was read off `Beef`'s 202 distinct trailing
  * segments and is now the APP's, in `src/lib/food/usda-collapse-roster.ts`,
- * reached through `usda-app-module.mjs`'s esbuild seam (#434, ADR-0103 §9). It
- * is still the generator's answer only in waiting: the generator does not call
- * it, and `public/usda/search-index.json` is what it always was.
+ * reached through `usda-app-module.mjs`'s esbuild seam (#434, ADR-0103 §9).
  *
  * **One number moved when the roster landed.** ADR-0104 removed the cooked
  * records rather than merging them, so the app's roster carries no preparation
@@ -49,6 +47,16 @@
  * 2,037 where it read 2,034 and `groups_merged` 179 where it read 182. `Beef`
  * itself is untouched: every preparation segment left in the corpus is a roasted
  * nut or seed.
+ *
+ * **And then the rule shipped** (#435), which is what {@link refuseIfCollapsed}
+ * below is about. This measures a collapse over the committed index; the
+ * generator now performs one before writing that index, so asking the question
+ * again finds nothing left to merge and every table here comes back zeros. A
+ * spent instrument that prints zeros is exactly the trap
+ * [#156](https://github.com/palebluebytes/inventoria/issues/156) names — an
+ * audit going blind while still producing output — so it refuses instead, and
+ * says where the live account is. The numbers it published are research note
+ * #191's and are committed there.
  *
  * It asserts nothing and is not wired into `pnpm check`, for the reason
  * `usda-consolidation-bar.mjs` gives about itself.
@@ -63,8 +71,12 @@ import { fileURLToPath } from "node:url";
 import { loadAppModule, assertAppExports } from "./usda-app-module.mjs";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const INDEX_PATH = join(ROOT, "public", "usda", "search-index.json");
-const STORE_PATH = join(ROOT, "public", "usda", "nutrient-store.json");
+const INDEX_PATH =
+  process.env.USDA_INDEX_PATH ??
+  join(ROOT, "public", "usda", "search-index.json");
+const STORE_PATH =
+  process.env.USDA_STORE_PATH ??
+  join(ROOT, "public", "usda", "nutrient-store.json");
 
 const index = JSON.parse(readFileSync(INDEX_PATH, "utf8"));
 const store = JSON.parse(readFileSync(STORE_PATH, "utf8"));
@@ -166,10 +178,36 @@ const collapsedCorpus = () => {
   return { corpus: { ...index, foods }, mergedGroups, holes };
 };
 
+/**
+ * Stops the run when the corpus this reads has already had the collapse applied.
+ *
+ * Read off the measurement rather than off a flag or a schema field: a corpus
+ * with no group of more than one is a corpus the rule has nothing left to do to,
+ * whatever produced it. That also keeps `--emit`'s output honest for anyone
+ * pointing the bar at an older index, which still works.
+ */
+const refuseIfCollapsed = (mergedGroups) => {
+  if (mergedGroups > 0) return;
+  console.error(
+    `${INDEX_PATH} holds ${index.foods.length} rows and not one collapse group ` +
+      "of more than one, so this pilot has nothing to measure: ADR-0103's rule " +
+      "now runs inside the generator (#435) and the committed index is its " +
+      "output.\n\n" +
+      "  the per-head account   pnpm usda:bundle --report\n" +
+      "  every collapsed row    docs/research/usda-drop-census.json (stage: collapse)\n" +
+      "  what the pilot found   docs/research/191-beef-pilot.md\n\n" +
+      "Point USDA_INDEX_PATH and USDA_STORE_PATH at a pre-collapse pair to run\n" +
+      "it anyway; §4's chain reads the panel out of the store, so an index\n" +
+      "without its own store scores 381 rows at nothing."
+  );
+  process.exit(1);
+};
+
 const emitAt = process.argv.indexOf("--emit");
 if (emitAt !== -1) {
   const target = process.argv[emitAt + 1];
   const { corpus, mergedGroups, holes } = collapsedCorpus();
+  refuseIfCollapsed(mergedGroups);
   writeFileSync(target, JSON.stringify(corpus));
   console.error(
     `${index.foods.length} rows -> ${corpus.foods.length}` +
@@ -181,6 +219,7 @@ if (emitAt !== -1) {
 const beef = index.foods.filter((row) => /^beef\b/i.test(row.description));
 const beefGroups = collapse(beef);
 const { corpus, mergedGroups, holes } = collapsedCorpus();
+refuseIfCollapsed(mergedGroups);
 
 // --- 2. eligibility: the four readings of §5's "non-preferred value" ---------
 //
