@@ -628,7 +628,7 @@ The implementing ticket owes the number before anything claims it fits._ #422 is
 that ticket, because it is what puts a wake behind Rations' shell.
 
 **+15,972 B (+15.6 KiB, +0.16%)**, against the ±5% band that is ~497 KiB wide
-either side. Measured build to build at `9a40d783`: Rations precaches
+either side. Measured build to build at `3e008b0f` (`9a40d783` before the rebase): Rations precaches
 10,248,983 B with the wake and 10,233,011 B without it, everything else on the
 branch held still.
 
