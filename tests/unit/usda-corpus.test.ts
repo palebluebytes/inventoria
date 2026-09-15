@@ -302,7 +302,11 @@ describe("the bundled search index", () => {
     // 427 to 423 when `isReconstitutedDrink` took the eight made-up drink
     // mixes: four of them were the plain sibling of nothing else, and a row
     // whose only qualified twin has left stops being one.
-    expect(index.foods.filter((row) => row.plain_sibling).length).toBe(421);
+    // 421 to 225 under ADR-0103's collapse. The relation is between a plain
+    // name and a qualified one, and the collapse removes qualified rows by the
+    // hundred: a cut whose only qualified twin was a trim or a grade stops
+    // being anything's plain sibling.
+    expect(index.foods.filter((row) => row.plain_sibling).length).toBe(225);
     // Omitted rather than emitted false, like every other absent field.
     expect(index.foods.filter((row) => row.plain_sibling === false)).toEqual(
       []
@@ -373,7 +377,10 @@ describe("the bundled search index", () => {
   });
 
   it("is the surviving reference foods, and says which archives it came from", () => {
-    expect(index.foods.length).toBe(2418);
+    // 2,418 to 2,037: ADR-0103's collapse ships one row per food, and 381
+    // records of a cut already here left under the `fdcId` of the row that
+    // stands for them (#435).
+    expect(index.foods.length).toBe(2037);
     expect(index.generated_from.map((a) => a.dataset)).toEqual([
       "Foundation Foods",
       "SR Legacy",
@@ -388,15 +395,19 @@ describe("the bundled search index", () => {
     //
     // What the alias loop is skipped for, which is the whole reason
     // `bestNameKey` costs nothing on most rows.
+    // 2,345 to 1,964, tracking the corpus: the collapse keeps the survivor's
+    // own aliases and adds none, so the count moves by the rows it took.
     expect(index.foods.filter((row) => !(row.also ?? []).length).length).toBe(
-      2345
+      1964
     );
     // And what `SEARCH_RESULT_LIMIT` is a ceiling ON. Measured after ADR-0062
     // §1, because that is the set the list would have to render.
     // 734 to 727: seven of the eight rows the reconstituted-drink rule takes
     // are filed under a head phrase beginning with `b` — six `Beverages` and
-    // one `Alcoholic beverage`.
-    expect(withoutStrayMentions(scoredFor("b")).length).toBe(706);
+    // one `Alcoholic beverage`. 706 to 429 under ADR-0103's collapse, which is
+    // the largest single move this number has made: `b` is the first letter of
+    // `Beef`, and the collapse takes 277 rows off that head alone.
+    expect(withoutStrayMentions(scoredFor("b")).length).toBe(429);
   });
 
   // ── ADR-0048's invariant, over the artifact itself ────────────────────────
@@ -690,7 +701,10 @@ describe("the bundled search index", () => {
     const stews = index.foods.filter((row) =>
       /\bstew\b/i.test(row.description)
     );
-    expect(stews.length).toBe(5);
+    // Five to three: two of the five were `Beef, chuck for stew` at a second
+    // grade, which the collapse takes. `for stew` still holds on every row left,
+    // which is what this exemption is pinned for.
+    expect(stews.length).toBe(3);
     expect(stews.every((row) => /\bfor stew\b/i.test(row.description))).toBe(
       true
     );
@@ -745,12 +759,16 @@ describe("the bundled search index", () => {
     // held, leaving 64. Those eight are the whole of what ADR-0056 §4 drops, and
     // they are listed rather than counted so a ninth cannot join them silently.
     const shipped = new Set(index.foods.map((row) => row.fdcId));
-    expect(NZ_IMPORT_BEEF_157.filter((id) => shipped.has(id)).length).toBe(32);
+    // 32 to 19 under ADR-0103's collapse: thirteen of the thirty-two are a New
+    // Zealand cut USDA assayed lean-only beside lean-and-fat, and the dissected
+    // fraction leaves under the row that stands for the cut. `manufacturing`
+    // still takes the two it was measured at, which is what this pins.
+    expect(NZ_IMPORT_BEEF_157.filter((id) => shipped.has(id)).length).toBe(19);
     // Forty are gone now rather than eight: the uncooked corpus took the other
     // thirty-two, which were New Zealand beef USDA had cooked. The eight ADR-0056
     // §4 drops are still among them, listed so a ninth cannot join them silently.
     expect(NZ_IMPORT_BEEF_157.filter((id) => !shipped.has(id))).toHaveLength(
-      40
+      53
     );
     for (const droppedByName of [
       173081, 173084, 174723, 174727, 174728, 174729, 174737, 174738,
@@ -1439,8 +1457,12 @@ describe("searchIndexRows", () => {
       cooked: [0, 0],
       salt: [91, 1],
       // 39 to 35: the four remaining rows saying `prepared with water` were
-      // drink mixes, and `isReconstitutedDrink` took them.
-      water: [35, 10],
+      // drink mixes, and `isReconstitutedDrink` took them. 35 to 27 under the
+      // collapse, which retired eight `water added` hams; the ten that clear the
+      // rule are unmoved, because every one of them is NAMED for water: the
+      // eight are `separable lean only` halves of a ham, and the row each one
+      // collapses into says water too.
+      water: [27, 10],
       oil: [102, 70],
     });
   });
@@ -1790,8 +1812,15 @@ describe("searchIndexRows", () => {
     //
     // `wholeness` decides it, and USDA's own word does the deciding. These two
     // are the exact analogue of the `pork` and `lamb` rows pinned above.
+    // The row is the same food and a different record. ADR-0103's collapse
+    // reads the composite's trim and grade as one cut, and §4's chain hands the
+    // group to the fuller panel rather than to the lower `fdcId` — so the lead
+    // moves from the 1/8" row to the 0" choice one. `wholeness` is untouched and
+    // is still what keeps a separated fat off the top; what this now also pins
+    // is that the collapse did not put one back. The name still over-reads, and
+    // shortening it to `Beef, composite of trimmed retail cuts` is #436's.
     expect(descriptionsFor("beef")[0]).toBe(
-      'Beef, composite of trimmed retail cuts, separable lean and fat, trimmed to 1/8" fat'
+      'Beef, composite of trimmed retail cuts, separable lean and fat, trimmed to 0" fat, choice'
     );
     expect(descriptionsFor("veal")[0]).toBe(
       "Veal, composite of trimmed retail cuts, separable lean and fat"
@@ -1851,8 +1880,12 @@ describe("searchIndexRows", () => {
     expect(descriptionsFor("retail beef")[0]).toBe(
       "Beef, retail cuts, separable fat"
     );
+    // The marble score moved from 4/5 to 9 with ADR-0103's collapse: the two
+    // are one seam fat at two grades, and §4's chain hands the group to the
+    // fuller panel. The case is unchanged — a query naming a fat still gets the
+    // fat it named — and the row it gets is the one that ships.
     expect(descriptionsFor("seam beef")[0]).toBe(
-      "Beef, Wagyu, seam fat, Aust. marble score 4/5"
+      "Beef, Wagyu, seam fat, Aust. marble score 9"
     );
   });
 
@@ -2087,8 +2120,15 @@ describe("searchIndexRows", () => {
       // 211 to 209: two of the rows that had gained their lead were drink mixes
       // the reconstituted-drink rule has since taken out of the corpus. A lead
       // that leaves with its row is not a lead lost, which is why `lost` is
-      // still the invariant and still zero.
-      gained: 208,
+      // still the invariant and still zero. 208 to 127 with ADR-0103's collapse:
+      // 81 rows stop being counted, and 76 of them are rows the collapse itself
+      // removed, so their query left with them. The other five still ship —
+      // `Beef, ribeye, steak, boneless, choice` and four like it — and they now
+      // lead under the BASELINE ordering as well, because the rival that used to
+      // beat them on the four earlier keys has collapsed into another row. A
+      // lead that stops needing the position key is not a lead lost, which is
+      // why `lost` is still zero and `notFirst` does not move.
+      gained: 127,
       lost: 0,
     });
   }, 30_000);
