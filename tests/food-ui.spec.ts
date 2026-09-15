@@ -1918,7 +1918,7 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     // And it is not a dead end: the exit takes a figure the user asserts.
     await picker.locator('[data-value="other"]').click();
     await expect(confirm).toBeDisabled();
-    await page.locator("#density-figure").fill("1.2");
+    await page.locator('[data-testid="density-figure"]').fill("1.2");
     await confirm.click();
     await expect(picker).toHaveCount(0);
     await expect(page.getByLabel("Amount in grams")).toHaveValue("300");

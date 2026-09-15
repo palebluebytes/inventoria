@@ -64,12 +64,12 @@ describe("the question offers every class and a way past them", () => {
     // Five short options is a row of cells; a number field beside them would be
     // asking for a figure before anybody has said the classes do not fit.
     const closed = render(DensityQuestion, { props: { onAnswer: () => {} } });
-    expect(closed.body).not.toContain('id="density-figure"');
+    expect(closed.body).not.toContain('data-testid="density-figure"');
 
     const open = render(DensityQuestion, {
       props: { prefill: "other" as never, onAnswer: () => {} },
     });
-    expect(open.body).toContain('id="density-figure"');
+    expect(open.body).toContain('data-testid="density-figure"');
     expect(open.body).toContain("Grams per millilitre");
   });
 });

@@ -56,6 +56,13 @@
   // because the screen asking is about to put a confirm under it.
   // svelte-ignore state_referenced_locally
   let chosen = $state<Choice | null>(prefill ?? null);
+  // A stable id to tie the exit's label to its field. Minted per instance rather
+  // than written in, because two screens ask this question and a fixed id in a
+  // component that can be mounted twice is a duplicate waiting for the day both
+  // are on screen (localhost/PWA is always a secure context, so randomUUID is
+  // available — the same idiom `ui/Segmented` and `ui/ToggleGroup` use).
+  const figureId = `density-figure-${crypto.randomUUID()}`;
+
   // The exit's field, held as a string so a half-typed "1." survives.
   let typedFigure = $state("");
   let typedFigureValue = $derived(Number(typedFigure));
@@ -90,16 +97,15 @@
          scale and divides, and the figure reaching this field is a remembered or
          looked-up one far more often than a weighed one. -->
     <div class="typed">
-      <label class="typed-label" for="density-figure"
-        >Grams per millilitre</label
-      >
+      <label class="typed-label" for={figureId}>Grams per millilitre</label>
       <input
-        id="density-figure"
+        id={figureId}
         class="typed-num"
         inputmode="decimal"
         autocomplete="off"
         spellcheck="false"
         placeholder="1.20"
+        data-testid="density-figure"
         bind:value={typedFigure}
       />
     </div>
