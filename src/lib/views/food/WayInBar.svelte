@@ -4,6 +4,25 @@
   import Select from "../../ui/Select.svelte";
   import WayInRail from "./WayInRail.svelte";
 
+  // ── THROWAWAY: branch `prototype/meal-picker-skin`, issue #453 ────────────
+  // Three app-drawn pickers against the platform's own, switched by `?variant=`.
+  // Dead in a production build: `readVariant()` returns `null` outside DEV, so
+  // Rollup drops every branch and the shipped bar is exactly what it was. Delete
+  // this block, the five imports and the `{#if variant}` below to un-prototype.
+  import GrowPicker from "./meal-picker.prototype/GrowPicker.svelte";
+  import SheetPicker from "./meal-picker.prototype/SheetPicker.svelte";
+  import PopoverPicker from "./meal-picker.prototype/PopoverPicker.svelte";
+  import PrototypeSwitcher from "./meal-picker.prototype/PrototypeSwitcher.svelte";
+  import { readVariant, type Variant } from "./meal-picker.prototype/variants";
+
+  let variant = $state<Variant | null>(readVariant());
+  $effect(() => {
+    const onSwitch = (e: Event) =>
+      (variant = (e as CustomEvent<Variant>).detail);
+    window.addEventListener("prototype-variant", onSwitch);
+    return () => window.removeEventListener("prototype-variant", onSwitch);
+  });
+
   // The **Way-in bar** (ADR-0101, and *Way-in bar* in `CONTEXT.md`): one bar for
   // the whole day, in three positions.
   //
@@ -122,6 +141,12 @@
   }));
 </script>
 
+<!-- THROWAWAY: the variant switcher. Outside the bar, so folding the bar while
+     a Selection is live does not take the switcher with it. -->
+{#if variant}
+  <PrototypeSwitcher {variant} />
+{/if}
+
 <div class="way-in-bar" class:folded bind:offsetHeight={height}>
   <!-- `inert`, not merely zero height: a folded bar still holds six controls,
        and a tab stop inside a box nobody can see is worse than a visible one. -->
@@ -136,12 +161,20 @@
              amount of `border-right: 0` bookkeeping keeps that honest across a
              row whose cell count changes with the meal. -->
         <div class="plate">
-          <Select
-            class="meal-chip"
-            options={mealOptions}
-            bind:value={target}
-            aria-label="Which meal these land in"
-          />
+          {#if variant === "A"}
+            <GrowPicker {target} onTarget={(m) => (target = m)} />
+          {:else if variant === "B"}
+            <SheetPicker {target} onTarget={(m) => (target = m)} />
+          {:else if variant === "C"}
+            <PopoverPicker {target} onTarget={(m) => (target = m)} />
+          {:else}
+            <Select
+              class="meal-chip"
+              options={mealOptions}
+              bind:value={target}
+              aria-label="Which meal these land in"
+            />
+          {/if}
           <!-- The rail in a box of its own, because the bar owns where things
                go and the rail owns what is in them. It is also the flex item
                whose minimum size decides the wrap above. -->

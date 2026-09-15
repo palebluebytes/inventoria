@@ -619,6 +619,28 @@ export default defineConfig({
     facetBundles(),
   ],
   server: {
+    // THROWAWAY (branch `prototype/meal-picker-skin`): the phone has to be able
+    // to open this, and the phone is on the tailnet.
+    //
+    // **The app cannot boot over plain HTTP on a LAN IP, ever.** Anything but
+    // `localhost` is not a secure context, so `crypto.randomUUID` is absent and
+    // the shell dies during mount on `boot-guard`'s dead-end screen — and the
+    // dependency is broad (`crypto.subtle`, `navigator.storage`, so the ledger
+    // will not open either). A self-signed cert does not rescue it: a bypassed
+    // interstitial IS a secure context, but Chromium refuses a service worker
+    // script on any cert error, which for a PWA this size kills the
+    // environment. So the route is `tailscale serve`, which terminates real TLS:
+    //
+    //   vite --host 127.0.0.1 --port 5180 --strictPort   # `pnpm prototype:meal-picker`
+    //   sudo tailscale serve --bg --https=8443 5180
+    //
+    // `127.0.0.1` and not `localhost`, because vite resolves `localhost` to
+    // `::1` on this box while `tailscale serve` proxies to `127.0.0.1`. Not port
+    // 443 either — this tailnet already serves `/` there.
+    //
+    // This line is why the whole thing works: vite's DNS-rebinding guard rejects
+    // the tailnet Host header, and a leading dot is a suffix match.
+    allowedHosts: [".ts.net"],
     // The relay is **proxied to a real `wrangler dev`, never re-implemented
     // here** (#298). The middleware above stands in for the Worker's
     // `/api/proxy` by importing that route's own guards, which works because a

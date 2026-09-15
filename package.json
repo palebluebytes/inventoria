@@ -9,6 +9,7 @@
   },
   "scripts": {
     "dev": "vite",
+    "prototype:meal-picker": "vite --host 127.0.0.1 --port 5180 --strictPort",
     "dev:relay": "mkdir -p dist && wrangler dev --port 8787 --ip 127.0.0.1",
     "build": "vite build && node scripts/facet-checks.mjs && node scripts/offline-boot-check.mjs",
     "check:facets": "node scripts/facet-checks.mjs",
