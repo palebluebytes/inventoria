@@ -1,4 +1,4 @@
-import { ENTITY_PREFIXES, type EntityPrefix } from "./registry";
+import { ENTITY_PREFIXES, type EntityPrefix } from "./domains";
 
 /**
  * The one place an entity id is constructed (ADR-0086 §7).
