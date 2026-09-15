@@ -484,3 +484,52 @@ and the pattern that selects each, and `scripts/density-class-check.mjs`
 re-selects from those patterns on every `pnpm check`. §2's requirement that an
 entry record its match pattern is discharged by the table, not by this record: a
 pattern written in prose would be a second copy to drift.
+
+## Amendment (2026-09-15): no curated stand-in reaches the class question
+
+The pre-fill amendment above closes with a consequence that owes work:
+
+> **A curated stand-in carries no tags.** `CuratedStandIn.snapshot` is trimmed to
+> the fields `OFFProduct` declares, so the two pinned entries reach no pre-fill —
+> and one of them, `double cream`, is sold in millilitres in the UK. Either
+> `categories_tags` joins the declared fields, or those entries are classified by
+> hand. Two rows either way.
+
+Nothing is owed. That paragraph reasons from the shop rather than from the twin.
+
+A stand-in stages through `mapOffProductToPayload(entry.snapshot)` like any other
+product, so its Panel basis is `offPanelBasis(snapshot.product.product_quantity_unit)`.
+**Neither pinned snapshot declares that field** — it is not one of the fields
+`OFFProduct` declares — so both resolve to `100 g`. §6 asks for the class the
+first time grams are reached for, and on a per-100 g food grams are what the field
+already takes. The question never fires, on either entry, at any point. `cacao
+nibs` is a solid; `double cream` is sold by volume but its panel is not published
+that way here, and the distinction between those two facts is the whole of the
+error.
+
+### The fix the paragraph proposes would be a defect
+
+`double cream`'s panel is a median over 58 UK and Irish records stated **per
+100 g**, and its corroborating reconstruction from `Cream, heavy` and `Butter oil,
+anhydrous` is a mass ratio. Declaring `product_quantity_unit` on `OFFProduct` so
+a stand-in could be classified would let a live `ml` relabel those figures as
+per 100 ml while leaving every one of them unchanged — a basis moved under a
+panel that was not rescaled, which is [ADR-0048](0048-an-absent-measurement-is-not-a-zero.md)
+§3 run backwards. **That field must not join the declared set.** `categories_tags`
+carries no such hazard and is simply not needed by anything.
+
+### What this does expose
+
+`curatedStandInFor` states that "the twin a curated search stages is
+byte-comparable with the one a scan of the same pack produces, and both are
+`gtin:<code>`". That claim is conditional on the undeclared field: if OFF holds
+5010251341352 in millilitres, a scan of that pack produces a per-100 ml twin
+carrying per-100 g figures, where the stand-in produces a per-100 g one. The two
+would disagree about the basis, and the density is not what fixes it — a rescale
+would be. It is recorded here rather than acted on, because it is
+[ADR-0046](0046-curated-stand-ins-for-base-foods-usda-lacks.md)'s question and
+not this record's, and because nothing has yet measured whether OFF holds that
+product by volume at all.
+
+So: no stand-in is classified, by hand or otherwise, and `OFFProduct`'s declared
+fields are unchanged.
