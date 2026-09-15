@@ -467,3 +467,79 @@ Also checked and not pursued, with the reason:
 - **The Youth Compendium of Physical Activities** (Butte et al., 2018) — a separate corpus for ages 6–18. Out of scope for an adult app, and the 2024 family already supplies an Older Adult edition should age-banding ever matter.
 - **Apple HealthKit `HKWorkoutActivityType` and Google Health Connect's exercise types** — enumerations of ~80 activity kinds with no MET, no muscles, and platform licences. They are also device-integration vocabularies, which map #441 rules out of scope entirely.
 - **The 2011 Compendium** — superseded by 2024, which the authors present as replacing it. Relevant only because most third-party MET tables floating around the web are 2011-derived, so a corpus claiming MET values should be checked against 2024 before being trusted.
+
+---
+
+## 9. Question 5 in full: what a join would actually cost
+
+§1 states the answer; this is the measurement behind it, because the choosing ticket's real question is not "is it a join" but "what kind of join, and is it maintainable".
+
+### 9.1 A name join is not available
+
+Measured by exact substring match of every published name against the whole Compendium description corpus:
+
+- **14 of Free Exercise DB's 876 names (1.6%)** appear verbatim anywhere in the Compendium's 1,113 descriptions. They are, in full: `Battling Ropes`, `Bicycling`, `Bicycling, Stationary`, `Butterfly`, `Clean`, `Crunches`, `Elliptical Trainer`, `Mountain Climbers`, `Plank`, `Pushups`, `Rope Jumping`, `Rowing, Stationary`, `Skating`, `Walking, Treadmill`. Note that `Butterfly` matches the Compendium's _swimming stroke_ and `Clean` matches `Cleaning` — so the true count is lower than 14.
+- **21 of wger's 865 names (2.4%)** likewise.
+- Going the other way, **178 of 1,096 Compendium rows (16%)** have a head phrase that appears somewhere in a Free Exercise DB name — and that number is inflated by generic heads like `Walking` and `Running`.
+
+The vocabularies barely intersect: of the **528 distinct word types** in Free Exercise DB's names, only **163 occur anywhere in the Compendium's descriptions** — **365 do not** (_measured_). The missing words are the entire language of the gym: `barbell`, `bicep`, `bodyweight`, `bosu`, `adductor`, `anterior`, `bent`, `bound`, `box`, `bands`.
+
+So: no fuzzy matcher, no embedding, no ranking key rescues this. The two corpora are not two descriptions of one thing; they are descriptions of two different things that happen to share a domain.
+
+### 9.2 The join that _is_ available is a hand-made table of about seven rows
+
+What the two corpora actually share is a **category**, not a name. Free Exercise DB's seven categories map onto a handful of Compendium Conditioning Exercise rows, and that mapping is small enough to write by hand and review:
+
+| Free Exercise DB `category` | Rows | Plausible Compendium row                                                                                                             | MET     |
+| --------------------------- | ---- | ------------------------------------------------------------------------------------------------------------------------------------ | ------- |
+| strength                    | 584  | `02054 Resistance (weight) training, multiple exercises, 8-15 reps at varied resistance`                                             | 3.5     |
+| stretching                  | 123  | `02101 Stretching, mild`                                                                                                             | 2.3     |
+| plyometrics                 | 61   | nothing exact; nearest is `02214 High intensity interval exercise, burpees, mountain climbers, squat jumps, Tabata, vigorous effort` | 11.0    |
+| powerlifting                | 38   | `02050 Resistance (weight lifting ...), power lifting or body building, vigorous effort`                                             | 6.0     |
+| olympic weightlifting       | 35   | **nothing** (_measured_ — no Compendium row contains "olympic weightlifting")                                                        | —       |
+| strongman                   | 21   | **nothing** (_measured_)                                                                                                             | —       |
+| cardio                      | 14   | row-by-row; these are the 14 that genuinely have Compendium counterparts                                                             | various |
+
+That is the honest shape of the join: **a seven-line lookup, two of whose lines have no answer**, plus fourteen hand-made cardio pairs. It is not a data-engineering problem. It is a small editorial artefact, and its weakness is that 584 strength rows — two thirds of the corpus — would all carry the same 3.5 MET, so a Movement's energy would vary only with duration and bodyweight, never with what you actually lifted.
+
+The Compendium's own licence bears on this directly. "Please do not change MET values or combine activities with different MET levels" (§3.1) permits _assigning_ 02054's 3.5 to a bench press row, since nothing is altered or combined, but it forbids the obvious next step of blending 02050 and 02054 into something in between.
+
+### 9.3 The three shapes the choosing ticket is picking between
+
+1. **Compendium only.** MET on every row by construction, licence answer clean, ingestion is a scrape of 22 HTML pages, attribution is one line. Costs: no anatomy ever; `bench press` is not findable; 516 of 1,113 rows are the out-of-scope "all physical activity" widening; the dose shape is ours to author and is duration for everything.
+2. **Gym corpus only, with MET authored by us.** Findable names, real anatomy, a push/pull/static axis, a clean Unlicense (Free Exercise DB) or a share-alike problem (wger). Costs: **we become the author of a health measurement**, which is a materially different provenance claim from every other number in this app — `twin/raw_provenance` exists precisely so a value can be traced to a measurement. The map's item 6 says MET is the floor; hand-assigning it does clear that floor, but with our name on it.
+3. **Both, joined by category.** Anatomy from the gym corpus, MET traced to the Compendium, the join a reviewable seven-line table. Costs: two provenance stories in one row, two licences to discharge, two update cadences, and the 3.5-for-everything flattening above.
+
+Nothing here decides between them. What is now measured is that shape 3 is **cheap** — a seven-line table, not an 876-row reconciliation — which was the thing question 5 was asked to find out.
+
+---
+
+## 10. The whole survey in one table
+
+|                               | 2024 Adult Compendium                                     | wger                                      | Free Exercise DB                          | everkinetic               | ExerciseDB / AscendAPI              |
+| ----------------------------- | --------------------------------------------------------- | ----------------------------------------- | ----------------------------------------- | ------------------------- | ----------------------------------- |
+| **Rows**                      | 1,113                                                     | 865                                       | 876                                       | 293                       | 2,000 (v1) / 11,000 (v2)            |
+| **Licence**                   | "free to use for commercial purposes" (web page, no SPDX) | CC-BY-SA 4 ×712, CC-BY-SA 3 ×132, CC0 ×21 | Unlicense (text); images unlicensed       | CC-BY-SA-4.0              | proprietary; caching plan-gated     |
+| **Bundleable?**               | Yes, with citation                                        | Only under share-alike                    | **Yes, unconditionally** (text only)      | Only under share-alike    | **No, by the vendor's own policy**  |
+| **Attribution burden**        | one line + 4 citations                                    | 242 named authors; 90 rows unattributable | none                                      | project + author          | n/a                                 |
+| **Bytes (trimmed, gzip)**     | <25 KiB (est.)                                            | 33,524 (_measured_)                       | 19,062 (_measured_)                       | —                         | n/a                                 |
+| **Format**                    | PDF + HTML tables; Excel by email                         | paginated REST JSON, CORS `*`             | versioned JSON + JSON Schema in git       | JSON in git               | REST JSON, key required             |
+| **MET**                       | **every row**                                             | none (no field)                           | none (no field)                           | none                      | none (absent from the OpenAPI spec) |
+| **Muscles**                   | none                                                      | 724/865, 15-value vocab                   | **876/876, 17-value vocab**               | 293, single primary       | yes, finer vocab                    |
+| **Equipment**                 | free text only                                            | 673/865, 12 values                        | 799/876, 12 values                        | yes                       | yes                                 |
+| **Movement pattern**          | none                                                      | `variation_group` id only                 | **`force` push/pull/static + `mechanic`** | `type` compound/isolation | none                                |
+| **Dose shape**                | none (MET implies duration)                               | none                                      | none (typed upstream, 0 rows)             | none                      | none                                |
+| **Names findable?**           | readable, but the row often does not exist                | yes; crowdsourced inconsistency           | yes; no stable head grammar               | yes                       | yes                                 |
+| **Covers lifts**              | 6 rows                                                    | 865                                       | 876                                       | 293                       | thousands                           |
+| **Covers runs/swims/classes** | **597 rows**                                              | thin                                      | 14 cardio rows, 0 swimming, 0 yoga        | thin                      | thin                                |
+
+---
+
+## 11. Gaps in this survey, stated rather than dropped
+
+1. **The Compendium in Excel was not obtained.** It exists — "To request a copy of the compendium in Excel format, please email us or complete the form below" — but it is gated behind an email to `compendiumpa@gmail.com`. Every Compendium figure here is _measured_ from the published PDF instead. Asking for the Excel is a sensible first act of the ingestion arc, not of this survey.
+2. **The Compendium's row count is 1,113 or 1,114.** The PDF yields 1,113 distinct codes (_measured_); the paper's own highlight says 1114 (_read_). Unreconciled.
+3. **ExerciseDB/AscendAPI's Terms of Use could not be retrieved.** Three attempts, all blocked by a Vercel bot check (403/429); `ascendapi.com/terms` serves the landing page. The verdict in §7.1 rests on the vendor's published _caching_ policy and its key requirement, both of which were retrieved, and not on the ToS.
+4. **No licence _review_ has happened, only licence _reading_.** Whether a user's ledger rows derived from a CC BY-SA corpus constitute an "Adapted Database" is a question this note deliberately does not answer — it records that the question exists and that #108 chose to avoid it entirely.
+5. **Row quality was measured structurally, never against a scale.** Nothing here checks whether Free Exercise DB's `primaryMuscles` are _right_ beyond the cardio rows, where they are visibly wrong (§6.4). A sampled accuracy check against a textbook is a job for the ingestion arc, and it is the exercise counterpart of the USDA corpus measurements ([#130](130-reference-food-ranking-and-recall.md), [#143](143-canonical-record-measure.md)).
+6. **The corpora were read on one day.** wger's API is live and unversioned, so its counts move. Free Exercise DB and everkinetic are git-addressable and can be pinned; the Compendium is frozen at the 2024 edition.
