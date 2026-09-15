@@ -451,3 +451,133 @@ Because `PhysicalActivity` (and therefore `ExercisePlan`) descends from `Medical
 Seven of the eight are clinical furniture this app will never write. **One is genuinely useful: `code`** — schema.org's sanctioned hook for a foreign controlled-vocabulary identifier, and therefore the conformant home for a Compendium of Physical Activities activity code (§7).
 
 The cost is presentational rather than structural: nothing obliges a publisher to emit properties it has no value for, and the app stores snake_case EAVT rather than JSON-LD anyway (ADR-0021 §1). But it is worth recording that **the map's Movement entity would, on a strict reading, be a kind of medical entity** — which is a framing an ADR should either accept out loud or explicitly set aside.
+
+---
+
+## 5. Q7 — the mapping, in ADR-0021 §5's style
+
+**This is a mapping, not a decision.** It shows what a lossless snake_case EAVT expression of the conforming types looks like, so that the three decision tickets can accept, amend or reject it with the conformance cost already priced. Entity prefixes below are illustrative — minting them belongs to [Movement, Routine and Session Event in ledger terms], not here. Nothing in `docs/eavt-vocabulary.md` or `CONTEXT.md` has been touched.
+
+The alignment it assumes is the one §4 found, which is the map's own frame:
+
+| Map entity (Notes item 1) | schema.org type    | Section        |
+| ------------------------- | ------------------ | -------------- |
+| **Movement**              | `PhysicalActivity` | health-lifesci |
+| **Routine**               | `ExercisePlan`     | health-lifesci |
+| **Session Event**         | `ExerciseAction`   | **core**       |
+
+### 5.1 Movement ⇄ `PhysicalActivity`
+
+| schema.org/PhysicalActivity            | EAVT                                               |
+| -------------------------------------- | -------------------------------------------------- |
+| `name` (from `Thing`)                  | `movement/name`                                    |
+| `description` (from `Thing`)           | `movement/description`                             |
+| `url` (from `Thing`)                   | `movement/url`                                     |
+| `image` (from `Thing`)                 | `movement/image`                                   |
+| `category` → `PhysicalActivityCategory` | `movement/category` (the closed 7-value set, §4.3) |
+| `associatedAnatomy`                    | `movement/associated_anatomy` **(reference)**      |
+| `code` → `MedicalCode` (from `MedicalEntity`) | `movement/code`                              |
+| `epidemiology`                         | **no home — not mapped** (clinical)                |
+| `pathophysiology`                      | **no home — not mapped** (clinical)                |
+
+`movement/category` takes a member label verbatim: `AerobicActivity`, `AnaerobicActivity`, `Balance`, `Flexibility`, `LeisureTimeActivity`, `OccupationalActivity`, `StrengthTraining`. Storing the label rather than the URL matches how `event/type` already stores `ConsumeAction` rather than `https://schema.org/ConsumeAction`. _measured_
+
+`movement/associated_anatomy` is marked **(reference)** deliberately, per `docs/eavt-vocabulary.md`'s own marker convention: §4.3 established that `associatedAnatomy`'s range is three `MedicalEntity` subclasses, so a conformant value is an entity, not a scalar. A `Text` scalar here would **not** be lossless.
+
+`movement/code` is the Compendium hook (§1.5, §4.4) — one `MedicalCode`-shaped identifier per Movement, e.g. a Compendium activity code, so the corpus's own row identity survives ingestion. This is the conformant equivalent of what `fdc:` and `gtin:` do for food.
+
+### 5.2 Routine ⇄ `ExercisePlan`
+
+| schema.org/ExercisePlan          | EAVT                                                        |
+| -------------------------------- | ----------------------------------------------------------- |
+| `name` (from `CreativeWork`)     | `routine/name`                                              |
+| `description`                    | `routine/description`                                       |
+| `url` / `isBasedOn`              | `routine/url`                                               |
+| `image`                          | `routine/image`                                             |
+| `exerciseType`                   | `routine/exercise_type`                                     |
+| `activityDuration`               | `routine/activity_duration`                                 |
+| `activityFrequency`              | `routine/activity_frequency`                                |
+| `repetitions`                    | inside `routine/movements[].repetitions` — see below         |
+| `intensity`                      | inside `routine/movements[].intensity`                       |
+| `restPeriods`                    | inside `routine/movements[].rest_periods`                    |
+| `workload`                       | inside `routine/movements[].workload` — **but see §5.4**      |
+| `additionalVariable`             | `routine/additional_variable` (the `Text` escape hatch)      |
+| `category`, `associatedAnatomy`, `code` (inherited from `PhysicalActivity` / `MedicalEntity`) | as §5.1, under `routine/` |
+
+**The one structural divergence from schema.org, and it is the same one ADR-0021 already made.** schema.org puts `repetitions`, `intensity`, `restPeriods` and `workload` **directly on the `ExercisePlan`** — one set of numbers for the whole plan, because a clinician's prescription is "do this, twenty times, three times a week". The map's Routine (decision 1) is _"an ordered list of references to Movements with doses"_ — a dose **per movement**.
+
+These are not compatible at the same granularity, and the map's shape is the right one for a training log. The resolution is the precedent ADR-0021 §3 set for recipes: `recipe/ingredients` holds **pure references** `{ ref, amount, unit }`. By the same pattern:
+
+```jsonc
+"routine/movements": [
+  {
+    "ref": "movement:squat_",     // a pure reference, per ADR-0021 §3
+    "repetitions": 10,            // schema.org repetitions
+    "sets": 3,                    // NO schema.org property — see §5.4
+    "load": { "value": 80, "unit": "kg" }, // NO schema.org property — see §5.4
+    "rest_periods": "90s",        // schema.org restPeriods
+    "intensity": "RPE 8"          // schema.org intensity
+  }
+]
+```
+
+**How to describe that honestly:** it is a **lossless superset**, not a divergence. Every `ExercisePlan` property has a named home; a plan-level schema.org document maps into a single-element `routine/movements` (or onto the plan-level keys where it is genuinely plan-wide, as `activityDuration` and `activityFrequency` are). Nothing schema.org can say is inexpressible. The reverse does not hold, which is the next section.
+
+### 5.3 Session Event ⇄ `ExerciseAction`
+
+| schema.org/ExerciseAction          | EAVT                                                   |
+| ---------------------------------- | ------------------------------------------------------ |
+| the type itself                    | `event/type: "ExerciseAction"`                         |
+| `startTime` (from `Action`)         | `event/time` — the ledger's own `time` column          |
+| `endTime` (from `Action`)           | `event/end_time`                                       |
+| `exercisePlan`                     | `event/target` **(reference)** — the Routine            |
+| `object` (from `Action`)            | `event/target` **(reference)** — a bare Movement, per map decision 3 |
+| `distance`                         | `event/distance`                                       |
+| `exerciseType`                     | `event/exercise_type`                                  |
+| `location` / `exerciseCourse` / `sportsActivityLocation` | `event/location`                 |
+| `actionStatus` (from `Action`)      | `event/status` (the app's existing per-type enum)      |
+| `agent`, `participant`, `opponent`, `sportsTeam`, `sportsEvent`, `diet`, `exerciseRelatedDiet`, `fromLocation`, `toLocation`, `course`, `result`, `error`, `instrument`, `actionProcess`, `provider`, `target` | **not mapped** — no app concept |
+
+`event/target` already carries exactly this polymorphism: `docs/eavt-vocabulary.md` describes it as _"polymorphic. It references **any** twin, across all four food prefixes … as well as media and physical-item twins, and a Habit Blueprint."_ _measured_ A Routine or a bare Movement is one more case, and schema.org happens to split it across two properties (`exercisePlan` vs `object`) where the ledger uses one. That is a **narrowing on read**, recoverable from the referenced entity's prefix, so it is lossless in the direction that matters.
+
+### 5.4 Properties with no sensible home, and app concepts schema.org cannot name
+
+The ticket asks for both lists. They are short, and the second is the one that decides things.
+
+**(a) schema.org properties with no sensible EAVT home** — mapped nowhere, and should not be:
+
+| Property                                      | Why not                                                                 |
+| --------------------------------------------- | ----------------------------------------------------------------------- |
+| `epidemiology`, `pathophysiology`             | Clinical. On `PhysicalActivity`, meaningless for a personal log.        |
+| `guideline`, `legalStatus`, `medicineSystem`, `recognizingAuthority`, `relevantSpecialty`, `study`, `funding` | Inherited from `MedicalEntity`. Clinical furniture (§4.4). `funding` is also `pending`. |
+| `opponent`, `sportsTeam`, `sportsEvent`, `audience` | Competitive/spectator framing. Outside map decision 7.            |
+| `diet`, `exerciseRelatedDiet`                 | The app models food as its own domain; coupling a session to a diet entity has no use and would duplicate ADR-0021's work. |
+| `course` / `exerciseCourse`, `fromLocation`, `toLocation` | Route-shaped, and the map rules GPS and route recording **out of scope**. `location` alone suffices. |
+| `additionalVariable`                          | Mapped, but only as a `Text` escape hatch. Worth flagging that anything routinely landing here is a signal the app needs its own key instead. |
+
+**(b) App concepts schema.org has no property for** — the load-bearing list:
+
+| App concept                             | Status in schema.org                                                                                                                                                | Consequence                                                                                                 |
+| --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| **Load / weight lifted**                | **Nothing.** `workload` is `Energy` and means energy expenditure (§1.1); core `weight` has domain `Person`/`Product`/packaging types, not any exercise type. _release_ | A name must be minted. For the single most basic fact a strength log records. Unavoidable.                   |
+| **Sets** (as distinct from reps)        | **Nothing.** `repetitions` is one number (§4.2).                                                                                                                     | A name must be minted, or sets folded into prose via `additionalVariable`, which loses structure.            |
+| **MET**                                 | **Nothing** — not the value, not even the term (§1.2, §1.3).                                                                                                          | A name must be minted. #443's join stands.                                                                  |
+| **A session's measured energy**         | `workload` exists and means this — **but its `domainIncludes` is `ExercisePlan` alone** (§1.4). _release_                                                              | Either extend `workload` to the event (conformant on name, off-domain), or mint. **This is a real choice a ticket must make, not a gap.** |
+| **A session's duration**                | **Nothing on any `Action`.** `duration`'s domain excludes `Action`; `activityDuration` is on the plan (§4.1). _release_                                                | Use `startTime` + `endTime` (fully conformant), or mint a duration. Note `src/lib/habits/habits.ts` already takes a `duration?: number` in its metadata. _measured_ |
+| **Muscle group / equipment / movement pattern** | A property (`associatedAnatomy`) and a hierarchy, but **no vocabulary** and no lightweight value (§4.3).                                                     | The shape conforms; the names must still be sourced. schema.org does not relieve #443 here.                  |
+| **Which Habit slot a Session discharged** | **Nothing.** Habits are this app's own concept.                                                                                                                      | `event/target_id` already exists for this. Mint-free, but unconformable by nature — and fine.                |
+| **Meal-type-style "when in the day"**   | Not applicable.                                                                                                                                                      | —                                                                                                            |
+
+**The headline for the map:** conformance covers the *skeleton* — the three entities, the verb, the category axis, the anatomy axis's shape, reps, rest, intensity, frequency, duration-of-plan, and energy-as-a-concept. It does **not** cover **load, sets, or MET**, which are three of the things a training log is mostly made of. So the honest position for an ADR is _"conform on the frame, mint on the dose"_, with the mints named and justified rather than silent — which is precisely what map Notes item 10 asks for ("no ticket here may invent a name or a shape that schema.org already publishes **without saying why**").
+
+---
+
+## 6. Gaps and what could not be established
+
+Recorded explicitly rather than dropped, per this note's own standard.
+
+- **The maturity banner tension in §2.6 is unresolved.** `schema.org` pages say they are the development version; `howwework.html` says `schema.org` is the released version. Both are quoted; neither is reconciled by a source. Every affected claim is independently confirmed against the release file, so nothing here rests on it.
+- **`https://schema.org/docs/schemas.html` would not decode as plain UTF-8** on the first fetch (gzip without a matching header). Re-fetched with `curl --compressed`, which succeeded; the §2.2 quotes are from that second, successful fetch. No claim rests on the failed attempt.
+- **Usage figures are Google's, not schema.org's own measurement.** The `< 1K Domains` band for `workload` is labelled on the page as `Based on monthly aggregations from Google's web index. (Google - August 2026)`. _page_ It is reported as what it is; this note has no independent way to check it.
+- **Not surveyed, because out of the ticket's scope:** `Diet`, `SportsActivityLocation`, `SportsEvent`, `SportsTeam` and the `MedicalEntity` clinical subtree beyond `code`. Each is named above where it touches the mapping, none is expanded.
+- **No claim here rests on a secondary source.** Two instruments only, both first-party (§"Sources"). No blog post, wiki or summary was read.
