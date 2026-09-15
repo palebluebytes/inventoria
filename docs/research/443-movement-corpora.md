@@ -139,3 +139,105 @@ Three name hazards for the shipped-name arc, all _measured_:
 3. **Imperial units everywhere.** 146 rows carry an `mph` band and 18 carry a watts band. For a UK user, `Running, 6-6.3 mph (10 min/mile)` is a row you can only find if you already think in miles per hour; the pace parenthetical rescues some of them but not the cycling rows.
 
 Otherwise the names are well-behaved: mean description length 44.5 characters (max 135), 968 of 1,113 carry a qualifier after a comma in a consistent `head, qualifier, effort` grammar that the existing food ranking keys (`src/lib/food/`) would recognise, and only **4 descriptions repeat** across the whole corpus, covering 8 rows (`Typing, electric, manual, or computer` under both Religious Activities and Volunteer Activities; three Walking strings duplicated under Volunteer Activities). USDA's duplicate-name problem does not exist here.
+
+---
+
+## 5. wger
+
+**Primary sources.** The repository [github.com/wger-project/wger](https://github.com/wger-project/wger) and its [README](https://raw.githubusercontent.com/wger-project/wger/master/README.md); the live public API at [wger.de/api/v2](https://wger.de/api/v2/), which is the project's own distribution channel (below). All figures below are _measured_ from `https://wger.de/api/v2/exerciseinfo/?format=json&limit=1000` fetched 2026-09-15.
+
+### 5.1 Licence — share-alike on 97.6% of rows, and 90 rows that cannot be attributed
+
+The README states three licences, verbatim:
+
+> ## License
+>
+> - Application Code: [AGPL-3.0-or-later](https://www.gnu.org/licenses/agpl-3.0.html)
+> - Exercise/Ingredient Data: Creative Commons (see individual entries)
+> - Documentation: [CC-BY-SA-4.0](https://creativecommons.org/licenses/by-sa/4.0/)
+
+"See individual entries" is not a hedge: every exercise carries a `license` object and a `license_author` string, and `https://wger.de/api/v2/license/` enumerates the five licences the project recognises (`CC-BY-SA 3`, `CC-BY 4`, `CC-BY-SA 4`, `CC0`, `ODbL`). So the real answer is a distribution, and here it is (_measured_, over all 865 exercises):
+
+| Licence      | Exercises | Redistributable in a bundle?        |
+| ------------ | --------- | ----------------------------------- |
+| `CC-BY-SA 4` | 712       | Yes, but **share-alike propagates** |
+| `CC-BY-SA 3` | 132       | Yes, but **share-alike propagates** |
+| `CC0`        | 21        | Yes, unconditionally                |
+
+**844 of 865 rows (97.6%) are share-alike.** This is the same wall #108 hit with OpenNutrition's ODbL and Australia's CC BY-SA, and it is the single most consequential fact about wger for this repo. CC BY-SA 4.0 §3(b) requires that an _adapted_ database be released under a compatible licence; whether an app's shipped corpus and the ledger rows a user derives from it constitute an "Adapted Database" is exactly the argument #108 declined to have, and declining it is why USDA won there.
+
+**The attribution obligation is worse than one credits line.** `license_author` holds **242 distinct values** — individual contributor handles, not an institution: `wger.de` (75 exercises), `clafal` (32), `Croak6728` (29), `Davidgj32` (22), `Moffi` (20). Discharging CC BY-SA here means shipping a 242-name credits page, not the one-line `docs/icon-provenance.md` entry the Compendium needs.
+
+**And 90 of 865 exercises (10.4%) carry no `license_author` at all** — an empty attribution field under a licence whose whole substance is attribution. Those rows cannot be compliantly redistributed by anyone, wger included. Any ingestion would have to either drop them or attribute them to the project, and the second is a claim we would be making up.
+
+### 5.2 Size and shape
+
+**865 exercises** (_measured_; `count: 865` from the API). An exercise is a _base_ with translations hanging off it, not a row. The top-level fields are:
+
+```
+author_history, category, created, equipment, id, images, last_update,
+last_update_global, license, license_author, muscles, muscles_secondary,
+total_authors_history, translations, uuid, variation_group, videos
+```
+
+- `category` — one of **8**: Abs, Arms, Back, Calves, Cardio, Chest, Legs, Shoulders.
+- `muscles` / `muscles_secondary` — from a closed vocabulary of **15**, and they are anatomical Latin with an English alias: `Anterior deltoid` / `Shoulders`, `Biceps femoris` / `Hamstrings`, `Latissimus dorsi` / `Lats`, `Rectus abdominis` / `Abs`. **Five** of the fifteen have an empty `name_en` — `Brachialis`, `Obliquus externus abdominis`, `Serratus anterior`, `Soleus`, `Trapezius` — so a UI that shows the English alias shows a blank for those and must fall back to the Latin.
+- `equipment` — from a closed vocabulary of **12**: Barbell, Bench, Cable machine, Dumbbell, Gym mat, Incline bench, Kettlebell, Pull-up bar, Resistance band, SZ-Bar, Swiss Ball, `none (bodyweight exercise)`.
+- `translations` — the name and description live here, per language. All 865 have an English (`language: 2`) translation; German has 644, and 8 languages have more than 45.
+- `variation_group` — an integer grouping variants of the same movement. The nearest thing to a movement-pattern axis, and it is a bare id with no name.
+
+**Coverage** (_measured_): muscles on **724 / 865 (83.7%)**, secondary muscles on 374, equipment on **673 / 865 (77.8%)**, an English description on 842. So about one row in six has no muscle at all — the anatomy is good but not total, which matters if anatomy is ever a filter rather than a decoration.
+
+**Bytes.** The full API payload for all 865 is **5,547,575 bytes raw / 979,451 gzipped** (_measured_) — but that is mostly `translations` in a dozen languages plus image and video URLs. Trimmed to `uuid, name, category, muscles, secondary muscles, equipment` it is **121,063 bytes raw / 33,524 gzipped** (_measured_). Either figure is affordable against the 8.7 MB the root Facet already precaches; the trimmed one is noise.
+
+**Format, and how you get it in bulk.** JSON over a paginated REST API. There is **no published dump, tarball or fixture file** — and wger's own tooling confirms the API _is_ the distribution channel: the project ships a Django management command [`sync-exercises.py`](https://github.com/wger-project/wger/blob/master/wger/exercises/management/commands/sync-exercises.py) whose docstring reads "Synchronizes exercise data from a wger instance to the local database", pointed at `settings.WGER_SETTINGS['WGER_INSTANCE']`, with `API_MAX_ITEMS = 999` as the page size. Two consequences for us: (a) there is no version-pinned artefact to bundle, so an ingest is "whatever the API said the day we ran it", which is weaker provenance than USDA's dated archive releases; (b) the API sends `access-control-allow-origin: *` (_measured_, via a preflight-style `Origin:` request), so it is reachable from the browser at runtime with no key and no proxy — the only corpus surveyed here of which that is true.
+
+### 5.3 MET: no, and not even a field for it
+
+`met` is not a key on an exercise, and neither is `energy`, `calorie` or `kcal` (_measured_ — checked against every top-level key of all 865 rows). There is no MET vocabulary anywhere in the API's endpoint list. wger's own app computes nothing about energy from an exercise; it records sets, reps and weight.
+
+This is the finding that decides question 5 on the gym side. wger is not a corpus that _forgot_ to carry MET; MET is not part of what it models.
+
+### 5.4 Anatomy: yes, and it is the best of the open ones
+
+Primary muscles, secondary muscles, an 8-value body-region category, a 12-value equipment vocabulary, and a `variation_group` id. Both muscle and equipment vocabularies are closed and small, which is exactly what a filter needs — this is the shape the map's "anatomy layer" ambition is imagining.
+
+What it does **not** carry: movement pattern (push/pull/hinge/squat/carry), plane of motion, laterality, or a difficulty grade. `variation_group` is the only grouping and it is unnamed.
+
+### 5.5 Dose shape: no
+
+Nothing on an exercise says whether it is timed, counted or loaded. wger's dose model lives on the _workout log_, not on the exercise, so a row bundled from here arrives without the thing map #441 item 4 wants it to declare.
+
+### 5.6 Findability of wger's published names
+
+Verbatim English names, as published (_measured_ — first rows of the corpus, unedited):
+
+```
+2 Handed Kettlebell Swing
+Seated Hip Adduction
+Arnold Shoulder Press
+Axe Hold
+Barbell Ab Rollout
+Barbell Hack Squats
+Barbell Lunges Standing
+Barbell Reverse Wrist Curl
+Abdominal Stabilization
+Bear Walk 2
+Bench Press
+Benchpress Dumbbells
+Bench Press Narrow Grip
+Bent Over Dumbbell Rows
+Bent-over Lateral Raises
+Bent Over Rowing
+Bent Over Rowing Reverse
+Biceps Curls With Barbell
+Biceps Curls With SZ-bar
+```
+
+**These are findable.** They are the words a gym-goer types, in title case, with the equipment in the name. `Bench Press` is there, spelled as you would type it — the exact row the Compendium does not have. Nothing here needs an ADR-0056-style strip.
+
+The problem is a different one: **crowdsourced inconsistency**, because these names are 242 people's spellings rather than one institution's grammar.
+
+- **No duplicates, but near-duplicates everywhere.** All 865 English names are distinct (_measured_ — 865 distinct lowercased names of 865). But `Bench Press`, `Benchpress Dumbbells`, and `Bench Press Narrow Grip` are three rows whose relationship is expressed only by a `variation_group` integer, and the second spells the head word as one word. `Bent Over Rowing`, `Bent Over Rowing Reverse` and `Bent Over Dumbbell Rows` alternate between `Rowing` and `Rows` as the head noun. The `head, qualifier` grammar that USDA search's ranking keys exploit is simply absent — the qualifier can be a prefix (`Barbell Lunges Standing`), a suffix (`Bench Press Narrow Grip`) or absent.
+- **Ordinals and junk in the head position.** `2 Handed Kettlebell Swing`, `4-count burpees`, `3D lunge warmup`, `1-Arm Half-Kneeling Lat Pulldown`, `45° lateral raises`, `1/2 Kneeling Thoracic Rotation`, `90/90 Breathing`, `Limber 11`, and — unambiguously rot — `Bear Walk 2` and `3008 Abdominal Crunch`. A leading digit defeats alphabetical ordering and a bare `2` as a disambiguator is a name nobody will search for.
+- **Casing is inconsistent**: `Barbell Ab Rollout` and `Zone 2 Running` alongside `4-count burpees` and `45° lateral raises`.
