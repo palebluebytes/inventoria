@@ -434,7 +434,9 @@
       "verdict": "miss",
       "should_lead": "Milk, whole, 3.25% milkfat, with added vitamin D",
       "note": "41 rows tie; the lead is a cultured reduced-fat buttermilk.",
-      "ratified": false
+      "ratified": false,
+      "lead_dropped": true,
+      "should_lead_dropped": true
     },
     {
       "head": "millet",
@@ -750,6 +752,7 @@
       "should_lead": "Veal, composite of trimmed retail cuts",
       "note": "An Australian rib roast leads. The generic composite exists and is buried.",
       "ratified": false,
+      "lead_dropped": true,
       "should_lead_fdc_id": 173815
     },
     {
@@ -788,6 +791,7 @@
       "should_lead": "Yogurt, plain, whole milk",
       "note": "Nonfat fruit variety leads a 26-way tie.",
       "ratified": false,
+      "lead_dropped": true,
       "should_lead_fdc_id": 2259793
     }
   ],
@@ -804,5 +808,5 @@
     "ratified_count": 22,
     "ratification": "WAIVED 2026-08-21 at the maintainer's direction. §8.3 required a human to read all 50 before a key was written; the review tool built for it was removed and the step skipped. These verdicts are LLM-proposed and independently unread. The key shipped anyway; see ADR-0042's #143 Amendment."
   },
-  "repinned": "2026-09-13: every case gained the `fdcId` of the row it names, and the descriptions were re-read off the corpus. The uncooked-corpus change renamed most of these rows (`Arugula, raw` -> `Arugula`), and this file was keyed on DESCRIPTION alone - so a harness asking whether a head still leads with its recorded row silently skipped 18 of the 19 adjudicated-correct cases and reported no breakage because it had checked almost nothing. #188 keys its own set by `fdcId` for exactly this reason. `lead_dropped` marks a case whose row has left the corpus. 2026-09-15 (#436): re-read again after ADR-0103 §5's strip shortened 174 survivor names — 5 labels moved, every `fdcId` unchanged, and one missing `should_lead_dropped` marker was set. The labels are what a reader matches against; the `fdcId` is the case."
+  "repinned": "2026-09-13: every case gained the `fdcId` of the row it names, and the descriptions were re-read off the corpus. The uncooked-corpus change renamed most of these rows (`Arugula, raw` -> `Arugula`), and this file was keyed on DESCRIPTION alone - so a harness asking whether a head still leads with its recorded row silently skipped 18 of the 19 adjudicated-correct cases and reported no breakage because it had checked almost nothing. #188 keys its own set by `fdcId` for exactly this reason. `lead_dropped` marks a case whose row has left the corpus. 2026-09-15 (#436): re-read again after ADR-0103 §5's strip shortened 174 survivor names — 5 labels moved, every `fdcId` unchanged, and one missing `should_lead_dropped` marker was set. The labels are what a reader matches against; the `fdcId` is the case. Four labels carrying NO `fdcId` were still naming rows the corpus does not hold, because the 2026-09-13 re-key could only give one to a row that still shipped: `milk`'s lead and designated row, and `veal`'s and `yogurt`'s leads. Each is now marked dropped rather than re-pointed. `milk`'s `should_lead` in particular is left where #143 put it — the row it names is one of the two 3.25% milks ADR-0061 §5 drops, so re-pointing it at the 3.7% row that ships would edit a pre-registration into agreeing with the corpus."
 }

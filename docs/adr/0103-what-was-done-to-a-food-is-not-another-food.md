@@ -723,7 +723,7 @@ represent it — so `scripts/usda-collapse.mjs` hands over the `fdcId`s and this
 file is told rather than asking. `Quinoa, cooked` is why: it is the only quinoa
 USDA publishes, its name is true, and nothing in it says so.
 
-### §5 is asserted, and the assertion reads three different ways it could lie
+### §5 is asserted, and what the assertion can actually catch is stated
 
 A safety rule that is assumed is not one. `assertNamesClaimNoLess` reads every
 name the strip shortened and refuses a generation where any of these is false:
@@ -731,13 +731,26 @@ name the strip shortened and refuses a generation where any of these is false:
 - **The row was licensed.** A name shortened with no group behind it is
   `Quinoa` over a cooked panel.
 - **What it lost is exactly its residual description** — the same segments, in
-  the same order, spelled the same way, so a strip that reached inside a kept
-  segment is caught rather than counted.
-- **Every segment it lost is claimed by a preferred axis.** This is the one that
-  matters: `residualDescription` strikes out `separable lean only` as readily as
-  `choice`, so the licence is the only thing standing between a dissected
-  fraction and a name claiming a whole steak. A unit test hands the assertion
-  that exact corpus and it refuses it.
+  the same order, spelled the same way.
+- **Every segment it lost is claimed by a preferred axis.** `residualDescription`
+  strikes out `separable lean only` as readily as `choice`, so the licence is the
+  only thing standing between a dissected fraction and a name claiming a whole
+  steak.
+
+**Two of the three cannot fire against the pipeline as it stands, and that is
+said here rather than left for a reader to discover.** The second re-runs the
+same `residualDescription` the strip just ran, and the third asks about a
+non-preferred segment on a row `mayRepresentGroup` has already refused a licence
+to. They are written for the same reason §9's survivor assertion is written —
+the failure they guard is a pass inserted between the verdict and the rows, which
+would shorten a name nobody licensed and report the number that was intended.
+`shortened` against `stripped` in `usda-bundle.mjs` holds the two counts to each
+other for the same reason and cannot differ either. What proves any of them fire
+is a unit test per clause, each handed the corpus that breaks it.
+
+The first clause is the one with live work to do: it is what makes the licence
+load-bearing rather than decorative, and a change that computed it from a name
+would fail here rather than ship.
 
 ### §10's trap fired a fourth time, and the guard is what caught it
 
@@ -798,10 +811,15 @@ and they are not carried back:
   `trimmed to 0" fat` back into the ranked vocabulary — the choice overload the
   whole map exists to reduce, re-imported by the rule that just removed it.
 - **It costs no archived name.** `assertTwinNamesRetrieve` asks its question of
-  the merge, before either name pass. Re-asked of the SHIPPED corpus, 159 of the
-  270 archived names under a still-shipping identity fail to retrieve — and the
-  figure is **159 before the strip and 159 after it**. The strip takes no name
-  the collapse had not already taken.
+  the merge, before either name pass. Re-asked of the SHIPPED corpus — a one-off
+  recount, not a pinned figure: run that function's loop against the finished
+  survivors rather than against `filtered` — 159 of the 270 archived names under
+  a still-shipping identity fail to retrieve, and the figure is **159 with the
+  strip and 159 without it**. The strip takes no name the collapse had not
+  already taken. The 159 is not this record's to explain and does not contradict
+  the #435 Amendment's eight: that one counted names the collapse STOPPED
+  retrieving, where this counts every archived name that does not retrieve for
+  any reason, ADR-0104's state-word strip included.
 
 What is lost is measurable and is stated rather than denied: typing a row's full
 USDA description finds nothing for the 174 rows renamed here, as it already found
@@ -853,6 +871,15 @@ renamed it, and the comparison was failing against a label rather than against
 the corpus. **The set of cases leading correctly is nine rather than eight, and
 the ninth is not a gain this change made.** It is #143's own trap a third time,
 after ADR-0104's and the file's own `repinned` note: a set keyed on a description
-measures the description. `docs/research/188-consolidation-bar.json` was re-read
+measures the description. **Four more labels carry no `fdcId` at all**, because the 2026-09-13 re-key
+could only give one to a row that still shipped, and all four were still naming
+rows the corpus does not hold — `milk`'s lead and its designated row, and
+`veal`'s and `yogurt`'s leads. Each is marked dropped rather than re-pointed.
+`milk`'s designated row is the case that shows why: it is one of the two 3.25%
+milks ADR-0061 §5 drops, so aiming it at the 3.7% row that ships would edit a
+pre-registration into agreeing with the corpus, and the disagreement is recorded
+rather than edited out.
+
+`docs/research/188-consolidation-bar.json` was re-read
 in the same pass; two of its 56 labels were stale and C1 and C2 are identical
 either side, which is what a set that ranks by `fdcId` owes.
