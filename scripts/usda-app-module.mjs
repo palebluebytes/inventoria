@@ -216,12 +216,17 @@ export const TWIN_LEDGER_EXPORTS = [
  * food-kind five move when an escape is MEASURED and ADR-0061's rules when a
  * head phrase is READ, and this one moves when an AXIS IS CLASSIFIED.
  *
- * **The generator does not read these yet.** ADR-0103 states the rule and
- * deliberately delivers no corpus, so `usda-bundle.mjs` is untouched and
- * `search-index.json` is unchanged; the readership is the two instruments,
- * `usda-beef-pilot.mjs` and `usda-filter-census.mjs`. They are in the seam
- * rather than reached through the extensionless-import hook because §9 names the
- * seam, and because the generator is where they are going.
+ * `mayRepresentGroup` is §5's eligibility test and comes with them for §4's
+ * sake: the chain that picks a group's representative asks it first, and a
+ * second reading of "non-preferred value" written on this side of the seam would
+ * be the copy ADR-0047 §4 forbids — the four readings #191 measured swung `Beef`
+ * from 71 coverage holes to none, so the difference between two copies is not
+ * cosmetic.
+ *
+ * The readership is `scripts/usda-collapse.mjs`, which is the generator's pass
+ * (#435), and the two instruments beside it, `usda-beef-pilot.mjs` and
+ * `usda-filter-census.mjs`. They are in the seam rather than reached through the
+ * extensionless-import hook because §9 names the seam.
  */
 export const COLLAPSE_ROSTER_EXPORTS = [
   "COLLAPSING_AXES",
@@ -229,6 +234,7 @@ export const COLLAPSE_ROSTER_EXPORTS = [
   "descriptionSegments",
   "residualDescription",
   "collapseGroupKey",
+  "mayRepresentGroup",
 ];
 
 // ---------------------------------------------------------------------------

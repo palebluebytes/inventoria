@@ -6,6 +6,7 @@ import {
   claimingAxis,
   collapseGroupKey,
   descriptionSegments,
+  mayRepresentGroup,
   residualDescription,
 } from "../../src/lib/food/usda-collapse-roster";
 
@@ -200,6 +201,70 @@ describe("the collapse group key", () => {
     // separate, refused lever.
     expect(collapseGroupKey("Beef, chuck eye roast, boneless")).not.toBe(
       collapseGroupKey("Beef, chuck eye roast")
+    );
+  });
+});
+
+describe("§5's eligibility test — may this record stand for its group?", () => {
+  it("refuses a record stating a non-preferred value, and only that", () => {
+    // Separation is the one axis left carrying a non-preferred value: a
+    // dissected fraction is not the steak, so a group's name over its panel
+    // would claim a food it did not measure.
+    expect(mayRepresentGroup("Beef, flank, steak, separable lean only")).toBe(
+      false
+    );
+    expect(
+      mayRepresentGroup("Veal, composite of trimmed retail cuts, separable fat")
+    ).toBe(false);
+    // `seam fat` is a fraction too and is NOT refused, because no entry claims
+    // it — §3's ignorance costs coverage rather than correctness, and the row
+    // sits in a group of its own instead.
+    expect(
+      mayRepresentGroup("Beef, Wagyu, seam fat, Aust. marble score 9")
+    ).toBe(true);
+    expect(
+      mayRepresentGroup("Beef, flank, steak, separable lean and fat")
+    ).toBe(true);
+  });
+
+  it("lets trim and grade through, because §2 collapsed them as one food", () => {
+    // ADR-0103's 2026-09-12 Amendment: refusing a record for stating a trim
+    // would re-import the distinction the collapse has just erased, and the
+    // Consequences already concede the survivor is an arbitrary point inside a
+    // measured spread. The four readings of this swung `Beef` from 71 coverage
+    // holes to none, which is why it is one test and not an opinion.
+    for (const description of [
+      'Beef, flank, steak, separable lean and fat, trimmed to 0" fat, choice',
+      'Beef, brisket, whole, separable lean and fat, trimmed to 1/8" fat',
+      "Beef, Wagyu, loin, tenderloin steak/roast, boneless, separable lean and fat, Aust. marble score 9",
+    ])
+      expect([description, mayRepresentGroup(description)]).toEqual([
+        description,
+        true,
+      ]);
+  });
+
+  it("says nothing about a row that names no collapsing axis at all", () => {
+    // Saying NOTHING about an axis is not the same as stating a value on it,
+    // which is what keeps intact every row naming no separation.
+    expect(mayRepresentGroup("Beef, ground, 80% lean meat / 20% fat")).toBe(
+      true
+    );
+    expect(mayRepresentGroup("Quinoa, cooked")).toBe(true);
+  });
+
+  it("does not refuse a segment the roster could not read", () => {
+    // §5's `with added solution` clause is carried by `collapseGroupKey`, not by
+    // this predicate: an unclaimed segment survives into the residual
+    // description, so the row is in a group of its own and never stands for the
+    // plain cut. A predicate refusing it as well would refuse most of the corpus.
+    const brined =
+      "Pork, fresh, shoulder, blade (steaks), separable lean and fat, with added solution";
+    expect(mayRepresentGroup(brined)).toBe(true);
+    expect(collapseGroupKey(brined)).not.toBe(
+      collapseGroupKey(
+        "Pork, fresh, shoulder, blade (steaks), separable lean and fat"
+      )
     );
   });
 });

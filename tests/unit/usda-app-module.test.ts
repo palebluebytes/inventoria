@@ -99,15 +99,18 @@ describe("the app seam — the scripts borrow the app instead of copying it", ()
   });
 
   it("names the collapse roster and the keys §3 derives from it", () => {
-    // ADR-0103 §9's module, landed by #434. Checked apart from the `typeof`
-    // sweeps above for `VARIANT_DROP_EXPORTS`'s reason: `COLLAPSING_AXES` is a
-    // list, not a function, and a sweep would wave it through.
+    // ADR-0103 §9's module, landed by #434 and called by the generator since
+    // #435. Checked apart from the `typeof` sweeps above for
+    // `VARIANT_DROP_EXPORTS`'s reason: `COLLAPSING_AXES` is a list, not a
+    // function, and a sweep would wave it through. `mayRepresentGroup` is §5's
+    // eligibility test, which §4's chain asks first.
     expect(COLLAPSE_ROSTER_EXPORTS).toEqual([
       "COLLAPSING_AXES",
       "claimingAxis",
       "descriptionSegments",
       "residualDescription",
       "collapseGroupKey",
+      "mayRepresentGroup",
     ]);
     expect(Array.isArray(collapseRoster.COLLAPSING_AXES)).toBe(true);
     for (const name of COLLAPSE_ROSTER_EXPORTS.filter(

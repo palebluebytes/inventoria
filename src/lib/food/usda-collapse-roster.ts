@@ -21,11 +21,12 @@
 // when an AXIS IS CLASSIFIED. Nothing here asks what a record is or what it is a
 // variant of; it asks which direction a segment points in time.
 //
-// **The generator does not call it yet.** This is the expand half of the
-// hand-off from the #186 map: the roster stops being a pilot artifact and
-// becomes the app's, and `public/usda/search-index.json` is unchanged. Its whole
-// readership today is `scripts/usda-beef-pilot.mjs`, which produced it, and
-// `scripts/usda-filter-census.mjs`, which asks what it would have absorbed.
+// **The generator calls it** (#435). `scripts/usda-collapse.mjs` groups the
+// finished corpus on `collapseGroupKey`, picks one record per group by §4's
+// chain, and refuses a generation in which a collapsed row's survivor is not in
+// the shipped index. The two instruments beside it — `scripts/usda-beef-pilot.mjs`,
+// which produced this roster, and `scripts/usda-filter-census.mjs`, which asks
+// what it absorbs — read the same entries through the same seam.
 //
 // NOTHING IN THE APP IMPORTS THIS FILE. The corpus is filtered once, at
 // generation time, and what ships is the survivors; the scripts reach these
@@ -128,15 +129,24 @@ export interface CollapsingAxis {
  * ADR-0103 §2's collapsing axes, as patterns over a whole comma-segment.
  *
  * Tallies below are rows of `public/usda/search-index.json` as it ships today
- * (2,418 rows, schema 9), because a roster entry whose reach nobody measured is
- * a hole nobody can see. 603 rows — a quarter of the corpus — carry at least one
- * of the three, under seven head phrases: `Beef` 374, `Lamb` 97, `Pork` 94,
- * `Veal` 30, and eight between `Game meat` (6), `Pork loin` (1) and `Chicken`.
+ * (2,037 rows, schema 9), because a roster entry whose reach nobody measured is
+ * a hole nobody can see. 224 rows carry at least one of the three, under the
+ * same seven head phrases the roster has always reached: `Beef` 99, `Pork` 56,
+ * `Lamb` 45, `Veal` 16, and eight between `Game meat` (6), `Pork loin` (1) and
+ * `Chicken`.
+ *
+ * **These are SURVIVORS' segments, and that is not a contradiction.** The
+ * generator collapses on these entries and then ships the representative under
+ * the name USDA published, so the winner of a flank-steak group still says
+ * `separable lean and fat, trimmed to 0" fat, choice`. Taking those words out of
+ * the shipped name is ADR-0103 §5's strip and is #436's; until it lands, a
+ * count here is a count of groups that collapsed rather than of rows that will.
  */
 export const COLLAPSING_AXES: readonly CollapsingAxis[] = [
   // ── separation: the butcher's knife, not the counter ─────────────────────
-  // 595 rows. USDA dissects a cut and assays the parts, so one steak arrives as
-  // three records. You cannot buy any of them but the first.
+  // 218 rows of the shipped corpus, 189 of them the undissected value. USDA
+  // dissects a cut and assays the parts, so one steak arrives as three records.
+  // You cannot buy any of them but the first.
   {
     axis: "separation",
     kind: "collapsing",
@@ -159,7 +169,7 @@ export const COLLAPSING_AXES: readonly CollapsingAxis[] = [
     preferred: false,
   },
   // ── trim: a trade specification, and no value of it refuses ──────────────
-  // 373 rows: 183 at 0", 166 at 1/8", 24 at 1/4". The optional space is §10's,
+  // 95 rows: 44 at 1/8", 39 at 0", 12 at 1/4". The optional space is §10's,
   // written for the one SR Legacy row spelling it `1/8"fat`; that row was
   // `cooked, broiled` and left with ADR-0104's, so the entry reaches three
   // spellings today and the `?` is insurance against the archive, not the index.
@@ -177,7 +187,7 @@ export const COLLAPSING_AXES: readonly CollapsingAxis[] = [
     preferred: true,
   },
   // ── grade: likewise, in two countries' vocabularies ──────────────────────
-  // 263 rows: choice 140, select 101, prime 6, Australian marble score 16.
+  // 60 rows: choice 39, select 14, prime 1, Australian marble score 6.
   {
     axis: "grade",
     kind: "collapsing",
@@ -196,8 +206,8 @@ export const COLLAPSING_AXES: readonly CollapsingAxis[] = [
     kind: "collapsing",
     because:
       "Australia's marble score is the same specification in another country's " +
-      "vocabulary. It reaches the corpus on sixteen `Beef, Wagyu` records and " +
-      "nothing else.",
+      "vocabulary. It reaches the corpus on `Beef, Wagyu` records and nothing " +
+      "else.",
     // Anchored at the head of the segment rather than at both ends, because the
     // score itself is free-form — USDA writes `4/5` and `9`. A segment carries
     // no comma, so this still cannot match inside one.
@@ -259,3 +269,36 @@ export const collapseGroupKey = (description: string): string =>
     .replace(/[,\-/]/g, " ")
     .replace(/\s+/g, " ")
     .trim();
+
+/**
+ * §5's eligibility test: may this record stand for the group it belongs to?
+ *
+ * A record is refused when it **positively states a non-preferred value** on a
+ * collapsing axis, because the group's name would then claim a food the
+ * record's panel did not measure — `separable lean only` is a dissected
+ * fraction, not the steak. Saying NOTHING about an axis is not the same as
+ * stating a value on it, which is what keeps intact every row naming no
+ * separation at all.
+ *
+ * Only `separation` carries a non-preferred value today. ADR-0103's 2026-09-12
+ * Amendment settled which axes do: preparation and separation, because a cooked
+ * record and a dissected fraction are not the food you bought — and **trim and
+ * grade carry none**, because §2 collapsed them on the express ground that they
+ * are the same food, so refusing a record for stating one would re-import the
+ * distinction the collapse has just erased. The preparation axis then left with
+ * ADR-0104 (see the header), leaving one.
+ *
+ * An UNCLAIMED segment is not refused here, and does not need to be: it survives
+ * into the residual description, so a row carrying one is in a group of its own
+ * and never stands for anything else. §5's `with added solution` clause is
+ * carried by {@link collapseGroupKey} rather than by this predicate.
+ *
+ * Where a group of more than one has no eligible record it does not block its
+ * head: it ships its fullest-panel record under that record's whole, unstripped
+ * name, exactly as a group of one does (the same Amendment).
+ */
+export const mayRepresentGroup = (description: string): boolean =>
+  descriptionSegments(description).tail.every((segment) => {
+    const entry = claimingAxis(segment);
+    return entry === null || entry.preferred;
+  });
