@@ -116,6 +116,8 @@ Three deliberate omissions, each with a scar behind it:
 
 **Where this file lives is not settled.** Whether it stays a script of its own or folds into `usda-ranking-audit.mjs` is deferred until the rule it measures exists; `usda-ranking-audit.mjs` is at 956 lines against the ~1000-line wall `CODING_STANDARDS.md` §4 draws, so the fold is not free and the decision is better made with the pilot's needs known.
 
+**Settled 2026-09-15 (#438): the bar keeps its own file.** The rule it measures now exists, so the deferral has expired. The fold is refused: `usda-ranking-audit.mjs` is at 957 lines and this file at 222, so merging them crosses the wall on the first edit, which `CODING_STANDARDS.md` treats as needing a justification nobody has. The fold was only attractive while the bar looked like a one-off measurement; it is now the instrument that scored a shipped rule, and every corpus change re-runs it. [#412](https://github.com/palebluebytes/inventoria/issues/412)'s own measurement — the distribution of result-set sizes rather than a count against a threshold — extends this file for the same reason.
+
 ## 8. Corrections (2026-09-12, #190)
 
 Two registered figures were wrong. Both are corrected in place above and recorded
@@ -293,11 +295,19 @@ cannot:
 | `turkey`  |   52 |     |           |      |
 
 None of those nine is duplication, so none of them is a membership problem, and
-§11 already says what they are owed instead: retrieval pollution belongs with
-ADR-0062, and a head that is genuinely a hundred named foods wants a ranking or
-paging instrument. The residue is filed as
-[#451](https://github.com/palebluebytes/inventoria/issues/451) rather than left
-in this paragraph.
+§11 already says what they are owed instead: a head that is genuinely a hundred
+named foods wants a ranking or a paging instrument. That is
+[#412](https://github.com/palebluebytes/inventoria/issues/412), which has carried
+it since the #190 split and which the post-collapse numbers above are now
+recorded on. Retrieval pollution — the other instrument §11 owes — is
+[#411](https://github.com/palebluebytes/inventoria/issues/411), and
+[#407](https://github.com/palebluebytes/inventoria/issues/407) is its inverse,
+`ham` reaching one row where `gammon` reaches many.
+
+**This paragraph first filed a duplicate**, #451, because §11 links a ticket for
+only one of the two instruments it names and links the wrong one. The duplicate
+is closed and the mis-links are corrected in ADR-0103's 2026-09-15 Amendment; it
+is recorded here because a residue named twice is a residue nobody owns.
 
 ### The registered column is not re-derivable, and the reason is a flattened key
 

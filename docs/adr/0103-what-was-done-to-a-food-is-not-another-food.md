@@ -970,10 +970,24 @@ motion.
 
 §11 says a head that is genuinely a hundred foods is not a membership problem and
 wants a ranking or a paging instrument. That is still true and this record still
-declines to build it, and it now declines to absorb it into prose either:
-[#451](https://github.com/palebluebytes/inventoria/issues/451) carries the nine
-heads and the two unreachable gold rows with their numbers. Retrieval pollution
-remains [#407](https://github.com/palebluebytes/inventoria/issues/407)'s.
+declines to build it, and it now declines to absorb it into prose either: the
+nine heads and the two unreachable gold rows are recorded with their numbers on
+[#412](https://github.com/palebluebytes/inventoria/issues/412).
+
+**§11's two pointers are corrected here, and getting them wrong cost a duplicate
+ticket.** §11 names two instruments and links a ticket for only one of them,
+[#407](https://github.com/palebluebytes/inventoria/issues/407) — which is the
+wrong one. Retrieval pollution, §11's own `butterbur` and `breadfruit seeds`
+examples, is [#411](https://github.com/palebluebytes/inventoria/issues/411);
+#407 is the **inverse** defect, ADR-0062 §1 dropping so hard that `ham` answers
+with one row while `gammon` answers with many. The hundred-foods head is #412 and
+§11 links nothing at all, though #412 was filed at the same split. A sibling note
+had it right — `docs/research/191-beef-pilot.md` states that "§11 already assigns
+[the retrieval and paging distance] to #411 and #412" — but a reader who reaches
+§11 does not reach that note, and #438 filed the gap as #451 before finding
+either. #451 is closed as a duplicate of #412. §11's own body is left as written,
+because a record is corrected at the bottom and not edited into having been
+right.
 
 Reinterpreting C2 after seeing which queries fail is the move #188 was written to
 prevent. The bar stands as registered, the rule did not clear it, and this record
