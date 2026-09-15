@@ -148,6 +148,31 @@ describe("soleMagnitudeUnit", () => {
     expect(soleMagnitudeUnit("8 ml (240 ML)")).toBeUndefined();
   });
 
+  it("reads the unit in any language OFF spells in Latin letters", () => {
+    // The vocabulary is all 303 Latin-script synonyms in OFF's units taxonomy,
+    // not the English and French ones. Narrower, and a Spanish or German label
+    // with no stated unit loses a portion that was never wrong.
+    expect(soleMagnitudeUnit("30 gramos")).toBe("g");
+    expect(soleMagnitudeUnit("30 Gramm")).toBe("g");
+    expect(soleMagnitudeUnit("30 grammi")).toBe("g");
+    expect(soleMagnitudeUnit("1 litro")).toBe("ml");
+    expect(soleMagnitudeUnit("250 millilitros")).toBe("ml");
+  });
+
+  it("folds every spelling of a unit onto one meaning", () => {
+    // OFF lists `fl oz`, `floz`, `fl.oz`, `fl. oz`, `fl. oz.` and `fl.oz.`. The
+    // table carries the most-separated form and the matcher makes each separator
+    // optional, so one entry covers all six.
+    for (const label of [
+      "8 fl oz",
+      "8 floz",
+      "8 fl.oz",
+      "8 fl. oz.",
+      "8 FL OZ",
+    ])
+      expect(soleMagnitudeUnit(label)).toBe("ml");
+  });
+
   it("answers through a restatement, which names one magnitude", () => {
     expect(soleMagnitudeUnit("15 biscuits (85g/2,998 Oz)")).toBe("g");
     expect(soleMagnitudeUnit("250 ml (8 fl oz)")).toBe("ml");

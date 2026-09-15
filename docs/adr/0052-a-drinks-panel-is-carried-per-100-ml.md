@@ -306,11 +306,19 @@ Two facts from `lib/ProductOpener/Units.pm` (read 2026-09-15) carry it:
 
 That second rule is what makes the reader's **vocabulary** load-bearing, and it is now
 OFF's own: every entry in `taxonomies/units.txt` whose `standard_unit:en` is `g` or
-`ml`, restricted to the unaccented Latin spellings and the English and French
-synonyms. A narrow `g`/`ml` vocabulary was wrong in both directions — an unreadable
-token cannot become the second magnitude that refuses a bad string, so `15 gr + 250mL`
-would have slipped through the first rule, and under the second an unreadable token
-costs a good portion outright.
+`ml`, with that entry's `conversion_factor:en`, and **every synonym in any language
+written in unaccented Latin letters** — 303 spellings over twelve units, no two of
+which disagree about what they mean.
+
+A narrow vocabulary is wrong in both directions, and the second rule is what makes the
+second direction expensive. An unreadable token cannot become the second magnitude
+that refuses a bad string, so `15 gr + 250mL` slips through the first rule. And under
+the second, an unreadable token costs a good portion outright: a first cut at this
+work carried the English and French synonyms only, which quietly refused `30 gramos`,
+`30 Gramm` and `30 grammi` — labels OFF parses correctly and whose portions were never
+wrong. Matching OFF's vocabulary exactly is also what makes the refusals honest in the
+other direction: a string OFF cannot parse yields no `serving_quantity` at all, so it
+never reaches this question.
 
 Two families of OFF's units are deliberately **excluded**: `cup`/`tasse`, the teaspoon
 and the pinch. OFF prices a cup at 240 ml, but those millilitres are a convention

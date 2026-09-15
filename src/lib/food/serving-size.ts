@@ -37,126 +37,461 @@ interface Magnitude {
 }
 
 /**
- * What one of each unit a serving-size string uses amounts to — the table
- * {@link MAGNITUDE_TOKEN} is built from, so a unit cannot be matched without
- * being convertible, and adding one is a line here rather than a line here and a
- * branch in a regex.
+ * Every unit a serving-size string may name, with what one of it amounts to in
+ * that unit's standard unit.
  *
- * It is Open Food Facts' own vocabulary, read off `taxonomies/units.txt`
- * (2026-09-15): every entry whose `standard_unit:en` is `g` or `ml`, with its
- * `conversion_factor:en` and its `xx:` symbols, restricted to the unaccented
- * Latin spellings plus the English and French synonyms. That source matters
- * twice over. `serving_quantity` exists at all only where
+ * It is Open Food Facts' own vocabulary, derived from `taxonomies/units.txt`
+ * (read 2026-09-15): every entry whose `standard_unit:en` is `g` or `ml`, with
+ * that entry's `conversion_factor:en`, and every one of its synonyms in any
+ * language that is written in unaccented Latin letters. 303 spellings over
+ * twelve units, and no two of them disagree about what they mean.
+ *
+ * The source matters twice over. `serving_quantity` exists at all only where
  * `normalize_serving_size` matched a unit from this vocabulary, and the value it
  * holds has already been converted to the standard unit by `unit_to_g($q, $u)` —
  * so reading the sole token's standard unit is reading the unit the quantity
  * beside it is actually in.
+ *
+ * The breadth is load-bearing rather than thorough for its own sake, and it is
+ * what {@link soleMagnitudeUnit} needs: `30 gramos` is grams to OFF and a
+ * `g`-and-`ml` reader would refuse it, losing a portion that was never wrong.
+ * It cuts the other way too — a token this table cannot spell is invisible, and
+ * an invisible token cannot be the second magnitude that refuses `15 gr + 250mL`.
  *
  * Two families are deliberately left out. OFF gives `cup`/`tasse`, the teaspoon
  * and the pinch a fixed conversion too, but those are household measures whose
  * millilitres are a convention rather than a measurement: a cereal label reading
  * `1 cup (30 g)` is one serving stated two ways, and admitting the cup would turn
  * the commonest good label into a refusal. `metric-pound` is a taxonomy id nobody
- * writes on a pack, and the microgram's `µg` symbol is outside the Latin subset —
- * `mcg` carries it.
+ * writes on a pack.
  */
-const UNITS: Record<string, Magnitude> = {
-  // Mass, standard unit `g`.
-  g: { amount: 1, unit: "g" },
-  gr: { amount: 1, unit: "g" },
-  grs: { amount: 1, unit: "g" },
-  grm: { amount: 1, unit: "g" },
-  gram: { amount: 1, unit: "g" },
-  grams: { amount: 1, unit: "g" },
-  gramme: { amount: 1, unit: "g" },
-  grammes: { amount: 1, unit: "g" },
-  kg: { amount: 1000, unit: "g" },
-  kgs: { amount: 1000, unit: "g" },
-  kgr: { amount: 1000, unit: "g" },
-  kilo: { amount: 1000, unit: "g" },
-  kilos: { amount: 1000, unit: "g" },
-  kilogram: { amount: 1000, unit: "g" },
-  kilograms: { amount: 1000, unit: "g" },
-  kilogramme: { amount: 1000, unit: "g" },
-  kilogrammes: { amount: 1000, unit: "g" },
-  mg: { amount: 0.001, unit: "g" },
-  mgs: { amount: 0.001, unit: "g" },
-  milligram: { amount: 0.001, unit: "g" },
-  milligrams: { amount: 0.001, unit: "g" },
-  milligramme: { amount: 0.001, unit: "g" },
-  milligrammes: { amount: 0.001, unit: "g" },
-  mcg: { amount: 0.000001, unit: "g" },
-  mcgs: { amount: 0.000001, unit: "g" },
-  microgram: { amount: 0.000001, unit: "g" },
-  micrograms: { amount: 0.000001, unit: "g" },
-  lb: { amount: 453.59237, unit: "g" },
-  lbs: { amount: 453.59237, unit: "g" },
-  pound: { amount: 453.59237, unit: "g" },
-  pounds: { amount: 453.59237, unit: "g" },
-  livre: { amount: 453.59237, unit: "g" },
-  livres: { amount: 453.59237, unit: "g" },
-  oz: { amount: 28.349523125, unit: "g" },
-  ozs: { amount: 28.349523125, unit: "g" },
-  onz: { amount: 28.349523125, unit: "g" },
-  ounce: { amount: 28.349523125, unit: "g" },
-  ounces: { amount: 28.349523125, unit: "g" },
-  once: { amount: 28.349523125, unit: "g" },
-  onces: { amount: 28.349523125, unit: "g" },
-  // Volume, standard unit `ml`.
-  ml: { amount: 1, unit: "ml" },
-  mls: { amount: 1, unit: "ml" },
-  milliliter: { amount: 1, unit: "ml" },
-  milliliters: { amount: 1, unit: "ml" },
-  millilitre: { amount: 1, unit: "ml" },
-  millilitres: { amount: 1, unit: "ml" },
-  cl: { amount: 10, unit: "ml" },
-  cls: { amount: 10, unit: "ml" },
-  centiliter: { amount: 10, unit: "ml" },
-  centiliters: { amount: 10, unit: "ml" },
-  centilitre: { amount: 10, unit: "ml" },
-  centilitres: { amount: 10, unit: "ml" },
-  dl: { amount: 100, unit: "ml" },
-  dls: { amount: 100, unit: "ml" },
-  deciliter: { amount: 100, unit: "ml" },
-  deciliters: { amount: 100, unit: "ml" },
-  l: { amount: 1000, unit: "ml" },
-  ls: { amount: 1000, unit: "ml" },
-  liter: { amount: 1000, unit: "ml" },
-  liters: { amount: 1000, unit: "ml" },
-  litre: { amount: 1000, unit: "ml" },
-  litres: { amount: 1000, unit: "ml" },
-  floz: { amount: 29.5735295625, unit: "ml" },
-  oza: { amount: 29.5735295625, unit: "ml" },
-  fluidounce: { amount: 29.5735295625, unit: "ml" },
-  fluidounces: { amount: 29.5735295625, unit: "ml" },
-  gal: { amount: 3785.41, unit: "ml" },
-  gals: { amount: 3785.41, unit: "ml" },
-  gallon: { amount: 3785.41, unit: "ml" },
-  gallons: { amount: 3785.41, unit: "ml" },
-};
+interface UnitSpellings {
+  amount: number;
+  unit: MeasuredUnit;
+  /**
+   * How the unit is written. Where one spelling separates words with spaces or
+   * dots, it is the most-separated form OFF lists: {@link MAGNITUDE_TOKEN} makes
+   * every separator optional, so `fl. oz.` also matches `fl oz`, `fl.oz` and
+   * `floz`, and {@link normaliseUnit} folds all four back to one key.
+   */
+  spellings: readonly string[];
+}
+
+const UNITS: readonly UnitSpellings[] = [
+  // microgram — one is 0.000001 g
+  {
+    amount: 0.000001,
+    unit: "g",
+    spellings: [
+      "mcg",
+      "mcgs",
+      "micogram",
+      "microgam",
+      "microgram",
+      "micrograma",
+      "microgramas",
+      "micrograme",
+      "microgramme",
+      "microgrammes",
+      "microgrammi",
+      "microgrammo",
+      "microgramo",
+      "microgramos",
+      "micrograms",
+      "mikrogram",
+      "mikrograma",
+      "mikrogramai",
+      "mikrogramas",
+      "mikrogrami",
+      "mikrogramm",
+      "mikrogramma",
+      "mikrogrammaa",
+      "mikrogrammi",
+      "mikrogramov",
+      "mikrogramu",
+      "mikrogramy",
+    ],
+  },
+  // milligram — one is 0.001 g
+  {
+    amount: 0.001,
+    unit: "g",
+    spellings: [
+      "mg",
+      "mgs",
+      "miligam",
+      "miligram",
+      "miligrama",
+      "miligramai",
+      "miligramas",
+      "miligrame",
+      "miligrami",
+      "miligramo",
+      "miligramos",
+      "miligramov",
+      "miligramu",
+      "miligramy",
+      "milligram",
+      "milligramm",
+      "milligramma",
+      "milligrammaa",
+      "milligramme",
+      "milligrammes",
+      "milligrammi",
+      "milligrammo",
+      "milligrams",
+    ],
+  },
+  // gram — one is 1 g
+  {
+    amount: 1,
+    unit: "g",
+    spellings: [
+      "g",
+      "gam",
+      "gm",
+      "gr",
+      "gram",
+      "grama",
+      "gramai",
+      "gramas",
+      "grame",
+      "grami",
+      "gramm",
+      "gramma",
+      "grammaa",
+      "gramme",
+      "grammes",
+      "grammi",
+      "grammo",
+      "gramo",
+      "gramos",
+      "gramov",
+      "grams",
+      "gramu",
+      "gramy",
+      "grm",
+      "grs",
+    ],
+  },
+  // oz — one is 28.349523125 g
+  {
+    amount: 28.349523125,
+    unit: "g",
+    spellings: [
+      "mga ounce",
+      "once",
+      "onces",
+      "oncia",
+      "ons",
+      "onz",
+      "onza",
+      "onzas",
+      "ounce",
+      "ounces",
+      "owns",
+      "ownsi",
+      "ownsiau",
+      "oz",
+      "ozs",
+      "unca",
+      "unce",
+      "unces",
+      "uncia",
+      "uncie",
+      "uncijos",
+      "uncja",
+      "uncje",
+      "uns",
+      "unsar",
+      "unssi",
+      "unssia",
+      "unts",
+      "untsid",
+      "unze",
+      "unzen",
+    ],
+  },
+  // pound — one is 453.59237 g
+  {
+    amount: 453.59237,
+    unit: "g",
+    spellings: [
+      "font",
+      "fontok",
+      "funt",
+      "funte",
+      "funti",
+      "funty",
+      "lb",
+      "lbs",
+      "libbra",
+      "libbre",
+      "liber",
+      "libra",
+      "libras",
+      "libry",
+      "lire",
+      "livre",
+      "livres",
+      "mga pound",
+      "nael",
+      "naela",
+      "paun",
+      "paunat",
+      "pauni",
+      "pfund",
+      "ponden",
+      "pound",
+      "pounds",
+      "pund",
+      "punt",
+      "punti",
+      "pwysau",
+      "svarai",
+      "svaras",
+    ],
+  },
+  // kilogram — one is 1000 g
+  {
+    amount: 1000,
+    unit: "g",
+    spellings: [
+      "chilogrammi",
+      "chilogrammo",
+      "kg",
+      "kgr",
+      "kgs",
+      "kilo",
+      "kilogram",
+      "kilograma",
+      "kilogramai",
+      "kilogramas",
+      "kilograme",
+      "kilogrami",
+      "kilogramm",
+      "kilogramma",
+      "kilogrammaa",
+      "kilogramme",
+      "kilogrammes",
+      "kilogrammi",
+      "kilogramo",
+      "kilogramos",
+      "kilogramov",
+      "kilograms",
+      "kilogramu",
+      "kilogramy",
+      "kilos",
+      "quilograma",
+      "quilogramas",
+      "quilograms",
+    ],
+  },
+  // milliliter — one is 1 ml
+  {
+    amount: 1,
+    unit: "ml",
+    spellings: [
+      "mililitr",
+      "mililitra",
+      "mililitre",
+      "mililitreler",
+      "mililitri",
+      "mililitrs",
+      "mililitru",
+      "mililitry",
+      "milliliiter",
+      "milliliitrit",
+      "millilit",
+      "millilita",
+      "milliliter",
+      "milliliters",
+      "millilitra",
+      "millilitraa",
+      "millilitrai",
+      "millilitras",
+      "millilitrau",
+      "millilitre",
+      "millilitres",
+      "millilitri",
+      "millilitro",
+      "millilitros",
+      "ml",
+      "mls",
+    ],
+  },
+  // centiliter — one is 10 ml
+  {
+    amount: 10,
+    unit: "ml",
+    spellings: [
+      "centilit",
+      "centiliter",
+      "centiliters",
+      "centilitr",
+      "centilitra",
+      "centilitrai",
+      "centilitras",
+      "centilitrau",
+      "centilitre",
+      "centilitres",
+      "centilitri",
+      "centilitro",
+      "centilitros",
+      "centilitrs",
+      "centilitru",
+      "centilitry",
+      "centylitr",
+      "cl",
+      "cls",
+      "santilitre",
+      "santilitreler",
+      "sentilita",
+      "senttilitra",
+      "senttilitraa",
+      "tsentiliiter",
+      "tsentiliitrit",
+      "zentiliter",
+    ],
+  },
+  // fluid ounce — one is 29.5735 ml
+  {
+    amount: 29.5735,
+    unit: "ml",
+    spellings: [
+      "fl. oz.",
+      "fluid ounce",
+      "fluid ounces",
+      "fluid uncia",
+      "fluidunze",
+      "fluidunzen",
+      "nestetuumaa",
+      "once liquide",
+      "onces liquides",
+      "oncia liquida",
+      "owns lliw",
+      "ownsi ya maji",
+      "ownsi za maji",
+      "ownsiau lliw",
+      "oza",
+      "skystasis uncijas",
+      "uncie lichide",
+      "vedelikuunts",
+      "vedelikuuntse",
+    ],
+  },
+  // deciliter — one is 100 ml
+  {
+    amount: 100,
+    unit: "ml",
+    spellings: [
+      "deciliiter",
+      "deciliitrit",
+      "deciliter",
+      "deciliters",
+      "decilitr",
+      "decilitra",
+      "decilitrai",
+      "decilitras",
+      "decilitrau",
+      "decilitre",
+      "decilitri",
+      "decilitro",
+      "decilitros",
+      "decilitrs",
+      "decilitru",
+      "decilitry",
+      "decylitr",
+      "desiliter",
+      "desilitra",
+      "desilitraa",
+      "deziliter",
+      "dl",
+      "dls",
+    ],
+  },
+  // liter — one is 1000 ml
+  {
+    amount: 1000,
+    unit: "ml",
+    spellings: [
+      "l",
+      "liiter",
+      "liitrit",
+      "lita",
+      "litar",
+      "litara",
+      "liter",
+      "liters",
+      "litr",
+      "litra",
+      "litraa",
+      "litrai",
+      "litras",
+      "litre",
+      "litres",
+      "litri",
+      "litro",
+      "litros",
+      "litrov",
+      "litru",
+      "litry",
+      "ls",
+    ],
+  },
+  // gallon — one is 3785.41 ml
+  {
+    amount: 3785.41,
+    unit: "ml",
+    spellings: [
+      "gal",
+      "gallon",
+      "gallona",
+      "gallone",
+      "galloneid",
+      "gallonen",
+      "galloni",
+      "gallonia",
+      "gallonok",
+      "gallons",
+      "galon",
+      "galonai",
+      "galonas",
+      "galones",
+      "galoni",
+      "galony",
+      "gals",
+      "galwyn",
+      "mga gallon",
+    ],
+  },
+];
+
+/** Folds a matched unit token onto its {@link UNITS} spelling. */
+function normaliseUnit(token: string): string {
+  return token.toLowerCase().replace(/[.\s]/g, "");
+}
+
+/** What one of each spelling amounts to, keyed by {@link normaliseUnit}. */
+const UNIT_MAGNITUDES = new Map<string, Magnitude>(
+  UNITS.flatMap(({ amount, unit, spellings }) =>
+    spellings.map((spelling): [string, Magnitude] => [
+      normaliseUnit(spelling),
+      { amount, unit },
+    ])
+  )
+);
 
 /**
- * How a key above is written on a label, where that differs from the key. Two do:
- * OFF's taxonomy lists `fl oz`, `fl.oz`, `fl. oz`, `fl. oz.` and `fl.oz.` for the
- * fluid ounce, and `fluid ounce(s)` spells it out. {@link readMagnitudes}
- * normalises any of them back to the key by dropping dots and whitespace.
- */
-const SPELLINGS: Record<string, string> = {
-  floz: String.raw`fl\.?\s*oz\.?`,
-  fluidounce: String.raw`fluid\s+ounce`,
-  fluidounces: String.raw`fluid\s+ounces`,
-};
-
-/**
- * A number glued to one of {@link UNITS}' units. The alternation runs longest key
- * first so `grammes` is not read as a bare `gr` and `lbs` not as a bare `l`, and
- * every token ends on a word boundary so `200 ml lait` yields millilitres while
- * `1 lait` yields nothing.
+ * A number glued to one of {@link UNITS}' spellings. The alternation runs longest
+ * spelling first so `grammes` is not read as a bare `gr` and `lbs` not as a bare
+ * `l`, every separator inside a spelling is optional, and every token ends on a
+ * word boundary so `200 ml lait` yields millilitres while `1 lait` yields nothing.
  */
 const MAGNITUDE_TOKEN = new RegExp(
-  `(\\d+(?:[.,]\\d+)?)\\s*(${Object.keys(UNITS)
+  `(\\d+(?:[.,]\\d+)?)\\s*(${UNITS.flatMap(({ spellings }) => spellings)
     .sort((a, b) => b.length - a.length)
-    .map((key) => SPELLINGS[key] ?? key)
+    .map((spelling) => spelling.replace(/[.\s]+/g, "[.\\s]*"))
     .join("|")})\\b`,
   "gi"
 );
@@ -182,7 +517,7 @@ function readMagnitudes(serving_size: string): Magnitude[] {
   for (const [, digits, spelling] of serving_size.matchAll(MAGNITUDE_TOKEN)) {
     const amount = Number(digits.replace(",", "."));
     if (!Number.isFinite(amount) || amount <= 0) continue;
-    const unit = UNITS[spelling.toLowerCase().replace(/[.\s]/g, "")];
+    const unit = UNIT_MAGNITUDES.get(normaliseUnit(spelling));
     if (!unit) continue;
     magnitudes.push({ amount: amount * unit.amount, unit: unit.unit });
   }
