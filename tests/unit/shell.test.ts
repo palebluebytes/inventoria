@@ -47,68 +47,40 @@ describe("one shell rule, written once and shared by both Facets", () => {
     expect(tokenOf("--rail")).toBe("22rem");
   });
 
-  it("centres and caps `.main` at every width", () => {
-    // The reported defect: `max-width` with no `margin-inline`, so a 1920px
-    // screen drew an ~864px column hugging the left edge. Both halves are
-    // unconditional now — a cap that only exists above a breakpoint is a cap
-    // that is missing wherever it was not thought about.
+  it("caps the column and scrolls the box around it", () => {
+    // The two used to be one box, and the scrollbar was the tell: `.main`
+    // carried `overflow-y: auto` and `max-width` together, so on a wide screen
+    // a full-height scrollbar was drawn down the middle of the window with grey
+    // either side of it, reading as a pane inside the app rather than as the
+    // page's own. The cap and the centring moved onto a wrapper; the scroll
+    // stayed outside it.
+    //
+    // Both halves are asserted, because either one drifting back onto `.main`
+    // brings the bar back inboard.
+    const column = appRule(".shell-column");
+    expect(decl(column, "max-width")).toBe("var(--measure-solo)");
+    expect(decl(column, "margin-inline")).toBe("auto");
+
     const main = appRule(".main");
-    expect(decl(main, "max-width")).toBe("var(--measure-solo)");
-    expect(decl(main, "margin-inline")).toBe("auto");
+    expect(decl(main, "overflow-y")).toBe("auto");
+    expect(decl(main, "max-width")).toBeUndefined();
+    expect(decl(main, "margin-inline")).toBeUndefined();
+
+    // The wrapper is minted in the two shells, so the rule and the element are
+    // held together here the way `.rations` and the day's grid are below: a
+    // renamed wrapper would leave the cap applying to nothing, with the app
+    // looking merely wide and the suite green.
+    for (const shell of [APP_SHELL, RATIONS_SHELL]) {
+      expect(readFileSync(shell, "utf8")).toContain('class="shell-column"');
+    }
   });
 
   it("widens the measure where the shell splits, and only the measure", () => {
-    const wide = appRule(".main", SHELL);
+    const wide = appRule(".shell-column", SHELL);
     expect(decl(wide, "max-width")).toBe("var(--measure)");
     // §3: the grid is the day's shape. Written here it would outlive the screen
     // it was drawn for and auto-place a page into the timeline's column.
     expect(decl(wide, "display")).toBeUndefined();
-  });
-
-  it("gives the last meal room under it, on the last child at every width", () => {
-    // Not a desktop rule, although the desktop shell is where it was noticed:
-    // the reason is about boxes rather than widths, and the timeline is the last
-    // child of the day at every one of them.
-    //
-    // The `--space-2xl` term is the one this test has always been about, and it
-    // survives at both widths. What ADR-0101 §3 added to it below 768 is the
-    // MEASURED height of the pinned Way-in bar standing over the day's last
-    // rows — a second question (what is covering the foot of the screen), asked
-    // only where something is. Above 768 the bar is in flow and the reserve goes
-    // back to being room and nothing else.
-    expect(decl(ruleOf(DAY, ".timeline"), "padding-bottom")).toBe(
-      "calc(var(--space-2xl) + var(--way-in-bar-h, 0px))"
-    );
-    expect(decl(ruleOf(DAY, ".timeline", WIDE), "padding-bottom")).toBe(
-      "var(--space-2xl)"
-    );
-  });
-
-  it("keeps the room under the last meal off the scroll container", () => {
-    // `.main` is the `overflow-y: auto` box, and its own bottom padding at the
-    // end of the scroll range is the one piece of box geometry browsers have
-    // historically disagreed about. The room goes on the last child instead.
-    //
-    // The rules are counted before they are read: an empty list satisfies "none
-    // of these declares a bottom padding" while proving nothing, and a renamed
-    // or moved `.main` is exactly how the list would empty.
-    const mains = appSheet().filter((r) => r.selectors.includes(".main"));
-    expect(mains.map((r) => r.at)).toEqual([null, WIDE, SHELL]);
-    expect(
-      mains.filter((r) => decl(r, "padding-bottom") !== undefined)
-    ).toEqual([]);
-  });
-
-  it("leaves neither shell declaring `.main` itself", () => {
-    // The defect was duplicated character for character between the two, which
-    // is the same defect twice and was fixed once. A component rule would also
-    // beat the shared one: Svelte scopes it to 0,2,0 against this rule's 0,1,0.
-    for (const shell of [APP_SHELL, RATIONS_SHELL]) {
-      const own = rulesOf(styleOf(shell)).filter((r) =>
-        r.selectors.includes(".main")
-      );
-      expect(own).toEqual([]);
-    }
   });
 });
 

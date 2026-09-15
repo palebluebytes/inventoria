@@ -244,35 +244,42 @@
 {:else}
   <div class="rations">
     <main class="main">
-      {#if dbError}
-        <!-- The root reports this in the Sidebar's footer badge. Rations has no
-             sidebar to put it in, and a food screen that silently never becomes
-             ready is the one failure a user cannot read off the page. -->
-        <Badge class="w-full justify-center" variant="error">
-          ✕ DB Error — {dbError}
-        </Badge>
-      {/if}
+      <!-- The capped, centred column, and the whole of why it is a box of its
+           own: `.main` is the scroll container, and a cap on the scroll
+           container draws the scrollbar down the middle of a wide screen
+           instead of at the edge of the window (`src/app.css`, ADR-0091 §2 as
+           amended). The wrapper takes the cap; the scroll stays outside it. -->
+      <div class="shell-column">
+        {#if dbError}
+          <!-- The root reports this in the Sidebar's footer badge. Rations has no
+               sidebar to put it in, and a food screen that silently never becomes
+               ready is the one failure a user cannot read off the page. -->
+          <Badge class="w-full justify-center" variant="error">
+            ✕ DB Error — {dbError}
+          </Badge>
+        {/if}
 
-      <!-- The link lands here (ADR-0084 §5), and the surface it opens is the
-           food screen's. There is no Tab to wander off, which is ADR-0073 §10's
-           clause satisfied by the shape rather than by an effect: leaving this
-           screen is leaving Rations, and the payload, the socket and the code
-           all die with the page. The Scan door's own code is cleared inside
-           FoodView. -->
-      <!-- `hasPages` is this shell saying what it can hold (ADR-0091 §5). Above
-           the shell breakpoint the food screen shows Settings or Recipes
-           instead of the day, and the header's icons are the navigation between
-           them. The root mounts the same screen in its Food tab and passes
-           nothing, because a page behind a navigation sidebar, one tab away
-           from the root's own Settings, would be a second door to a surface
-           that already has one. -->
-      <FoodView
-        {dbReady}
-        {receiveLink}
-        hasPages
-        shell="food"
-        onReceiveClose={() => (receiveLink = null)}
-      />
+        <!-- The link lands here (ADR-0084 §5), and the surface it opens is the
+             food screen's. There is no Tab to wander off, which is ADR-0073 §10's
+             clause satisfied by the shape rather than by an effect: leaving this
+             screen is leaving Rations, and the payload, the socket and the code
+             all die with the page. The Scan door's own code is cleared inside
+             FoodView. -->
+        <!-- `hasPages` is this shell saying what it can hold (ADR-0091 §5). Above
+             the shell breakpoint the food screen shows Settings or Recipes
+             instead of the day, and the header's icons are the navigation between
+             them. The root mounts the same screen in its Food tab and passes
+             nothing, because a page behind a navigation sidebar, one tab away
+             from the root's own Settings, would be a second door to a surface
+             that already has one. -->
+        <FoodView
+          {dbReady}
+          {receiveLink}
+          hasPages
+          shell="food"
+          onReceiveClose={() => (receiveLink = null)}
+        />
+      </div>
     </main>
 
     <!-- Rations registers its own service worker and prompts its own clients.

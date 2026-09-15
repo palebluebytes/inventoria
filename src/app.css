@@ -271,7 +271,17 @@ body {
 
 /* ── The shell ───────────────────────────────────────────────────────────────
  * The box every Facet's screens are drawn into: one column, centred, capped,
- * and the only thing on the page that scrolls (ADR-0091 §2).
+ * and the only thing on the page that scrolls (ADR-0091 §2, as amended).
+ *
+ * **The box that scrolls and the column that is capped are two boxes, and that
+ * is the amendment.** They used to be one: `.main` carried `overflow-y: auto`
+ * and `max-width` together, so the scrollbar was drawn at the right-hand edge
+ * of a 1152px column with the rest of the window grey beside it — a page-height
+ * bar floating in the middle of a wide screen, which reads as a pane inside the
+ * app rather than as the page's own. Splitting them moves the bar to the edge of
+ * the window, where a scrollbar belongs, and changes nothing else: `.main` keeps
+ * the padding, so the column is inset exactly as far as it was, and it keeps the
+ * scroll, so the one-scroll-box claim below is untouched.
  *
  * **Here rather than in a component, because there are two shells and one
  * rule.** `src/App.svelte` and `src/Rations.svelte` each carried this block,
@@ -284,11 +294,6 @@ body {
  * Svelte scopes that to 0,2,0 against this 0,1,0, which is what keeps "one
  * rule" honest.
  *
- * The cap is unconditional, not an override inside a breakpoint. A cap that
- * exists only above a width is a cap that is missing everywhere it was not
- * thought about, and `--measure-solo` is wider than the widths below the first
- * breakpoint anyway, so writing it once costs a phone nothing.
- *
  * There is no `padding-bottom` here on purpose, and nothing should add one:
  * this is the `overflow-y: auto` box, and a scroll container's own bottom
  * padding at the end of its scroll range is the one piece of box geometry
@@ -298,10 +303,24 @@ body {
   flex: 1;
   padding: var(--space-m) var(--space-s);
   width: 100%;
-  max-width: var(--measure-solo);
-  margin-inline: auto;
   overflow-y: auto;
   position: relative;
+}
+
+/* The column the cap and the centring moved onto, and the only child either
+ * shell puts inside `.main`. It is a plain wrapper on purpose: no `transform`,
+ * no `filter`, no `contain`, because every sheet and every pinned bar in the
+ * app is `position: fixed` and would take this box as its containing block if
+ * it ever became one.
+ *
+ * The cap is unconditional, not an override inside a breakpoint. A cap that
+ * exists only above a width is a cap that is missing everywhere it was not
+ * thought about, and `--measure-solo` is wider than the widths below the first
+ * breakpoint anyway, so writing it once costs a phone nothing. */
+.shell-column {
+  width: 100%;
+  max-width: var(--measure-solo);
+  margin-inline: auto;
 }
 
 /* The gutter: a phone spends its width on the content and a desktop can afford
@@ -340,7 +359,7 @@ body {
    The number is `lib/ui/breakpoints.ts`'s `shell`, and `tests/unit/breakpoints.test.ts`
    is what holds this literal and that constant together. */
 @media (min-width: 1180px) {
-  .main {
+  .shell-column {
     max-width: var(--measure);
   }
 }

@@ -199,51 +199,58 @@
     <Sidebar bind:activeTab {dbReady} {dbError} bind:height={navFloor} />
 
     <main class="main">
-      <!-- Above every tab, because the act it reports is about the jar rather
-           than about whichever screen happens to be open (ADR-0096 §12). -->
-      <CarriedDeletionNotice />
+      <!-- The capped, centred column, and the whole of why it is a box of its
+           own: `.main` is the scroll container, and a cap on the scroll
+           container draws the scrollbar down the middle of a wide screen
+           instead of at the edge of the window (`src/app.css`, ADR-0091 §2 as
+           amended). The wrapper takes the cap; the scroll stays outside it. -->
+      <div class="shell-column">
+        <!-- Above every tab, because the act it reports is about the jar rather
+             than about whichever screen happens to be open (ADR-0096 §12). -->
+        <CarriedDeletionNotice />
 
-      {#if activeTab === "food"}
-        <!-- No `receiveLink`: a meal arrives at Rations and nowhere else
-             (ADR-0084 §5), so there is none for this shell to hand down. The
-             Scan way in still reads a meal code, and FoodView owns that one
-             end to end. -->
-        <FoodView {dbReady} shell="root" onReceiveClose={() => {}} />
-        <!-- Under the screen rather than in the header, because ADR-0078 §4
-             keeps the Food tab otherwise unchanged: same screen, same
-             components, no pointer. Turning the tab itself into one would
-             reopen ADR-0077 §5, which kept `usda/search-index.json` in the
-             root's precache precisely because food is the root's landing
-             screen. -->
-        <FacetExit facet={rations} />
-      {/if}
+        {#if activeTab === "food"}
+          <!-- No `receiveLink`: a meal arrives at Rations and nowhere else
+               (ADR-0084 §5), so there is none for this shell to hand down. The
+               Scan way in still reads a meal code, and FoodView owns that one
+               end to end. -->
+          <FoodView {dbReady} shell="root" onReceiveClose={() => {}} />
+          <!-- Under the screen rather than in the header, because ADR-0078 §4
+               keeps the Food tab otherwise unchanged: same screen, same
+               components, no pointer. Turning the tab itself into one would
+               reopen ADR-0077 §5, which kept `usda/search-index.json` in the
+               root's precache precisely because food is the root's landing
+               screen. -->
+          <FacetExit facet={rations} />
+        {/if}
 
-      {#if activeTab === "media"}
-        <MediaView {dbReady} />
-      {/if}
+        {#if activeTab === "media"}
+          <MediaView {dbReady} />
+        {/if}
 
-      {#if activeTab === "items"}
-        <ItemsView {dbReady} />
-      {/if}
+        {#if activeTab === "items"}
+          <ItemsView {dbReady} />
+        {/if}
 
-      {#if activeTab === "agenda"}
-        <AgendaView {dbReady} />
-      {/if}
+        {#if activeTab === "agenda"}
+          <AgendaView {dbReady} />
+        {/if}
 
-      {#if activeTab === "notes"}
-        {#await import("./lib/views/NotesView.svelte") then mod}
-          {@const NotesView = mod.default}
-          <NotesView {dbReady} />
-        {/await}
-      {/if}
+        {#if activeTab === "notes"}
+          {#await import("./lib/views/NotesView.svelte") then mod}
+            {@const NotesView = mod.default}
+            <NotesView {dbReady} />
+          {/await}
+        {/if}
 
-      <!-- Settings — always rendered so Playwright can find the harness elements.
-           That is also why it is handed the active-tab signal rather than
-           reading a mount: it mounts once per page load and never again, so
-           anything on it that must be fresh when it is looked at has to be told
-           when it is being looked at (#290). -->
-      <div hidden={activeTab !== "settings"}>
-        <SettingsView {dbReady} shown={activeTab === "settings"} />
+        <!-- Settings — always rendered so Playwright can find the harness elements.
+             That is also why it is handed the active-tab signal rather than
+             reading a mount: it mounts once per page load and never again, so
+             anything on it that must be fresh when it is looked at has to be told
+             when it is being looked at (#290). -->
+        <div hidden={activeTab !== "settings"}>
+          <SettingsView {dbReady} shown={activeTab === "settings"} />
+        </div>
       </div>
     </main>
 

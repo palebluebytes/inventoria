@@ -599,12 +599,17 @@ _Avoid_: Footer, action bar, toolbar, sticky bar, **Way-in bar** (that is a perm
 The box a Facet's screens are drawn into — one centred, capped column that is the
 only thing on the page which scrolls. There are two of them, `App.svelte` and
 `Rations.svelte`, and **one rule**: `.main` in `src/app.css`, shared, because a
-rule copied into both shells is the same defect twice and was. Its width is
-`--measure-solo` (54rem) below the **shell breakpoint** and `--measure` (72rem)
-above it, where Rations spends the extra on a `--rail` (22rem) beside the
-timeline. The shell breakpoint is `breakpoints.ts`'s `shell`, 1180px, and it is
-the second of the app's two shape breakpoints: 768 carries the overlay's shape and
-the root's Sidebar flip, 1180 carries this. See ADR-0091 §2 and §8.
+rule copied into both shells is the same defect twice and was. The box that
+scrolls and the column that is capped are **two elements**: `.main` scrolls and
+keeps the gutter, `.shell-column` inside it takes the cap and the centring. A cap
+on the scroll box draws the scrollbar down the middle of a wide window instead of
+at its edge, which reads as a pane inside the app rather than as the page's own.
+The column's width is `--measure-solo` (54rem) below the **shell breakpoint**
+and `--measure` (72rem) above it, where Rations spends the extra on a `--rail`
+(22rem) beside the timeline. The shell breakpoint is `breakpoints.ts`'s `shell`,
+1180px, and it is the second of the app's two shape breakpoints: 768 carries the
+overlay's shape and the root's Sidebar flip, 1180 carries this. See ADR-0091 §2
+and §8.
 _Avoid_: Layout, container, wrapper, page (which is the surface inside the shell),
 frame (spent on the brutalist edge/elevation tokens)
 
