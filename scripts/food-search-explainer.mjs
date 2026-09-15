@@ -960,6 +960,11 @@ ${funnelRow("Rows that are the beef you meant", "80/20 mince, past the cap", 0, 
 
       <p><strong>${n(COLLAPSED)} of those ${n(DROPPED)} are not removals, which is why the stat strip above counts them apart.</strong> The records under <em>${esc(RULE_BLURB.collapsed_into[0])}</em> are the same food as a row that ships, assayed again at another trim or grade, and each one names the <span class="rec">fdcId</span> it collapsed into. ${n(DISCARDED)} foods were discarded; these ${n(COLLAPSED)} were merged. They are reviewed here with the rest because from the index's side a record is absent either way, and one file should answer &ldquo;where did this go?&rdquo;.</p>
 
+      <p><strong>The survivor then loses the words the group collapsed on.</strong> A name may never claim less than the panel under it measures, so the strip is licensed by the merge rather than by the name: where a group of several became one, the words naming a dissection, a trade trim and a carcass grade go, and where a lone record is all USDA published, the name it published stays whole.</p>
+
+      <pre class="record">Beef, flank, steak, separable lean and fat, trimmed to 0&quot; fat, choice
+  -&gt; Beef, flank, steak</pre>
+
       <p>The cause is found by <strong>ablation, not by reading a table</strong>. The filters' word lists are deliberately private, so a page that copied them would be a second copy of two hundred lines of editorial judgement, drifting quietly. Instead each record is asked of the real rule with terms removed one at a time, and what is reported is the <em>minimal sufficient removal set</em>: the smallest set of terms you could delete and have the rule go quiet. It survives a rewrite of the rules.</p>
 
       <div class="instrument">

@@ -470,6 +470,20 @@ async function main() {
       },
     }));
   const { collapsed } = collapseCorpus(collapsible, app);
+  // A survivor is named as the ARTIFACT names it, never as this replay would.
+  // ADR-0103 §5's strip shortens a representative's name once its group has
+  // merged (#436), so replaying the collapse and stopping there would answer
+  // "what happened to `Beef, flank, steak, choice`?" with a name no longer in
+  // the corpus — the silence this file exists to prevent. The strip's own
+  // freedom check is a question about the whole corpus (ADR-0062 §3), which a
+  // replay holding only the collapsed rows could not ask, and the count
+  // assertion below already refuses a census and an index built apart.
+  const index = JSON.parse(
+    await readFile(join(ROOT, "public", "usda", "search-index.json"), "utf8")
+  );
+  const shippedNames = new Map(
+    index.foods.map((row) => [row.fdcId, row.description])
+  );
   for (const { row, into } of collapsed.values()) {
     const fdcId = row.food.fdcId;
     const s = byId.get(fdcId);
@@ -485,7 +499,8 @@ async function main() {
       stage: "collapse",
       rule: "collapsed_into",
       collapsed_into: into.food.fdcId,
-      collapsed_into_description: into.food.description,
+      collapsed_into_description:
+        shippedNames.get(into.food.fdcId) ?? into.food.description,
       // Relational, like every rule below `food_kind`: what took this row is the
       // sibling that shares its residual description, never a word in it.
       because: [],
@@ -499,9 +514,6 @@ async function main() {
   // The census adds up or it is wrong. The rule ORDER above is mirrored from
   // `buildCorpus` rather than borrowed from it — the one place this script could
   // fall out of step with the generator — and this is what notices.
-  const index = JSON.parse(
-    await readFile(join(ROOT, "public", "usda", "search-index.json"), "utf8")
-  );
   if (shipped !== index.foods.length)
     throw new Error(
       `census says ${shipped} rows survive, the shipped index has ${index.foods.length}. ` +
