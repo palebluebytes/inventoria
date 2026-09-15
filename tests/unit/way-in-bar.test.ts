@@ -17,7 +17,7 @@ import {
   MEAL_TYPES,
   type MealType,
 } from "../../src/lib/food/meal-type";
-import { WAYS_IN, wayInCaption, wayInLabel } from "../../src/lib/food/ways-in";
+import { WAYS_IN, wayInLabel } from "../../src/lib/food/ways-in";
 import WayInBar from "../../src/lib/views/food/WayInBar.svelte";
 import WayInRail from "../../src/lib/views/food/WayInRail.svelte";
 
@@ -33,6 +33,10 @@ const allPast: Record<MealType, boolean> = {
   snack: true,
 };
 
+/** The `ui/Select` wrapper's class list, which is where the bar's skin lands. */
+const body_of_select_wrapper = (body: string) =>
+  /<div class="(select-wrapper[^"]*)"/.exec(body)?.[1] ?? "";
+
 const bar = (folded = false) =>
   render(WayInBar, {
     props: {
@@ -43,53 +47,61 @@ const bar = (folded = false) =>
     },
   }).body;
 
-/** The meal on the one tab bits-ui marked active. */
-const activeTabOf = (body: string) =>
-  /role="tab" data-state="active" data-value="(\w+)"/.exec(body)?.[1];
-
-/** Each rendered panel, in markup order, split off the body. */
-const panelsOf = (body: string) =>
-  body.split(/(?=<div [^>]*role="tabpanel")/).slice(1);
+/** The meal the chip has selected, off the one option marked `selected`. */
+const targetOf = (body: string): MealType | undefined => {
+  const value =
+    /<option[^>]*value="(\w+)"[^>]*selected/.exec(body)?.[1] ??
+    /<option[^>]*selected[^>]*value="(\w+)"/.exec(body)?.[1];
+  return MEAL_TYPES.find((meal) => meal === value);
+};
 
 afterEach(() => vi.useRealTimers());
 
-describe("the rail is the panel, which is what makes this a tab list (§1)", () => {
-  it("draws a tab per meal and a panel behind each one", () => {
+describe("one line, and the tab list it gave up (amended 2026-09-15)", () => {
+  it("holds one meal control and five ways in, and no tab list at all", () => {
     const body = bar();
 
-    // The misuse this guards against is a `role="tab"` with no `role="tabpanel"`
-    // behind it — a row of toggles wearing tab clothes.
-    expect(body.match(/role="tab"/g)).toHaveLength(MEAL_TYPES.length);
-    expect(body.match(/role="tabpanel"/g)).toHaveLength(MEAL_TYPES.length);
+    // The shape the 2026-09-15 amendment bought: four tabs and twenty mounted
+    // controls become one picker and five buttons. A `role="tab"` reappearing
+    // here is the old bar coming back, and with it 104px of band — the groove,
+    // its padding, the seam under it and a caption on every cell.
+    expect(body).not.toMatch(/role="tab"/);
+    expect(body.match(/<option/g)).toHaveLength(MEAL_TYPES.length);
+    expect(body.match(/<button/g)).toHaveLength(WAYS_IN.length);
   });
 
-  it("keeps ADR-0059's five in every panel, labels untouched", () => {
-    const body = bar();
+  it("reaches the picker through ui/Select, which the census holds at one", () => {
+    // ADR-0095 §3 keeps exactly one `<select>` in the tree and it is the
+    // primitive; `ui-primitives.test.ts` fails on a second. What the bar does is
+    // re-skin this one from outside (ADR-0098 §5), so the floor, the native
+    // picker and the caret stay the primitive's.
+    expect(body_of_select_wrapper(bar())).toContain("meal-chip");
+  });
 
-    // The roster, the order and the labels are ADR-0059's and this record
-    // revises none of them. Every control still states its meal, which is what
-    // makes twenty labels twenty distinct strings — and is why a spec reaching
-    // one of them is reaching the meal it named and no other.
-    for (const meal of MEAL_TYPES) {
-      for (const kind of WAYS_IN) {
-        expect(body).toContain(`aria-label="${wayInLabel(kind, meal)}"`);
-      }
+  it("keeps ADR-0059's five and their labels, for the one meal on screen", () => {
+    // The roster, the order and the labels are ADR-0059's and neither record
+    // revises them. What changed is that the OTHER fifteen are not in the
+    // markup at all: the bar used to mount four panels and hide three, and now
+    // the rail is rendered for the target meal only — so a spec reaching a
+    // control by name is reaching the meal the chip is on, and finds nothing
+    // when it forgets to set it.
+    const body = bar();
+    const target = targetOf(body)!;
+
+    for (const kind of WAYS_IN) {
+      expect(body).toContain(`aria-label="${wayInLabel(kind, target)}"`);
+    }
+    for (const meal of MEAL_TYPES.filter((m) => m !== target)) {
+      expect(body).not.toContain(`aria-label="${wayInLabel("scan", meal)}"`);
     }
   });
 
-  it("shows one meal's five and hides the other fifteen", () => {
-    // What "the day loses fifteen controls" means with bits' own presence
-    // handling, which keeps every panel mounted rather than unmounting three:
-    // the markup carries twenty and three panels wear `hidden`. `hidden` is
-    // `display: none`, so on screen, in the tab order and to a screen reader
-    // there are five — and a spec that asks for another meal's control finds a
-    // hidden element and fails, rather than clicking into the wrong meal.
-    const panels = panelsOf(bar());
-    const shown = panels.filter((p) => !/^<div [^>]*\bhidden=""/.test(p));
-
-    expect(panels).toHaveLength(MEAL_TYPES.length);
-    expect(shown).toHaveLength(1);
-    expect(shown[0]).toContain(`data-value="${activeTabOf(bar())}"`);
+  it("draws a mark per way in and no caption under it", () => {
+    // `wayInCaption` lost its only consumer here, which is the other 12px. The
+    // mark is the whole cell and `wayInLabel` is still its accessible name.
+    const body = bar();
+    expect(body.match(/class="entry-icon/g)).toHaveLength(WAYS_IN.length);
+    expect(body).not.toMatch(/class="caption/);
   });
 });
 
@@ -104,22 +116,22 @@ describe("the meal is chosen and never inferred (§2)", () => {
     vi.setSystemTime(new Date(2026, 8, 13, 12, 30, 0));
 
     const body = bar();
-    expect(activeTabOf(body)).toBe(mealNearest(new Date()));
-    // Scoped to the tabs: the panel behind the selected one carries the same
-    // `data-state`, so an unscoped count is two and says nothing.
-    expect(body.match(/role="tab" data-state="active"/g)).toHaveLength(1);
+    expect(targetOf(body)).toBe(mealNearest(new Date()));
+    // One option selected and not two: a `<select>` with several would show the
+    // last, and the target would then be decided by markup order.
+    expect(body.match(/selected/g)).toHaveLength(1);
   });
 
   it("is a starting value and not a subscription", () => {
     // §2's actual claim: nothing moves under you once the screen is up. The
     // clock is read at mount and never again, so a bar rendered before noon is
-    // still on breakfast at one — only a tab moves the target.
+    // still on breakfast at one — only the chip moves the target.
     vi.useFakeTimers();
     vi.setSystemTime(new Date(2026, 8, 13, 9, 0, 0));
     const morning = bar();
 
     vi.setSystemTime(new Date(2026, 8, 13, 13, 0, 0));
-    expect(activeTabOf(morning)).toBe("breakfast");
+    expect(targetOf(morning)).toBe("breakfast");
   });
 });
 
@@ -186,7 +198,11 @@ describe("the bar's own corner is the slot's corner (§5)", () => {
     expect(decl(ruleOf(BAR, ".way-in-bar", WIDE), "background")).toBe(
       "var(--bg-base)"
     );
-    expect(decl(ruleOf(BAR, ".way-in-bar"), "background")).toBe("var(--paper)");
+    // The phone bar is the plate's ink and not paper: what stands over the day
+    // down there is a rectangle of rules with tiles in it, and the ground
+    // between them is the rule.
+    expect(decl(ruleOf(BAR, ".way-in-bar"), "background")).toBe("var(--ink)");
+    expect(decl(ruleOf(BAR, ".plate"), "background")).toBe("var(--ink)");
   });
 });
 
@@ -201,7 +217,8 @@ describe("the fold (§6)", () => {
   it("animates to a height nobody has measured", () => {
     // `grid-template-rows: 1fr -> 0fr` is the only way to do that, and the
     // height is genuinely unknown: the rail drops a cell for a meal with no past
-    // (ADR-0059 §4), so a `max-height` would need a number wrong for one meal.
+    // (ADR-0059 §4) and the plate wraps onto two rows where one line will not
+    // fit, so a `max-height` would need a number wrong for one of those.
     expect(decl(ruleOf(BAR, ".folder"), "grid-template-rows")).toBe("1fr");
     expect(
       decl(ruleOf(BAR, ".way-in-bar.folded .folder"), "grid-template-rows")
@@ -240,7 +257,7 @@ describe("the fold (§6)", () => {
   });
 });
 
-describe("the rail, which is ADR-0059's roster in a line", () => {
+describe("the rail, and the plate that draws it", () => {
   const rail = (hasPast: boolean) =>
     render(WayInRail, {
       props: {
@@ -264,22 +281,36 @@ describe("the rail, which is ADR-0059's roster in a line", () => {
     expect(decl(ruleOf(RAIL, ".rail"), "grid-auto-flow")).toBe("column");
   });
 
-  it("carries the floor on the cell, restated because :global outranks it", () => {
-    // ADR-0098 §5: a `ui/Button` reshaped from outside needs the floor written
-    // here, because a `:global` rule outranks the primitive's own. The width is
-    // no longer square — that is the point of the line — so only the height
-    // names the token, plus room for the caption.
-    const cell = ruleOf(RAIL, ".rail :global(.way-in-cell)");
-    expect(decl(cell, "min-width")).toBe("var(--tap-min)");
-    expect(decl(cell, "min-height")).toBe("calc(var(--tap-min) + 0.75rem)");
+  it("carries the floor on both axes, on the cell itself", () => {
+    // The cell is a bare `<button>` now rather than a `ui/Button` reshaped from
+    // outside, so the floor is not inherited from a primitive and has to be
+    // here. Both axes: ADR-0093 §1 binds the box, and the height is no longer
+    // padded out by a caption.
+    const door = ruleOf(RAIL, ".door");
+    expect(decl(door, "min-width")).toBe("var(--tap-min)");
+    expect(decl(door, "min-height")).toBe("var(--tap-min)");
   });
 
-  it("captions each cell with the fourth gloss, not a truncated third", () => {
-    // "Ingredient search" would clip to "Ingredient" and "Quick entry" to
-    // "Quick": the wrong half of one and a coincidence in the other.
-    const body = rail(true);
-    for (const kind of WAYS_IN) {
-      expect(body).toContain(wayInCaption(kind));
-    }
+  it("draws every rule as one gap over one ink ground", () => {
+    // What "balanced" means: the seam between two marks, the seam beside the
+    // chip and the bar's own outer edge are one weight of one colour drawn
+    // once. Two adjacent borders would make a 4px seam beside a 2px edge, and
+    // no `border-right: 0` bookkeeping survives a row whose cell count changes
+    // with the meal.
+    expect(decl(ruleOf(RAIL, ".rail"), "gap")).toBe("var(--edge-width)");
+    expect(decl(ruleOf(BAR, ".plate"), "gap")).toBe("var(--edge-width)");
+    // And the cells draw no edge of their own.
+    expect(decl(ruleOf(RAIL, ".door"), "border")).toBe("0");
+  });
+
+  it("wraps on its contents rather than at a written width", () => {
+    // The narrow fallback is flex wrap and not a query, because a threshold
+    // here would have to encode a sum that moves: the app's root font size is a
+    // clamp against the viewport, so `rem` is not a fixed number of pixels, and
+    // ADR-0059 §4 changes the cell count under it. The rail's automatic minimum
+    // IS five floored cells and their seams, so the line breaks exactly when
+    // they stop fitting beside the chip.
+    expect(decl(ruleOf(BAR, ".plate"), "flex-wrap")).toBe("wrap");
+    expect(styleOf(BAR)).not.toMatch(/@container/);
   });
 });

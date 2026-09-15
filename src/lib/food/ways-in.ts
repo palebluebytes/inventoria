@@ -76,42 +76,6 @@ export function wayInTitle(kind: WayIn): string {
 }
 
 /**
- * The one word a way in's own cell carries, under its mark (ADR-0101 §1).
- *
- * A fourth gloss, and the shortest. The other three are sentences about a
- * control, a sheet or a door; this is the caption printed INSIDE the control,
- * so it is bounded by the cell rather than by what there is to say. It exists
- * only because the way-in bar exists: a 48px square in a meal header could not
- * afford a word, and a cell taking a fifth of a full line can — the rail has
- * ~60px per cell against a ~37px "SEARCH", which is the measurement ADR-0101's
- * Context cites for why the rail was never the part that was squeezed.
- *
- * The meal is absent for {@link wayInTitle}'s reason and then some: there is
- * one bar for the whole day, so a caption naming a meal would be wrong three
- * times in four the instant a tab moved. The meal is on the tab above it, and
- * the control's full name — which does state the meal — is still
- * {@link wayInLabel}, unchanged and still what a screen reader says.
- *
- * Deliberately not derived from {@link wayInTitle} by truncation: "Ingredient
- * search" would clip to "Ingredient" and "Quick entry" to "Quick", which is the
- * wrong half of one and a coincidence in the other.
- */
-export function wayInCaption(kind: WayIn): string {
-  switch (kind) {
-    case "past":
-      return "Past";
-    case "custom":
-      return "Quick";
-    case "recipe":
-      return "Recipe";
-    case "scan":
-      return "Scan";
-    case "search":
-      return "Search";
-  }
-}
-
-/**
  * What a way in DOES, for the legend the food screen's ⓘ unfolds.
  *
  * A third gloss rather than a reuse of the other two, because a legend answers

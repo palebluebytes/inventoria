@@ -150,6 +150,20 @@
      rhythm, and `--space-3xs` (4.5px) would draw a band instead of a line. */
   --hairline: 1px;
 
+  /* `--edge`'s weight as a bare length, and `--hairline`'s heavier sibling.
+     The two exist for the same reason and differ only in which border they
+     answer to: a line drawn by something other than a border cannot reach a
+     shorthand, so a grid whose `gap` shows its ink ground through as a rule has
+     to name the weight itself. The Way-in bar is the first box to draw the HEAVY
+     rule that way (ADR-0101, amended 2026-09-15), and it draws every rule it
+     has that way — the outer edge and each internal seam are one gap over one
+     ground, which is the
+     only construction where two adjacent cells cannot add up to a 4px seam
+     beside a 2px edge. Derived from nothing on purpose: it is `--edge`'s 2px
+     written once more, because `--edge` is `2px solid var(--ink)` and there is
+     no way to read a part out of it. */
+  --edge-width: 2px;
+
   /* ── The visible band ──────────────────────────────────────────────────────
      The part of the page a person can actually see right now. Declared here
      with the other tokens and *overwritten at runtime* by
