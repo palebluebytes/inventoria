@@ -47,8 +47,8 @@ would leave the row under the name it had rather than dropping either side.
 4 of the corpus's 488 head phrases move, and what is left after ADR-0104 removed
 the cooked half is purely butchery: separation, trim and grade. The other 484
 have nothing to collapse and are not listed, because a table of them would be
-that many zeroes padding an account of four. `scripts/usda-collapse.mjs` names
-the four and the generation stops if a fifth arrives.
+that many zeroes padding the rows above. `scripts/usda-collapse.mjs` names the
+heads that move, and the generation stops if another arrives.
 
 Every figure above is re-derived from `public/usda/search-index.json` and
 `usda-drop-census.json` by `scripts/usda-account-check.mjs`, which `pnpm check`

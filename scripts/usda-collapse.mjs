@@ -63,8 +63,11 @@
  * this roster is not a gate on where the rule may run. It is a MEASUREMENT of
  * where it lands, held to by {@link assertCollapseReach}, because a rule whose
  * reach nobody measured is a hole nobody can see: what is left after ADR-0104
- * removed the cooked half is purely butchery, and 484 of the 488 head phrases
- * have nothing to collapse at all.
+ * removed the cooked half is purely butchery, and almost every head phrase in
+ * the corpus has nothing to collapse at all. **How many is not restated here.**
+ * {@link collapseAccount} computes it and `docs/research/190-corpus-account.md`
+ * carries it, gated against the shipped index — a count typed into a comment
+ * beside a count that is derived is the drift #162 measured.
  *
  * ADR-0103's hand-off named six. `Nuts` and `Seeds` are not here because the
  * only thing that moved them was the preparation axis, which left the roster
@@ -584,9 +587,9 @@ export function collapseAccount(reach, corpus) {
           ? "No strip was refused for want of a free name (ADR-0062 §3), and a " +
             "refused one would leave the row under the name it had rather than " +
             "dropping either side."
-          : `${n(corpus.names_refused)} of them kept the name they had for ` +
-            "want of a free one (ADR-0062 §3): another row already answers to " +
-            "the residual, so the strip was not made and neither row dropped.")
+          : `A further ${n(corpus.names_refused)} are not among them, because ` +
+            "the residual name was not free (ADR-0062 §3): another row already " +
+            "answers to it, so the strip was not made and neither row dropped.")
     ),
     "",
     wrap(
@@ -595,8 +598,8 @@ export function collapseAccount(reach, corpus) {
         "butchery: separation, trim and grade. " +
         `The other ${n(corpus.heads - reach.length)} have nothing to collapse ` +
         "and are not listed, because a table of them would be that many zeroes " +
-        "padding an account of four. `scripts/usda-collapse.mjs` names the four " +
-        "and the generation stops if a fifth arrives."
+        "padding the rows above. `scripts/usda-collapse.mjs` names the heads " +
+        "that move, and the generation stops if another arrives."
     ),
     "",
     wrap(

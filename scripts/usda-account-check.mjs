@@ -35,12 +35,25 @@
  * nothing else, and the strip's own `stripped` tally left the file for this
  * reason (#437).
  *
- * **Nothing here restates the account's arithmetic.** `collapseReach`,
- * `headPhraseCount` and `collapseAccount` are the generator's own, imported from
- * `usda-collapse.mjs`, and the roster comes from the app through the
- * extensionless-import route `food-search-explainer.mjs` uses. A gate that
- * reimplemented the account would pass on the day the two implementations agreed
- * with each other and disagreed with the corpus.
+ * **The prose and the per-head table are the generator's own**, not a second
+ * spelling of them: `collapseReach`, `headPhraseCount` and `collapseAccount` are
+ * imported from `usda-collapse.mjs`, and the roster is the app's, imported
+ * straight from `src/lib/food/usda-collapse-roster.ts` the way
+ * `food-search-explainer.mjs` imports the ranking — the one seam
+ * `usda-app-module.mjs` offers needs esbuild, which a gate chained into
+ * `pnpm check` should not. A gate that re-wrote the account's sentences would
+ * pass on the day its copy and the generator's agreed with each other and
+ * disagreed with the corpus.
+ *
+ * **The three group counts ARE re-derived, deliberately, and that is the one
+ * place two implementations are the point.** The generator counts merged groups,
+ * coverage holes and refusals as it performs them; {@link countSurvivorOutcomes}
+ * reads them back off the names that shipped. A gate whose numbers came from the
+ * same pass that wrote them would agree with a wrong account as readily as with
+ * a right one. The cost is honest and worth naming: if the two ever disagree
+ * about a corpus that did not move, this gate fails and the first differing line
+ * says which count — which is a real bug in one of them, and the failure is how
+ * anyone finds out.
  *
  * It reads its three files relative to the working directory, the way
  * `docs-check.mjs` does, so `usda-account-check.test.ts` can run the real gate
@@ -83,11 +96,13 @@ const collapsible = (fdcId, description) => ({
 });
 
 /**
- * What the collapse did to each of the group's survivors, read off the corpus
- * rather than off the pass that produced it.
+ * How each collapse group's survivor ended up named, read off the corpus rather
+ * than off the pass that produced it.
  *
- * The three counts the account's "And why" section states, and each is a
- * question about the SHIPPED name of a group's representative:
+ * Two of the three counts the account's "And why" section states — the third,
+ * the groups shipping under a residual name, is what is left once these are
+ * taken off the merged total. Each is a question about the SHIPPED name of a
+ * group's representative:
  *
  * - **A name with no collapsing segment left in it** is a group that shipped
  *   under its residual. Either §5's strip took the segments, or the group merged
@@ -105,7 +120,7 @@ const collapsible = (fdcId, description) => ({
  * @param {Map<number, string>} survivors - each group's representative, by `fdcId`.
  * @returns {{ groups_shipped_whole: number, names_refused: number }}
  */
-function readSurvivorNames(survivors) {
+function countSurvivorOutcomes(survivors) {
   let groups_shipped_whole = 0;
   let names_refused = 0;
   for (const description of survivors.values()) {
@@ -174,7 +189,7 @@ export function accountFromArtifacts(index, census) {
     after: after.length,
     heads: headPhraseCount(before, app),
     groups_merged: survivors.size,
-    ...readSurvivorNames(survivors),
+    ...countSurvivorOutcomes(survivors),
   });
 }
 

@@ -16,13 +16,10 @@ import { fileURLToPath } from "node:url";
 // @ts-ignore
 import { accountFromArtifacts } from "../../scripts/usda-account-check.mjs";
 
-// ADR-0103 §9's third requirement is a COMMITTED account of what the collapse
-// removed, and #437 is the half a committed file does not carry: a gate that
-// fails when the account stops describing the corpus. #156 is why — the ranking
-// audit's artifact was regenerated as a side effect, nobody re-derived it, and
-// every file in it went on looking plausible while the audit went blind.
+// The gate's own header carries why it exists (#437, and #156 behind it). These
+// tests answer the other half of the ticket: that it FIRES. So they run the real
+// script against a throwaway tree and watch it fail.
 //
-// So these tests run the REAL script against a throwaway tree and watch it fail.
 // A gate is only worth the failure it produces, and this repo has shipped two
 // that produced none: #156's audit, and `docs-check.mjs`'s backlink rule, which
 // printed `ok` for years over an obligation it could not see. An assertion that
@@ -185,7 +182,7 @@ describe("accountFromArtifacts — the account the shipped rows prove", () => {
     expect(account).toContain("4 groups hold more than one record");
     expect(account).toContain("1 of those groups hold no record eligible");
     expect(account).toContain("The other 2 ship their representative");
-    expect(account).toContain("1 of them kept the name they had");
+    expect(account).toMatch(/A further 1 are not among them/);
   });
 
   it("refuses a census whose survivor is not in the index", () => {

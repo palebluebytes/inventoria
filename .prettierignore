@@ -20,9 +20,8 @@ docs/food-search.html
 # reason public/usda/ is here: the unit of a reviewable diff is one food.
 docs/research/usda-drop-census.json
 
-# The collapse account (scripts/usda-collapse.mjs's `collapseAccount`, written by
-# `pnpm usda:bundle`). Byte-compared against a rebuild from the shipped corpus by
-# `pnpm check` (scripts/usda-account-check.mjs), so its layout is the generator's:
-# a re-wrap here would fail the gate on the commit that made it, which is what
-# happened to docs/food-search.html before its entry above.
+# The collapse account, byte-compared against a rebuild from the shipped corpus
+# by `pnpm check` (scripts/usda-account-check.mjs). Same reason as
+# docs/food-search.html above: its layout is its generator's, so a re-wrap here
+# fails the gate on the commit that made it.
 docs/research/190-corpus-account.md

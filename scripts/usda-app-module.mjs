@@ -228,6 +228,18 @@ export const TWIN_LEDGER_EXPORTS = [
  * (#435), and the two instruments beside it, `usda-beef-pilot.mjs` and
  * `usda-filter-census.mjs`. They are in the seam rather than reached through the
  * extensionless-import hook because §9 names the seam.
+ *
+ * **`scripts/usda-account-check.mjs` is the one reader that takes three of these
+ * by direct `.ts` import instead** (#437), and the reason is what the seam costs
+ * rather than what it is for. §4's rule is that no second copy of the answer
+ * exists, and a direct import of the same module keeps that whole — what the
+ * seam adds on top is an esbuild bundle, spawned from the PATH or through
+ * `nix shell`. The account gate runs inside `pnpm check` on every commit and in
+ * CI, so paying for a bundler to read three pure functions would make a cheap
+ * gate an expensive and breakable one. `food-search-explainer.mjs` reaches the
+ * ranking the same way for the same reason. A reader that needs the FILTERS, the
+ * merge or the corpus builder still comes through here: those are the ones whose
+ * closure drags in the app.
  */
 export const COLLAPSE_ROSTER_EXPORTS = [
   "COLLAPSING_AXES",
