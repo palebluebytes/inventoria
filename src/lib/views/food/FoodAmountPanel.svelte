@@ -8,7 +8,11 @@
     type NutritionInfo,
     type Portion,
   } from "../../food/nutrition";
-  import { amountAgainstBasis, type FoodDensity } from "../../food/density";
+  import {
+    amountAgainstBasis,
+    densityGramsPerMl,
+    type FoodDensity,
+  } from "../../food/density";
   import type { DensityClassId } from "../../food/density-class";
   import AmountField from "./AmountField.svelte";
   import NutrientPreview from "./NutrientPreview.svelte";
@@ -70,7 +74,12 @@
   // What the panel's figures are per, and the unit they are stated in. The
   // unit, not the **Panel basis** itself, which is the `serving_size` string.
   let panelUnit = $derived(basisUnit(panel?.serving_size));
-  let caption = $derived(basisCaption(panel?.serving_size));
+  // The caption says what the figures are per AND, on a classified food, what
+  // that basis weighs: `Per 100 ml (≈103 g)` (ADR-0105 §9). The `≈` is the whole
+  // of the surface signal; the source explainer carries the rest.
+  let caption = $derived(
+    basisCaption(panel?.serving_size, densityGramsPerMl(density))
+  );
 
   // The amount total: the full panel scaled from its own basis to the typed
   // amount, with that amount put into the panel's own unit first. The panel

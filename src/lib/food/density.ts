@@ -20,7 +20,7 @@ import {
   type DensityClass,
   type DensityClassId,
 } from "./density-class";
-import { basisUnit, roundFood, type MeasuredUnit } from "./nutrition";
+import { basisUnit, convertMeasured, type MeasuredUnit } from "./nutrition";
 
 /** Where a food's density lives on its twin. */
 export const FOOD_DENSITY_ATTR = "food/density";
@@ -140,14 +140,13 @@ export function densityGramsPerMl(
 /**
  * An amount entered in `from`, expressed in `to`.
  *
- * The **one** place in the app a volume becomes a weight, and it converts only
- * on a density the user asserted (ADR-0105 §1). With no density the two units
- * cannot be bridged and this returns undefined rather than the ratio-1 pretence
- * ADR-0060 §2 refuses — the caller then has a unit it cannot offer, which is the
- * honest answer and the state every unclassified volume food stays in.
- *
- * Rounded to the stored food precision so an amount survives a round trip
- * through the field it was typed into.
+ * The **one door** in the app through which a volume becomes a weight: it
+ * converts only on a density the user asserted (ADR-0105 §1), and the sum behind
+ * it is `convertMeasured`, which knows nothing about where a figure came from.
+ * With no density the two units cannot be bridged and this returns undefined
+ * rather than the ratio-1 pretence ADR-0060 §2 refuses — the caller then has a
+ * unit it cannot offer, which is the honest answer and the state every
+ * unclassified volume food stays in.
  */
 export function convertAmount(
   amount: number,
@@ -155,10 +154,7 @@ export function convertAmount(
   to: MeasuredUnit,
   density: FoodDensity | undefined
 ): number | undefined {
-  if (from === to) return amount;
-  const gPerMl = densityGramsPerMl(density);
-  if (gPerMl === undefined || gPerMl <= 0) return undefined;
-  return roundFood(to === "g" ? amount * gPerMl : amount / gPerMl);
+  return convertMeasured(amount, from, to, densityGramsPerMl(density));
 }
 
 /**
@@ -212,6 +208,48 @@ export const DENSITY_CLASS_OPTIONS: Record<DensityClassId, string> = {
   oil: "Oil — olive, sunflower, rapeseed",
   "beer-wine": "Beer or wine",
 };
+
+/**
+ * What the source explainer says about a food's density (ADR-0105 §9).
+ *
+ * The screen itself carries one mark and one only — the `≈` on the basis caption
+ * — and everything else about the reading lives here, one tap deeper. That split
+ * is ADR-0041's 2026-08-06 amendment applied rather than re-argued: it removed a
+ * provenance badge from inferred NOVA values as "a deliberate owner call
+ * favouring a calmer badge over an at-a-glance provenance cue", moving the
+ * honesty into explainer copy and withheld attribution.
+ *
+ * Three things, because three things are true and each of them could be
+ * misread on its own: which class was asserted, what it resolved to, and that
+ * the figure is USDA's measurement of a reference food rather than anything read
+ * off this label. A typed figure says the second and third differently, because
+ * for it they are different facts: the user asserted it and nothing measured it.
+ *
+ * `null` for a food carrying no density, which is most of them and renders no
+ * paragraph at all.
+ */
+export function densityNote(density: FoodDensity | undefined): string | null {
+  if (!density) return null;
+  if ("g_per_ml" in density) {
+    return (
+      `You said this weighs ${density.g_per_ml} g per millilitre, and that is ` +
+      "what the app converts by. It is your own figure: nothing here measured " +
+      "it and nothing here can check it, so the weights this food shows are " +
+      "only as good as it is."
+    );
+  }
+  const entry = densityClassOf(density.class);
+  if (!entry) return null;
+  const words = DENSITY_CLASS_OPTIONS[density.class].split(" — ")[0];
+  return (
+    `You said this is ${words.toLowerCase()}, which the app reads as ` +
+    `${entry.figure} g per millilitre. That figure is measured over the ` +
+    `${entry.evidence.foods} foods of that kind the USDA reference tables ` +
+    "state a volume measure for, not read off this label — so a weight shown " +
+    "here is this app's reading of what you said, and the panel beside it is " +
+    "still the source's own, unchanged."
+  );
+}
 
 // ---------------------------------------------------------------------------
 // The pre-fill: reading the source's own classification

@@ -1401,6 +1401,7 @@
        the amount sheet the tag sits in — the same seam the staging screen uses. -->
   <SourceExplainerSheet
     kind={sourceExplain}
+    density={readFoodDensity(amountEdit?.payload.attributes)}
     onEdit={amountEdit ? editFoodFromAmountSheet : undefined}
     onClose={() => (sourceExplain = null)}
   />

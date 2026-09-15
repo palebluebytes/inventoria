@@ -1894,6 +1894,80 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     await expect(page.getByLabel("Amount in millilitres")).toHaveValue("250");
   });
 
+  test("a classified can keeps its portion chip in grams, and the caption says what it weighs", async ({
+    page,
+  }) => {
+    // #431's main visible job. Until §8 landed, toggling a 330 ml can to grams
+    // made its "1 can" chip vanish: ADR-0060 §6 drops a portion stated in the
+    // unit the field does not take, correctly, because filling it in would have
+    // been a density conversion done silently at ratio 1.
+    const CAN = "0000000000074";
+    await page.route(`**/api/v3/product/${CAN}.json`, async (route) => {
+      await route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify({
+          code: CAN,
+          status: "success",
+          product: {
+            product_name: "Orange Juice",
+            completeness: 0.9,
+            quantity: "330 ml",
+            product_quantity: 330,
+            product_quantity_unit: "ml",
+            serving_quantity: 330,
+            serving_quantity_unit: "ml",
+            serving_size: "1 can (330 ml)",
+            categories_tags: ["en:orange-juices"],
+            nutriments: {
+              "energy-kcal_100g": 45,
+              proteins_100g: 0.7,
+              fat_100g: 0.2,
+              carbohydrates_100g: 10.4,
+            },
+          },
+        }),
+      });
+    });
+
+    await page.goto("/?mem=1");
+    await waitForDbReady(page);
+    await openWayIn(page, "lunch", "scan");
+    await page.locator("#barcode-input").fill(CAN);
+    await page.locator("#barcode-input").press("Enter");
+    await expect(page.locator(".staged h3")).toHaveText("Orange Juice");
+
+    // In millilitres the chip reads as the source stated it, and the caption
+    // says only what the figures are per.
+    const chips = page.locator('[data-testid="portion-presets"]');
+    await expect(chips).toContainText("330 ml");
+    await expect(page.locator(".basis")).toHaveText("Per 100 ml");
+
+    // Say it is a juice, and the field takes grams.
+    const units = page.locator('[data-testid="amount-units"]');
+    await units.locator('[data-value="g"]').click();
+    await page
+      .locator('[data-testid="density-picker"] [data-testid="density-confirm"]')
+      .click();
+
+    // §8: the chip is still there, in the unit the field now takes, marked `≈`
+    // because the source stated a volume and the weight beside it is this app's
+    // reading of what the user said. 330 ml of juice at 1.04 is 343.2 g.
+    await expect(chips).toContainText("≈343.2 g");
+    await chips.getByRole("button", { name: /1 can/ }).click();
+    await expect(page.getByLabel("Amount in grams")).toHaveValue("343.2");
+
+    // §9: the caption says what the basis weighs, and the `≈` is the whole of
+    // the surface signal — no badge, tag or tint joins it.
+    await expect(page.locator(".basis")).toHaveText("Per 100 ml (≈104 g)");
+
+    // The rest is one tap deeper, in the source explainer.
+    await page.locator('[data-testid="source-tag"]').click();
+    const note = page.locator('[data-testid="density-note"]');
+    await expect(note).toContainText("juice");
+    await expect(note).toContainText("1.04");
+    await expect(note).toContainText("USDA");
+  });
+
   test("a bottle the source cannot tell apart opens the picker empty", async ({
     page,
   }) => {

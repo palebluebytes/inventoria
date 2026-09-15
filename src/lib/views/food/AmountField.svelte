@@ -107,7 +107,11 @@
   // density to bridge them. A gram panel is already weighed and has nothing to
   // ask (ADR-0105's curated stand-in amendment turns on exactly this).
   let offeredIn = $derived<MeasuredUnit>(panelUnit ?? unit);
-  let weighable = $derived(densityGramsPerMl(density) !== undefined);
+  // The figure this food's class resolves to, read once: it decides whether the
+  // toggle can switch at all, whether a portion stated in the other unit still
+  // offers a chip (ADR-0105 §8), and what the basis caption weighs (§9).
+  let gPerMl = $derived(densityGramsPerMl(density));
+  let weighable = $derived(gPerMl !== undefined);
   // Whether the toggle is drawn at all. A volume food that can already be
   // weighed always offers it; one that cannot offers it only where the host can
   // take the answer, because a question with nowhere to put its answer is a
@@ -123,15 +127,15 @@
 
   // The chip view-models are derived once from the raw portions by the food
   // domain helper; the .svelte file holds no portion mapping of its own.
-  let portionOptions = $derived(portionPresets(portions, unit));
+  let portionOptions = $derived(portionPresets(portions, unit, gPerMl));
 
   // Tapping a portion chip fills its resolved amount — via the shared resolver so
   // the picker and any downstream reader agree — falling back to the preset's
   // pre-rounded amount if the label somehow can't be resolved. The unit rides
-  // along, so a chip resolves against the portion the field can actually hold
-  // and never against a same-named one stated in the other unit.
+  // along, so a chip resolves against the portion the field can actually hold —
+  // and, on a classified food, against the one it can reach across to (§8).
   function pickPortion(label: string, fallback: number) {
-    amount = resolvePortionAmount(portions, label, unit) ?? fallback;
+    amount = resolvePortionAmount(portions, label, unit, 1, gPerMl) ?? fallback;
   }
 
   // The four keys, in the order they are drawn. Each pairs the glyph the user

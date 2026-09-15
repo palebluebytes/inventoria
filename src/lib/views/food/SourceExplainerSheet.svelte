@@ -4,6 +4,7 @@
     curatedStandInNote,
     type CuratedStandIn,
   } from "../../food/curated-foods";
+  import { densityNote, type FoodDensity } from "../../food/density";
   import Button from "../../ui/Button.svelte";
   import ExplainerSheet from "./ExplainerSheet.svelte";
 
@@ -17,6 +18,7 @@
   let {
     kind,
     standIn,
+    density,
     onEdit,
     onClose,
   }: {
@@ -29,6 +31,15 @@
      * already the one saying "OFF".
      */
     standIn?: CuratedStandIn;
+    /**
+     * What this food's twin says about its density, when it says anything
+     * (ADR-0105 §9). The origin sheet is where the disclosure belongs for the
+     * same reason the stand-in's does: a class the user asserted and a figure
+     * the app read out of it IS an origin story, and the screen carries only the
+     * `≈` on the caption. Absent on every food nobody has classified, which
+     * renders no paragraph.
+     */
+    density?: FoodDensity;
     /**
      * Correct this food from its label. Offered for EVERY origin, not just a
      * hand entry: a source panel the user can see is wrong is exactly the one
@@ -70,6 +81,7 @@
 
   let copy = $derived(COPY[kind]);
   let note = $derived(standIn ? curatedStandInNote(standIn) : null);
+  let weighing = $derived(densityNote(density));
 </script>
 
 <!-- The shared explainer frame supplies the over-sheet elevation and the one
@@ -92,6 +104,14 @@
       made available under the
       <span class="odbl">Open Database License (ODbL)</span>.
     </p>
+  {/if}
+
+  {#if weighing}
+    <!-- How this food comes to have a weight at all (ADR-0105 §9). It sits with
+         the origin because that is what it is: the class is the user's, the
+         figure behind it is the USDA reference tables', and the panel above is
+         still whoever published it. The screen itself says only `≈`. -->
+    <p class="source-body" data-testid="density-note">{weighing}</p>
   {/if}
 
   {#if note}

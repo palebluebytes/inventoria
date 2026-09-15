@@ -69,7 +69,7 @@ The unit an amount of a food is entered, logged and scaled in — `g` or `ml` fo
 _Avoid_: Grams (when any measured amount is meant), the gram unit, weight, panel unit (that is the **Panel basis**)
 
 **Portion**:
-One household measure a food's source publishes, carried on the twin's `food/portions` — `1 medium` standing at 118 g, `1 can (330 ml)` at 330 ml. It is source data and never a nutrition reading, and it is the app's whole answer to "how much is one of these?": tapping it fills the AmountField with the amount it stands at, in the unit that amount is stated in. That unit is a field of its own (`grams` or `millilitres`, exactly one present) rather than an overloaded number, so a reader that knows only weights sees no portion for a drink instead of treating a volume as one. A portion stated in a unit the field does not take offers no chip at all, because filling it in would be the density conversion the app refuses. See ADR-0030 and ADR-0060.
+One household measure a food's source publishes, carried on the twin's `food/portions` — `1 medium` standing at 118 g, `1 can (330 ml)` at 330 ml. It is source data and never a nutrition reading, and it is the app's whole answer to "how much is one of these?": tapping it fills the AmountField with the amount it stands at. That unit is a field of its own (`grams` or `millilitres`, exactly one present) rather than an overloaded number, so a reader that knows only weights sees no portion for a drink instead of treating a volume as one. A portion stated in the unit the field does not take offers no chip **on a food with no Density Class**, because filling it in would be the density conversion the app refuses; on a food that carries one it offers a chip in the field's own unit, marked `≈` because the source stated a volume and the weight beside it is this app's reading of it. See ADR-0030, ADR-0060 and ADR-0105.
 _Avoid_: Serving (which is the Panel basis, a different fact), portion size, household unit, gram weight
 
 **Density Class**:
@@ -782,7 +782,13 @@ the **Amount unit** toggle, and it is part of this control rather than beside it
 The line above the AmountField naming what the panel's figures are measured per —
 `Per 100 g`, `Per 100 ml`, `Per serving (30 g)`, `Per serving`. It answers a
 different question from the control below it ("what are these figures per?" against
-"what am I typing?"), and the two coincide only on a per-100 panel. See ADR-0060.
+"what am I typing?"), and the two coincide only on a per-100 panel. On a food
+carrying a Density Class it also says what that basis weighs — `Per 100 ml
+(≈103 g)` — and the `≈` is the whole of the surface signal: it says estimate
+without reopening an argument already settled, and there is deliberately no badge,
+tag or tint beside it. The Source explainer carries the rest, one tap deeper: which
+class was asserted, what it resolved to, and that the figure is measured over
+reference foods rather than read off this label. See ADR-0060 and ADR-0105.
 _Avoid_: Serving size (as a caption), per-100 label
 
 **Chip**:

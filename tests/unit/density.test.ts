@@ -16,6 +16,7 @@ import {
   convertAmount,
   densityClassFromCategoryTags,
   densityGramsPerMl,
+  densityNote,
   openingUnit,
   readFoodDensity,
 } from "../../src/lib/food/density";
@@ -263,5 +264,32 @@ describe("an amount is put into the panel's own unit, never the other way round"
     // the amount is the least wrong of the answers available: the alternative
     // drops a logged figure to zero.
     expect(amountAgainstBasis(92, "g", "100 ml", undefined)).toBe(92);
+  });
+});
+
+describe("the explainer says how the weight came about (ADR-0105 §9)", () => {
+  it("names the class, the figure, and what measured it", () => {
+    // Three things, because three things are true and each could be misread on
+    // its own: what the user asserted, what the app read it as, and where that
+    // reading comes from.
+    const note = densityNote({ class: "oil" })!;
+    expect(note).toContain("oil");
+    expect(note).toContain("0.92");
+    expect(note).toContain("USDA");
+    // The panel is the source's own and stays so (§5).
+    expect(note).toContain("unchanged");
+  });
+
+  it("says a typed figure is the user's own and unchecked", () => {
+    // It is an asserted density and never a measured one: nothing here measured
+    // it and nothing here can check it.
+    const note = densityNote({ g_per_ml: 1.2 })!;
+    expect(note).toContain("1.2");
+    expect(note).toContain("your own figure");
+    expect(note).not.toContain("USDA");
+  });
+
+  it("says nothing about a food nobody has classified", () => {
+    expect(densityNote(undefined)).toBeNull();
   });
 });

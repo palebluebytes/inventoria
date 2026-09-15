@@ -3086,6 +3086,7 @@
   <SourceExplainerSheet
     kind={sourceExplain}
     standIn={curatedStandInFor(staged?.entity)}
+    density={readFoodDensity(staged?.payload.attributes)}
     onEdit={staged ? editStaged : undefined}
     onClose={() => (sourceExplain = null)}
   />

@@ -4,7 +4,7 @@
 **Date:** 2026-09-14  
 **Amends:** [ADR-0060](0060-an-amount-is-entered-in-its-panels-unit.md) §1 (the unit stops being unchoosable on a food that carries a density), §2 (the refusal is lifted for a class the user asserts) and §6 (a portion may now be offered in either unit); [ADR-0045](0045-usda-stays-the-base-food-composition-authority.md) §5 (what may cross from one source to another, answering #242); [ADR-0041](0041-nova-processing-badge.md) §3 (the client-side inference ban gains a second carve-out)  
 **Charted by:** #428  
-**Implemented:** §2 and §3 (the class table and the gate that proves its figures) — #429. §1, §4, §5, §6 and §7, plus the pre-fill and the opening-unit rule of both 2026-09 amendments — #430. §8 (portions across the two units) and §9 (the caption) are #431; §10's household portions and §12's model pick are not built.
+**Implemented:** §2 and §3 (the class table and the gate that proves its figures) — #429. §1, §4, §5, §6 and §7, plus the pre-fill and the opening-unit rule of both 2026-09 amendments — #430. §8 and §9 — #431. §10's household portions and §12's model pick are not built.
 
 ## Context
 
