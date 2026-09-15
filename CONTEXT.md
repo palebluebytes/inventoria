@@ -65,15 +65,15 @@ What a `nutrition/info` panel's figures are measured against, held on its `servi
 _Avoid_: Serving size (when the basis is meant), per-100g, the panel's grams
 
 **Amount unit**:
-The unit an amount of a food is entered, logged and scaled in — `g` or `ml` for a food measured against its Panel basis, `serving` for one whose panel is a whole-serving total. It is read from the Panel basis and is never a separate choice, and nothing converts between a volume and a weight at any point (ADR-0060). Code asks `isMeasuredUnit` rather than testing for grams, because "is this amount a measurement?" is the real question at every scaler, label and edit gate. It is a persisted shape: it rides on `recipe/ingredients`, on the frozen `event/instantiation` rows, and inside the `event/quantity` string.
-_Avoid_: Grams (when any measured amount is meant), the gram unit, weight
+The unit an amount of a food is entered, logged and scaled in — `g` or `ml` for a food measured against its Panel basis, `serving` for one whose panel is a whole-serving total. It answers "what am I typing?", where the Panel basis answers "what are these figures per?", and on a food with no Density Class the two are the same value: the unit is read from the basis, it is not a choice, and nothing converts (ADR-0060 §1/§2). On a food that carries a class they come apart — an oil published per 100 ml is entered in grams — and the amount is converted through the class's figure on the way to the panel. That is the one place in the app anything converts between a volume and a weight, and it is licensed by a class the user asserted rather than by an assumption (ADR-0105 §7). Because the two can differ, an amount travels with its unit rather than as a bare number that a reader re-derives from the food. Code asks `isMeasuredUnit` rather than testing for grams, because "is this amount a measurement?" is the real question at every scaler, label and edit gate. It is a persisted shape: it rides on `recipe/ingredients`, on the frozen `event/instantiation` rows, and inside the `event/quantity` string.
+_Avoid_: Grams (when any measured amount is meant), the gram unit, weight, panel unit (that is the **Panel basis**)
 
 **Portion**:
 One household measure a food's source publishes, carried on the twin's `food/portions` — `1 medium` standing at 118 g, `1 can (330 ml)` at 330 ml. It is source data and never a nutrition reading, and it is the app's whole answer to "how much is one of these?": tapping it fills the AmountField with the amount it stands at, in the unit that amount is stated in. That unit is a field of its own (`grams` or `millilitres`, exactly one present) rather than an overloaded number, so a reader that knows only weights sees no portion for a drink instead of treating a volume as one. A portion stated in a unit the field does not take offers no chip at all, because filling it in would be the density conversion the app refuses. See ADR-0030 and ADR-0060.
 _Avoid_: Serving (which is the Panel basis, a different fact), portion size, household unit, gram weight
 
 **Density Class**:
-The kind of liquid a user says a food is — water-like, milk-like, juice, oil, or beer/wine — from which the app reads a density in grams per millilitre. It is what makes a food published per 100 ml weighable at all. The twin stores the class and never the figure: what the user asserted is "this is an oil", 0.92 g/ml is our reading of that assertion, and a reading is derived so that improving a class improves every food under it. Each class figure is measured over every food of that kind the USDA corpus states a volume portion for, admitted only at eight or more foods and a CV of 2% or under, and pinned in `density-class.ts` with the evidence and the match pattern that selected its members; `pnpm check` re-measures them and fails rather than rewriting one. A food no class fits takes a measured figure the user types, and a food with neither stays in millilitres and is still fully loggable. See ADR-0105.
+The kind of liquid a user says a food is — water-like, milk-like, juice, oil, or beer/wine — from which the app reads a density in grams per millilitre. It is what makes a food published per 100 ml weighable at all. The twin stores the class and never the figure: what the user asserted is "this is an oil", 0.92 g/ml is our reading of that assertion, and a reading is derived so that improving a class improves every food under it. Each class figure is measured over every food of that kind the USDA corpus states a volume portion for, admitted only at eight or more foods and a CV of 2% or under, and pinned in `density-class.ts` with the evidence and the match pattern that selected its members; `pnpm check` re-measures them and fails rather than rewriting one. A food no class fits takes a measured figure the user types, and a food with neither stays in millilitres and is still fully loggable — which is the standing case rather than the edge one, since only about a third of Open Food Facts' millilitre products can be classified from their own tags. Those tags are where the class is proposed from: a source that names exactly one class pre-fills the picker, anything ambiguous opens it empty, and a class is never written the user has not seen. Reading the source's own classification is not the app inferring one — a class is checkable by somebody holding the bottle, where a figure in grams per millilitre is not. See ADR-0105.
 _Avoid_: Density (when the class is meant), liquid type, specific gravity, the conversion factor
 
 **Reference food**:
@@ -768,9 +768,15 @@ The one control an amount of a food is typed into (`views/food/AmountField.svelt
 the boxed number, the ×/÷ sum keys, the skim slider and the portion chips. It is a
 food-screen control rather than a `ui/` primitive, but it is the only one of its kind
 — every staging screen and every edit-amount sheet reaches an amount through it. It
-takes its **Amount unit** as a prop and names it in its label, its suffix and its
-slider scale, because a unit can never be typed into it. See ADR-0023 and ADR-0060.
-_Avoid_: QuantityGrams, quantity field, gram field, gram picker
+names its **Amount unit** in its label, its suffix and its slider scale, because a
+unit can never be typed into it. On a food published by volume it also carries the
+`g`/`ml` control that chooses that unit, and that control is the only door to the
+Density Class question: on a classified food it switches units, and on an
+unclassified one tapping `g` is what asks. The capability is offered by the same
+control that earns it, so there is deliberately no separate prompt asking whether
+you would like to weigh this instead. See ADR-0023, ADR-0060 and ADR-0105.
+_Avoid_: QuantityGrams, quantity field, gram field, gram picker, unit picker (it is
+the **Amount unit** toggle, and it is part of this control rather than beside it)
 
 **Basis caption**:
 The line above the AmountField naming what the panel's figures are measured per —
