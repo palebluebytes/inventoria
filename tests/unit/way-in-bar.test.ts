@@ -22,6 +22,7 @@ import WayInBar from "../../src/lib/views/food/WayInBar.svelte";
 import WayInRail from "../../src/lib/views/food/WayInRail.svelte";
 
 const BAR = "src/lib/views/food/WayInBar.svelte";
+const NAV = "src/lib/layout/Sidebar.svelte";
 const RAIL = "src/lib/views/food/WayInRail.svelte";
 const WIDE = `@media (min-width: ${BREAKPOINTS.sheet}px)`;
 const CALM = "@media (prefers-reduced-motion: reduce)";
@@ -132,6 +133,41 @@ describe("the meal is chosen and never inferred (§2)", () => {
 
     vi.setSystemTime(new Date(2026, 8, 13, 13, 0, 0));
     expect(targetOf(morning)).toBe("breakfast");
+  });
+});
+
+describe("nothing pinned at the foot sits flush against the system's buttons", () => {
+  // Reported from a device on 2026-09-15: on Android with three-button
+  // navigation the bar's marks stood on the last row of pixels, directly
+  // against the recents button. `env(safe-area-inset-bottom)` is 0 there and is
+  // right to be — the nav bar is not an overlay, so the viewport ends above it
+  // and nothing is hidden. The inset alone therefore cannot express this
+  // hazard, which is proximity rather than occlusion.
+  //
+  // The floor's size is Material's own accessibility rule: 48dp targets
+  // "separated by 8dp of space or more", and the system's buttons are touch
+  // targets like any other. `--space-xs` is the smallest token on this app's
+  // fluid scale that clears 8dp at every root size.
+  const FLOOR = "max(env(safe-area-inset-bottom, 0px), var(--space-xs))";
+
+  it("floors the Way-in bar's reserve, and takes the larger of the two", () => {
+    // `max` and not `+`: the inset is already a clearance, so adding to an
+    // iPhone's 34pt would reserve 48 against a hazard the platform has handled.
+    expect(decl(ruleOf(BAR, ".way-in-bar"), "padding-bottom")).toBe(FLOOR);
+  });
+
+  it("floors the root shell's nav the same way, because it shares that edge", () => {
+    // The two surfaces that can be the last thing above the system's buttons,
+    // held to one rule. In the root shell the bar stands on `--shell-floor`,
+    // which is this nav's measured height — so there the NAV is what touches
+    // the buttons, and fixing the bar alone would leave the tab bar flush.
+    expect(decl(ruleOf(NAV, ".sidebar"), "padding-bottom")).toBe(FLOOR);
+  });
+
+  it("gives the reserve up while folded, like every other part of the box", () => {
+    // A folded bar holds no controls, so it owes the system's buttons no gap,
+    // and a surface that collapsed to a strip of ink would read as a bug.
+    expect(decl(ruleOf(BAR, ".way-in-bar.folded"), "padding-block")).toBe("0");
   });
 });
 

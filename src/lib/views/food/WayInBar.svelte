@@ -196,11 +196,34 @@
     /* **No padding of its own**, which is the whole of what the one line buys
        beyond its missing row. The old bar spent `--space-2xs` a side making
        itself read as a surface standing over the day; the plate's ink does that
-       now. The safe-area reserve stays — it is the device's, not a decision —
-       and it is ink, so it reads as the plate running under the home indicator
-       rather than as a white shelf beneath it. */
+       now. It is ink below the cells too, so the reserve reads as the plate
+       running under the system's own furniture rather than as a white shelf
+       beneath it.
+
+       **The reserve is the device's inset OR a floor, whichever is larger, and
+       the floor is the half a phone taught us.** `env(safe-area-inset-bottom)`
+       is the platform saying how much room its own furniture needs, and on an
+       iPhone with a home indicator it says 34pt — Apple's own answer, since the
+       HIG puts a control at the foot "aligned with the bottom of the safe
+       area". **On Android with three-button navigation it says 0, and it is
+       right to**: the nav bar is not an overlay there, the viewport genuinely
+       ends above it, and nothing is hidden. What an inset cannot express is
+       PROXIMITY — a 48px mark whose bottom edge is the last row of pixels sits
+       directly against the recents button, and a thumb that overshoots leaves
+       the app. Reported from a device, 2026-09-15.
+
+       Material's own accessibility rule is the floor's size: touch targets of
+       48dp "separated by 8dp of space or more". The system's buttons are touch
+       targets like any other, so the app owes them that gap at the one edge it
+       shares with them. `--space-xs` is the smallest token on this fluid scale
+       that clears 8dp at every root size (13.5px at a 16px root, 15.5px at the
+       18.32px this app actually renders). `max()` rather than `+` because the
+       inset is already a clearance: adding to 34pt would reserve 48 against a
+       hazard the platform has already handled. The three sheet docks DO add
+       `--space-s` to their inset, and that is not a precedent — a dock's token
+       is its own interior padding, which it would need with no inset at all. */
     padding: 0;
-    padding-bottom: env(safe-area-inset-bottom, 0px);
+    padding-bottom: max(env(safe-area-inset-bottom, 0px), var(--space-xs));
     background: var(--ink);
     /* The shell caps its column and centres it; a full-bleed fixed bar has to
        repeat that or it runs the width of a desktop window. */
