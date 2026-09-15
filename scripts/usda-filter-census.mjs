@@ -32,10 +32,17 @@
  * alive. The colliding casualties are reported split by which of the two they
  * are, on §4's own chain: fuller panel first, then lower `fdcId`.
  *
- * Nothing here restates a filter. Every predicate comes out of the app through
- * `usda-app-module.mjs`'s esbuild seam and every pipeline step out of
+ * Nothing here restates a filter, and nothing restates the collapse either.
+ * Every predicate comes out of the app through `usda-app-module.mjs`'s esbuild
+ * seam — ADR-0103 §2's roster among them, since #434 landed it in
+ * `src/lib/food/usda-collapse-roster.ts` — and every pipeline step out of
  * `usda-bundle.mjs`, for ADR-0047 §4's reason: a census measuring a second copy
  * of the filters measures the copy.
+ *
+ * The roster it measures against no longer carries a preparation axis: ADR-0104
+ * removed the cooked records rather than merging them, so the collapse is
+ * credited with absorbing nothing on that axis and a family reported alive here
+ * is, if anything, more alive than before.
  *
  * It asserts nothing and is not wired into `pnpm check`, for the reason
  * `usda-ranking-audit.mjs` gives about itself.
@@ -56,7 +63,6 @@ import {
   groupByIdentity,
   readBundleArchives,
 } from "./usda-bundle.mjs";
-import { claim, groupingKey } from "./usda-collapse-roster.mjs";
 import { resolve as resolveTs } from "./ts-resolve-hook.mjs";
 
 /**
@@ -211,7 +217,7 @@ function measureStripRosters(survivors) {
   const names = survivors.map((s) => s.food.description);
   const reached = (changes) => names.filter(changes).length;
   const overlap = (roster) =>
-    [...roster].filter((entry) => claim(entry)).length;
+    [...roster].filter((entry) => claimingAxis(entry)).length;
   return [
     {
       roster: "ORIGIN_QUALIFIERS",
@@ -293,7 +299,7 @@ const judge = (casualties, shippedByKey) => {
   const own_row = [];
   const promotions = [];
   for (const casualty of casualties) {
-    const key = groupingKey(casualty.description);
+    const key = collapseGroupKey(casualty.description);
     const incumbent = shippedByKey.get(key);
     if (!incumbent) {
       own_row.push(casualty);
@@ -326,6 +332,12 @@ const scratch = await mkdtemp(join(tmpdir(), "usda-filter-census-"));
 const app = assertAppExports(await loadAppModule(scratch));
 await rm(scratch, { recursive: true, force: true });
 
+// ADR-0103 §3's grouping key and §2's claim, out of the app's own roster rather
+// than a copy. Bound here rather than imported at the top because the seam is a
+// bundle this script builds at run time; the functions above close over these
+// names and are all called below.
+const { claimingAxis, collapseGroupKey } = app;
+
 const entries = await readBundleArchives(manifest, DIR);
 const groups = groupByIdentity(entries, app);
 
@@ -344,7 +356,7 @@ const nameStage = replayNameDrops(variantStage.survivors, app);
  */
 const shippedByKey = new Map();
 for (const row of nameStage.shipped) {
-  const key = groupingKey(row.description);
+  const key = collapseGroupKey(row.description);
   const held = shippedByKey.get(key);
   if (
     !held ||
@@ -371,7 +383,8 @@ const account = {
     "collision is necessary for redundancy and not sufficient, so a filter " +
     "reported alive is alive.",
   roster:
-    "scripts/usda-collapse-roster.mjs — the Beef pilot's roster, not a shipped one",
+    "src/lib/food/usda-collapse-roster.ts — the app's roster, reached through " +
+    "the esbuild seam, and without a preparation axis (ADR-0104)",
   corpus: {
     shipped_rows: nameStage.shipped.length,
     grouping_keys: shippedByKey.size,

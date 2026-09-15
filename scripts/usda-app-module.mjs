@@ -56,6 +56,13 @@ const TWIN_LEDGER_MODULE = join(
   "food",
   "usda-twin-ledger.ts"
 );
+const COLLAPSE_ROSTER_MODULE = join(
+  ROOT,
+  "src",
+  "lib",
+  "food",
+  "usda-collapse-roster.ts"
+);
 
 /**
  * Everything this script borrows from the app, by name.
@@ -201,6 +208,29 @@ export const TWIN_LEDGER_EXPORTS = [
   "SUPERSEDED_FDC_IDS",
 ];
 
+/**
+ * ADR-0103 §2's collapsing axes and §3's two keys, borrowed through the same
+ * seam and for the same reason (§9).
+ *
+ * Its own roster because it is its own module and moves for its own reason: the
+ * food-kind five move when an escape is MEASURED and ADR-0061's rules when a
+ * head phrase is READ, and this one moves when an AXIS IS CLASSIFIED.
+ *
+ * **The generator does not read these yet.** ADR-0103 states the rule and
+ * deliberately delivers no corpus, so `usda-bundle.mjs` is untouched and
+ * `search-index.json` is unchanged; the readership is the two instruments,
+ * `usda-beef-pilot.mjs` and `usda-filter-census.mjs`. They are in the seam
+ * rather than reached through the extensionless-import hook because §9 names the
+ * seam, and because the generator is where they are going.
+ */
+export const COLLAPSE_ROSTER_EXPORTS = [
+  "COLLAPSING_AXES",
+  "claimingAxis",
+  "descriptionSegments",
+  "residualDescription",
+  "collapseGroupKey",
+];
+
 // ---------------------------------------------------------------------------
 // Reaching the app's own logic
 // ---------------------------------------------------------------------------
@@ -221,6 +251,7 @@ const BORROWED = [
   [CORPUS_MODULE, CORPUS_EXPORTS],
   [SHIPPED_NAME_MODULE, SHIPPED_NAME_EXPORTS],
   [TWIN_LEDGER_MODULE, TWIN_LEDGER_EXPORTS],
+  [COLLAPSE_ROSTER_MODULE, COLLAPSE_ROSTER_EXPORTS],
 ];
 
 /**

@@ -9,7 +9,9 @@ import {
   RANKING_EXPORTS,
   VOCABULARY_EXPORTS,
   CORPUS_EXPORTS,
+  SHIPPED_NAME_EXPORTS,
   TWIN_LEDGER_EXPORTS,
+  COLLAPSE_ROSTER_EXPORTS,
 } from "../../scripts/usda-app-module.mjs";
 import * as usdaFdc from "../../src/lib/food/usda-fdc";
 import * as foodKind from "../../src/lib/food/usda-food-kind";
@@ -21,6 +23,7 @@ import {
   LOCAL_VOCABULARY_CEILING,
 } from "../../src/lib/food/food-vocabulary";
 import * as corpus from "../../src/lib/food/usda-corpus";
+import * as collapseRoster from "../../src/lib/food/usda-collapse-roster";
 
 // ADR-0047 §4's import-don't-copy rule, over the one module that carries it.
 // The corpus is produced by the app's own filters, ranked by the app's own
@@ -95,12 +98,37 @@ describe("the app seam — the scripts borrow the app instead of copying it", ()
       expect(typeof (corpus as Record<string, unknown>)[name]).toBe("function");
   });
 
+  it("names the collapse roster and the keys §3 derives from it", () => {
+    // ADR-0103 §9's module, landed by #434. Checked apart from the `typeof`
+    // sweeps above for `VARIANT_DROP_EXPORTS`'s reason: `COLLAPSING_AXES` is a
+    // list, not a function, and a sweep would wave it through.
+    expect(COLLAPSE_ROSTER_EXPORTS).toEqual([
+      "COLLAPSING_AXES",
+      "claimingAxis",
+      "descriptionSegments",
+      "residualDescription",
+      "collapseGroupKey",
+    ]);
+    expect(Array.isArray(collapseRoster.COLLAPSING_AXES)).toBe(true);
+    for (const name of COLLAPSE_ROSTER_EXPORTS.filter(
+      (name) => name !== "COLLAPSING_AXES"
+    ))
+      expect([
+        name,
+        typeof (collapseRoster as Record<string, unknown>)[name],
+      ]).toEqual([name, "function"]);
+  });
+
   it("borrows each name from exactly one module", () => {
-    // Seven rosters composed into one bundle: a name in two of them would make
-    // whichever module the entry re-exports last silently win. That is the
-    // failure the #146 split could have introduced — a filter left behind in
-    // `APP_EXPORTS` as well as named in the new one would still load, and would
-    // load whichever copy esbuild wrote second.
+    // All NINE rosters `BORROWED` composes into one bundle: a name in two of
+    // them would make whichever module the entry re-exports last silently win.
+    // That is the failure the #146 split could have introduced — a filter left
+    // behind in `APP_EXPORTS` as well as named in the new one would still load,
+    // and would load whichever copy esbuild wrote second.
+    //
+    // Every roster in `BORROWED` has to be spread here or the guard has a hole
+    // on exactly the pair it omits. `SHIPPED_NAME_EXPORTS` was that hole until
+    // #434 added the ninth and went looking for the other eight.
     const all = [
       ...APP_EXPORTS,
       ...FOOD_KIND_EXPORTS,
@@ -108,7 +136,9 @@ describe("the app seam — the scripts borrow the app instead of copying it", ()
       ...RANKING_EXPORTS,
       ...VOCABULARY_EXPORTS,
       ...CORPUS_EXPORTS,
+      ...SHIPPED_NAME_EXPORTS,
       ...TWIN_LEDGER_EXPORTS,
+      ...COLLAPSE_ROSTER_EXPORTS,
     ];
     expect(new Set(all).size).toBe(all.length);
   });
