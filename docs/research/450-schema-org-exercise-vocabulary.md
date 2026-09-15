@@ -94,3 +94,110 @@ So the vocabulary's entire energy surface is: one diet enumeration member, `calo
 - **It does not move #443.** The join finding was "no corpus carries both MET and anatomy". schema.org publishes no corpus, so it cannot supply a MET value and cannot relieve that join. Map Notes item 6 and its #443 amendment stand exactly as written.
 - **It does move where a Session's frozen energy figure lives.** Map decision 1 says a Session Event freezes its energy at write time. `workload` is a schema.org-published name for that figure, which means the map's Notes item 10 applies to it: minting a name for session energy now needs a reason, because schema.org has one.
 - **One mismatch to weigh, not to hide.** `workload`'s `domainIncludes` is **`ExercisePlan` alone** _release_ — the *plan*, not the *action*. There is no `workload` on `ExerciseAction`. So conforming on the name is straightforward; conforming on the *domain* is not, because the map wants the frozen figure on the **Session Event** (an action), while schema.org hangs `workload` on the **Routine** (a plan). See §5 for how the mapping handles this and §7 for the app concepts left homeless.
+
+### 1.5 Why MET is absent is not an oversight
+
+schema.org says in its own words that codifying measurements is out of its scope, which is the reason (c) comes back empty. From <https://schema.org/docs/meddocs.html>, verbatim:
+
+> Note as well that this schema is not intended to define or codify a new controlled medical vocabulary, but instead to complement existing vocabularies and onotologies. As a schema, its focus is on surfacing the existence of and relationships between entities described in content; the specific convention(s) used to name and/or code entities are outside of the scope of this schema. The schema does provide a way to annotate entities with codes that refer to existing controlled medical vocabularies (such as MeSH, SNOMED, ICD, RxNorm, UMLS, etc) when they are available.
+
+_page_ (`[sic]` on "onotologies" — that is the page's own spelling.)
+
+The same page also bounds the whole health section's intent: `The schema is targeted at web use cases and is not designed for clinical markup or clinical data exchange.` _page_
+
+Two consequences for this map:
+
+1. **Waiting for schema.org to name MET is not a strategy.** It declines to codify measurement vocabularies by design, so the absence found in §1.3 is structural rather than a gap that a future release closes.
+2. **There is a sanctioned hook for a foreign identifier.** Because `PhysicalActivity` inherits from `MedicalEntity`, it inherits `code` (range `MedicalCode`) — schema.org's own answer to "annotate entities with codes that refer to existing controlled vocabularies". That is the conformant place for a Compendium of Physical Activities activity code, should the corpus ticket want one. See §4.3 and §7.
+
+---
+
+## 2. Q4 — core, or the `health-lifesci` extension, and what maturity?
+
+The ticket frames this as _"conforming to core is a different commitment from conforming to a pending extension, and ADR-0021's 'reputable schema' argument is weaker for the latter"_. **That framing rests on a premise schema.org itself contradicts.** Stated plainly, then evidenced:
+
+### 2.1 The plain statement
+
+| Term                       | Section                            | What that section means                            |
+| -------------------------- | ---------------------------------- | -------------------------------------------------- |
+| `ExerciseAction`           | **core** (no `isPartOf` at all)    | The plain vocabulary.                              |
+| `exerciseType`, `distance` | **core**                           | The plain vocabulary.                              |
+| `ExercisePlan`             | `https://health-lifesci.schema.org` | A **named section / view**, not a maturity tier.   |
+| `PhysicalActivity`         | `https://health-lifesci.schema.org` | Same.                                              |
+| `PhysicalActivityCategory` | `https://health-lifesci.schema.org` | Same.                                              |
+| `workload`, `repetitions`… | `https://health-lifesci.schema.org` | Same.                                              |
+
+**Not one of the five types or any of their exercise-specific properties is in `pending`.** _release_ (per-property sections are in §3–§4.)
+
+### 2.2 `health-lifesci` is a view, not a maturity level — schema.org's own words
+
+From <https://schema.org/docs/schemas.html>, verbatim:
+
+> As schema.org has grown, we have explored various mechanisms for community extension as a way of adding more detailed descriptive vocabulary that builds on the schema.org core. Some areas of Schema.org were developed as "named extensions", and have dedicated entry pages. **We previously called these "hosted" extensions, but they are best considered simply as views into a single collection of schema definitions.**
+
+> For example, via the auto section there is a property for emissionsCO2, and via the bib section we have a property publisherImprint. **However, from the perspective of a publisher, these are simply schema.org properties.**
+
+> We have a few of these sections: auto, bib, health-lifesci, meta, pending.
+> **Note: the 'pending' and 'meta' hosted sections are part of schema.org's schema development process.**
+
+_page_ (emphasis added; wording verbatim.)
+
+So the sections that carry a process/maturity meaning are named, and they are **`pending`** and **`meta`** — plus `attic`, described on the same page as where terms go when _"deprecated from the core and other sections, or removed from pending as not accepted into the full vocabulary"_, with the caution _"Implementors and data publishers are cautioned not to use terms in the attic area."_ _page_ `health-lifesci` is listed alongside `auto` and `bib` as a subject-matter view, and is explicitly **excluded** from the development-process note.
+
+The cautionary language schema.org does publish is reserved for `pending`, verbatim:
+
+> We use the 'pending' section as a staging area for new schema.org terms that are under discussion and review. Implementors and publishers are cautioned that terms in the pending section may lack consensus and that terminology and definitions could still change significantly after community and steering group review.
+
+_page_ **None of that language applies to any term in this survey**, because no term in this survey is pending.
+
+### 2.3 The control: what a term with a maturity caveat actually looks like
+
+The absence of a banner only means something if a present banner is visible on the same site build. It is. `LoginAction` is in `pending` _release_, and its page renders, verbatim:
+
+> This term is in the "new" area - implementation feedback and adoption from applications and websites can help improve our definitions.
+
+_page_ (<https://schema.org/LoginAction>)
+
+The pages for **`workload`, `ExercisePlan`, `PhysicalActivity` and `ExerciseAction` carry no such line** — the rendered text runs from the breadcrumb straight to the description. _page_ (checked on all four; the `LoginAction` fetch proves the banner would have shown had it applied.)
+
+A second confirmation from the same pages: the breadcrumb and cross-reference links for the health-lifesci terms are marked up `class="core"`, identically to genuinely core terms — e.g. on `https://schema.org/workload`, `<span class="core" title="ExercisePlan">ExercisePlan</span>`. _page_ The rendered site does not distinguish them from core at all.
+
+### 2.4 Sizing the section
+
+`isPartOf` across all 3,219 release entries _release_:
+
+| Section                             | Entries   |
+| ----------------------------------- | --------- |
+| core (no `isPartOf`)                | **1,933** |
+| `https://pending.schema.org`        | 842       |
+| `https://health-lifesci.schema.org` | **385**   |
+| `https://auto.schema.org`           | 27        |
+| `https://bib.schema.org`            | 26        |
+| `https://meta.schema.org`           | 6         |
+
+`health-lifesci` is the **largest named subject section by an order of magnitude** (385 entries, 97 of them classes), fourteen times `auto` and `bib` together. It is not a fringe annexe.
+
+One more structural fact: <https://health-lifesci.schema.org/> no longer serves a distinct extension site — it returns the ordinary schema.org homepage (`Schema.org is a collaborative, community activity with a mission to create, maintain, and promote schemas for structured data on the Internet…`, footer `V30.0 | 2026-03-19`). _page_ The "dedicated entry page" of the old hosted-extension model is gone; `health-lifesci` now survives **only** as the `isPartOf` tag in the release, exactly as the schemas doc describes.
+
+### 2.5 The verdict on the conformance argument
+
+**The conformance argument is _stronger_ than the ticket supposed, not weaker.** The ticket's worry was "a pending extension". The facts are:
+
+- `ExerciseAction` is **core**, full stop.
+- `ExercisePlan` / `PhysicalActivity` / `PhysicalActivityCategory` and all their exercise properties are in a **subject-matter view of the one vocabulary**, with no maturity caveat, no pending status, no attic risk, and no rendered distinction from core.
+- They sit in the **same relationship to core** as `auto`'s `emissionsCO2` and `bib`'s `publisherImprint` — which schema.org says are, "from the perspective of a publisher, simply schema.org properties".
+
+So ADR-0021's "reputable schema" reasoning transfers at full strength. The honest caveats are not about maturity; they are two different things, recorded here so no ticket has to rediscover them:
+
+1. **Low adoption.** `workload` reports `< 1K Domains` _page_ — schema.org's lowest usage band. Low adoption is a real argument about whether a future *importer* will ever meet this markup in the wild (ADR-0021's stated motive was that an importer becomes "a straight map"). It is **not** an argument about the term's standing in the vocabulary.
+2. **A medical framing.** `PhysicalActivity` sits under `MedicalEntity`, and the health section is _"targeted at web use cases and is not designed for clinical markup or clinical data exchange"_ _page_. So the section disclaims clinical use — the direction that would have made it *too heavy* for this app, not too light. See §4.4 for what inheriting `MedicalEntity` actually drags along, which is the real cost here.
+
+### 2.6 A caveat on the page instrument, stated rather than buried
+
+Every `schema.org` page fetched carries `Note : You are viewing the development version of Schema.org.` — yet <https://schema.org/docs/howwework.html> says, verbatim:
+
+> Note : the schema.org site contains the officially released version of schema.org, while staging.schema.org is the very latest work-in-progress development branch of schema.org containing more recent fixes and improvements but which may contain changes that do not represent the consensus of the wider community or of the project steering group.
+
+_page_
+
+These two statements are in tension, and this note does not resolve it — the banner looks like a site-build artifact on the released host, but that is an inference, not a source. **It does not affect any finding above**, because every Q4 and Q5 claim was independently confirmed against `schemaorg-current-https.jsonld`, which is a versioned release artifact rather than a rendered page, and the two agreed everywhere they overlapped. Where only a page can testify (the usage band, the presence or absence of a maturity banner) the claim is marked _page_ and should be re-read against a release-tagged host if a ticket ever turns on it.
