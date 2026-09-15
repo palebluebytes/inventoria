@@ -213,12 +213,23 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     page: import("@playwright/test").Page,
     locator: import("@playwright/test").Locator
   ) {
-    // page.mouse uses viewport coords and does not auto-scroll, so bring the
-    // element into view first.
-    await locator.scrollIntoViewIfNeeded();
-    const box = await locator.boundingBox();
-    if (!box) throw new Error("element not visible for long-press");
-    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    // `hover()` and not `scrollIntoViewIfNeeded()` + `boundingBox()` + a raw
+    // `mouse.move`. Both put the cursor on the element; only this one runs
+    // Playwright's actionability checks first, and the one that matters here is
+    // **stability** — it waits for the element to stop moving.
+    //
+    // The old form read a box and then pressed at those coordinates, which is a
+    // race against any page motion, and #440 gave the day some: a logged row is
+    // revealed with a smooth scroll, and these helpers log a food immediately
+    // before pressing one. It surfaced when #452's clearance made the bar 15px
+    // taller — enough band to turn "the row is already visible" into "scroll to
+    // it" — as four flaky specs and one failure, all of them here.
+    //
+    // The app half of that is fixed too and is the real one: a gesture already
+    // in progress now outranks the reveal, because a row sliding out from under
+    // a held finger cancels the press (`actions/longpress.ts` clears on
+    // `pointerleave`). This half is only about not measuring a moving page.
+    await locator.hover();
     await page.mouse.down();
     await page.waitForTimeout(600);
     await page.mouse.up();

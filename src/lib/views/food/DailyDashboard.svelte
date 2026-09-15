@@ -172,6 +172,41 @@
    */
   let revealed: string[] | null = null;
 
+  /**
+   * Whether a finger or a mouse button is currently down anywhere.
+   *
+   * **A courtesy scroll may not move the page under a gesture that is already
+   * happening.** `actions/longpress.ts` cancels on `pointerleave`, so a row that
+   * slides out from under a held finger cancels the press — you log a food, put
+   * your thumb on a row to select it, and the selection silently does not start.
+   * CI found it as four flaky specs and one failure in the long-press flows
+   * after the bar grew #452's clearance: 15px of band is enough to turn rule 1
+   * into rule 3 for a row near the foot, which is a scroll where there was none.
+   *
+   * A plain `let`, like `revealed` above, because the effect reads it and the
+   * listeners write it, and a reactive value there is a loop.
+   */
+  let pointerHeld = false;
+
+  $effect(() => {
+    const down = () => {
+      pointerHeld = true;
+      // And a gesture that starts mid-scroll wins too: re-issuing the current
+      // offset with no behaviour cancels a smooth scroll already in flight.
+      const port = dayEl?.closest<HTMLElement>(".main");
+      port?.scrollTo({ top: port.scrollTop });
+    };
+    const up = () => (pointerHeld = false);
+    window.addEventListener("pointerdown", down, { capture: true });
+    window.addEventListener("pointerup", up, { capture: true });
+    window.addEventListener("pointercancel", up, { capture: true });
+    return () => {
+      window.removeEventListener("pointerdown", down, { capture: true });
+      window.removeEventListener("pointerup", up, { capture: true });
+      window.removeEventListener("pointercancel", up, { capture: true });
+    };
+  });
+
   $effect(() => {
     const ids = justLogged;
     if (ids.length === 0 || ids === revealed) return;
@@ -300,6 +335,9 @@
     // is there rather than in either shell).
     const port = dayEl?.closest<HTMLElement>(".main");
     if (!row || !meal || !port) return;
+
+    // The user's own gesture outranks the courtesy: see `pointerHeld`.
+    if (pointerHeld) return;
 
     const delta = revealScroll(
       row.getBoundingClientRect(),
