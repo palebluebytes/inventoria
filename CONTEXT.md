@@ -247,7 +247,7 @@ One of the five ways to put something in a meal: copy a **Past meal**, enter one
 _Avoid_: Entry / meal entry (this app spends _entry_ on a manually entered food, ADR-0035), add button, plus button, Door (ADR-0034 already uses that for the routes into the label form), Method (that is a **FoodStager** staging tab, which is what a way in replaces)
 
 **Way-in bar**:
-The one surface the day's five **Way in**s live on — a tab list of the four meal types, and below it the five ways into whichever meal is selected (ADR-0101). One bar per day, not one row per meal, which is what took twenty controls down to five. The rail below the tabs is the selected tab's **panel** and not a row of toggles wearing tab roles: its contents belong to the chosen meal and change with it, since the past-meal control appears only for a meal with history. The meal is **chosen and never inferred** — the clock picks the first one and only a tab moves it afterwards, because a target that decides where a tap lands may not move on its own. Below `BREAKPOINTS.sheet` it is pinned to the visible **Band**'s bottom edge, where the hand is; at and above it, sticky at the head of the day's column, where a bar rising from the far end of a large screen would be imitating a device that is not there. It shares one slot with the **Selection bar** and folds out of it when a Selection takes the screen, on both layouts — a control that cannot act does not hold space. It links nowhere, so it is not a way out of the Facet (ADR-0078 §1).
+The one surface the day's five **Way in**s live on — a tab list of the four meal types, and below it the five ways into whichever meal is selected (ADR-0101). One bar per day, not one row per meal, which is what took twenty controls down to five. The rail below the tabs is the selected tab's **panel** and not a row of toggles wearing tab roles: its contents belong to the chosen meal and change with it, since the past-meal control appears only for a meal with history. The meal is **chosen and never inferred** — the clock picks the first one and only a tab moves it afterwards, because a target that decides where a tap lands may not move on its own. It stands in three places, one per width. Below `BREAKPOINTS.sheet` it is pinned to the visible **Band**'s bottom edge, where the hand is; at and above it, sticky at the head of the day's column, where a bar rising from the far end of a large screen would be imitating a device that is not there; and above `BREAKPOINTS.wide` it leaves the head of the column for the left-hand **Flank**, opposite the **Rail**, because a screen that wide has room to show what you can add beside what you have added rather than over it. It shares one slot with the **Selection bar** and folds out of it when a Selection takes the screen, on both layouts — a control that cannot act does not hold space. It links nowhere, so it is not a way out of the Facet (ADR-0078 §1).
 _Avoid_: **Dock** (that word is the pinned foot of a _sheet_), meal bar, add bar, footer, action bar, toolbar, sticky bar, tab bar (the **Selection bar** covers one of those, and this is not it)
 
 **Way out**:
@@ -604,20 +604,34 @@ scrolls and the column that is capped are **two elements**: `.main` scrolls and
 keeps the gutter, `.shell-column` inside it takes the cap and the centring. A cap
 on the scroll box draws the scrollbar down the middle of a wide window instead of
 at its edge, which reads as a pane inside the app rather than as the page's own.
-The column's width is `--measure-solo` (54rem) below the **shell breakpoint**
-and `--measure` (72rem) above it, where Rations spends the extra on a `--rail`
-(22rem) beside the timeline. The shell breakpoint is `breakpoints.ts`'s `shell`,
-1180px, and it is the second of the app's two shape breakpoints: 768 carries the
-overlay's shape and the root's Sidebar flip, 1180 carries this. See ADR-0091 §2
-and §8.
+The column's width is `--measure-solo` (54rem) below the **shell breakpoint**,
+`--measure` (72rem) above it, where Rations spends the extra on a **Flank**
+beside the timeline, and `--measure-wide` (88rem) in Rations alone above the
+**widest breakpoint**, where it spends it on a second one. The shell breakpoint
+is `breakpoints.ts`'s `shell`, 1180px; the widest is its `wide`, 1440px. Those
+are two of the app's three shape breakpoints: 768 carries the overlay's shape and
+the root's Sidebar flip. See ADR-0091 §2 and §8, and ADR-0101's Amendment.
 _Avoid_: Layout, container, wrapper, page (which is the surface inside the shell),
 frame (spent on the brutalist edge/elevation tokens)
+
+**Flank**:
+Either of the two fixed columns the widest Rations shell stands either side of
+the meal timeline: the **Way-in bar**'s on the left (`--way`, 22rem, above the
+widest breakpoint) and the **Rail** on the right (`--rail`, 22rem, above the
+shell breakpoint). One width for both, so the timeline between them reads as
+centred, but two tokens, because they answer to two different contents. The word
+is the pair; each one keeps its own name. Left is what you do to the day and
+right is what the day came to, which is why the ways in take the side a reader
+starts from. See ADR-0101's Amendment.
+_Avoid_: Sidebar, column (which is any of the three), gutter (the shell's own
+padding), Rail for the left one (`WayInRail` is already the five ways in
+themselves)
 
 **Rail**:
 The second region Rations' shell opens above the shell breakpoint, to the right of
 the meal timeline, holding the day's numbers — a month calendar over the Nutrition
-accordion. It is reference material beside the subject, which is why it takes the
-right and the timeline keeps the reading edge. It is deliberately **not pinned**:
+accordion. The right-hand **Flank**. It is reference material beside the subject,
+which is why it takes the right and the timeline keeps the reading edge. It is deliberately **not pinned**:
 pinning wants the rail held as one unit and its blocks are siblings of the
 timeline rather than children of a rail, so a pinned rail is a rail with a real
 element and that is the trigger to reopen it. See ADR-0091 §2 and §4.

@@ -118,18 +118,27 @@
      Flat lengths, not `clamp()`s, and that is the point rather than an
      oversight: the Utopia scales above are generated for 360→1240px and are
      frozen at their maximum past that, so above 1240 the only thing that can
-     respond to a wider window is the layout. These three are what it responds
+     respond to a wider window is the layout. These five are what it responds
      with. `rem` rather than `px` because a measure is a count of characters per
      line, which follows the reader's own font size — unlike a breakpoint, which
      is a fact about the window and is stated in px (`lib/ui/breakpoints.ts`).
 
-     `--rail` is declared beside the two caps rather than in the day screen that
-     draws it, because it is the second of the two things `--measure` is spent
-     on: a rail whose width disagreed with the column it sits in is a gap
-     nobody declared. */
+     `--rail` and `--way` are declared beside the three caps rather than in the
+     day screen that draws them, because they are what `--measure` and
+     `--measure-wide` are spent on: a flank whose width disagreed with the
+     column it sits in is a gap nobody declared.
+
+     `--way` matches `--rail` and that is chosen rather than coincidental: above
+     the widest breakpoint the day is a timeline between two flanks — the ways
+     in on the left, the day's numbers on the right — and two flanks of one
+     width is what makes the timeline read as centred. They are two tokens
+     because they answer to two different contents, and either may move without
+     dragging the other. */
   --measure-solo: 54rem;
   --measure: 72rem;
+  --measure-wide: 88rem;
   --rail: 22rem;
+  --way: 22rem;
 
   /* The width of a drawn line, for the places where a line is drawn by
      something other than a border: a grid whose `gap` shows its own background
@@ -361,6 +370,30 @@ body {
 @media (min-width: 1180px) {
   .shell-column {
     max-width: var(--measure);
+  }
+}
+
+/* Rations grows a third region here: the ways into the day leave the head of
+   the timeline for a flank of their own on the left, so the day is a timeline
+   between two flanks (ADR-0101's Amendment). The shell has to hold all three,
+   and `--measure` cannot — at 1152 the two flanks and the two gaps take 784 of
+   it and leave the timeline 368px, which is a phone's column on a desktop
+   screen.
+
+   **Rations alone, unlike the two caps above.** The third region is the day
+   screen's shape and no root screen has one: the root renders the same day
+   behind a navigation sidebar and keeps the two-region grid it already has
+   (ADR-0091, Consequences), so widening its shell here would buy six
+   single-column screens nothing and stretch their measure past the point a line
+   is comfortable to read. `.rations` is the Facet, named the same way
+   `DailyDashboard` names it, and `tests/unit/shell.test.ts` holds the class
+   name and this selector together.
+
+   The number is `lib/ui/breakpoints.ts`'s `wide`, and `tests/unit/breakpoints.test.ts`
+   is what holds this literal and that constant together. */
+@media (min-width: 1440px) {
+  .rations .shell-column {
+    max-width: var(--measure-wide);
   }
 }
 

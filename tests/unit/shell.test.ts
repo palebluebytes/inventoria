@@ -31,20 +31,27 @@ const DAY = "src/lib/views/food/DailyDashboard.svelte";
 
 const WIDE = `@media (min-width: ${BREAKPOINTS.sheet}px)`;
 const SHELL = `@media (min-width: ${BREAKPOINTS.shell}px)`;
+const WIDEST = `@media (min-width: ${BREAKPOINTS.wide}px)`;
 
 /** The one `src/app.css` rule for `selector`, under the at-rule `at`. */
 const appRule = (selector: string, at: string | null = null) =>
   ruleIn(appSheet(), selector, at, "src/app.css");
 
 describe("one shell rule, written once and shared by both Facets", () => {
-  it("declares the three measures as tokens, widest first when the shell splits", () => {
-    // The numbers the prototype settled (#337). They are tokens rather than
-    // literals because three files read them — the shell's two caps and the
-    // rail's column — and a rail whose width disagreed with the column it sits
-    // in is a gap nobody declared.
+  it("declares the measures as tokens, widest first when the shell splits", () => {
+    // The numbers the prototype settled (#337), and the two the third region
+    // added. They are tokens rather than literals because the files that read
+    // them are not the files that declare them — the shell's three caps, the
+    // rail's column and the flank opposite it — and a flank whose width
+    // disagreed with the column it sits in is a gap nobody declared.
     expect(tokenOf("--measure-solo")).toBe("54rem");
     expect(tokenOf("--measure")).toBe("72rem");
+    expect(tokenOf("--measure-wide")).toBe("88rem");
     expect(tokenOf("--rail")).toBe("22rem");
+    // Equal to the rail by decision rather than by accident: the widest day is
+    // a timeline between two flanks, and two flanks of one width is what makes
+    // the timeline read as centred. Two tokens, so either may move alone.
+    expect(tokenOf("--way")).toBe("22rem");
   });
 
   it("caps the column and scrolls the box around it", () => {
@@ -81,6 +88,21 @@ describe("one shell rule, written once and shared by both Facets", () => {
     // §3: the grid is the day's shape. Written here it would outlive the screen
     // it was drawn for and auto-place a page into the timeline's column.
     expect(decl(wide, "display")).toBeUndefined();
+  });
+
+  it("widens Rations alone where the day grows its third region", () => {
+    // Unlike the two caps above, which both Facets take. The third region is
+    // the day screen's shape and no root screen has one: the root renders the
+    // same day behind a navigation sidebar and keeps the two-region grid, so
+    // widening its shell here would buy six single-column screens nothing and
+    // stretch their measure past a comfortable line.
+    const widest = appRule(".rations .shell-column", WIDEST);
+    expect(decl(widest, "max-width")).toBe("var(--measure-wide)");
+    expect(
+      appSheet().filter(
+        (r) => r.at === WIDEST && r.selectors.includes(".shell-column")
+      )
+    ).toEqual([]);
   });
 });
 
@@ -170,6 +192,63 @@ describe("the two regions are the day's shape, not the shell's", () => {
     // above as a constant. The trigger for reopening it is a real rail element.
     const wide = rulesOf(styleOf(DAY)).filter((r) => r.at === SHELL);
     expect(wide.map((r) => decl(r, "position")).filter(Boolean)).toEqual([]);
+  });
+});
+
+describe("the widest day is a timeline between two flanks", () => {
+  it("lays the timeline on its side and gives the ways in a fixed flank", () => {
+    // ADR-0101's Amendment: above `wide` the ways into the day leave the head
+    // of the timeline for a column of their own, opposite the rail. The flank
+    // is fixed for the rail's reason — what it holds is sized by what it says,
+    // five ways in at the tap floor and four meal names — and the meals take
+    // the slack.
+    const timeline = ruleOf(DAY, ":global(.rations) .timeline", WIDEST);
+    expect(decl(timeline, "flex-direction")).toBe("row");
+    // The flank is as tall as its contents, the meals as tall as the day.
+    // Without this they stretch to each other, which both puts a column of
+    // white under the bar and takes the sticky's travel away: an item already
+    // the height of its container has nowhere to go.
+    expect(decl(timeline, "align-items")).toBe("flex-start");
+
+    const slot = ruleOf(
+      DAY,
+      ":global(.rations) .timeline > .way-in-slot",
+      WIDEST
+    );
+    expect(decl(slot, "flex")).toBe("0 0 var(--way)");
+
+    const meals = ruleOf(DAY, ":global(.rations) .timeline > .meals", WIDEST);
+    expect(decl(meals, "flex")).toBe("1");
+    // `minmax(0, 1fr)`'s flexbox spelling, and there for the reason the day's
+    // grid gives it: a long food name shrinks this box rather than pushing the
+    // flank off the screen.
+    expect(decl(meals, "min-width")).toBe("0");
+  });
+
+  it("keeps the meals in a box of their own, so the flank has something to stick against", () => {
+    // The wrapper is what makes the flank stickable at all. A grid item's
+    // containing block is its own grid area, so a slot placed in one cell of a
+    // grid over the meals has no travel; a flex item's is the flex container,
+    // and the container is as tall as this box. It is invisible below `wide`:
+    // it carries the gap the timeline used to carry directly.
+    const meals = ruleOf(DAY, ".meals");
+    expect(decl(meals, "display")).toBe("flex");
+    expect(decl(meals, "flex-direction")).toBe("column");
+    expect(decl(meals, "gap")).toBe("var(--space-m)");
+    expect(readFileSync(DAY, "utf8")).toContain('<div class="meals">');
+  });
+
+  it("adds a shape rather than changing one, so every baseline below it still holds", () => {
+    // `wide` is above the `chromium` project's 1280, which `shell` may never be
+    // (#337 Q21). The difference is that this shape is purely additive: at 1439
+    // the day is exactly the two-region screen the desktop baselines were taken
+    // against, so nothing below the query is un-photographed. What defends the
+    // query itself is `layout-invariants.spec.ts`, which sweeps Rations at
+    // 1920x1080 and therefore stands inside it.
+    expect(BREAKPOINTS.wide).toBeGreaterThan(BREAKPOINTS.shell);
+    expect(readFileSync("tests/layout-invariants.spec.ts", "utf8")).toContain(
+      "1920"
+    );
   });
 });
 

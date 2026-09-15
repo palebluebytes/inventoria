@@ -333,3 +333,53 @@ sticky at the head of the column above it; the breakpoint is still
 it does — that edge is where the hand is — is untouched. What was missing was
 that "that edge" is the shell's floor rather than the viewport's wherever a shell
 puts something there.
+
+## Amendment (2026-09-15): a third position, where the screen has room to stand the ways in beside the day
+
+§3 gives the bar two positions and says so in two lines: pinned to the visible
+band's bottom edge below 768, sticky at the head of the day's column at and above
+it. There is now a third, above `breakpoints.ts`'s `wide` (1440px) and in Rations
+only: the bar leaves the head of the timeline for a fixed column of its own on
+the left of it, opposite the rail.
+
+**What the position is bought with is width and nothing else.** §3's argument for
+the sticky head is that a bar rising from the far end of a large screen imitates a
+device that is not there, and that holds. What it did not settle is where a bar
+goes on a screen wide enough to hold three columns, because at 1180 there is no
+such screen: `--measure` is 72rem, the rail takes 22 of it, and a third column
+would leave the timeline a phone's width. The widest breakpoint comes with
+`--measure-wide` (88rem) in Rations' shell, and the two are one decision rather
+than two: split, one of them is a column with no room or a measure with nothing
+in it.
+
+**It is additive, which is what lets it sit above the test viewport.** ADR-0091
+§8 holds `shell` at or below 1280 because a shape no Playwright project reaches is
+a shape nothing defends. `wide` is above it, and the reason that is allowed here
+and not there is that at 1439 the day is exactly the two-region screen every
+desktop baseline was taken against: the query adds a shape rather than changing
+one. `layout-invariants.spec.ts` sweeps Rations at 1920x1080 and therefore stands
+inside the query, which is the defence.
+
+**Left, not right, and it is not a free choice.** The rail is reference material
+and takes the side a reader ends on; the ways in are the day's verbs, and a verb
+belongs on the side a reader starts from. So the widest day reads left to right as
+what you can add, what you have added, and what the day came to. The two flanks
+are one width (`--way` and `--rail`, both 22rem) so the timeline between them
+reads as centred, and they are two tokens so either can move alone.
+
+**Nothing about the bar itself changes**, which is the test this amendment held
+itself to. It is the same one-cell grid the Selection bar stacks into and the same
+fold when a Selection takes the slot (§4), still clipped so the Selection arrives
+rather than appears, still sticky against the shell's own top padding. What
+changed is the axis the timeline lays its two children out on. The meals moved
+into a box of their own to make that possible, and the box is load-bearing rather
+than tidy: a sticky item's containing block is its grid **area** when it is a grid
+item, which is its own height and no travel, and its flex **container** when it is
+a flex item, which is as tall as the meals beside it.
+
+**What this owes.** Every Rations desktop baseline is unchanged, because 1280 is
+below the query. The pictures that would show this shape do not exist, and the
+account ADR-0099 §8 asks for is therefore about an absence: the third region is
+held by `tests/unit/shell.test.ts` reading the stylesheet, and by the 1920px
+layout sweep, and by no camera. A capture at this width is a ticket, not a claim
+this record makes.

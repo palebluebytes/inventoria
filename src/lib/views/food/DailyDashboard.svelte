@@ -419,156 +419,173 @@
            screen is in. -->
       {@render selectionBar()}
     </div>
-    {#each meal_types as meal_type}
-      <div class="meal-section">
-        <div class="meal-section-header">
-          <!-- The meal's name is the way into its own nutrition panel, and the
-               one that always works: an empty meal has no subtotal line at all
-               (ADR-0074 §1). A button INSIDE the heading rather than a heading
-               that is a button, so the row is still the meal's h3 to anything
-               reading the page's outline and only the words are the control.
+    <!-- The meals themselves, in a box of their own so the ways in can stand
+         beside them (ADR-0101's Amendment). Below the widest breakpoint this
+         wrapper is invisible: it is a flex column with the gap the timeline
+         used to carry, and the slot above it is the timeline's other child, so
+         the page is laid out exactly as it was. Above it the timeline turns on
+         its side, the slot becomes the left flank, and this is what fills the
+         rest of the line.
 
-               It is not a sixth way in. ADR-0059's header is untouched: this
-               control was already on the screen as inert text. -->
-          <h3 class="meal-title">
+         It exists because the flank has to be able to STICK, and sticking needs
+         a containing block taller than the thing that sticks. A grid item's is
+         its own grid area, which is why the slot cannot be one cell of a grid
+         over the meals; a flex item's is the flex container, and the container
+         is as tall as this box. -->
+    <div class="meals">
+      {#each meal_types as meal_type}
+        <div class="meal-section">
+          <div class="meal-section-header">
+            <!-- The meal's name is the way into its own nutrition panel, and the
+                 one that always works: an empty meal has no subtotal line at all
+                 (ADR-0074 §1). A button INSIDE the heading rather than a heading
+                 that is a button, so the row is still the meal's h3 to anything
+                 reading the page's outline and only the words are the control.
+
+                 It is not a sixth way in. ADR-0059's header is untouched: this
+                 control was already on the screen as inert text. -->
+            <h3 class="meal-title">
+              <button
+                type="button"
+                class="meal-title-btn"
+                aria-haspopup="dialog"
+                onclick={() => (mealPanel = meal_type)}
+                >{meal_type.toUpperCase()}</button
+              >
+            </h3>
+            <!-- No way in here. They left for the day's one Way-in bar above
+                 (ADR-0101 §1), which is the whole of what that record amends in
+                 ADR-0059: five floored controls plus their gaps is 276px, and the
+                 header could not hold that beside the meal's name on any phone
+                 under ~414px. The header keeps its name, its nutrition-panel
+                 control and its subtotal. -->
+          </div>
+
+          {#if copyNote && copyNote.meal_type === meal_type}
+            <!-- ADR-0058 §11: a clean copy says nothing, so this exists only when
+                 something went wrong. -->
+            <p class="meal-note" role="status">{copyNote.text}</p>
+          {/if}
+
+          {#if !dayKnown}
+            <!-- Not "no breakfast" — we have not read the day yet. One row's worth of
+                 placeholder, which is also the height an empty meal's message takes,
+                 so neither outcome moves the meals below it. -->
+            <div class="meal-skeleton" aria-busy="true">
+              <Skeleton height="var(--step-n2)" width="60%" />
+            </div>
+          {:else if groupedMeals[meal_type].length === 0}
+            <div class="empty-meal">
+              <p>No {meal_type} logged yet.</p>
+            </div>
+          {:else}
+            {@const mealPills = buildNutrientPills(
+              totalNutrition(groupedMeals[meal_type]),
+              macroNutrients($visibleNutrients),
+              $calorieDisplayDecimals,
+              true
+            )}
+            <div class="meal-items-list">
+              {#each groupedMeals[meal_type] as item}
+                {@const isSelected = selectedIds.has(item.id)}
+                {@const qty = parseLoggedQuantity(item.quantity)}
+                <!-- While a selection is active the check takes the remove ✕'s
+                     corner: the whole card is the tap target then, so the ✕ has no
+                     role, and the check reads where the eye already looks. -->
+                {#snippet selectCheck()}
+                  <span
+                    class="select-check"
+                    class:on={isSelected}
+                    aria-hidden="true">{isSelected ? "✓" : ""}</span
+                  >
+                {/snippet}
+                <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
+                <div
+                  class="meal-item-card"
+                  class:selectable={selectionActive}
+                  class:selected={isSelected}
+                  use:longpress={{
+                    onlongpress: () => onCardLongPress(item.id),
+                  }}
+                  onpointerdown={onCardPointerDown}
+                  onclick={() => onCardClick(item)}
+                  onkeydown={(e) =>
+                    selectionActive &&
+                    (e.key === "Enter" || e.key === " ") &&
+                    onTapItem(item.id)}
+                  role={selectionActive ? "button" : undefined}
+                  tabindex={selectionActive ? 0 : undefined}
+                >
+                  <FoodItemRow
+                    logged
+                    name={item.foodName || "Unknown Food"}
+                    amount={qty.amount}
+                    unit={qty.unit}
+                    calories={Number(item.calories) || 0}
+                    selected={isSelected}
+                    preview={scalePreview?.get(item.id)}
+                    note={scaleNotes?.get(item.id) ?? ""}
+                    onRemove={() => onRemoveItem(item.id)}
+                    corner={selectionActive ? selectCheck : undefined}
+                  >
+                    {#snippet lead()}
+                      {#if item.photoBase64}
+                        <button
+                          type="button"
+                          class="meal-item-thumb-btn"
+                          aria-label="View {item.foodName} photo"
+                          onpointerdown={(e) => e.stopPropagation()}
+                          onclick={(e) => {
+                            e.stopPropagation();
+                            if (suppressNextClick) {
+                              suppressNextClick = false;
+                              return;
+                            }
+                            if (selectionActive) onTapItem(item.id);
+                            else previewPhoto = item.photoBase64;
+                          }}
+                        >
+                          <img
+                            src={item.photoBase64}
+                            alt={item.foodName}
+                            class="meal-item-thumb"
+                          />
+                        </button>
+                      {/if}
+                    {/snippet}
+                  </FoodItemRow>
+                </div>
+              {/each}
+            </div>
+            <!-- Subtle one-line subtotal for the section: Calories + just the macros
+                 the user tracks (micronutrients belong on the full-day RDA surface,
+                 not a running tally), summed over only this meal's items. Empty
+                 macros are dropped (hideEmpty) — a "0 g" or absent "–" adds no
+                 information, and a calories-only meal reads as just its kcal. -->
+            <!-- The other way into the meal's own figures (ADR-0074 §1): the line
+                 of figures a meal already ends in, which did nothing. It is the
+                 convenience rather than the door — a meal with no rows never
+                 renders it, which is why the name is the one that always works. -->
             <button
               type="button"
-              class="meal-title-btn"
+              class="meal-total meal-total-btn"
+              data-testid="meal-total-{meal_type}"
               aria-haspopup="dialog"
+              aria-label="{meal_type} nutrition"
               onclick={() => (mealPanel = meal_type)}
-              >{meal_type.toUpperCase()}</button
             >
-          </h3>
-          <!-- No way in here. They left for the day's one Way-in bar above
-               (ADR-0101 §1), which is the whole of what that record amends in
-               ADR-0059: five floored controls plus their gaps is 276px, and the
-               header could not hold that beside the meal's name on any phone
-               under ~414px. The header keeps its name, its nutrition-panel
-               control and its subtotal. -->
+              {#each mealPills as pill (pill.key)}
+                <span class="meal-total-item nutrient-{pill.key}">
+                  {#if pill.key !== "calories"}<span
+                      >{nutrientShortLabel(pill.key)}</span
+                    >{/if}<span class="meal-total-value">{pill.value}</span>
+                </span>
+              {/each}
+            </button>
+          {/if}
         </div>
-
-        {#if copyNote && copyNote.meal_type === meal_type}
-          <!-- ADR-0058 §11: a clean copy says nothing, so this exists only when
-               something went wrong. -->
-          <p class="meal-note" role="status">{copyNote.text}</p>
-        {/if}
-
-        {#if !dayKnown}
-          <!-- Not "no breakfast" — we have not read the day yet. One row's worth of
-               placeholder, which is also the height an empty meal's message takes,
-               so neither outcome moves the meals below it. -->
-          <div class="meal-skeleton" aria-busy="true">
-            <Skeleton height="var(--step-n2)" width="60%" />
-          </div>
-        {:else if groupedMeals[meal_type].length === 0}
-          <div class="empty-meal">
-            <p>No {meal_type} logged yet.</p>
-          </div>
-        {:else}
-          {@const mealPills = buildNutrientPills(
-            totalNutrition(groupedMeals[meal_type]),
-            macroNutrients($visibleNutrients),
-            $calorieDisplayDecimals,
-            true
-          )}
-          <div class="meal-items-list">
-            {#each groupedMeals[meal_type] as item}
-              {@const isSelected = selectedIds.has(item.id)}
-              {@const qty = parseLoggedQuantity(item.quantity)}
-              <!-- While a selection is active the check takes the remove ✕'s
-                   corner: the whole card is the tap target then, so the ✕ has no
-                   role, and the check reads where the eye already looks. -->
-              {#snippet selectCheck()}
-                <span
-                  class="select-check"
-                  class:on={isSelected}
-                  aria-hidden="true">{isSelected ? "✓" : ""}</span
-                >
-              {/snippet}
-              <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
-              <div
-                class="meal-item-card"
-                class:selectable={selectionActive}
-                class:selected={isSelected}
-                use:longpress={{ onlongpress: () => onCardLongPress(item.id) }}
-                onpointerdown={onCardPointerDown}
-                onclick={() => onCardClick(item)}
-                onkeydown={(e) =>
-                  selectionActive &&
-                  (e.key === "Enter" || e.key === " ") &&
-                  onTapItem(item.id)}
-                role={selectionActive ? "button" : undefined}
-                tabindex={selectionActive ? 0 : undefined}
-              >
-                <FoodItemRow
-                  logged
-                  name={item.foodName || "Unknown Food"}
-                  amount={qty.amount}
-                  unit={qty.unit}
-                  calories={Number(item.calories) || 0}
-                  selected={isSelected}
-                  preview={scalePreview?.get(item.id)}
-                  note={scaleNotes?.get(item.id) ?? ""}
-                  onRemove={() => onRemoveItem(item.id)}
-                  corner={selectionActive ? selectCheck : undefined}
-                >
-                  {#snippet lead()}
-                    {#if item.photoBase64}
-                      <button
-                        type="button"
-                        class="meal-item-thumb-btn"
-                        aria-label="View {item.foodName} photo"
-                        onpointerdown={(e) => e.stopPropagation()}
-                        onclick={(e) => {
-                          e.stopPropagation();
-                          if (suppressNextClick) {
-                            suppressNextClick = false;
-                            return;
-                          }
-                          if (selectionActive) onTapItem(item.id);
-                          else previewPhoto = item.photoBase64;
-                        }}
-                      >
-                        <img
-                          src={item.photoBase64}
-                          alt={item.foodName}
-                          class="meal-item-thumb"
-                        />
-                      </button>
-                    {/if}
-                  {/snippet}
-                </FoodItemRow>
-              </div>
-            {/each}
-          </div>
-          <!-- Subtle one-line subtotal for the section: Calories + just the macros
-               the user tracks (micronutrients belong on the full-day RDA surface,
-               not a running tally), summed over only this meal's items. Empty
-               macros are dropped (hideEmpty) — a "0 g" or absent "–" adds no
-               information, and a calories-only meal reads as just its kcal. -->
-          <!-- The other way into the meal's own figures (ADR-0074 §1): the line
-               of figures a meal already ends in, which did nothing. It is the
-               convenience rather than the door — a meal with no rows never
-               renders it, which is why the name is the one that always works. -->
-          <button
-            type="button"
-            class="meal-total meal-total-btn"
-            data-testid="meal-total-{meal_type}"
-            aria-haspopup="dialog"
-            aria-label="{meal_type} nutrition"
-            onclick={() => (mealPanel = meal_type)}
-          >
-            {#each mealPills as pill (pill.key)}
-              <span class="meal-total-item nutrient-{pill.key}">
-                {#if pill.key !== "calories"}<span
-                    >{nutrientShortLabel(pill.key)}</span
-                  >{/if}<span class="meal-total-value">{pill.value}</span>
-              </span>
-            {/each}
-          </button>
-        {/if}
-      </div>
-    {/each}
+      {/each}
+    </div>
   </div>
 </div>
 
@@ -936,6 +953,15 @@
       padding-bottom: var(--space-2xl);
     }
   }
+  /* The meals, holding the rhythm the timeline used to hold directly. The gap
+     is the one `.timeline` carried when the sections were its own children, and
+     the timeline keeps its gap for the one thing left beside this box: the slot
+     above it, or the flank beside it. */
+  .meals {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-m);
+  }
   .meal-section {
     display: flex;
     flex-direction: column;
@@ -1256,6 +1282,59 @@
     :global(.rations) .day > .aggregates {
       grid-area: numbers;
       margin-top: 0;
+    }
+  }
+  /* ── The widest shape: a timeline between two flanks ─────────────────────
+     The ways into the day leave the head of the timeline for a column of their
+     own on the left (ADR-0101's Amendment). The day then reads left to right as
+     the question, the answer and the account: what you can add, what you have
+     added, and what the day came to.
+
+     **Only where there is room for all three, which is what `wide` is.** Below
+     it the bar stays where ADR-0101 put it — sticky at the head of the timeline
+     between 768 and here, pinned to the visible band's bottom edge below that —
+     and nothing on this screen changes shape. `src/app.css` widens Rations'
+     column at the same width and for the same reason; split, one of the two
+     would be a flank with no room or a measure with nothing in it.
+
+     **The timeline turns on its side and nothing else moves.** The slot keeps
+     every rule it took at 768: it is still the one-cell grid the Way-in bar and
+     the Selection bar stack in, still clipped so the Selection arrives rather
+     than appears, and still sticky against the shell's own top padding. What
+     changes is which axis it is laid out on and how wide it is allowed to be.
+
+     `:global(.rations)` is the Facet, for `.day`'s own reason above: the root
+     renders this same day behind a navigation sidebar, and a third column there
+     would be a fourth beside that sidebar. */
+  @media (min-width: 1440px) {
+    :global(.rations) .timeline {
+      flex-direction: row;
+      /* The flank is as tall as its contents and the meals are as tall as the
+         day; without this they would stretch to each other and the bar would
+         have a column of empty white under it. It is also what gives the sticky
+         its travel: an item that has been stretched to the height of its
+         container has nowhere to go. */
+      align-items: flex-start;
+      /* The gap between the two flanks and the timeline is one distance, and
+         the day's grid declares it as `column-gap` on the other side. */
+      gap: var(--space-l);
+    }
+    :global(.rations) .timeline > .way-in-slot {
+      /* Fixed, like the rail opposite it, because what it holds is sized by
+         what it says: five ways in at the tap floor and four meal names. The
+         meals take the slack. */
+      flex: 0 0 var(--way);
+      /* The gap above is the flex `gap` now, and the bar is beside the meals
+         rather than over them, so the room it bought under itself is room
+         nothing needs. */
+      margin-bottom: 0;
+    }
+    :global(.rations) .timeline > .meals {
+      flex: 1;
+      /* `minmax(0, 1fr)`'s flexbox spelling, and there for the same reason the
+         day's grid gives it: a long food name must shrink this box rather than
+         push the flank off the screen. */
+      min-width: 0;
     }
   }
 </style>
