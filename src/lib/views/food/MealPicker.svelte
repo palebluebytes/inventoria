@@ -279,13 +279,26 @@
     position: fixed;
     margin: 0;
     padding: var(--edge-width);
-    display: grid;
     gap: var(--edge-width);
     min-width: 11rem;
     background: var(--ink);
     border: 0;
     border-radius: 0;
     overflow: visible;
+  }
+  /* **`display` belongs to the open state and only to it.** A closed popover is
+     hidden by the user-agent stylesheet, with
+     `[popover]:not(:popover-open) { display: none }` — and an author rule beats
+     a UA rule, so declaring `display: grid` on the base selector quietly
+     un-hides the panel forever. Reported from a device as "the popover will not
+     collapse", and it was never collapsing: it was drawn open from the first
+     paint, and tapping the chip toggled a state nothing could see.
+     
+     It passed every desktop check because those measured `:popover-open`, which
+     was correctly false the whole time. State was right, paint was wrong, and
+     only a screen says so. */
+  .mp-panel:popover-open {
+    display: grid;
   }
   .mp-tile {
     min-height: var(--tap-min);

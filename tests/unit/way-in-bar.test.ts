@@ -23,6 +23,7 @@ import WayInRail from "../../src/lib/views/food/WayInRail.svelte";
 
 const BAR = "src/lib/views/food/WayInBar.svelte";
 const NAV = "src/lib/layout/Sidebar.svelte";
+const PICKER = "src/lib/views/food/MealPicker.svelte";
 const RAIL = "src/lib/views/food/WayInRail.svelte";
 const WIDE = `@media (min-width: ${BREAKPOINTS.sheet}px)`;
 const CALM = "@media (prefers-reduced-motion: reduce)";
@@ -88,6 +89,24 @@ describe("one line, and the tab list it gave up (amended 2026-09-15)", () => {
     // four buttons do not owe a menu's full keyboard contract.
     expect(body).toMatch(/aria-controls="meal-picker-/);
     expect(body).not.toMatch(/role="menu"/);
+  });
+
+  it("leaves the closed panel's `display` to the user agent", () => {
+    // **The bug this exists for shipped to a device and was reported as "the
+    // popover will not collapse".** It was never collapsing: a closed popover is
+    // hidden by the UA stylesheet's `[popover]:not(:popover-open)
+    // { display: none }`, an AUTHOR rule beats a UA rule, and `.mp-panel` had
+    // `display: grid` on its base selector — so the panel was drawn open from
+    // the first paint and the chip toggled a state nothing could see.
+    //
+    // It passed every check before it: `:popover-open` was correctly false the
+    // whole time, so state was right and paint was wrong, and nothing but a
+    // screen says so. This is the assertion that would have said so instead.
+    const base = ruleOf(PICKER, ".mp-panel");
+    expect(decl(base, "display")).toBeUndefined();
+    expect(decl(ruleOf(PICKER, ".mp-panel:popover-open"), "display")).toBe(
+      "grid"
+    );
   });
 
   it("holds the chip at its widest word, whichever meal it is on", () => {
