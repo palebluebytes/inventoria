@@ -278,13 +278,13 @@ describe("isFortificationDuplicate", () => {
 });
 
 describe("the rows ADR-0061 §5 adjudicates by hand", () => {
-  it("names thirty-nine rows, each once and each with a reason", () => {
+  it("names forty rows, each once and each with a reason", () => {
     // 44 to 40 when `isReconstitutedDrink` landed: four of the six chocolate
     // drink rows this list named by hand are now taken a stage earlier, by
     // shape rather than by fdcId. A hand list shrinking because a rule grew is
     // the direction this roster is meant to move in.
-    expect(ADJUDICATED_VARIANTS).toHaveLength(39);
-    expect(new Set(ADJUDICATED_VARIANTS.map(([fdcId]) => fdcId)).size).toBe(39);
+    expect(ADJUDICATED_VARIANTS).toHaveLength(40);
+    expect(new Set(ADJUDICATED_VARIANTS.map(([fdcId]) => fdcId)).size).toBe(40);
     for (const [fdcId, description, why] of ADJUDICATED_VARIANTS)
       expect([fdcId, description, why.length > 40]).toEqual([
         fdcId,

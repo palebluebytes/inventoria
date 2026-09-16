@@ -22,11 +22,11 @@ went into — is `usda-drop-census.json`, under `"stage": "collapse"`.
 | `Lamb`     |       116 |        64 |       52 |
 | `Pork`     |       129 |        91 |       38 |
 | `Veal`     |        43 |        29 |       14 |
-| **corpus** | **2,405** | **2,024** |  **381** |
+| **corpus** | **2,404** | **2,023** |  **381** |
 
 ## And why
 
-179 groups hold more than one record, and the rest of the corpus is 1,845 groups
+179 groups hold more than one record, and the rest of the corpus is 1,844 groups
 of one, which no rule here touches. A collapse group is the records sharing one
 residual description (§3) — the name with every segment §2 calls a collapsing
 axis struck out — so what merges is one cut written out at every trim, grade and

@@ -377,6 +377,10 @@ interface AdjudicatedVariantGroup {
 
 const ADJUDICATED_VARIANT_GROUPS: readonly AdjudicatedVariantGroup[] = [
   {
+    why: "Ground chicken with something added to it, where the plain ground chicken ships as `Chicken, ground` (fdc:171116). The phrase matches exactly one row in both archives, so this drop satisfies ADR-0055 §1 the way the `(For Reference Only)` milk does and needs no amendment. Its 62 `with added solution` cousins are deliberately NOT here: they are a family, not a row, every one of them carries `plain_sibling`, and a family is ADR-0103's collapse to take (#435) rather than a hand-written verdict to guess at one row at a time.",
+    rows: [[2514746, "Chicken, ground, with additives, raw"]],
+  },
+  {
     why: "Liquid egg, frozen and pasteurised for a bakery to pour out of a drum. It is the same egg as the box on the shelf with the shell taken off and the temperature changed, and `Eggs, Grade A, Large, egg whole` ships. What made it reachable at all is a quirk worth recording: `isProcessedProduct` waves through anything USDA calls `raw`, and USDA calls these raw because nobody cooked them — so `Egg, whole, raw, frozen, salted, pasteurized` slipped past the `frozen` marker that was written for exactly this shape. It was the row a typed `egg` used to lead with.",
     rows: [
       [170893, "Egg, whole, raw, frozen, salted, pasteurized"],

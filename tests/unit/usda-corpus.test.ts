@@ -310,6 +310,8 @@ describe("the bundled search index", () => {
     // 427 to 423 when `isReconstitutedDrink` took the eight made-up drink
     // mixes: four of them were the plain sibling of nothing else, and a row
     // whose only qualified twin has left stops being one.
+    // 235 to 234 on #407: `Chicken, ground, with additives` was the qualified
+    // half of a pair, and its plain half `Chicken, ground` is what ships.
     // 421 to 225 under ADR-0103's collapse. The relation is between a plain
     // name and a qualified one, and the collapse removes qualified rows by the
     // hundred: a cut whose only qualified twin was a trim or a grade stops
@@ -320,7 +322,7 @@ describe("the bundled search index", () => {
     // to 0" fat, choice` is a prefix of nothing; `Beef, flank, steak` sits under
     // `Beef, flank`, and takes `Beef, flank, steak, boneless, choice` under
     // itself. Ten rows, nine of them a butchery cut meeting its own primal.
-    expect(index.foods.filter((row) => row.plain_sibling).length).toBe(235);
+    expect(index.foods.filter((row) => row.plain_sibling).length).toBe(234);
     // Omitted rather than emitted false, like every other absent field.
     expect(index.foods.filter((row) => row.plain_sibling === false)).toEqual(
       []
@@ -404,7 +406,7 @@ describe("the bundled search index", () => {
     // stands for them (#435). 2,037 to 2,025 with ADR-0104's Amendment: seven
     // factory-made breads, eleven frozen records and three storage duplicates,
     // less the durian and the five rows that only lost a word.
-    expect(index.foods.length).toBe(2024);
+    expect(index.foods.length).toBe(2023);
     expect(index.generated_from.map((a) => a.dataset)).toEqual([
       "Foundation Foods",
       "SR Legacy",
@@ -423,10 +425,10 @@ describe("the bundled search index", () => {
     // own aliases and adds none, so the count moves by the rows it took.
     // 1,964 to 1,952, tracking the corpus again: none of the twelve rows the
     // storage rules removed carried an alias, so the two counts move together.
-    // 1,952 to 1,951 on #407, and the two counts move together once more: the
-    // New Zealand tripe carried no alias.
+    // 1,952 to 1,950 on #407, and the two counts move together once more: the
+    // ground chicken and the New Zealand tripe carried no alias between them.
     expect(index.foods.filter((row) => !(row.also ?? []).length).length).toBe(
-      1951
+      1950
     );
     // And what `SEARCH_RESULT_LIMIT` is a ceiling ON. Measured after ADR-0062
     // §1, because that is the set the list would have to render.
@@ -1103,7 +1105,9 @@ describe("searchIndexRows", () => {
     expect(words.length - merged.size).toBe(91);
 
     expect(touched.map((w) => [w, stemOf(w), sharing(w)])).toEqual([
-      ["additives", "additive", []],
+      // "additives" left the corpus with #407's one hand-adjudicated drop: the
+      // word appeared only in `Chicken, ground, with additives`, and a merge
+      // goes with a word the same way a filter drop takes one.
       ["chives", "chive", []],
       // "classes" left the corpus with ADR-0056: the word appeared only inside
       // `all classes`, so removing the phrase removed the word, and a merge goes
