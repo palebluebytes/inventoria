@@ -543,3 +543,128 @@ millilitres (OFF's `serving_quantity_unit` is `g` or `ml`) reaches
 `servingSizeGrams`, whose regex requires grams, so it returns null and the food
 is not amount-editable: the original defect, restored. Deriving the unit from the
 record with no control at all was rejected above.
+
+## Amendment (2026-09-16): §6's pair is writable by hand, in the panel's unit, and no portion is hidden any more
+
+§6 gave `Portion` a millilitre sibling and made `offPortions` stop discarding a
+volume serving. It never asked whether anything _other_ than a source could
+state one, and the answer was no: the label-correction form wrote `grams` on
+every row it built, saying so in its own comment — _"A hand-typed portion carries
+its own label as the unit, and is always a weight: nothing here can type a
+volume."_ `splitPortionRows` completed the circle by routing a millilitre portion
+into a `carried` list that a re-save re-emitted untouched and the form never
+rendered.
+
+So a volume portion was **preserved but not editable, and could not be created**
+(#460). The preservation was real and worth having; what it bought was paid for
+in visibility, and the bill was larger than it looked, because
+`portionPresets` drops a portion stated in the other unit on a food with no
+Density Class. Between the two, the app held such a portion and rendered it in
+**no place at all** — not the form, not the picker. A user could not tell it was
+there.
+
+### #433's refusals turned a narrow door into no door
+
+`offPortions` is the **only** writer of `millilitres` in the app. USDA/FDC writes
+grams by construction, `servingSizePortion` synthesises grams only, the AI
+autofill path emits no portions at all, and the curated stand-ins go through the
+OFF mapper. So when [#433](https://github.com/palebluebytes/inventoria/issues/433)
+and #459 taught `offPortions` to refuse a serving whose string names more than one
+magnitude or a unit we cannot store, they did not narrow the way in for a volume
+portion — they closed it. A 330 ml can whose serving OFF stated ambiguously lost
+its chip and had nowhere to get one back.
+
+### The population, measured
+
+Over OFF's full corpus on 2026-09-16 (4,535,553 products; 1,446,030 carrying a
+`serving_size` — the same snapshot #433 was priced against), classified by this
+repo's own `serving-size.ts` readers rather than a reimplementation of them:
+
+|                                                |           n | share of usable servings |
+| ---------------------------------------------- | ----------: | -----------------------: |
+| portion emitted in grams                       |   1,198,931 |                    84.2% |
+| portion emitted in **millilitres**             | **140,884** |                 **9.9%** |
+| refused — names more than one magnitude (#433) |      82,888 |                     5.8% |
+| refused — sole unit not storable (`kj`, `%`)   |         664 |                    0.05% |
+
+Roughly one portion in ten that this app takes from Open Food Facts is a volume.
+That settles the "leave it" option §6's gap invited, which was defensible only if
+the population were small.
+
+**The headline is not the actionable number, and a later reader should not
+mistake it for one.** Of the 82,888 refusals, only **3,016–3,749** name an
+explicit volume (`ml`, `cl`, `l`, `fl oz`). The other 76,649 are household
+measures — `1 cup (30 g)`, `2 tbsp (32 g)` — which OFF stores as `ml` because its
+taxonomy prices a cup at 240 ml, while the label states a weight and the food is
+cereal or peanut butter. Calling those "volume servings" is OFF's bookkeeping,
+not the user's intent. The count that supports _"a drink with no chip and no way
+to type one"_ is the three thousand, not the eighty.
+
+### The row carries a unit, and it is not a choice
+
+A portion row is `{ label, amount, unit }`. Its unit is read off the portion's own
+magnitude when it is seeded from a twin, and is the form's `effectiveUnit` when
+the user adds one.
+
+**There is deliberately no control to change it** — not per row, and not per list.
+The form already answers the g-versus-ml question exactly once, at the pack, and
+the 2026-08-31 amendment above records what happened when it was asked twice:
+_"the two controls could disagree, and the disagreement was what silently withheld
+a contribution's numbers."_ A second unit control would rebuild that.
+
+What the unit decides is whether a row is **editable**. A row whose unit is the
+panel's is typed in; a row whose unit is not is shown **read-only**, in its own
+unit, rather than hidden. That covers the two shapes §6 already names — a drink
+powder's prepared-100 ml serving against a per-100 g panel, an oat carton's 100 g
+against a per-100 ml one — and it covers a third §6 could not have: a row stranded
+by the user flipping the basis underneath it. Nothing is converted and nothing is
+cleared on a flip; the row simply stops being editable. This record converts
+nothing anywhere, which is what keeps it clear of [ADR-0108](0108-a-volume-food-is-weighed-by-the-class-you-say-it-is.md):
+a Density Class turns a volume into a weight, where this is only about _stating_
+a volume.
+
+§6's governing sentence is unchanged and still governs: _"The twin keeps every
+portion its source published; what narrows is only what the picker can enter."_
+What this adds is a second narrowing, on **entry**, and it is narrower than what
+it replaced — the form could type one unit and now types either.
+
+### Three defects the move out of the component exposed
+
+`buildCustomPortions` lived inside `FoodStager.svelte` while its inverse lived in
+`label-form.ts`, so nothing could test the round trip. Moving it beside its
+sibling made three things visible at once, each fixed here:
+
+- **`Number(x) || 0` made a blank box a genuine zero.** `portionMeasure` reads 0
+  as a real magnitude, so the picker offered a chip that filled nothing. An
+  unparseable magnitude now writes **neither** sibling — the absent-≠-0 rule
+  (#28, ADR-0030) reaching the last row in this form that ignored it.
+- **Every save rewrote `amount` and `unit` from the label**, so a scanned twin's
+  `unit: "medium"` came back as `unit: "1 medium"` — a field no longer holding a
+  unit. Nothing in the app reads those fields today, which is a fact about
+  today's readers and not a licence to write a false value into the ledger. A row
+  the user did not touch now round-trips byte-exact; `amount: 1, unit: <label>` is
+  minted only for a row they typed. This is the byte-exactness `carried` used to
+  give for free, kept rather than spent.
+- **A row with an amount and no label was written.** Every reader keys on the
+  label — `resolvePortionAmount` matches it, `formatPortionPreset` falls back to
+  it — so such a portion is a chip that renders as an empty string. It is dropped.
+
+A portion carrying no usable magnitude at all — which OFF publishes, and which
+the first fix above now lets this form write — seeds as a blank **editable** row
+in the panel's unit, so the form can read back everything it can write. A portion
+naming a household measure and no amount is precisely what a correction form
+exists to correct.
+
+### Consequences
+
+`splitPortionRows` and `PortionRowSplit` are deleted; `portionRows` and
+`buildPortions` replace them as an inverse pair in one module, and the round trip
+is under unit test for the first time. `portionLabelIsBareWeight` becomes
+`portionLabelIsBareAmount` and stops being weights-only: its narrowing was
+justified by the grams box that no longer exists, and "330 ml" is as
+uninformative a portion _name_ as "30 g". The check stays unit-agnostic rather
+than asked against the row's own unit, which would only add a way to miss it.
+
+Nothing about Open Food Facts contributions changes: `buildOffWriteBody` posts no
+portions, and the `serving_size` it does post is skipped for every per-100 panel
+this form writes.
