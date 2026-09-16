@@ -43,9 +43,9 @@
   //
   // That is what buys the Save. A per-line ✓ writes a superseding instantiation
   // per line (ADR-0022), which for three amounts is three retract-and-replace
-  // pairs on the ledger for one correction; a dock at the foot of the spine
+  // pairs on the Ledger for one correction; one Save at the foot of the spine
   // makes it one. The cost is that this is the one variant of the three with an
-  // unsaved state to lose, and the dock is what has to make that obvious.
+  // unsaved state to lose, and that Save is what has to make it obvious.
   //
   // **Chosen at round two, then tightened.** The per-ingredient kcal is gone
   // and the amount box shrank in both directions. Both moves say the same thing
@@ -168,11 +168,16 @@
         >
       {/if}
 
-      <!-- The dock only exists once there is something to lose. A row of dead
-           controls under every open recipe would say the opposite of what this
-           variant is claiming — that reading one costs nothing. -->
+      <!-- The save row only exists once there is something to lose. A row of
+           dead controls under every open recipe would say the opposite of what
+           this variant is claiming — that reading one costs nothing.
+
+           **Not a Dock**, and the name matters here: `CONTEXT.md` spends that
+           word on the pinned region at the foot of a SHEET, and says so against
+           exactly this mistake. This is a row on the day, inside a list, and it
+           scrolls with everything around it. -->
       {#if dirty}
-        <div class="dock">
+        <div class="save-row">
           <Button
             variant="primary"
             size="sm"
@@ -205,11 +210,11 @@
 
      **It commits to the draft, not to the ledger**, which is how the builder
      uses it too (`IngredientListEditor` assigns straight into its list). That
-     is what leaves F's dock a job: the sheet says what the amount is, Save says
+     is what leaves F's Save a job: the sheet says what the amount is, Save says
      the occasion is corrected. If the implementation instead writes on the
      sheet's Done — the way the DAY's picker does for a logged food — then this
-     variant loses its one-write-per-correction property and the dock should go
-     with it. The prototype cannot decide that; it can only show both halves. -->
+     variant loses its one-write-per-correction property and the Save row should
+     go with it. The prototype cannot decide that; it can only show both halves. -->
 {#if editing}
   {@const e = editing}
   <IngredientAmountSheet
@@ -334,7 +339,7 @@
   .pantry-x {
     color: var(--text-muted);
   }
-  .dock {
+  .save-row {
     display: flex;
     gap: var(--space-2xs);
     padding: var(--space-2xs) 0;
