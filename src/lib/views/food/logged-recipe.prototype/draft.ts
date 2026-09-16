@@ -268,7 +268,9 @@ export function demoEvent(meal_type: MealType): ConsumptionEvent {
     target: "recipe:proto-demo",
     quantity: "1 serving",
     meal_type,
-    foodName: "Chickpea & spinach stew",
+    // The mark rides the NAME rather than the row's second line: that line
+    // truncates on a phone, and a demo row has to stay identifiable there.
+    foodName: "Chickpea & spinach stew (DEMO)",
     calories,
     protein: 34,
     fat: 41,

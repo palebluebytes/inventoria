@@ -9,33 +9,49 @@
  * against each ref's current twin, a docked "Log" that retract-and-replaces.
  * Changing 60 g of avocado to 80 g costs the whole day's screen.
  *
- * So: **what should a logged recipe look like in the day, and where does
- * editing one happen?** Three shapes, `?variant=` on the real /food/ screen:
+ * **Round one** offered three shapes: the card grows into an editor (A), the
+ * recipe becomes a group header over ordinary logged rows (B), the meal's list
+ * steps aside for a full pane (C). The verdict was B's arrangement — a parent
+ * with its ingredients under it — but **not B's parent**: a recipe is an entry
+ * on the day and has to keep looking like one, rather than turning into a
+ * heading when it is the only row in a meal.
  *
- *   A  the card unfolds        the row keeps its place and grows downward; the
- *                              frozen rows become editable lines inside it.
- *   B  the recipe is a group   no fold by default — the ingredients are logged
- *                              rows, indented under a recipe header, edited the
- *                              way every other row on this screen is edited.
- *   C  expanding takes the meal the meal's list is replaced in place by a full
- *                              editor pane; the day above and below stays put.
+ * **Round two's guide, therefore, and all three obey it:** the recipe's own row
+ * stays the app's `FoodItemRow logged` — same card, same ✕, same two lines —
+ * and its ingredients are indented slightly underneath. What is left to decide
+ * is the pair of questions the guide does not settle:
  *
- * `now` is what ships today: the row that opens the sheet.
+ *   • **Where is the children's box?** Inside the parent's frame, or their own
+ *     frames beside it, or no frame at all?
+ *   • **How is a child edited?** In place on the line, through the app's amount
+ *     picker, or by every line being a field the moment the recipe is open?
  *
- * **What each one is really claiming.**
- *   A says a logged recipe is a food with more inside it.
- *   B says a logged recipe is a meal inside a meal, and that the app should
- *     have one editing idiom for a logged thing rather than two.
- *   C says the editor needs the room the sheet gave it, and that what the sheet
- *     was actually buying was WIDTH, not a second surface.
+ *   D  one card               children are LINES inside the parent's frame; the
+ *                             card loses its bottom edge and they sit in it. Tap
+ *                             a line → a field in place, ✓ writes.
+ *   E  a list within the list children are the same `FoodItemRow logged`, a card
+ *                             each, inset one step. Tap → the app's amount
+ *                             picker, Done writes. Open by default.
+ *   F  hanging from the parent children are lines on a rule dropped from the
+ *                             parent's left edge, and every amount is already a
+ *                             field. One Save at the foot, for the whole set.
+ *
+ * `B` is round one's group header, kept for contrast — the arrangement that was
+ * close with the parent that was not. `now` is what ships.
  *
  * **Nothing here writes.** Every edit lives in `draft.ts`'s in-memory model and
- * is thrown away on reload; the footer strip under an open editor prints the
+ * is thrown away on reload; the footer strip under an open recipe prints the
  * snapshot that WOULD be appended, because ADR-0022's invariant
  * (`headline == Σrows ÷ yield`) is the part worth watching while you tap. The
  * real commit path (`correctInstantiation`) is deliberately not wired: the
  * question is what this looks like, not whether the ledger works — it already
  * does.
+ *
+ * **What the three really disagree about** is how many ledger writes a
+ * correction costs. D and E write per line, which is what the day's own amount
+ * picker does; F batches the set behind one Save, which is what the sheet does
+ * today. Every one of those writes is a retract-and-replace, so the choice is
+ * visible in the strip under each open recipe.
  *
  * **The day may have no logged recipe on it.** When it doesn't, `draft.ts`
  * injects one demo instantiation into lunch so there is always something to
@@ -47,21 +63,23 @@
  * arguments about the same row.
  */
 
-export const VARIANTS = ["A", "B", "C", "now"] as const;
+export const VARIANTS = ["D", "E", "F", "B", "now"] as const;
 
 export type Variant = (typeof VARIANTS)[number];
 
 export const VARIANT_NAMES: Record<Variant, string> = {
-  A: "The card unfolds",
-  B: "The recipe is a group",
-  C: "Expanding takes the meal",
+  D: "One card",
+  E: "A list within the list",
+  F: "Hanging from the parent",
+  B: "Round one's group header",
   now: "The sheet (what ships)",
 };
 
 export const VARIANT_NOTES: Record<Variant, string> = {
-  A: "One card that grows. The caret is the only new mark; the day flows down around it, and the ingredient lines are editable inside the frame the recipe already had.",
-  B: "Open by default, folded on demand. The ingredients ARE logged rows — same Row, same ✕, same tap — under a recipe header that carries the total and the fold.",
-  C: "The list steps aside. Tapping the recipe swaps the meal's items for a full-width editor with the sheet's affordances and none of its chrome; Back restores the list.",
+  D: "The children are lines INSIDE the parent's frame — one card, one ✕, one place in the list. Tap a line and its amount becomes a field in place; ✓ writes.",
+  E: "The children are the same logged card, one size down, inset a step. Tapping one opens the app's amount picker, exactly as a banana does. Open by default.",
+  F: "Lines on a rule dropped from the parent's left edge, every amount already a field. Opening IS editing, and one Save at the foot commits the set.",
+  B: "Round one: the recipe becomes a header line over its rows. The arrangement that was close, with the parent that was not.",
   now: "A bottom sheet over the whole day, re-seeded from the current twins, committing by retract-and-replace.",
 };
 

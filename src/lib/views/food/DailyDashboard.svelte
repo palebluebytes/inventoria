@@ -64,9 +64,10 @@
   // branch below is behind a falsy constant and Rollup drops it. Delete this
   // block, the `shownMeals` derived, the `{#if variant}` in the meal list and
   // the switcher render to un-prototype.
-  import Unfold from "./logged-recipe.prototype/Unfold.svelte";
+  import OneCard from "./logged-recipe.prototype/OneCard.svelte";
+  import SubCards from "./logged-recipe.prototype/SubCards.svelte";
+  import Spine from "./logged-recipe.prototype/Spine.svelte";
   import Nested from "./logged-recipe.prototype/Nested.svelte";
-  import Takeover from "./logged-recipe.prototype/Takeover.svelte";
   import PrototypeSwitcher from "./logged-recipe.prototype/PrototypeSwitcher.svelte";
   import {
     readVariant,
@@ -81,9 +82,6 @@
     window.addEventListener("prototype-variant", onSwitch);
     return () => window.removeEventListener("prototype-variant", onSwitch);
   });
-  // C only: which recipe has taken its meal's list over. Held here rather than
-  // in the row, because opening one hides that meal's other rows.
-  let takeoverId = $state<string | null>(null);
 
   let {
     dbReady,
@@ -746,110 +744,92 @@
               $calorieDisplayDecimals,
               true
             )}
-            <!-- THROWAWAY (`prototype/logged-recipe-inline`, variant C): which of
-                 this meal's recipes has taken the list over, if any. -->
-            {@const taken =
-              variant === "C" && takeoverId
-                ? shownMeals[meal_type].find((i) => i.id === takeoverId)
-                : undefined}
             <div class="meal-items-list">
-              {#if taken}
-                <Takeover
-                  item={taken}
-                  open
-                  onOpen={() => {}}
-                  onBack={() => (takeoverId = null)}
-                />
-              {:else}
-                {#each shownMeals[meal_type] as item}
-                  {@const isSelected = selectedIds.has(item.id)}
-                  {@const qty = parseLoggedQuantity(item.quantity)}
-                  <!-- While a selection is active the check takes the remove ✕'s
+              {#each shownMeals[meal_type] as item}
+                {@const isSelected = selectedIds.has(item.id)}
+                {@const qty = parseLoggedQuantity(item.quantity)}
+                <!-- While a selection is active the check takes the remove ✕'s
                      corner: the whole card is the tap target then, so the ✕ has no
                      role, and the check reads where the eye already looks. -->
-                  {#snippet selectCheck()}
-                    <span
-                      class="select-check"
-                      class:on={isSelected}
-                      aria-hidden="true">{isSelected ? "✓" : ""}</span
-                    >
-                  {/snippet}
-                  <!-- THROWAWAY: a logged recipe is drawn by the variant under
+                {#snippet selectCheck()}
+                  <span
+                    class="select-check"
+                    class:on={isSelected}
+                    aria-hidden="true">{isSelected ? "✓" : ""}</span
+                  >
+                {/snippet}
+                <!-- THROWAWAY: a logged recipe is drawn by the variant under
                      judgement; everything else is the day's own card. -->
-                  {#if variant && variant !== "now" && item.instantiation}
-                    {#if variant === "A"}
-                      <Unfold {item} />
-                    {:else if variant === "B"}
-                      <Nested {item} />
-                    {:else}
-                      <Takeover
-                        {item}
-                        open={false}
-                        onOpen={() => (takeoverId = item.id)}
-                        onBack={() => (takeoverId = null)}
-                      />
-                    {/if}
+                {#if variant && variant !== "now" && item.instantiation}
+                  {#if variant === "D"}
+                    <OneCard {item} />
+                  {:else if variant === "E"}
+                    <SubCards {item} />
+                  {:else if variant === "F"}
+                    <Spine {item} />
                   {:else}
-                    <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
-                    <div
-                      class="meal-item-card"
-                      data-event-id={item.id}
-                      class:selectable={selectionActive}
-                      class:selected={isSelected}
-                      use:longpress={{
-                        onlongpress: () => onCardLongPress(item.id),
-                      }}
-                      onpointerdown={onCardPointerDown}
-                      onclick={() => onCardClick(item)}
-                      onkeydown={(e) =>
-                        selectionActive &&
-                        (e.key === "Enter" || e.key === " ") &&
-                        onTapItem(item.id)}
-                      role={selectionActive ? "button" : undefined}
-                      tabindex={selectionActive ? 0 : undefined}
-                    >
-                      <FoodItemRow
-                        logged
-                        name={item.foodName || "Unknown Food"}
-                        amount={qty.amount}
-                        unit={qty.unit}
-                        calories={Number(item.calories) || 0}
-                        selected={isSelected}
-                        preview={scalePreview?.get(item.id)}
-                        note={scaleNotes?.get(item.id) ?? ""}
-                        onRemove={() => onRemoveItem(item.id)}
-                        corner={selectionActive ? selectCheck : undefined}
-                      >
-                        {#snippet lead()}
-                          {#if item.photoBase64}
-                            <button
-                              type="button"
-                              class="meal-item-thumb-btn"
-                              aria-label="View {item.foodName} photo"
-                              onpointerdown={(e) => e.stopPropagation()}
-                              onclick={(e) => {
-                                e.stopPropagation();
-                                if (suppressNextClick) {
-                                  suppressNextClick = false;
-                                  return;
-                                }
-                                if (selectionActive) onTapItem(item.id);
-                                else previewPhoto = item.photoBase64;
-                              }}
-                            >
-                              <img
-                                src={item.photoBase64}
-                                alt={item.foodName}
-                                class="meal-item-thumb"
-                              />
-                            </button>
-                          {/if}
-                        {/snippet}
-                      </FoodItemRow>
-                    </div>
+                    <Nested {item} />
                   {/if}
-                {/each}
-              {/if}
+                {:else}
+                  <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
+                  <div
+                    class="meal-item-card"
+                    data-event-id={item.id}
+                    class:selectable={selectionActive}
+                    class:selected={isSelected}
+                    use:longpress={{
+                      onlongpress: () => onCardLongPress(item.id),
+                    }}
+                    onpointerdown={onCardPointerDown}
+                    onclick={() => onCardClick(item)}
+                    onkeydown={(e) =>
+                      selectionActive &&
+                      (e.key === "Enter" || e.key === " ") &&
+                      onTapItem(item.id)}
+                    role={selectionActive ? "button" : undefined}
+                    tabindex={selectionActive ? 0 : undefined}
+                  >
+                    <FoodItemRow
+                      logged
+                      name={item.foodName || "Unknown Food"}
+                      amount={qty.amount}
+                      unit={qty.unit}
+                      calories={Number(item.calories) || 0}
+                      selected={isSelected}
+                      preview={scalePreview?.get(item.id)}
+                      note={scaleNotes?.get(item.id) ?? ""}
+                      onRemove={() => onRemoveItem(item.id)}
+                      corner={selectionActive ? selectCheck : undefined}
+                    >
+                      {#snippet lead()}
+                        {#if item.photoBase64}
+                          <button
+                            type="button"
+                            class="meal-item-thumb-btn"
+                            aria-label="View {item.foodName} photo"
+                            onpointerdown={(e) => e.stopPropagation()}
+                            onclick={(e) => {
+                              e.stopPropagation();
+                              if (suppressNextClick) {
+                                suppressNextClick = false;
+                                return;
+                              }
+                              if (selectionActive) onTapItem(item.id);
+                              else previewPhoto = item.photoBase64;
+                            }}
+                          >
+                            <img
+                              src={item.photoBase64}
+                              alt={item.foodName}
+                              class="meal-item-thumb"
+                            />
+                          </button>
+                        {/if}
+                      {/snippet}
+                    </FoodItemRow>
+                  </div>
+                {/if}
+              {/each}
             </div>
             <!-- Subtle one-line subtotal for the section: Calories + just the macros
                  the user tracks (micronutrients belong on the full-day RDA surface,
