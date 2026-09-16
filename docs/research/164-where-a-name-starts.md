@@ -1,7 +1,7 @@
 # Research: where a food's name starts, and whether a hand list can say (#164)
 
-**Status:** pre-registration. Committed **before** the sweep, so it demonstrably
-predates the measurement — the arrangement
+**Status:** measured. §§1-6 are the pre-registration, committed at `b43c3f34`
+**before** the sweep so it demonstrably predates the numbers — the arrangement
 [#159](https://github.com/palebluebytes/inventoria/issues/159) used and the
 reason its own result could be believed.
 **Grounds:** the committed `public/usda/search-index.json`, `schema_version` 10,
@@ -136,3 +136,134 @@ the one chosen with the failures already in view.
 A hand list assembled from the `worse` set is **not** a narrowing and is what
 clause 2 exists to price — but only if clause 2 passes on the count measured
 before any list is written.
+
+---
+
+# The result
+
+Run 2026-09-16 at `b43c3f34`, patch-and-revert on
+`src/lib/food/reference-food-ranking.ts`. **Nothing shipped** — the ranking is
+untouched, the tree is clean and the suite is green at 3,363.
+
+## 7. Against the band
+
+| clause                              |                              |                                           |
+| ----------------------------------- | ---------------------------- | ----------------------------------------- |
+| 1. every moved lead read by hand    | **pass**                     | 82 moved, all classified in §9            |
+| 2. `worse` set at most 25 rows      | **FAIL**                     | **30 rows** (34 queries)                  |
+| 3. twelve protected leads hold      | **FAIL**                     | **3 moved**: `cottage`, `ginger`, `horse` |
+| 4. gold `should_lead` no regression | **pass**                     | **9 of 28**, unchanged                    |
+| 5. whole suite run, breaks reported | pass, and the clause is weak | **13 broken pins** in 2 files             |
+| 6. ADR-0055 §1's window holds       | **FAIL**                     | designated in window **396 → 394**        |
+
+**Verdict: refused.** Three clauses fail, and §6 says report and return. The
+candidate is not narrowed, the ceiling in clause 2 is not moved, and the 30 rows
+are not turned into a hand list here.
+
+**Clause 5 is a flaw in this band and the flaw is recorded rather than patched.**
+It says the suite is run and every break reported; it sets no threshold, so it
+cannot fail. Written that way to answer #159's undeclared-breaks failure, it
+answers only the procedural half. A future band wanting a pass condition has to
+state one, and 13 is the number it would be arguing about.
+
+**Clause 6 failed by two rows of 396**, which is 0.5% and is nothing like the 61
+pairs that disqualified #159's `designated` half. It is still a fail as written,
+and rewriting a clause after seeing it fail by a little is exactly what the
+pre-registration exists to stop.
+
+## 8. What the sweep covered
+
+**1,924 distinct queries** by §4's construction over 2,023 rows. Lower than
+#465's 4,477 because that figure is pre-deduplication over a larger corpus, and
+because #465 swept head phrases and corpus words as separate populations.
+
+**82 leads moved**, 4.3% of the query set. **14 better, 34 worse, 34 neutral.**
+
+## 9. The classification
+
+**Better (14 queries, 13 rows).** `almond`, `almonds`, `cow`, `crab`, `deer`,
+`octopus`, `parmesan`, `salmon`, `sea`, `smelt`, `squirrel`, `swiss`, `trout`,
+`water`.
+
+**Worse (34 queries, 30 rows).** `alcoholic beverage`, `alcoholic beverages`,
+`ancho`, `beverage`, `beverages`, `blue`, `butternut`, `butternuts`, `cheese`,
+`chili`, `cottage`, `dill`, `dry`, `fat`, `fish`, `fluid`, `gin`, `ginger`,
+`jack`, `lotus`, `malt`, `meat`, `milk`, `on`, `pe`, `pine`, `poultry`, `roma`,
+`skim milk`, `snap`, `sun`, `white`, `wine`, `yellow`.
+
+**Neutral (34).** Junk tokens nobody types (`a`, `and`, `c`, `de`, `for`, `hi`,
+`n`, `non`, `or`, `sp`), rows that are peers (`spice`, `spices`, `sesame`,
+`nuts`, `weed`), and leads that were already wrong and stayed wrong (`butt`,
+`low`, `free`).
+
+## 10. It fixes six of #159's eight, and two it called unreachable
+
+| #159 defect | today                                           | under the candidate              |
+| ----------- | ----------------------------------------------- | -------------------------------- |
+| `almonds`   | Almond milk, unsweetened, plain                 | **Nuts, almonds, whole**         |
+| `salmon`    | Salmon, red (sockeye), filets with skin, smoked | **Fish, salmon, Atlantic, wild** |
+| `trout`     | Steelhead trout, dried, flesh                   | **Fish, trout, rainbow, farmed** |
+| `smelt`     | Smelt, dried                                    | **Fish, smelt, rainbow**         |
+| `octopus`   | Octopus                                         | **Mollusks, octopus, common**    |
+| `deer`      | Deer (venison), sitka                           | **Game meat, deer**              |
+| `cranberry` | Cranberry, low bush or lingenberry              | unmoved                          |
+| `hazelnuts` | Hazelnuts, beaked                               | unmoved                          |
+
+**`crab` and `swiss` also move, and #159 records both as unreachable** — `crab`
+as needing the rung-30/20 swap it refused, `swiss` as already decided by `raw`.
+Both were read off a corpus of 4,335 rows. `crab` now leads with
+`Crustaceans, crab, dungeness` instead of `Crabapples`, and `swiss` with
+`Cheese, swiss` instead of `Chard, swiss`.
+
+This is the first mechanism in six to reach the ticket's own defects at all.
+Mechanisms 1-4 were refused on cost without ever clearing the cases.
+
+## 11. The finding that retires a whole family
+
+**Every shelf label is mixed.** The new lead's own head segment, cross-tabulated
+against the hand classification:
+
+| label       | better | worse | neutral |
+| ----------- | -----: | ----: | ------: |
+| `Cheese`    |      2 |     7 |       6 |
+| `Fish`      |      4 |     5 |       2 |
+| `Nuts`      |      2 |     6 |       7 |
+| `Spices`    |      0 |     5 |       4 |
+| `Beverages` |      1 |     3 |       0 |
+| `Milk`      |      1 |     1 |       3 |
+| `Game meat` |      2 |     0 |       1 |
+
+**So no roster can be narrowed into a rule, and #164's mechanism 2 is refuted as
+a family rather than as an instance.** That mechanism restricted the promotion to
+the `nuts` label alone; this table shows `Nuts` is itself 2 better and 6 worse.
+Every label that moves anything moves things both ways.
+
+**The distinction the data actually draws is per row, and nothing in a name
+carries it.** `Nuts, almonds` files a nut down the nut aisle, so `Nuts` is an
+aisle and the name is `almonds`. `Nuts, pine nuts` names pine nuts, so `Nuts` is
+half the name. `Cheese, cottage` is cottage cheese; `Cheese, parmesan` is
+parmesan. Both spellings are `Label, qualifier` and the corpus cannot tell them
+apart, which is #164's own sentence — both are just words in position 0 — now
+measured rather than asserted.
+
+## 12. What survives, and what it would cost
+
+**A per-row offset is the only shape left standing, and this sweep priced it at
+30 rows.** Two properties make that a real number rather than a gesture:
+
+- **No row is wanted both ways.** The 13 rows behind the better leads and the 30
+  behind the worse do not intersect, so a per-row list is coherent: no entry
+  would have to be right for one query and wrong for another.
+- **It is 30 against a ceiling of 25**, which is a near miss rather than a rout.
+  For scale, `ADJUDICATED_VARIANTS` carries 40 entries and the twin ledger 190.
+
+**The ceiling is not moved here.** It was set by analogy — 40 being the largest
+ranking-adjacent hand list in the repo — and an analogy is a weak thing to
+re-argue with the answer in view. A fresh ticket may set a ceiling from the
+maintenance cost of the list itself, which is the argument this note could not
+make before it had the 30 rows to look at.
+
+What such a ticket inherits, and did not have before today: the mechanism reaches
+six of the eight defects, the cost is bounded and coherent, the roster family is
+closed, and the 13 broken pins are the specification of what a list would have to
+leave standing.
