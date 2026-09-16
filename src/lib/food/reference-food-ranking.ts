@@ -56,7 +56,7 @@ const MODIFIED_PART = new Set(["light", "cooking"]);
  * The head phrases USDA writes as a shelf label instead of as the food's name.
  *
  * USDA names a food "Food, qualifier", and everything below leans on that: the
- * head phrase is the food's identity. For these sixteen it is not. A wine is
+ * head phrase is the food's identity. For these eighteen it is not. A wine is
  * filed as `Alcoholic beverage, wine, table, red` and a tea as
  * `Beverages, tea, green, …`, so the food's own name starts one or two words
  * in, and every key that reads WHERE a word sits charges the food for the walk
@@ -81,7 +81,7 @@ const MODIFIED_PART = new Set(["light", "cooking"]);
  * assumed: adding `oil` moves exactly one lead, `safflower` from
  * `Seeds, safflower seed kernels, dried` to `Oil, safflower`.
  *
- * Reaches 720 rows, pinned as a tripwire in `usda-corpus.test.ts` the way
+ * Reaches 549 rows, pinned as a tripwire in `usda-corpus.test.ts` the way
  * ADR-0055 §3 pinned `plainSibling`'s 131 (#131: an unmeasured guard is a hole).
  * Thirty-eight left with ADR-0061's drops — thirty-two under `milk`, which is
  * one of the eighteen labels, and six milk drinks under `beverages`.

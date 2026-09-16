@@ -5,7 +5,7 @@ import type { FoodResult } from "./food-search";
  * (ADR-0090 §4).
  *
  * The record's subject is display, never ranking: `SEARCH_RESULT_LIMIT` is
- * still what a search returns and `compareRelevance`'s ten keys still decide
+ * still what a search returns and `compareRelevance`'s twelve keys still decide
  * the order (ADR-0055). What is decided here is whether the list is entitled to
  * claim an order at all.
  *

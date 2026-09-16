@@ -107,9 +107,9 @@ export interface UsdaIndexRow {
  * The hand-written half of the Vocabulary map (ADR-0049's #141 Amendment): the
  * everyday names OFF's taxonomy does not carry either.
  *
- * `gammon`, `mange tout`, `caster sugar` — eight British food names that name a
+ * `gammon`, `mange tout`, `caster sugar` — seven British food names that name a
  * food this corpus holds and that neither the corpus nor OFF uses. It is a
- * SECTION of its own rather than eight more keys in `vocabulary_off`, and the
+ * SECTION of its own rather than seven more keys in `vocabulary_off`, and the
  * reason is the licence: the derived map is a substantial extraction from OFF
  * and so a derivative database under ODbL, and these words are nobody's
  * extraction. It carries a `source` and no `licence`, `url` or `sha256`, because

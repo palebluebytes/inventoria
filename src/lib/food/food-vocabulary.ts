@@ -310,8 +310,11 @@ export interface LocalVocabularyEntry {
 export const LOCAL_VOCABULARY_CEILING = 20;
 
 /**
- * The eight everyday food names OFF's taxonomy does not carry, and USDA does —
- * seven British regionalisms (#141) and one spelling (ADR-0061 §5, #177).
+ * The seven everyday food names OFF's taxonomy does not carry, and USDA does —
+ * six British regionalisms (#141) and one spelling (ADR-0061 §5, #177).
+ *
+ * Was eight until `jacket potato` left: the corpus stopped carrying baked foods,
+ * so the key reached nothing and its own guard took it out.
  *
  * Ordered by key, as the derived map is, so an addition diffs as one entry.
  */
