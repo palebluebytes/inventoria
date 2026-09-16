@@ -456,10 +456,21 @@ export const FACETS = [
       // build — `src/lib/food/bundled-artifact.ts`.
       "usda/search-index.json",
     ],
-    // Re-measured at #346, and the delta is **build to build, not against the
-    // figure this line used to hold**: HEAD already weighed 9,373,956 B before
-    // #346 touched anything, so this number also takes up 1,844 B of drift that
-    // #345 left behind. #346's own cost is +42,575 B (+41.6 KiB, +0.45%).
+    // Re-measured at #186, and it is the first time this number has gone DOWN.
+    // Build to build as always: HEAD already weighed 8,585,132 B before #186
+    // touched anything, so this line was 831,399 B below its own band and the
+    // floor had been failing for eleven days. #186's own cost is -5,440 B.
+    //
+    // What removed the weight is the uncooked-corpus arc rather than anything
+    // structural. `usda/search-index.json` is the only USDA artifact the root
+    // precaches, and it weighed 1,715,082 B when this line was last re-declared
+    // on 2026-09-04; ADR-0103 and ADR-0104 took the corpus from 4,238 rows to
+    // 2,025 and it now weighs 812,920 B. That is -902,162 B against -831,399 B
+    // of drift, so roughly 70,763 B of feature work grew back into the gap.
+    //
+    // **The manifest did not collapse**, which is the reading this floor exists
+    // to force somebody to check (ADR-0083 §3). The build emits 31 URLs and the
+    // search index is among them; the declaration was stale, not the derivation.
     //
     // The root has no pages at any width and can never show a report, and it
     // pays for one anyway: `FoodView` imports `ReportsPage` statically, so the
@@ -473,7 +484,7 @@ export const FACETS = [
     // `DailyDashboard` in its Food tab and therefore builds it, and it paid
     // only the component, because `habits` already carried
     // `@internationalized/date` into this bundle (ADR-0091, Consequences).
-    precacheBytes: 9_416_531,
+    precacheBytes: 8_579_692,
     status: "built",
   },
   {
@@ -529,16 +540,24 @@ export const FACETS = [
       "food/icons/rations-*.png",
       "food/icons/CREDITS.txt",
     ],
-    // Re-measured at #346, which gave Rations its third page. Build to build,
-    // not against the figure this line used to hold: HEAD already weighed
-    // 10,091,653 B, so this number also takes up 1,857 B of drift from #345.
-    // #346's own cost is +85,448 B (+83.4 KiB, +0.85%), against a ±5% band that
-    // is 497 KiB wide either side. Nearly all of it is bits-ui's range picker — the
-    // popover, the range calendar and the two-ended date field — which was new
-    // to this bundle the way `@internationalized/date` was new at #344
-    // (+58,485 B, +0.58%). The three readings themselves are folds over events
-    // the app already had and cost almost nothing.
-    precacheBytes: 10_177_101,
+    // Re-measured at #186, and down hard. Build to build: HEAD already weighed
+    // 7,071,373 B before #186 touched anything, so this line was 3,105,728 B
+    // below a band only 497 KiB wide either side. #186's own cost is -17,320 B.
+    //
+    // Rations owes all three artifacts whole, so it carries the whole of the
+    // uncooked corpus's shrinkage. Against the 2026-09-04 declaration the search
+    // index fell 1,715,082 B to 812,920 B and the Nutrient store 4,015,520 B to
+    // 1,751,028 B, then to 1,739,148 B here: -3,161,214 B between them, against
+    // -3,105,728 B of drift, so about 55,486 B of feature work grew back.
+    //
+    // **The manifest did not collapse.** Checked rather than assumed, because a
+    // Facet that installs and then finds no food is exactly what a floor and not
+    // a ceiling is for: the build emits 36 URLs, and both USDA artifacts and all
+    // three WASM binaries are among them.
+    //
+    // The saving ADR-0077 §1 accepted gets larger for free — a corpus this arc
+    // shrank for retrieval reasons is 3.1 MB nobody installs twice any more.
+    precacheBytes: 7_054_053,
     // Installability is definitional (ADR-0076 §1) and #305 is where Rations
     // gets a manifest of its own, so this is the ticket that flips it.
     status: "built",
