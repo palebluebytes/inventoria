@@ -938,7 +938,8 @@ state, the corpus is unchanged at 2,023 rows, and no query loses a row it
 returned before — including `raw` typed alone, which strips to the empty phrase,
 is not ranked, and still reaches the one row in the corpus that means the word.
 
-**How often this bites is still unmeasured, and the repair did not wait for it.**
+**How often this bites was unmeasured when the repair shipped, and §6 below has
+the number.** The repair did not wait for it.
 ADR-0053's search log records the typed query, so the question is answerable —
 zero-result sessions rescuable by the strip, against all sessions and against
 zero-result sessions — but the population is the last 200 recorded sessions since
@@ -948,3 +949,44 @@ the corpus rather than a property of the rule. Here it is not even a no-op — 1
 rows were unreachable by a word that was true of every one of them — and the
 repair deletes five special cases rather than adding any. The number belongs in
 the record when it arrives, not in front of it.
+
+### 6. The count, measured: nobody typed one
+
+The search log was exported on 2026-09-16, the day the strip shipped, and §5's
+question now has an answer rather than a procedure.
+
+**22 readable sessions**, over six distinct days from 2026-09-09, at channel
+`version: 2`; four older records were unreadable and are excluded, as the export
+excludes them. The dial was at Noisy, so every session carries its per-keystroke
+fires — which makes the population **62 distinct typed strings** rather than 22,
+counting each settled query, each correcting query, and every prefix the search
+fired on along the way.
+
+**None of the 62 holds a state qualifier. Zero-result sessions rescuable by the
+strip: 0 of 3.**
+
+**The null is real and it is weak, and the second half matters as much as the
+first.** 16 of the 22 queries are a single token, and most of those are a prefix
+of one — three to six characters of one food word, then a pick from the list.
+A carrier phrase is not a shape this device produced at all, so what the export
+establishes is that one person typed no preparation word in six days of ordinary
+use. It cannot establish that the defect is rare, and it prices nothing.
+
+**The same export refutes nothing about §1 either, and says so about #142's
+mechanism too:** `mid_phrase` is empty on all 22, so not one recorded query had a
+vocabulary key sitting inside a longer phrase. The per-token tier the #142
+Amendment left unlicensed has no evidence here to license it.
+
+**Three sessions returned nothing, and they are three different defects, none of
+them this one.** One was a typo that prefixes no word in the corpus, which is the
+matcher behaving correctly and is not a defect at all. One returned nothing under
+schema 8 and returns three rows today, having been fixed by a corpus change
+nobody aimed at it. The third is live: a query naming a food this corpus holds
+under a name it does not use, which is this record's own class, with a target and
+no key. It is filed as
+[#473](https://github.com/palebluebytes/inventoria/issues/473).
+
+So the measurement's yield is not the number it was asked for. It is that the one
+instrument pointed at this question found, in its whole recorded history, a single
+actionable failure — and that failure is §4's hand-written half being one entry
+short, not a carrier word.
