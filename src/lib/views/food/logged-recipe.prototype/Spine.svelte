@@ -34,6 +34,15 @@
   // pairs on the ledger for one correction; a dock at the foot of the spine
   // makes it one. The cost is that this is the one variant of the three with an
   // unsaved state to lose, and the dock is what has to make that obvious.
+  //
+  // **Chosen at round two, then tightened.** The per-ingredient kcal is gone
+  // and the amount field shrank in both directions. Both moves say the same
+  // thing about what an open recipe is FOR: it is the place you fix an amount,
+  // not a second nutrition panel. The figure that matters is the occasion's,
+  // and that is on the parent row where the day reads it; a column of per-row
+  // kcal only competed with the amounts beside it and pushed the names into an
+  // ellipsis. The line is now name · amount · unit · ✕, which is the shortest
+  // thing that can still be edited.
   let { item }: { item: ConsumptionEvent } = $props();
 
   // Seeded once, on purpose: the draft is this occasion's edit buffer.
@@ -82,7 +91,6 @@
           <span class="line-unit"
             >{row.unit === "serving" ? "srv" : row.unit}</span
           >
-          <span class="line-cals">{Math.round(row.calories)}</span>
           <button
             type="button"
             class="line-x"
@@ -181,14 +189,25 @@
     text-overflow: ellipsis;
   }
   /* Every row's amount is live the moment the recipe is open — no second tap,
-     no line that has to be chosen before it can be changed. */
+     no line that has to be chosen before it can be changed.
+
+     **A small box, and deliberately smaller than a control usually gets here.**
+     The field holds three or four characters and sits on a line whose whole
+     height is still the tap floor, so the tappable area a thumb actually meets
+     is the line; the box is what the eye reads down the column. What it costs
+     is real and belongs in the record when this ships: ADR-0093 binds the floor
+     to the BOX, not to the row it sits on, and ADR-0098 widened that to every
+     control — so a 2rem-high field is an exemption somebody has to argue, or a
+     row that grows its hit area back some other way.
+
+     The text stays at 16px whatever the box does: under it, a phone zooms the
+     page on focus and the day goes sideways. */
   .line-amt {
-    width: 4.2rem;
-    min-height: var(--tap-min);
+    width: 3.4rem;
+    height: 2rem;
     border: var(--edge-thin);
     padding: 0 var(--space-3xs);
     font: inherit;
-    /* 16px floor, or a phone zooms the page on focus. */
     font-size: var(--step-0);
     font-variant-numeric: tabular-nums;
     text-align: right;
@@ -198,14 +217,6 @@
     font-size: var(--step-n3);
     font-weight: 700;
     color: var(--text-secondary);
-  }
-  .line-cals {
-    flex-shrink: 0;
-    min-width: 3em;
-    font-size: var(--step-n2);
-    font-weight: 700;
-    text-align: right;
-    font-variant-numeric: tabular-nums;
   }
   .line-x {
     flex-shrink: 0;

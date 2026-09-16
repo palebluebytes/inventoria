@@ -35,6 +35,10 @@
  *   F  hanging from the parent children are lines on a rule dropped from the
  *                             parent's left edge, and every amount is already a
  *                             field. One Save at the foot, for the whole set.
+ *                             **This is the one that was chosen**, then
+ *                             tightened: no per-row kcal, and a smaller amount
+ *                             box — an open recipe is where an amount is fixed,
+ *                             not a second nutrition panel.
  *
  * `B` is round one's group header, kept for contrast — the arrangement that was
  * close with the parent that was not. `now` is what ships.
@@ -78,7 +82,7 @@ export const VARIANT_NAMES: Record<Variant, string> = {
 export const VARIANT_NOTES: Record<Variant, string> = {
   D: "The children are lines INSIDE the parent's frame — one card, one ✕, one place in the list. Tap a line and its amount becomes a field in place; ✓ writes.",
   E: "The children are the same logged card, one size down, inset a step. Tapping one opens the app's amount picker, exactly as a banana does. Open by default.",
-  F: "Lines on a rule dropped from the parent's left edge, every amount already a field. Opening IS editing, and one Save at the foot commits the set.",
+  F: "Chosen. Lines on a rule dropped from the parent's left edge; every amount is already a field and one Save at the foot commits the set. No per-row kcal — the occasion's figure is on the parent.",
   B: "Round one: the recipe becomes a header line over its rows. The arrangement that was close, with the parent that was not.",
   now: "A bottom sheet over the whole day, re-seeded from the current twins, committing by retract-and-replace.",
 };
