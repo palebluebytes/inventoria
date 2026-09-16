@@ -21,6 +21,7 @@ import {
   type NutrientUnit,
 } from "./nutrient-display";
 import {
+  portionMagnitude,
   portionMeasure,
   PER_100G,
   PER_100ML,
@@ -107,19 +108,14 @@ export const ALL_FIELDS: FieldDef[] = [...CORE, ...DETAIL, ...MICROS];
  * One household-portion row as typed in the form (mirrors {@link Portion}).
  *
  * The row carries the unit its magnitude is in, which is the whole of #460's
- * fix. It is NOT a choice the row offers: `portionRows` reads it off the
+ * fix. It is NOT a choice the row offers: {@link portionRows} reads it off the
  * portion's own magnitude, and a row the user adds takes the form's basis unit.
  * There is deliberately no control to change it — the form already answers the
  * g-versus-ml question once, above, and an earlier build that asked it twice
  * found the two controls could disagree.
  *
- * What the unit decides is whether a row is **editable**: a row whose unit
- * matches the form's basis is typed in, and one whose unit does not is shown
- * read-only rather than hidden (ADR-0060 §6's two real shapes — a drink
- * powder's prepared-100 ml serving on a per-100 g panel, an oat carton's 100 g
- * on a per-100 ml one). That rule also catches a row stranded by the user
- * flipping the basis under it: nothing is converted and nothing is cleared, the
- * row simply stops being editable.
+ * What the unit decides is whether a row is editable
+ * ({@link portionRowIsEditable}).
  */
 export interface PortionRow {
   label: string;
@@ -127,10 +123,55 @@ export interface PortionRow {
   amount: string;
   /** The unit that magnitude is in — which sibling {@link buildPortions} fills. */
   unit: MeasuredUnit;
-  /** The source portion's own `amount`, preserved so an untouched row round-trips. */
-  sourceAmount?: number;
-  /** The source portion's own `unit`, preserved for the same reason. */
-  sourceUnit?: string;
+  /**
+   * The portion this row was seeded from, held whole so an untouched row is
+   * re-emitted **exactly** as it was read rather than rebuilt from the two boxes
+   * the form can show. Absent on a row the user added, which has no source to
+   * preserve — that absence is the row's provenance, not a missing value.
+   */
+  source?: Portion;
+}
+
+/** A twin's portion as the row that shows it. The one place the mapping lives,
+ *  so {@link buildPortions} can ask whether a row still equals its source. */
+function seededRow(portion: Portion, fallbackUnit: MeasuredUnit): PortionRow {
+  const measure = portionMeasure(portion);
+  return {
+    label: portion.label,
+    amount: measure ? String(measure.amount) : "",
+    unit: measure?.unit ?? fallbackUnit,
+    source: portion,
+  };
+}
+
+/** True when nothing has been typed into a row — both boxes empty. */
+export function portionRowIsBlank(row: PortionRow): boolean {
+  return row.label.trim() === "" && row.amount.trim() === "";
+}
+
+/**
+ * Whether the form may type into this row, given the unit its panel is in.
+ *
+ * The rule of #460, and it lives here rather than in the template because it is
+ * the decision the ticket turns on: a row stating a magnitude in the unit the
+ * panel does not take is shown **read-only**, in its own unit, rather than
+ * hidden. That covers ADR-0060 §6's two real shapes — a drink powder's
+ * prepared-100 ml serving against a per-100 g panel, an oat carton's 100 g
+ * against a per-100 ml one — and a third §6 could not have: a row stranded by
+ * the user flipping the basis underneath it. Nothing converts and nothing clears
+ * on a flip; the row simply stops being editable.
+ *
+ * A blank row is always editable whatever unit it was minted in. Its unit is a
+ * placeholder for a magnitude nobody has typed yet, so locking it would strand
+ * an EMPTY row the user could only delete — a trap with nothing on the other
+ * side of it, where a locked row that holds a magnitude is at least showing
+ * something true.
+ */
+export function portionRowIsEditable(
+  row: PortionRow,
+  panelUnit: MeasuredUnit
+): boolean {
+  return row.unit === panelUnit || portionRowIsBlank(row);
 }
 
 /**
@@ -143,78 +184,89 @@ export interface PortionRow {
  * showed in exactly zero places — not in this form, and not in the picker
  * either, since `portionPresets` drops a portion in the other unit on a food
  * with no Density Class. A user could not tell the portion was there at all
- * (#460). Byte-exactness is kept by `sourceAmount`/`sourceUnit` instead, so
- * nothing was traded away to get the visibility.
+ * (#460). The byte-exactness is kept, by `source` and the untouched rule in
+ * {@link buildPortions}, so nothing was traded away to get the visibility.
  *
  * A portion carrying no usable magnitude ({@link portionMeasure} says `null`)
- * becomes a blank row in `fallbackUnit` — the form's own basis — and stays
- * editable, because a portion naming a household measure and no amount is
- * precisely what a correction form exists to correct. It is also the shape
- * {@link buildPortions} now writes for an unparseable magnitude, so the form can
- * read back every portion it can write.
+ * becomes a blank row in `panelUnit` and stays editable, because a portion
+ * naming a household measure and no amount is precisely what a correction form
+ * exists to correct. Left alone it is re-emitted untouched, exactly as the
+ * `carried` list used to do for it.
+ *
+ * `panelUnit` is required rather than defaulted: a default would read as a
+ * sensible fallback while quietly seeding every malformed portion of a drink
+ * into a gram row.
  */
 export function portionRows(
   portions: Portion[] | undefined,
-  fallbackUnit: MeasuredUnit = "g"
+  panelUnit: MeasuredUnit
 ): PortionRow[] {
-  return (portions ?? []).map((portion) => {
-    const measure = portionMeasure(portion);
-    return {
-      label: portion.label,
-      amount: measure ? String(measure.amount) : "",
-      unit: measure?.unit ?? fallbackUnit,
-      sourceAmount: portion.amount,
-      sourceUnit: portion.unit,
-    };
-  });
+  return (portions ?? []).map((portion) => seededRow(portion, panelUnit));
 }
 
 /**
  * The form's rows → the portions a twin stores: the inverse of
  * {@link portionRows}, and here beside it so the two cannot drift.
  *
- * Three rules the component used to carry, each of them a defect from the era
- * when this lived inside the Svelte file and nothing could test the round trip:
+ * **A row still equal to what it was seeded from is re-emitted verbatim.** That
+ * is what makes the round trip byte-exact, and it reaches further than the two
+ * boxes could: a portion whose magnitude is `NaN`, or one Open Food Facts
+ * published as the string `"7"` rather than a number (#433), is a portion
+ * `portionMeasure` cannot read and the form cannot honestly show — and it
+ * survives a re-save anyway, untouched, exactly as the old `carried` list
+ * ensured. Correcting the form must never be how a twin quietly loses a row.
  *
- * - **The magnitude goes into the sibling its unit names**, so a hand-typed
- *   volume is stored as one. Before #460 every typed row was written as `grams`
- *   — a form comment said so outright — which is why a refused millilitre
- *   portion had no door back.
+ * A row the user DID touch is rebuilt from what they typed, under three rules,
+ * each of them a defect from the era when this lived inside the Svelte file and
+ * nothing could test the round trip:
+ *
+ * - **The magnitude goes into the sibling its unit names** ({@link portionMagnitude}),
+ *   so a hand-typed volume is stored as one. Before #460 every typed row was
+ *   written as `grams` — a form comment said so outright — which is why a
+ *   refused millilitre portion had no door back.
  * - **An unparseable magnitude writes neither sibling.** It was
  *   `Number(x) || 0`, which made a blank or non-numeric box a genuine zero-gram
  *   portion: `portionMeasure` reads 0 as a real magnitude, so the picker offered
  *   a chip that filled nothing. Absent ≠ 0 is the rule the rest of this form is
  *   built on (#28, ADR-0030) and this was the last row ignoring it.
- * - **`amount`/`unit` are the source's where there is one.** They were rebuilt
- *   from the label on every save, so a scanned twin's `unit: "medium"` came back
- *   as `unit: "1 medium"` — a field no longer holding a unit. Nothing reads
- *   those fields today, which is a fact about today's readers rather than a
- *   licence to write a false value into the ledger.
+ * - **`amount` and `unit` are minted from the label.** They always were; what is
+ *   new is that an UNTOUCHED row no longer goes through it, so a scanned twin's
+ *   `unit: "medium"` stops coming back as `unit: "1 medium"`. For a row somebody
+ *   edited there is nothing better available — the form has no separate box for
+ *   a count and a unit, and keeping the old source pair beside a label the user
+ *   has just rewritten would be staler still.
  *
- * A row with no label is dropped, not written: every reader keys on the label —
- * `resolvePortionAmount` matches it, `formatPortionPreset` falls back to it — so
- * a nameless portion is a chip that renders as an empty string.
+ * A touched row with no label is dropped, not written: every reader keys on the
+ * label — `resolvePortionAmount` matches it, `formatPortionPreset` falls back to
+ * it — so a nameless portion is a chip that renders as an empty string. An
+ * untouched one is re-emitted by the rule above, so this never deletes a
+ * nameless portion a source published.
  */
 export function buildPortions(rows: PortionRow[]): Portion[] {
   const portions: Portion[] = [];
   for (const row of rows) {
+    if (row.source && rowsMatch(row, seededRow(row.source, row.unit))) {
+      portions.push(row.source);
+      continue;
+    }
     const label = row.label.trim();
     if (label === "") continue;
-    const amount = Number(row.amount.trim());
-    const magnitude =
-      row.amount.trim() !== "" && Number.isFinite(amount) ? amount : undefined;
+    const typed = row.amount.trim();
+    const amount = typed === "" ? undefined : Number(typed);
     portions.push({
       label,
-      amount: row.sourceAmount ?? 1,
-      unit: row.sourceUnit ?? label,
-      ...(magnitude === undefined
-        ? {}
-        : row.unit === "ml"
-          ? { millilitres: magnitude }
-          : { grams: magnitude }),
+      amount: 1,
+      unit: label,
+      ...portionMagnitude(amount, row.unit),
     });
   }
   return portions;
+}
+
+/** Whether two rows show the same thing — the "untouched" test, on the three
+ *  fields the form can change. */
+function rowsMatch(a: PortionRow, b: PortionRow): boolean {
+  return a.label === b.label && a.amount === b.amount && a.unit === b.unit;
 }
 
 /**

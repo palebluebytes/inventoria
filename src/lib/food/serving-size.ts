@@ -908,3 +908,31 @@ export function soleMagnitudeUnit(
   if (!rest.every((magnitude) => restates(first, magnitude))) return undefined;
   return isMeasured(first.unit) ? first.unit : undefined;
 }
+
+/**
+ * True when `text` is **nothing but** one magnitude — `"30 g"`, `"330 ml"`,
+ * `"1 litre"`, or a bare `"30"` with no unit at all.
+ *
+ * It is the vocabulary question behind `portionLabelIsBareAmount`, and it lives
+ * here so there is one unit vocabulary rather than two. A hand-written list of
+ * spellings beside this file's {@link MAGNITUDE_TOKEN} would be a near-duplicate
+ * of the very thing #141/#139 built — and a narrower one, since OFF spells its
+ * units in every language it publishes in and a label typed by a person may use
+ * any of them.
+ *
+ * "Nothing but" is the whole of the difference from {@link soleMagnitudeUnit}:
+ * `"1 biscuit (12 g)"` names one magnitude, and is a perfectly good portion
+ * NAME. What this asks is whether the label has anything left once its magnitude
+ * is taken away.
+ */
+export function isBareMagnitude(text: string): boolean {
+  const trimmed = text.trim();
+  if (trimmed === "") return false;
+  if (/^\d+(?:[.,]\d+)?$/.test(trimmed)) return true;
+  // `MAGNITUDE_TOKEN` is a module-level /g regex, so its `lastIndex` persists
+  // between calls; matchAll takes its own copy and leaves the shared one alone.
+  const matches = [...trimmed.matchAll(MAGNITUDE_TOKEN)];
+  if (matches.length !== 1) return false;
+  const [match] = matches;
+  return match.index === 0 && match[0].length === trimmed.length;
+}

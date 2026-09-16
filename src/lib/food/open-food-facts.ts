@@ -8,6 +8,7 @@ import {
   type NutritionInfo,
   type MeasuredUnit,
   type Portion,
+  portionMagnitude,
 } from "./nutrition";
 import { buildRawProvenance, type RawProvenance } from "./provenance";
 import { namesMoreThanOneMagnitude, soleMagnitudeUnit } from "./serving-size";
@@ -523,9 +524,9 @@ function offPortions(
   const unit = servingUnit(serving_quantity_unit, serving_size);
   if (unit === undefined) return [];
   const label = serving_size?.trim() || "1 serving";
-  const magnitude =
-    unit === "ml" ? { millilitres: quantity } : { grams: quantity };
-  return [{ label, amount: 1, unit: "serving", ...magnitude }];
+  return [
+    { label, amount: 1, unit: "serving", ...portionMagnitude(quantity, unit) },
+  ];
 }
 
 /**

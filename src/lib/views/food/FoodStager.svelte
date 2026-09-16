@@ -62,6 +62,8 @@
     invertServingSize,
     resolveServingSize,
     buildPortions,
+    portionRowIsBlank,
+    portionRowIsEditable,
     portionRows,
     toDisplay,
     type FieldDef,
@@ -1929,6 +1931,19 @@
       (method === "scan" && !staged && !!barcode.trim())
   );
 
+  // A row nobody has typed into carries the panel's unit, following it across a
+  // basis flip. The flip converts nothing and clears nothing (ADR-0060 §6's
+  // 2026-09-16 amendment) — and an EMPTY row has nothing to convert, so this
+  // contradicts none of that. Without it a row minted in ml and left blank while
+  // the pack turns out to be grams would take the user's first keystroke and
+  // store it as millilitres.
+  $effect(() => {
+    const unit = effectiveUnit;
+    for (const row of customPortions) {
+      if (portionRowIsBlank(row) && row.unit !== unit) row.unit = unit;
+    }
+  });
+
   // Seed the portion rows from a twin's saved `food/portions`. The reading is
   // `portionRows` in the form's own domain module; this only lands it in state.
   // Both callers set `customBasis` first, so `effectiveUnit` is already the
@@ -2757,7 +2772,7 @@
                            by keyboard; the ✕ stays for the same reason, since a
                            row you can neither edit nor remove is a worse trap
                            than the invisibility this replaced. -->
-                      {@const locked = p.unit !== effectiveUnit}
+                      {@const locked = !portionRowIsEditable(p, effectiveUnit)}
                       <div class="cf-prow">
                         <input
                           class:cf-in-warn={weird}
@@ -2785,16 +2800,17 @@
                           aria-label="Remove portion">✕</button
                         >
                       </div>
-                      {#if weird}
-                        <!-- The label is just a weight, so it only restates the grams
-                     column — nudge a real household unit (mirrors the chip
-                     collapse in formatPortionPreset). Non-blocking. -->
+                      {#if weird && !locked}
+                        <!-- The label is just an amount, so it only restates the
+                     column beside it — nudge a real household unit (mirrors the
+                     chip collapse in formatPortionPreset). Non-blocking, and not
+                     shown on a locked row: it asks for an edit that row refuses. -->
                         <p
                           class="cf-prow-warn"
-                          data-testid="portion-weight-warning"
+                          data-testid="portion-amount-warning"
                         >
-                          That's a weight, not a portion name — try a household
-                          unit like “1 slice” or “1 biscuit”.
+                          That's an amount, not a portion name — try a household
+                          unit like “1 slice” or “1 can”.
                         </p>
                       {/if}
                     {/each}

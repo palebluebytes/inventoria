@@ -7,6 +7,7 @@ import {
   toGrams,
   portionRows,
   buildPortions,
+  portionRowIsEditable,
   ALL_FIELDS,
 } from "../../src/lib/food/label-form";
 import { parseBasisQuantity } from "../../src/lib/food/nutrition";
@@ -190,47 +191,58 @@ describe("portionRows (a twin's portions → the form's rows)", () => {
     // unrendered, so a drink's "1 can — 330 ml" was data the form concealed
     // from the one person correcting it (#460). Every portion is a row now;
     // what the form's basis decides is which rows are EDITABLE, not which exist.
-    expect(portionRows([medium, can])).toEqual([
-      {
-        label: "1 medium",
-        amount: "118",
-        unit: "g",
-        sourceAmount: 1,
-        sourceUnit: "medium",
-      },
-      {
-        label: "1 can",
-        amount: "330",
-        unit: "ml",
-        sourceAmount: 1,
-        sourceUnit: "serving",
-      },
+    expect(portionRows([medium, can], "g")).toEqual([
+      { label: "1 medium", amount: "118", unit: "g", source: medium },
+      { label: "1 can", amount: "330", unit: "ml", source: can },
     ]);
   });
 
   it("keeps source order, mixed units and all", () => {
-    expect(portionRows([can, medium]).map((r) => r.unit)).toEqual(["ml", "g"]);
+    expect(portionRows([can, medium], "g").map((r) => r.unit)).toEqual([
+      "ml",
+      "g",
+    ]);
   });
 
   it("seeds a portion with no usable magnitude as a repairable blank row", () => {
-    // It has no unit of its own to show, so it takes the form's — and it is
-    // left EDITABLE rather than read-only, because a portion naming a household
-    // measure and no amount is exactly what a correction form exists to fix.
+    // It has no unit of its own to show, so it takes the panel's.
     const malformed: Portion = { label: "1 splash", amount: 1, unit: "splash" };
     expect(portionRows([malformed], "ml")).toEqual([
-      {
-        label: "1 splash",
-        amount: "",
-        unit: "ml",
-        sourceAmount: 1,
-        sourceUnit: "splash",
-      },
+      { label: "1 splash", amount: "", unit: "ml", source: malformed },
     ]);
   });
 
   it("is empty for a portion-less or missing food", () => {
-    expect(portionRows([])).toEqual([]);
-    expect(portionRows(undefined)).toEqual([]);
+    expect(portionRows([], "g")).toEqual([]);
+    expect(portionRows(undefined, "g")).toEqual([]);
+  });
+});
+
+describe("portionRowIsEditable (which rows the panel's unit can type)", () => {
+  it("is true for a row stated in the panel's own unit", () => {
+    expect(
+      portionRowIsEditable({ label: "1 slice", amount: "34", unit: "g" }, "g")
+    ).toBe(true);
+  });
+
+  it("is false for a row stated in the other unit", () => {
+    // ADR-0060 §6's two real shapes: a drink powder's prepared-100 ml serving
+    // against a per-100 g panel, an oat carton's 100 g against a per-100 ml one.
+    expect(
+      portionRowIsEditable({ label: "1 can", amount: "330", unit: "ml" }, "g")
+    ).toBe(false);
+  });
+
+  it("is true for a blank row whatever unit it was minted in", () => {
+    // Locking an EMPTY row would strand it with nothing on the other side: the
+    // user could only delete it. A row minted in ml and left untyped while the
+    // basis flips to g is exactly that row.
+    expect(
+      portionRowIsEditable({ label: "", amount: "", unit: "ml" }, "g")
+    ).toBe(true);
+    expect(
+      portionRowIsEditable({ label: " ", amount: " ", unit: "ml" }, "g")
+    ).toBe(true);
   });
 });
 
@@ -256,18 +268,53 @@ describe("buildPortions (the form's rows → a twin's portions)", () => {
       { label: "1 medium", amount: 1, unit: "medium", grams: 118 },
       { label: "1 can", amount: 1, unit: "serving", millilitres: 330 },
     ];
-    expect(buildPortions(portionRows(portions))).toEqual(portions);
+    expect(buildPortions(portionRows(portions, "g"))).toEqual(portions);
   });
 
-  it("mints amount and unit from the label only for a row the user typed", () => {
-    expect(
-      buildPortions([{ label: "2 biscuits", amount: "18", unit: "g" }])
-    ).toEqual([
-      { label: "2 biscuits", amount: 1, unit: "2 biscuits", grams: 18 },
+  it("re-emits an untouched portion the form cannot even show", () => {
+    // The guarantee the deleted `carried` list used to give, and the reason the
+    // row holds its whole source rather than two fields off it. A magnitude
+    // `portionMeasure` refuses — OFF publishes some as the STRING "7" (#433) —
+    // seeds a blank box, and correcting the form must not be how the twin
+    // quietly loses the row.
+    const unreadable = [
+      { label: "1 splash", amount: 1, unit: "splash" },
+      { label: "1 sachet", amount: 1, unit: "sachet", grams: Number.NaN },
+      {
+        label: "1 scoop",
+        amount: 1,
+        unit: "scoop",
+        grams: "7",
+      } as unknown as Portion,
+      { label: "", amount: 1, unit: "serving", grams: 12 },
+    ] satisfies Portion[] as Portion[];
+    expect(buildPortions(portionRows(unreadable, "g"))).toEqual(unreadable);
+  });
+
+  it("keeps a source label's exact spelling, spaces and all", () => {
+    const padded: Portion = {
+      label: "  1 slice  ",
+      amount: 1,
+      unit: "slice",
+      grams: 34,
+    };
+    expect(buildPortions(portionRows([padded], "g"))).toEqual([padded]);
+  });
+
+  it("rebuilds a row the user edited, rather than keeping a stale source unit", () => {
+    // Retitling "1 medium" to "1 large" must not save `unit: "medium"`. The
+    // untouched rule keys on the row still EQUALLING its source, not on the
+    // source merely being present.
+    const [row] = portionRows(
+      [{ label: "1 medium", amount: 1, unit: "medium", grams: 118 }],
+      "g"
+    );
+    expect(buildPortions([{ ...row, label: "1 large" }])).toEqual([
+      { label: "1 large", amount: 1, unit: "1 large", grams: 118 },
     ]);
   });
 
-  it("writes neither sibling when the magnitude will not parse, never a 0", () => {
+  it("writes neither sibling when a touched magnitude will not parse, never a 0", () => {
     // The absent-not-zero guard the rest of this form is built on (#28,
     // ADR-0030), reaching the last row that ignored it: `Number(x) || 0` made a
     // blank box a genuine zero-gram portion, and the picker offered a chip that
@@ -280,7 +327,7 @@ describe("buildPortions (the form's rows → a twin's portions)", () => {
     ).toEqual([{ label: "1 slice", amount: 1, unit: "1 slice" }]);
   });
 
-  it("drops a row carrying an amount and no name", () => {
+  it("drops a touched row carrying an amount and no name", () => {
     // Every reader keys on the label — `resolvePortionAmount` matches it and
     // `formatPortionPreset` falls back to it — so a nameless portion is a chip
     // that renders as an empty string.

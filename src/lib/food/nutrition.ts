@@ -10,6 +10,8 @@
  * schema.org export. Every macro field is optional — an adapter populates only
  * the subset its source actually provides.
  */
+import { isBareMagnitude } from "./serving-size";
+
 export interface NutritionInfo {
   /** schema.org servingSize — the basis of these values, e.g. "100 g". */
   serving_size: string;
@@ -254,6 +256,26 @@ export function portionMeasure(
   return null;
 }
 
+/**
+ * A magnitude and its unit as the exactly-one-of pair a {@link Portion} stores —
+ * the **one writer** of that pair, and the mirror of {@link portionMeasure},
+ * which is its one reader. A caller spreads the result into the portion it is
+ * building, so no source has to decide for itself which of the two field names
+ * a millilitre goes in.
+ *
+ * An absent or unusable magnitude writes **neither** field, which is what makes
+ * it safe for a form: absent is not zero (#28, ADR-0030), and a portion carrying
+ * a real `0` reads back through `portionMeasure` as a genuine magnitude of
+ * nothing — a chip the picker offers and that fills nothing when tapped.
+ */
+export function portionMagnitude(
+  amount: number | undefined,
+  unit: MeasuredUnit
+): Pick<Portion, "grams" | "millilitres"> {
+  if (amount === undefined || !Number.isFinite(amount)) return {};
+  return unit === "ml" ? { millilitres: amount } : { grams: amount };
+}
+
 /** The EAVT attribute that holds a food twin's ordered household portions. */
 export const FOOD_PORTIONS_ATTR = "food/portions";
 
@@ -349,6 +371,11 @@ export interface PortionPreset {
  * a unit now, so the ground is spent and the narrowing with it — a rule
  * outliving its reason is how the next reader gets misled.
  *
+ * The unit vocabulary is `serving-size.ts`'s own rather than a list written
+ * here: it is the one this app already reads OFF's servings with, in every
+ * language OFF spells them, and a second copy would be a narrower duplicate of
+ * the thing #139/#141 built.
+ *
  * The check is deliberately unit-AGNOSTIC rather than asked against the row's
  * own unit: "330 ml" is no more a portion name in a gram row than in a
  * millilitre one, and pairing the two would only add a way to miss it. It is
@@ -356,11 +383,7 @@ export interface PortionPreset {
  * one asks whether a label equals the amount a portion actually RESOLVES to.
  */
 export function portionLabelIsBareAmount(label: string): boolean {
-  const t = label.trim().toLowerCase();
-  if (t === "") return false;
-  return /^\d+(?:\.\d+)?\s*(?:g|gram|grams|ml|millilitre|millilitres|milliliter|milliliters|l|litre|litres|liter|liters)?$/.test(
-    t
-  );
+  return isBareMagnitude(label);
 }
 
 /**

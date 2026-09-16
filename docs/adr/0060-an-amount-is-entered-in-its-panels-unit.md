@@ -618,7 +618,14 @@ unit, rather than hidden. That covers the two shapes §6 already names — a dri
 powder's prepared-100 ml serving against a per-100 g panel, an oat carton's 100 g
 against a per-100 ml one — and it covers a third §6 could not have: a row stranded
 by the user flipping the basis underneath it. Nothing is converted and nothing is
-cleared on a flip; the row simply stops being editable. This record converts
+cleared on a flip; the row simply stops being editable.
+
+A **blank** row is the exception, and it is editable whatever unit it was minted
+in, following the panel across a flip. Its unit stands for a magnitude nobody has
+typed yet, so moving it converts nothing — there is nothing there to convert.
+Locking it instead would strand an empty row the user could only delete, a trap
+with nothing on the other side of it, where a locked row holding a magnitude is
+at least showing something true. This record converts
 nothing anywhere, which is what keeps it clear of [ADR-0108](0108-a-volume-food-is-weighed-by-the-class-you-say-it-is.md):
 a Density Class turns a volume into a weight, where this is only about _stating_
 a volume.
@@ -641,13 +648,31 @@ sibling made three things visible at once, each fixed here:
 - **Every save rewrote `amount` and `unit` from the label**, so a scanned twin's
   `unit: "medium"` came back as `unit: "1 medium"` — a field no longer holding a
   unit. Nothing in the app reads those fields today, which is a fact about
-  today's readers and not a licence to write a false value into the ledger. A row
-  the user did not touch now round-trips byte-exact; `amount: 1, unit: <label>` is
-  minted only for a row they typed. This is the byte-exactness `carried` used to
-  give for free, kept rather than spent.
+  today's readers and not a licence to write a false value into the ledger.
 - **A row with an amount and no label was written.** Every reader keys on the
   label — `resolvePortionAmount` matches it, `formatPortionPreset` falls back to
-  it — so such a portion is a chip that renders as an empty string. It is dropped.
+  it — so such a portion is a chip that renders as an empty string. A row the
+  user touched is dropped.
+
+### An untouched row is re-emitted verbatim, and that is what keeps the round trip exact
+
+A row holds its **whole source portion**, not two fields read off it, and a row
+still equal to what it was seeded from is written back exactly as it was read.
+`carried` used to give that for free and it is not spent here.
+
+It has to reach further than the two boxes can, which is the point. A magnitude
+`portionMeasure` refuses — `NaN`, or one Open Food Facts published as the string
+`"7"` rather than a number (#433) — is a portion this form cannot honestly show,
+and it survives a re-save untouched. The same rule protects a nameless portion a
+source published, which the drop-the-nameless rule above would otherwise delete.
+Correcting a twin must never be how that twin quietly loses a row.
+
+A row somebody **edited** is rebuilt from what they typed, `amount: 1,
+unit: <label>` included. There is nothing better available: the form has no
+separate box for a count and a unit, and keeping the old source pair beside a
+label just rewritten would be staler still. Keying on the row still _equalling_
+its source, rather than on a source merely being present, is what makes that
+true — retitling "1 medium" to "1 large" must not save `unit: "medium"`.
 
 A portion carrying no usable magnitude at all — which OFF publishes, and which
 the first fix above now lets this form write — seeds as a blank **editable** row
@@ -663,7 +688,17 @@ is under unit test for the first time. `portionLabelIsBareWeight` becomes
 `portionLabelIsBareAmount` and stops being weights-only: its narrowing was
 justified by the grams box that no longer exists, and "330 ml" is as
 uninformative a portion _name_ as "30 g". The check stays unit-agnostic rather
-than asked against the row's own unit, which would only add a way to miss it.
+than asked against the row's own unit, which would only add a way to miss it, and
+it reads its unit vocabulary from `serving-size.ts` rather than a list of its
+own — that vocabulary is the one this app already parses OFF's servings with, in
+every language OFF spells them (#139, #141), and a second copy would be a
+narrower duplicate. The nudge it drives is not shown on a locked row, where it
+would ask for an edit that row refuses.
+
+`portionMagnitude` joins `portionMeasure` in `nutrition.ts` as the **one writer**
+of the exactly-one-of pair, mirroring the one reader §6 already established.
+`offPortions` and this form both go through it, rather than each deciding for
+itself which of the two field names a millilitre goes in.
 
 Nothing about Open Food Facts contributions changes: `buildOffWriteBody` posts no
 portions, and the `serving_size` it does post is skipped for every per-100 panel
