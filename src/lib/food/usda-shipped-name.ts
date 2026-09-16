@@ -203,11 +203,22 @@ export function stripDesignationTag(description: string): string {
  * `Pork, cured, ham, patties, unheated`, and the hand-written vocabulary entry's
  * own guard is what caught it.
  *
- * Exact whole segments only, which the positional strip already guarantees and
- * which matters here more than elsewhere. Six rows write the state with a
- * parenthetical after it, and in two of them the parenthetical IS the food:
- * `raw (liquid expressed from grated meat)` is coconut cream, not a raw
- * anything. Those keep their names whole.
+ * Whole segments, read as a PHRASE rather than as raw text, and the difference
+ * is five rows. This used to read "exact whole segments only", on the ground
+ * that in two of the rows welding a bracket to the state the parenthetical IS
+ * the food - `raw (liquid expressed from grated meat)` being coconut cream,
+ * not a raw anything.
+ *
+ * **That argument is withdrawn (#407).** It does not survive its own result:
+ * strip the segment whole and what is left is `Nuts, coconut cream`, which
+ * names the food exactly, because the head phrase was already carrying the
+ * name the gloss was said to be carrying. The gloss restated the name; it did
+ * not hold it. Keeping it cost the two coconuts, the shrimp, the walrus and
+ * `Beef, tripe` a word USDA wrote and this corpus does not use, and left them
+ * the only rows in 2,025 still saying it.
+ *
+ * See {@link strippablePhrase} and {@link WELDED_STATE} for the two shapes the
+ * weld takes, and for the archive measurement that bounds them at five rows.
  */
 export const STATE_QUALIFIERS: ReadonlySet<string> = new Set([
   "raw",
@@ -629,31 +640,109 @@ const FOOD_DISTRIBUTION_GLOSS =
  * varieties the row stands for. Those stay. A `may` says the opposite - that
  * USDA is not claiming anything.
  *
- * The one other `may` is deliberately NOT here.
- * `Crustaceans, shrimp, mixed species, raw (may contain additives to retain
- * moisture)` hedges about what is IN the shrimp, and added water is a claim
- * about the panel rather than about the journey. Removing it would hide
+ * The one other `may` is still not here, and no longer needs to be. It used to
+ * read that `Crustaceans, shrimp, mixed species, raw (may contain additives to
+ * retain moisture)` should keep its bracket, because added water is a claim
+ * about the panel rather than about the journey and removing it would hide
  * something a reader of the number should know.
+ *
+ * **That argument is withdrawn (#407).** It was answering the wrong question.
+ * The bracket was not merely a hedge being kept - it was WELDING the state word
+ * to the part, so the row shipped saying `raw` while 1,416 others had stopped,
+ * and `raw` then reached nothing at all from the search box because no name
+ * carries it. What a reader of the number should know is a fact about the
+ * panel, and the panel is where it belongs; a name is not the place to keep it,
+ * and it was only ever in the name by USDA's punctuation accident.
+ * {@link strippablePhrase} below takes the whole segment, bracket included.
  */
 const HANDLING_HEDGE = /\s*\(may have been previously frozen\)/i;
+
+/**
+ * A part read as the phrase it is, with any parenthetical gloss trailing it set
+ * aside.
+ *
+ * {@link FOOD_DISTRIBUTION_GLOSS} above states the composition this completes:
+ * while a gloss is attached the part is not `raw`, so the state roster walks
+ * past it, and taking the gloss off first "exposes the word to the strip that
+ * was always meant to have it - the same composition the designation tag
+ * needed, AND THE SAME BUG WHEN IT IS MISSING". Two rosters reached the glosses
+ * they knew by name and nothing reached the rest, so the bug was still there,
+ * on three rows, wearing two different brackets.
+ *
+ * Read rather than removed, which is what keeps this a rule instead of a third
+ * hand-list of brackets. Measured over both archives: no ORIGIN or CATALOGUE
+ * part carries a gloss at all, so this widens the strip over the state roster
+ * and over nothing else.
+ */
+const strippablePhrase = (lookup: string): string => {
+  const glossed = lookup.match(GLOSSED_PART);
+  return glossed ? glossed[1] : lookup;
+};
+
+/**
+ * The state word USDA welded to the end of a part instead of writing a comma.
+ *
+ * Two rows in the archives, both of them the defect and neither of them a food:
+ * `Walrus, meat and subcutaneous fat raw` and `Beef, ..., tripe uncooked`. The
+ * word-wise caution {@link STORAGE_QUALIFIERS} states does not reach here - its
+ * counterexamples are words sitting INSIDE a segment (`refrigerated dough`,
+ * `fresh-refrigerated`), and this is anchored to the end of one, where a state
+ * word can only be the state.
+ */
+const WELDED_STATE = new RegExp(
+  `\\s+(?:${[...STATE_QUALIFIERS]
+    .sort((a, b) => b.length - a.length)
+    .join("|")})$`,
+  "i"
+);
+
+/**
+ * A kept part with {@link WELDED_STATE} taken off, gloss set aside and put back.
+ *
+ * Gloss-aware for the same reason {@link strippablePhrase} is, and it is not
+ * hypothetical here either: this strip runs BEFORE {@link stripDesignationTag},
+ * so `Walrus, meat and subcutaneous fat raw (Alaska Native)` still wears its tag
+ * when the weld is looked for, and a test against the raw text would walk past
+ * the one row the rule exists for.
+ *
+ * Matched against USDA's own text rather than the lowercased lookup, so a gloss
+ * keeps its casing the way {@link stripFortificationQualifier} keeps one.
+ */
+const withoutWeldedState = (text: string): string => {
+  const glossed = text.match(GLOSSED_PART);
+  const phrase = glossed ? glossed[1] : text;
+  const trimmed = phrase.replace(WELDED_STATE, "");
+  if (trimmed === phrase) return text;
+  return glossed ? `${trimmed} ${glossed[2]}` : trimmed;
+};
+
 export function stripNonNamingQualifiers(description: string): string {
   const glossed = description
     .replace(FOOD_DISTRIBUTION_GLOSS, "")
     .replace(HANDLING_HEDGE, "");
   const parts = namedParts(glossed);
   const keep = parts.map(
-    ({ lookup }, index) => index === 0 || !STRIPPED_QUALIFIERS.has(lookup)
+    ({ lookup }, index) =>
+      index === 0 || !STRIPPED_QUALIFIERS.has(strippablePhrase(lookup))
+  );
+  const welded = parts.map(
+    ({ text }, index) =>
+      index > 0 && keep[index] && withoutWeldedState(text) !== text
   );
   // Byte-for-byte when there is nothing to do, which is why the gloss is tested
   // rather than assumed: `qualifiersOf` lowercases and collapses whitespace, and
   // a row nobody is renaming must not have USDA's own text quietly rewritten by
   // passing through a splitter.
-  if (keep.every(Boolean))
+  if (keep.every(Boolean) && !welded.some(Boolean))
     return glossed === description ? description : glossed;
-  return parts
-    .filter((_, index) => keep[index])
-    .map(({ text }) => text)
-    .join(", ");
+  return (
+    parts
+      .filter((_, index) => keep[index])
+      // Never the head phrase, on ADR-0056 section 2's terms - the strip reaches
+      // qualifiers only, and a welded state word is still a qualifier's.
+      .map(({ text }, index) => (index === 0 ? text : withoutWeldedState(text)))
+      .join(", ")
+  );
 }
 
 /**

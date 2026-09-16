@@ -22,6 +22,61 @@ import {
 // the whole reason the rule is positional rather than lexical — see ADR-0056 §2.
 
 describe("stripNonNamingQualifiers", () => {
+  // #407. Five archive rows weld a state word to something else instead of
+  // writing a comma, so the positional strip walked past them and they shipped
+  // as the only rows in 2,025 still saying `raw` or `uncooked` - a word no name
+  // carries, which made it unreachable from the search box. Two shapes, both
+  // bounded by a sweep of both archives.
+
+  it("strips a state word its trailing bracket had welded to it", () => {
+    // The bracket is not the food. `Nuts, coconut cream` is, and the head
+    // phrase was already carrying it - which is why the argument for keeping
+    // these whole is withdrawn rather than merely overruled.
+    for (const [description, shipped] of [
+      [
+        "Crustaceans, shrimp, mixed species, raw (may contain additives to retain moisture)",
+        "Crustaceans, shrimp, mixed species",
+      ],
+      [
+        "Nuts, coconut milk, raw (liquid expressed from grated meat and water)",
+        "Nuts, coconut milk",
+      ],
+      [
+        "Nuts, coconut cream, raw (liquid expressed from grated meat)",
+        "Nuts, coconut cream",
+      ],
+    ] as const)
+      expect(stripNonNamingQualifiers(description)).toBe(shipped);
+  });
+
+  it("strips a state word USDA welded to the end of a part", () => {
+    // Anchored to the end of a qualifier, where a state word can only be the
+    // state - not word-wise, which would reach `refrigerated dough`.
+    expect(
+      stripNonNamingQualifiers(
+        "Walrus, meat and subcutaneous fat raw (Alaska Native)"
+      )
+    ).toBe("Walrus, meat and subcutaneous fat (Alaska Native)");
+    expect(
+      stripNonNamingQualifiers(
+        "Beef, New Zealand, imported, variety meats and by-products, tripe uncooked, raw"
+      )
+    ).toBe("Beef, tripe");
+  });
+
+  it("leaves a bracket that names the food, and a state word inside a phrase", () => {
+    // The three counterexamples the rule is bounded by. `muktuk` and `fat free
+    // or skim` are names; tahini's `raw` is one word of a phrase about how the
+    // kernels were ground, not the state of the food, and it is the last
+    // genuine use of the word left in the corpus.
+    for (const description of [
+      "Whale, bowhead, skin and subcutaneous fat (muktuk) (Alaska Native)",
+      "Milk, nonfat, fluid, without added vitamin A and vitamin D (fat free or skim)",
+      "Seeds, sesame butter, tahini, from raw and stone ground kernels",
+    ])
+      expect(stripNonNamingQualifiers(description)).toBe(description);
+  });
+
   it("removes an origin word that occupies a whole qualifier part", () => {
     expect(
       stripNonNamingQualifiers(

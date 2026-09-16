@@ -177,12 +177,20 @@ describe("the bundled search index", () => {
     // it stays — renamed, not dropped. The same line that leaves mutton in the
     // corpus (ADR-0055 §1): a drop here is caused by a name being taken, never
     // by whose food it is.
-    // `Beef, tripe cooked, boiled` left with the cooked rows. The uncooked pair
-    // is what remains, and it is still the claim: nothing collided with the
-    // stripped name, so nothing was dropped for whose food it is.
+    // `Beef, tripe cooked, boiled` left with the cooked rows, and #407 then took
+    // the uncooked half: USDA wrote `tripe uncooked` with no comma, so the state
+    // word was welded to the organ and the positional strip walked past it. With
+    // the weld gone the import's name IS `Beef, tripe`, the plain row already
+    // holds it, and rule 1's tiebreak drops the row that named an origin.
+    //
+    // That is the claim intact rather than broken - the drop is caused by a name
+    // being taken - but the exemplar had to move, because tripe is no longer a
+    // row nothing contests. `Lamb, testes` is: New Zealand assayed it and nobody
+    // else did, so the stripped name is free and the import keeps it.
     const descriptions = index.foods.map((row) => row.description);
     expect(descriptions).toContain("Beef, tripe");
-    expect(descriptions).toContain("Beef, tripe uncooked");
+    expect(descriptions).not.toContain("Beef, tripe uncooked");
+    expect(descriptions).toContain("Lamb, testes");
   });
 
   it("ships exactly one of each beef organ ADR-0056 collapsed", () => {
@@ -319,7 +327,7 @@ describe("the bundled search index", () => {
     );
   });
 
-  it("holds 550 rows whose head phrase is a shelf label, under 18 labels", () => {
+  it("holds 549 rows whose head phrase is a shelf label, under 18 labels", () => {
     // ADR-0042's #154 Amendment, tripwired the way ADR-0055 §3 tripwired
     // `plainSibling`: the roster is hand-written, so a head phrase added or
     // misspelled shows up as a count here rather than as a quietly reordered
@@ -396,7 +404,7 @@ describe("the bundled search index", () => {
     // stands for them (#435). 2,037 to 2,025 with ADR-0104's Amendment: seven
     // factory-made breads, eleven frozen records and three storage duplicates,
     // less the durian and the five rows that only lost a word.
-    expect(index.foods.length).toBe(2025);
+    expect(index.foods.length).toBe(2024);
     expect(index.generated_from.map((a) => a.dataset)).toEqual([
       "Foundation Foods",
       "SR Legacy",
@@ -415,8 +423,10 @@ describe("the bundled search index", () => {
     // own aliases and adds none, so the count moves by the rows it took.
     // 1,964 to 1,952, tracking the corpus again: none of the twelve rows the
     // storage rules removed carried an alias, so the two counts move together.
+    // 1,952 to 1,951 on #407, and the two counts move together once more: the
+    // New Zealand tripe carried no alias.
     expect(index.foods.filter((row) => !(row.also ?? []).length).length).toBe(
-      1952
+      1951
     );
     // And what `SEARCH_RESULT_LIMIT` is a ceiling ON. Measured after ADR-0062
     // §1, because that is the set the list would have to render.
@@ -430,7 +440,9 @@ describe("the bundled search index", () => {
     // `Rolls` rows, the frozen turkey roast and the shelf-stable tortilla — and
     // three of the survivors that only shed a shelf word stay counted under
     // their shorter names.
-    expect(withoutStrayMentions(scoredFor("b")).length).toBe(423);
+    // 423 to 422 on #407: `Beef, tripe uncooked` is filed under `Beef`, and its
+    // name was taken by the plain row once the welded state word came off.
+    expect(withoutStrayMentions(scoredFor("b")).length).toBe(422);
   });
 
   // ── ADR-0048's invariant, over the artifact itself ────────────────────────
@@ -813,12 +825,15 @@ describe("the bundled search index", () => {
     // Zealand cut USDA assayed lean-only beside lean-and-fat, and the dissected
     // fraction leaves under the row that stands for the cut. `manufacturing`
     // still takes the two it was measured at, which is what this pins.
-    expect(NZ_IMPORT_BEEF_157.filter((id) => shipped.has(id)).length).toBe(19);
+    // 19 to 18 on #407: the New Zealand tripe's name stopped being its own once
+    // the welded `uncooked` came off it. `manufacturing` still takes the two it
+    // was measured at, which is what this pins.
+    expect(NZ_IMPORT_BEEF_157.filter((id) => shipped.has(id)).length).toBe(18);
     // Forty are gone now rather than eight: the uncooked corpus took the other
     // thirty-two, which were New Zealand beef USDA had cooked. The eight ADR-0056
     // §4 drops are still among them, listed so a ninth cannot join them silently.
     expect(NZ_IMPORT_BEEF_157.filter((id) => !shipped.has(id))).toHaveLength(
-      53
+      54
     );
     for (const droppedByName of [
       173081, 173084, 174723, 174727, 174728, 174729, 174737, 174738,
@@ -1076,7 +1091,8 @@ describe("searchIndexRows", () => {
     // 112 before #157 took thirteen more, and 108 before ADR-0056's rename took
     // "classes" out of every name that carried it, and 105 before ADR-0061's
     // seventy-four drops took six more with the milks, yogurts and soymilks
-    // that carried them. The one merge #144 cost is
+    // that carried them, and 92 to 91 when #407's weld strip took the New
+    // Zealand tripe. The one merge #144 cost is
     // "cakes"/"cake": the corpus carried "cakes" in exactly one description,
     // `Shortening, special purpose for cakes and frostings`, and a filter drop
     // takes a merge with it the same way it takes a word.
@@ -1084,7 +1100,7 @@ describe("searchIndexRows", () => {
     // exactly the blanket "-ves" shape; the table below is what catches that,
     // by pinning "olives" to the singular it still has to answer.
     const merged = new Set(words.map(stemOf));
-    expect(words.length - merged.size).toBe(92);
+    expect(words.length - merged.size).toBe(91);
 
     expect(touched.map((w) => [w, stemOf(w), sharing(w)])).toEqual([
       ["additives", "additive", []],
@@ -1339,9 +1355,10 @@ describe("searchIndexRows", () => {
     // The two the rule must not touch, and the reason it reads the part rather
     // than the head: both are filed under a shelf label, exactly as the cheeses
     // are, and both name a milk in the part that label leads to.
-    expect(milk).toContain(
-      "Nuts, coconut milk, raw (liquid expressed from grated meat and water)"
-    );
+    // #407 took the bracket and the `raw` it had welded on: the row is `Nuts,
+    // coconut milk`, which is the same claim in fewer words - a milk named in
+    // the part its shelf label leads to.
+    expect(milk).toContain("Nuts, coconut milk");
     expect(milk).toContain("Beverages, rice milk, unsweetened");
     // The two milkfish stay, which is ADR-0062 §4 declining to stop `milk`
     // prefix-matching `milkfish` — the branch that also serves `grape` to
@@ -1517,17 +1534,23 @@ describe("searchIndexRows", () => {
       // exactly what ADR-0062 §1 wanted off this list anyway.
       // 30 to 29 and 16 to 15, the refrigerated almond milk both times.
       milk: [29, 15],
-      // `raw` reaches seven rows and `cooked` none: the corpus ships only
-      // uncooked foods and the word has left every name that is not a
-      // parenthetical - `Nuts, coconut cream, raw (liquid expressed from grated
-      // meat)`. Typing either word is no longer a way to ask anything.
+      // `raw` reaches one row and `cooked` none: the corpus ships only uncooked
+      // foods and the word has left every name. Typing either is no longer a way
+      // to ask anything.
       //
       // 6 to 5: `Durian, raw or frozen` ships as `Durian`. ADR-0104's Amendment
       // added that spelling to the state roster, because the pairing is what
       // protects the row — `frozen` is not a whole segment there, so the frozen
       // rule never sees it — and a row left saying `raw or frozen` in a corpus
       // where nothing else says either word would be the odd one out twice over.
-      raw: [5, 5],
+      //
+      // 5 to 1 on #407. Four of the five were the word welded to a bracket or to
+      // a part with no comma, which is why they had outlived the strip. What is
+      // left is `Seeds, sesame butter, tahini, from raw and stone ground
+      // kernels`, where `raw` is one word of a phrase about grinding rather than
+      // the state of the food - so the last row saying the word is the one row
+      // that means something else by it.
+      raw: [1, 1],
       cooked: [0, 0],
       // 91 to 90, one row: `Bread, white, commercially prepared, low sodium, no
       // salt`. It was never a salt — it is the `withoutStrayMentions` gate's
@@ -1539,7 +1562,10 @@ describe("searchIndexRows", () => {
       // rule are unmoved, because every one of them is NAMED for water: the
       // eight are `separable lean only` halves of a ham, and the row each one
       // collapses into says water too.
-      water: [27, 10],
+      // 27 to 26 on #407, and it is the same bracket: `Nuts, coconut milk, raw
+      // (liquid expressed from grated meat and water)` was reached by `water` on
+      // a gloss that said how the milk was pressed, not what it is.
+      water: [26, 10],
       oil: [102, 70],
     });
   });
