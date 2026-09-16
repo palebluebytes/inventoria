@@ -45,7 +45,7 @@
     amountDefaults,
     basisUnit,
     parseBasisQuantity,
-    portionLabelIsBareWeight,
+    portionLabelIsBareAmount,
     reportsNoEnergy,
     FOOD_PORTIONS_ATTR,
     NUTRITION_INFO_ATTR,
@@ -61,7 +61,8 @@
     buildLabelPanel,
     invertServingSize,
     resolveServingSize,
-    splitPortionRows,
+    buildPortions,
+    portionRows,
     toDisplay,
     type FieldDef,
     type Basis,
@@ -555,12 +556,12 @@
   let customPackQuantity = $state("");
   // Per-field typed strings keyed by NutritionInfo field; "" ⇒ absent (not 0).
   let customValues = $state<Record<string, string>>({});
+  // Every one of the twin's portions, each carrying the unit of its own
+  // magnitude. There is no second list held aside any more: a portion the form
+  // cannot TYPE is still a portion it shows (#460), read-only, rather than data
+  // the app holds and renders nowhere. `portionRows`/`buildPortions` carry the
+  // argument and the byte-exact round trip.
   let customPortions = $state<PortionRow[]>([]);
-  // Portions the form has no row for, held aside so a re-save carries them
-  // through untouched instead of dropping them. A millilitre portion is the one
-  // that occurs (ADR-0060 §6): the portion rows type a gram weight, and a volume
-  // serving is still not something this form can express.
-  let carriedPortions = $state<Portion[]>([]);
   // Rows ticked "∅ not on label" — read-along ergonomics; the built panel omits
   // empty rows regardless, this only dims + locks them and drives bulk-skip.
   let skipped = $state<Set<string>>(new Set());
@@ -823,7 +824,6 @@
     customIngredients = "";
     customPackQuantity = "";
     customPortions = [];
-    carriedPortions = [];
     skipped = new Set();
     labelPhotos = [];
     offRefPhotos = [];
@@ -1929,29 +1929,13 @@
       (method === "scan" && !staged && !!barcode.trim())
   );
 
-  // Seed the form's two portion slots from a twin's saved `food/portions`. The
-  // split itself is `splitPortionRows` in the form's own domain module; this
-  // only lands its two halves in component state.
+  // Seed the portion rows from a twin's saved `food/portions`. The reading is
+  // `portionRows` in the form's own domain module; this only lands it in state.
+  // Both callers set `customBasis` first, so `effectiveUnit` is already the
+  // basis this twin was stored with — which is the unit a portion carrying no
+  // magnitude of its own gets its (repairable, blank) row in.
   function seedPortionRows(portions: Portion[] | undefined) {
-    const split = splitPortionRows(portions);
-    customPortions = split.rows;
-    carriedPortions = split.carried;
-  }
-
-  // Build the household portions the user typed into `Portion` shape, dropping
-  // wholly-blank rows, then the ones this form has no row for (`seedPortionRows`)
-  // exactly as they were read. A hand-typed portion carries its own label as the
-  // unit, and is always a weight: nothing here can type a volume.
-  function buildCustomPortions(): Portion[] {
-    const typed = customPortions
-      .filter((p) => p.label.trim() !== "" || p.grams.trim() !== "")
-      .map((p) => ({
-        label: p.label.trim(),
-        amount: 1,
-        unit: p.label.trim() || "serving",
-        grams: Number(p.grams.trim()) || 0,
-      }));
-    return [...typed, ...carriedPortions];
+    customPortions = portionRows(portions, effectiveUnit);
   }
 
   function primaryAction() {
@@ -1967,7 +1951,7 @@
       // envelope; the host commits it through saveLabelFood (#56). Reuses the
       // shared `builtPanel` derivation the contribution path also reads.
       const { nutrition, filledKeys } = builtPanel;
-      const portions = buildCustomPortions();
+      const portions = buildPortions(customPortions);
       const photos = allowPhoto ? labelPhotos : [];
       // Audit hint (§7): the coarse categories the user actually supplied.
       const fields = [
@@ -2761,22 +2745,39 @@
                       </div>
                     </div>
                     {#each customPortions as p, i (i)}
-                      {@const weird = portionLabelIsBareWeight(p.label)}
+                      {@const weird = portionLabelIsBareAmount(p.label)}
+                      <!-- A row is typed in ITS OWN unit, and it is editable only
+                           while that unit is the one the panel is in (#460). A
+                           drink's "1 can — 330 ml" on a per-100 g panel — and a
+                           row stranded by the user flipping the basis under it —
+                           reads read-only rather than vanishing: the app used to
+                           hold such a portion and render it in no place at all,
+                           here or in the picker. `readonly`, not `disabled`, so
+                           the one surface that finally shows it stays reachable
+                           by keyboard; the ✕ stays for the same reason, since a
+                           row you can neither edit nor remove is a worse trap
+                           than the invisibility this replaced. -->
+                      {@const locked = p.unit !== effectiveUnit}
                       <div class="cf-prow">
                         <input
                           class:cf-in-warn={weird}
                           placeholder="e.g. 1 slice"
                           aria-label="Portion label"
                           aria-invalid={weird}
+                          readonly={locked}
                           bind:value={p.label}
                         />
-                        <input
-                          type="text"
-                          inputmode="decimal"
-                          placeholder="grams"
-                          aria-label="Portion grams"
-                          bind:value={p.grams}
-                        />
+                        <div class="cf-ctl">
+                          <input
+                            type="text"
+                            inputmode="decimal"
+                            placeholder={p.unit}
+                            aria-label={`Portion amount in ${p.unit}`}
+                            readonly={locked}
+                            bind:value={p.amount}
+                          />
+                          <span class="cf-unit">{p.unit}</span>
+                        </div>
                         <button
                           type="button"
                           class="cf-skip"
@@ -2803,7 +2804,12 @@
                       onclick={() =>
                         (customPortions = [
                           ...customPortions,
-                          { label: "", grams: "" },
+                          // Minted in the form's one unit — the same `effectiveUnit`
+                          // the pack and the panel already read. The row carries a
+                          // unit but offers no control to change it: the form
+                          // answers g-versus-ml once, above, and an earlier build
+                          // that asked it twice found the two could disagree.
+                          { label: "", amount: "", unit: effectiveUnit },
                         ])}>＋ add a portion</button
                     >
                   </section>
@@ -3622,11 +3628,25 @@
   }
   .cf-prow {
     display: grid;
-    grid-template-columns: 1fr 6rem 40px;
+    /* `auto` rather than the old 6rem: the amount box now shares its track with
+       the `.cf-unit` suffix the nutrient rows use, so the track is sized by the
+       pair instead of by a literal that knew only about a lone input. */
+    grid-template-columns: 1fr auto 40px;
     gap: var(--space-xs);
     align-items: center;
     min-height: var(--tap-min);
     padding: 0 0.4rem;
+  }
+  /* A row the panel's basis cannot type (#460) — a millilitre portion on a
+     per-100 g capture, or one stranded by flipping the basis. It reads locked
+     through the field's own fill, NOT through the `opacity: 0.5` the skipped
+     nutrient rows wear: those are empty by definition, where this row holds the
+     only display of a portion the app otherwise shows nowhere, and dimming the
+     one surface that finally reveals it would undo the point. */
+  .cf-prow input:read-only {
+    background: var(--bg-input);
+    color: var(--text-secondary);
+    cursor: default;
   }
   .cf-add {
     margin-top: var(--space-2xs);
