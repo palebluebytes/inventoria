@@ -20,6 +20,8 @@ import { wayInLabel, type WayIn } from "../../src/lib/food/ways-in";
  * than clicking into the wrong one, which is the better failure and still a
  * failure.
  *
+ * The chip itself is no longer a `<select>` either (#453) — see `selectMeal`.
+ *
  * Written once here for the reason #348 gives for `support/rations.ts`: this is
  * the same two lines in thirty-odd places, and the second time one of them
  * drifts is the time nobody notices.
@@ -39,17 +41,31 @@ export async function selectMeal(
   page: Page,
   meal_type: MealType
 ): Promise<void> {
-  // The chip is a native `<select>` behind `ui/Select`, so this is
-  // `selectOption` and not a click: the options live in the platform's own
-  // picker, which Playwright drives through the element rather than the screen.
-  // Its accessible name is the bar's, and the option's label is upper-cased in
-  // the markup rather than by `text-transform` — the same spelling the tab
-  // carried, kept deliberately so this helper reads the way it always did.
-  const chip = page.getByRole("combobox", {
+  // Two clicks, not `selectOption`: the chip stopped being a native `<select>`
+  // at #453 and is now a `popover="auto"` panel of four tiles, because the
+  // platform's own list is drawn by the platform and looked nothing like this
+  // app on a device.
+  //
+  // The chip keeps its accessible name, and the tiles keep the upper-cased
+  // spelling the options had — so this helper reads the way it always did and
+  // `exact` still has to be case-sensitive.
+  const chip = page.getByRole("button", {
     name: "Which meal these land in",
   });
-  await chip.selectOption(meal_type);
-  await expect(chip).toHaveValue(meal_type);
+  await chip.click();
+  // Scoped to the panel the chip controls, because the day's own meal HEADINGS
+  // are also buttons carrying these four words (they open a meal's nutrition
+  // panel, ADR-0074 §1). Unscoped, "BREAKFAST" is ambiguous and Playwright is
+  // right to refuse it.
+  const panel = page.locator(`#${await chip.getAttribute("aria-controls")}`);
+  await panel
+    .getByRole("button", { name: meal_type.toUpperCase(), exact: true })
+    .click();
+  // The panel closes on a pick and the chip's label follows, which is the pair
+  // worth asserting: a click that lands on nothing leaves both unchanged, and
+  // the spec then fails thirty lines later on a missing way in.
+  await expect(chip).toContainText(meal_type.toUpperCase());
+  await expect(chip).toHaveAttribute("aria-expanded", "false");
 }
 
 /**

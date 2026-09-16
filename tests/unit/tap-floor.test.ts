@@ -987,7 +987,18 @@ describe("the floor, swept", () => {
       else if (b.kind === "drawn") how.drawn++;
     }
 
-    expect(how).toEqual({ declared: 131, drawn: 26, sanctioned: 6 });
+    // 133 and not 129, under two causes that landed independently and were
+    // added up by a merge rather than by either of them. #453 moved it to 131:
+    // the meal chip and its four panel tiles are the app's own picker now,
+    // where a native `<select>` was one box carrying `ui/Select`'s floor, and
+    // two rules declare the five. #428's arc moved it to 133, one box each —
+    // `DensityQuestion`'s `input.typed-num`, the measured override the class
+    // picker exits into when none of the five fit (#430), and
+    // `IngredientListEditor`'s `input.tin.yield-in.weight-in`, the batch weight
+    // standing beside "Makes" (#432). Both sides wrote 131 for reasons that do
+    // not overlap, so the text merged clean at a figure neither of them meant;
+    // the two added boxes were read off the sweep rather than arithmetic.
+    expect(how).toEqual({ declared: 133, drawn: 26, sanctioned: 6 });
     // Every box lands in exactly one column. Without this the two figures above
     // could both be right while a box fell out of the sweep between them.
     expect(how.declared + how.drawn + how.sanctioned).toBe(SWEEP.groups.size);

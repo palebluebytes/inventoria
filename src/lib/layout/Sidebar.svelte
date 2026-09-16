@@ -76,8 +76,17 @@
        non-zero at all. Below 768px only: above it the sidebar is a static left
        rail rather than the app's floor, and #325 rules a bottom inset there
        meaningless. A longhand rather than a fourth value in the shorthand
-       above, because the shorthand is what the wide rule replaces. */
-    padding-bottom: env(safe-area-inset-bottom, 0px);
+       above, because the shorthand is what the wide rule replaces.
+
+       **Or a floor, whichever is larger**, for the reason the Way-in bar takes
+       one: on Android with three-button navigation the inset is 0 and correctly
+       so — the viewport ends above the nav bar and nothing is hidden — but this
+       nav's own items then sit directly against the system's back, home and
+       recents buttons, and a thumb that overshoots leaves the app rather than
+       changing tab. Material's rule is the size: 48dp targets "separated by 8dp
+       of space or more", and the system's buttons are touch targets. The
+       argument in full is in `views/food/WayInBar.svelte`. */
+    padding-bottom: max(env(safe-area-inset-bottom, 0px), var(--space-xs));
     position: sticky;
     bottom: 0;
     z-index: 100;

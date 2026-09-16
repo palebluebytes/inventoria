@@ -49,6 +49,8 @@ const EXPANDERS = FILES.flatMap((file) =>
 const NOT_A_DISCLOSURE: Record<string, string> = {
   "src/lib/views/food/CategoryPicker.svelte":
     "A `role=combobox`. Its `aria-expanded` describes a popup listbox with its own keyboard contract, which is a different control and not a region a button folds.",
+  "src/lib/views/food/MealPicker.svelte":
+    "The Way-in bar's meal chip (#453). Its `aria-expanded` describes a `popover=auto` panel of four choices with its own keyboard contract — arrow keys, Home and End, and light dismiss the platform owns — which is the same argument CategoryPicker carries: a control that opens a chooser, not a button that folds a region of the page below it.",
 };
 
 /**

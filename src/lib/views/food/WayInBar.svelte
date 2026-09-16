@@ -1,7 +1,7 @@
 <script lang="ts">
-  import { MEAL_TYPES, mealNearest, type MealType } from "../../food/meal-type";
+  import { mealNearest, type MealType } from "../../food/meal-type";
   import type { WayIn } from "../../food/ways-in";
-  import Select from "../../ui/Select.svelte";
+  import MealPicker from "./MealPicker.svelte";
   import WayInRail from "./WayInRail.svelte";
 
   // The **Way-in bar** (ADR-0101, and *Way-in bar* in `CONTEXT.md`): one bar for
@@ -47,13 +47,11 @@
   // arrives here as the platform's own picker instead, which is the trade
   // ADR-0095 §2 already made for every other one-of-N in the app.
   //
-  // The chip is `ui/Select` and not a `<select>` of its own: ADR-0095 §3 holds
-  // this element's population at exactly one, and the census in
-  // `tests/unit/ui-primitives.test.ts` fails on a second. What the bar does to it
-  // is re-skin it from outside, which is ADR-0098 §5's sanctioned shape — the
-  // primitive keeps the floor, the native picker and the caret, and the plate
-  // takes the frame off, because inside a plate whose seams are rules a border
-  // would be a second edge drawn on top of one.
+  // The chip was `ui/Select` for one release and is `MealPicker` now (#453): the
+  // platform's list is drawn by the platform, and on a device that meant an
+  // Android Material dialog inside a brutalist app. See that component for what
+  // refusing the native list cost, and ADR-0095's 2026-09-15 amendment for why
+  // the refusal is allowed at this one site and nowhere else.
   let {
     folded,
     dbReady,
@@ -112,14 +110,6 @@
   // screen is up, and only the chip moves the target afterwards. Which meal an
   // hour belongs to is `food/meal-type.ts`'s to say, not this bar's.
   let target = $state<MealType>(mealNearest(new Date()));
-
-  // Upper-cased in the option's text rather than by `text-transform`, so the
-  // accessible name really is "BREAKFAST" — the same spelling the tab carried,
-  // which is what keeps `tests/support/ways-in.ts` reaching it by name.
-  const mealOptions = MEAL_TYPES.map((meal_type) => ({
-    value: meal_type,
-    label: meal_type.toUpperCase(),
-  }));
 </script>
 
 <div class="way-in-bar" class:folded bind:offsetHeight={height}>
@@ -136,12 +126,7 @@
              amount of `border-right: 0` bookkeeping keeps that honest across a
              row whose cell count changes with the meal. -->
         <div class="plate">
-          <Select
-            class="meal-chip"
-            options={mealOptions}
-            bind:value={target}
-            aria-label="Which meal these land in"
-          />
+          <MealPicker {target} onTarget={(m) => (target = m)} />
           <!-- The rail in a box of its own, because the bar owns where things
                go and the rail owns what is in them. It is also the flex item
                whose minimum size decides the wrap above. -->
@@ -196,11 +181,34 @@
     /* **No padding of its own**, which is the whole of what the one line buys
        beyond its missing row. The old bar spent `--space-2xs` a side making
        itself read as a surface standing over the day; the plate's ink does that
-       now. The safe-area reserve stays — it is the device's, not a decision —
-       and it is ink, so it reads as the plate running under the home indicator
-       rather than as a white shelf beneath it. */
+       now. It is ink below the cells too, so the reserve reads as the plate
+       running under the system's own furniture rather than as a white shelf
+       beneath it.
+
+       **The reserve is the device's inset OR a floor, whichever is larger, and
+       the floor is the half a phone taught us.** `env(safe-area-inset-bottom)`
+       is the platform saying how much room its own furniture needs, and on an
+       iPhone with a home indicator it says 34pt — Apple's own answer, since the
+       HIG puts a control at the foot "aligned with the bottom of the safe
+       area". **On Android with three-button navigation it says 0, and it is
+       right to**: the nav bar is not an overlay there, the viewport genuinely
+       ends above it, and nothing is hidden. What an inset cannot express is
+       PROXIMITY — a 48px mark whose bottom edge is the last row of pixels sits
+       directly against the recents button, and a thumb that overshoots leaves
+       the app. Reported from a device, 2026-09-15.
+
+       Material's own accessibility rule is the floor's size: touch targets of
+       48dp "separated by 8dp of space or more". The system's buttons are touch
+       targets like any other, so the app owes them that gap at the one edge it
+       shares with them. `--space-xs` is the smallest token on this fluid scale
+       that clears 8dp at every root size (13.5px at a 16px root, 15.5px at the
+       18.32px this app actually renders). `max()` rather than `+` because the
+       inset is already a clearance: adding to 34pt would reserve 48 against a
+       hazard the platform has already handled. The three sheet docks DO add
+       `--space-s` to their inset, and that is not a precedent — a dock's token
+       is its own interior padding, which it would need with no inset at all. */
     padding: 0;
-    padding-bottom: env(safe-area-inset-bottom, 0px);
+    padding-bottom: max(env(safe-area-inset-bottom, 0px), var(--space-xs));
     background: var(--ink);
     /* The shell caps its column and centres it; a full-bleed fixed bar has to
        repeat that or it runs the width of a desktop window. */
@@ -251,54 +259,9 @@
     flex: 999 1 auto;
   }
 
-  /* The chip reads as the row's subject rather than as a sixth door: ink ground,
-     paper letters, the one inverted tile on the line. That inversion is doing the
-     work the whole tab row used to do — it is the only thing on screen that says
-     which meal a tap lands in, so it may not read as one more button beside the
-     five that act.
-
-     `ui/Select` reshaped from outside, and every declaration here is taking
-     something OFF rather than restating it (ADR-0098 §5): the frame, because the
-     plate's seams already draw this tile's edges; the field's left and right
-     padding, because a 22rem flank and a 320px phone are both decided by how
-     wide this chip is; and the field's `--step-0`, because the word is a label
-     on a control rather than something to read. The floor, the native picker and
-     the caret are the primitive's and stay. */
-  .plate :global(.meal-chip) {
-    flex: 1 1 auto;
-    width: auto;
-  }
-  .plate :global(.meal-chip .select) {
-    background: var(--ink);
-    border: 0;
-    border-radius: 0;
-    padding: 0 calc(var(--space-s) + var(--space-3xs)) 0 var(--space-2xs);
-    color: var(--paper);
-    font-size: var(--step-n3);
-    font-weight: 700;
-    letter-spacing: 0.02em;
-  }
-  /* The list itself is the platform's, so its options are drawn in the
-     platform's colours and need the app's ink back. */
-  .plate :global(.meal-chip option) {
-    background: var(--paper);
-    color: var(--ink);
-  }
-  .plate :global(.meal-chip .select:hover:not(:disabled)),
-  .plate :global(.meal-chip .select:focus) {
-    /* The primitive tints on hover and turns its border on focus; on ink both
-       are invisible, and the focus ring below is the one that has to read. */
-    background: var(--ink);
-    box-shadow: none;
-  }
-  .plate :global(.meal-chip .select:focus-visible) {
-    outline: 2px solid var(--paper);
-    outline-offset: -4px;
-  }
-  .plate :global(.meal-chip .select-mark) {
-    right: var(--space-2xs);
-    color: var(--paper);
-  }
+  /* The chip and its panel are `MealPicker`'s own — it is this bar's child and
+     not a primitive, so its skin lives with it rather than being re-skinned from
+     out here. What stays this file's is the row it sits in. */
 
   /* The fold (ADR-0101 §6). `grid-template-rows: 1fr -> 0fr` because it is the
      only way to animate to and from a height nobody has measured — and this
