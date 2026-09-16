@@ -4,7 +4,7 @@ import {
   roundFoodDisplay,
   formatPortionLabel,
   formatPortionPreset,
-  portionLabelIsBareWeight,
+  portionLabelIsBareAmount,
   macrosFromNutrition,
   portionMeasure,
   portionPresets,
@@ -413,7 +413,7 @@ describe("formatPortionPreset", () => {
   });
 });
 
-describe("portionLabelIsBareWeight", () => {
+describe("portionLabelIsBareAmount", () => {
   it("flags labels that only restate a gram weight", () => {
     for (const label of [
       "30 g",
@@ -424,7 +424,24 @@ describe("portionLabelIsBareWeight", () => {
       "2.5 g",
       " 45 G ",
     ]) {
-      expect(portionLabelIsBareWeight(label)).toBe(true);
+      expect(portionLabelIsBareAmount(label)).toBe(true);
+    }
+  });
+
+  it("flags labels that only restate a volume, now that a row can hold one", () => {
+    // It was weights-only on a stated ground: the capture form's rows were "a
+    // label and a grams box". #460 gave the row a unit, so that ground is spent
+    // — and "330 ml" is exactly as uninformative a portion NAME as "30 g".
+    for (const label of [
+      "330 ml",
+      "330ml",
+      "330 millilitres",
+      "250 mL",
+      " 500 ML ",
+      "1.5 l",
+      "1 litre",
+    ]) {
+      expect(portionLabelIsBareAmount(label)).toBe(true);
     }
   });
 
@@ -433,10 +450,12 @@ describe("portionLabelIsBareWeight", () => {
       "1 slice",
       "1 biscuit (12 g)",
       "half a can",
+      "1 can",
+      "2 glasses",
       "",
       "  ",
     ]) {
-      expect(portionLabelIsBareWeight(label)).toBe(false);
+      expect(portionLabelIsBareAmount(label)).toBe(false);
     }
   });
 });

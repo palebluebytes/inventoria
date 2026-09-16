@@ -336,23 +336,31 @@ export interface PortionPreset {
 }
 
 /**
- * True when a portion label carries no household meaning beyond a bare weight —
- * "30 g", "30g", "30 grams", or just "30". A household portion is meant to name
- * a unit ("1 slice", "1 biscuit"); a label that only restates the grams column
- * is uninformative — {@link formatPortionPreset} collapses its chip from
- * "30 g — 30 g" to "30 g", and the capture form flags the row so the user can
- * give it a real name. Blank labels are not flagged (they're simply incomplete).
+ * True when a portion label carries no household meaning beyond a bare amount —
+ * "30 g", "30g", "30 grams", "330 ml", "1 litre", or just "30". A household
+ * portion is meant to name a unit ("1 slice", "1 biscuit"); a label that only
+ * restates the amount column is uninformative — {@link formatPortionPreset}
+ * collapses its chip from "30 g — 30 g" to "30 g", and the capture form flags
+ * the row so the user can give it a real name. Blank labels are not flagged
+ * (they're simply incomplete).
  *
- * Weights only, deliberately: this is asked of the capture form's typed rows,
- * and those are a label and a grams box (`PortionRow`). It is a different
- * question from {@link formatPortionPreset}'s collapse — that one asks whether a
- * label equals the amount a portion actually resolves to, in whichever unit, and
- * so has to know about millilitres where this one has no row that could hold one.
+ * It was weights-only until #460, on a stated ground: it is asked of the capture
+ * form's typed rows, and those were "a label and a grams box". That row carries
+ * a unit now, so the ground is spent and the narrowing with it — a rule
+ * outliving its reason is how the next reader gets misled.
+ *
+ * The check is deliberately unit-AGNOSTIC rather than asked against the row's
+ * own unit: "330 ml" is no more a portion name in a gram row than in a
+ * millilitre one, and pairing the two would only add a way to miss it. It is
+ * still a different question from {@link formatPortionPreset}'s collapse — that
+ * one asks whether a label equals the amount a portion actually RESOLVES to.
  */
-export function portionLabelIsBareWeight(label: string): boolean {
+export function portionLabelIsBareAmount(label: string): boolean {
   const t = label.trim().toLowerCase();
   if (t === "") return false;
-  return /^\d+(?:\.\d+)?\s*(?:g|gram|grams)?$/.test(t);
+  return /^\d+(?:\.\d+)?\s*(?:g|gram|grams|ml|millilitre|millilitres|milliliter|milliliters|l|litre|litres|liter|liters)?$/.test(
+    t
+  );
 }
 
 /**
