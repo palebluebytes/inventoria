@@ -856,3 +856,48 @@ where it bites hardest, because bread is the packaged food people are least
 likely to have the packet for when they log it.
 
 Corpus 2,037 → **2,025**.
+
+## Amendment (2026-09-16): `designated` is computed, and `raw` was declared nowhere
+
+§6 says the base-ingredient key is "baked onto the row beside `plain_sibling` and
+`designated`". One of those two is not a row field, and the field §6 did add was
+stated in no type at all.
+
+### `designated` is computed on read, not baked
+
+It is derived in `readRowRank` from the `foodCategory` every row already carries.
+That is the rule [ADR-0041](0041-nova-processing-badge.md) set for
+`deriveNovaVerdict` and it was followed here deliberately: a fact recoverable
+from a field that already ships is never duplicated into a second field that can
+drift from the first.
+
+So the ranking's four row keys divide two and two. **Read off the row:** `raw`,
+because ADR-0056's strip has taken the word off the shipped name by the time
+anything reads it, and `plain_sibling`, because deciding it needs every
+description at once and costs 24 ms at load. **Computed from the row:**
+`canonical` from `fdcId` and `designated` from `foodCategory`.
+
+### The field this record added was invisible to every type
+
+Found while mapping the pipeline for
+[#407](https://github.com/palebluebytes/inventoria/issues/407) and fixed as
+[#466](https://github.com/palebluebytes/inventoria/issues/466). `raw` shipped in
+the artifact on **1,047 of 2,023 rows** and was named by none of the three places
+the row's shape is declared: `UsdaIndexRow` in `src/lib/food/usda-corpus.ts`, and
+the `IndexRow` and `Survivor` typedefs in `scripts/usda-bundle.mjs`, which had
+gone two fields and one field behind respectively. The key worked the whole time,
+because `readRowRank` takes a structural parameter rather than the interface.
+
+A reader of the interface would have concluded the fifth of twelve ranking keys
+is 0 on every row. That is the shape of the `NaN`-is-falsy hole
+`scripts/usda-key-census.mjs` records: a harness that drops a row fact scores a
+ranking nobody ships and says nothing about it. Nothing under `scripts/` is
+type-checked, so those two typedefs are prose and can only be kept honest by
+being read.
+
+**What changed is what is written down, not what ships.** The field, the
+generator, the ranking and the artifact are untouched, so no `schema_version`
+bump and no regeneration. `usda-corpus.test.ts` gains the tripwire
+`plain_sibling` has had since ADR-0055 §6 — the carried count, and the assertion
+that every carried flag reaches a `RowRank`, which a count of the artifact alone
+cannot show.

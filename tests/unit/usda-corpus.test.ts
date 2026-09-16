@@ -329,6 +329,28 @@ describe("the bundled search index", () => {
     );
   });
 
+  it("carries the raw flag the shipped name cannot, and reads it back", () => {
+    // ADR-0104 §6, tripwired the way ADR-0055 §3 tripwired `plainSibling` above
+    // and for a sharper version of the same reason: this key used to read the
+    // word off a description, ADR-0056's strip took the word, and what replaced
+    // it is a field only the generator can write. Nothing else can recover it.
+    //
+    // 1,049 to 1,047 on #407, and both rows said raw before they left:
+    // `Beef, tripe uncooked` and `Chicken, ground, with additives`.
+    const carried = index.foods.filter((row) => row.raw).length;
+    expect(carried).toBe(1047);
+    // Omitted rather than emitted false, like every other absent field.
+    expect(index.foods.filter((row) => row.raw === false)).toEqual([]);
+
+    // And that every carried flag reaches the ranking, which no count of the
+    // artifact can show. `raw` was declared on no type until #466 — the
+    // generator wrote it, `readRowRank` read it through a structural parameter,
+    // and in between it was a field a reader had no way to know was there.
+    expect(corpus.foods.filter((food) => food.rank.raw === 1).length).toBe(
+      carried
+    );
+  });
+
   it("holds 549 rows whose head phrase is a shelf label, under 18 labels", () => {
     // ADR-0042's #154 Amendment, tripwired the way ADR-0055 §3 tripwired
     // `plainSibling`: the roster is hand-written, so a head phrase added or

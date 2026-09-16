@@ -42,7 +42,10 @@ import { brotliCompressSync, constants, gzipSync } from "node:zlib";
  * chocolate milk. 8 is the third of those value-only bumps: nine rows lost the
  * fortification phrase USDA wrote into their names (ADR-0062 §2), so a capture
  * made under 7 recorded five milks, two spreads and two processed cheeses under
- * names the corpus no longer ships. Both files carry the version because both
+ * names the corpus no longer ships. 9 adds a row's `raw`, the base-ingredient
+ * preference becoming a fact about the row: the key used to read the word off
+ * the name and cannot any more, because a corpus of uncooked foods says it on
+ * every row or on none (ADR-0104 §6). Both files carry the version because both
  * are generated together from one corpus, and a pair that disagreed about their
  * version would be the bug the number exists to catch.
  */
@@ -217,10 +220,9 @@ export function buildArtifacts(
   // `Pineapple, raw`, `Nuts, almonds, whole, raw`) from demoting themselves.
   const rows = survivors.map((survivor) => {
     const row = buildIndexRow(survivor, app);
-    // 9 adds this: the ranking's base-ingredient preference, which used to read
-    // the word `raw` off the name and cannot any more - a corpus of uncooked
-    // foods says it on every row or on none. Captured from USDA's own
-    // description before the strip, so the key keeps the signal the name loses.
+    // Schema 9's field. `usda-adjudication.mjs` reads `describedRaw` off USDA's
+    // own description before the strip takes the word, so the key keeps the
+    // signal the shipped name loses.
     if (survivor.describedRaw) row.raw = true;
     return row;
   });

@@ -227,6 +227,11 @@ export const BUNDLE_DATASETS = ["Foundation Foods", "SR Legacy"];
  * One search index row (ADR-0047 §2): identity, the fields ADR-0042 ranks on,
  * the macros a result row renders, the portions, and the twin reference.
  *
+ * The app's `UsdaIndexRow` is the same shape and the reader's copy of it. Both
+ * halves must name every field, and this one had gone two behind (#466) — the
+ * ranking reads `raw` and `plain_sibling` off a row, and nothing here says the
+ * generator writes them, because no script under `scripts/` is type-checked.
+ *
  * @typedef {object} IndexRow
  * @property {number} fdcId
  * @property {string} description
@@ -237,6 +242,8 @@ export const BUNDLE_DATASETS = ["Foundation Foods", "SR Legacy"];
  * @property {Portion[]} [portions]
  * @property {MergedSource[]} [merged_from]
  * @property {string[]} [also]
+ * @property {boolean} [raw] USDA described this record as raw (ADR-0104 §6).
+ * @property {boolean} [plain_sibling] A plainer twin of it ships (ADR-0055 §3).
  */
 
 /**
@@ -261,6 +268,9 @@ export const BUNDLE_DATASETS = ["Foundation Foods", "SR Legacy"];
  * @property {MergedSource[]} merged_from
  * @property {{ amount: number, gramWeight: number, modifier?: string, portionDescription?: string, measureUnit?: { name?: string }, sequenceNumber?: number }[]} foodPortions
  * @property {string[]} [also]
+ * @property {boolean} [describedRaw] The word `raw` was in USDA's description,
+ * read before the strip takes it and carried here because nothing downstream can
+ * recover it (ADR-0104 §6).
  */
 
 // ---------------------------------------------------------------------------

@@ -92,6 +92,21 @@ export interface UsdaIndexRow {
    */
   also?: string[];
   /**
+   * True when USDA's own description of this record called it raw, the fifth of
+   * `compareRelevance`'s twelve keys (ADR-0104 §6).
+   *
+   * It is not "is this food uncooked" — since ADR-0104 every row is. It is
+   * whether USDA said so, which separates a whole fresh food from a processed
+   * one that simply has not been cooked yet: `Potatoes, flesh and skin` said
+   * raw and `Potatoes, hash brown, refrigerated` did not.
+   *
+   * Baked by the generator from the description as USDA published it, BEFORE
+   * ADR-0056's strip takes the word, because the shipped name cannot carry the
+   * fact any more — a corpus of uncooked foods says `raw` on every row or on
+   * none. Omitted rather than emitted false, like every other absent field.
+   */
+  raw?: boolean;
+  /**
    * True when a plainer twin of this food is in the corpus — some strict
    * qualifier-prefix of this description is itself a row (ADR-0055 §3).
    *
