@@ -234,6 +234,10 @@ _Avoid_: Yield (that is the count, `recipe/yield`), portion weight (that is the 
 The logging of one occasion of making or eating a Recipe Twin — a Consumption Event whose target is that twin. It _seeds_ from the template's ingredient list, yield and **Batch weight**, then may diverge freely: amounts changed, ingredients added or removed, yield adjusted, and the batch weight overridden for this occasion alone. Where a batch weight is known the occasion is sized by weighing rather than counting (ADR-0106): the surface asks what the dish weighed and how much was eaten, the second over the first is the fraction the rows freeze at, and the serving count becomes a read-out. Where none is, the count is the only honest answer and is asked for directly. Its nutrition is derived from the referenced ingredient twins and captured onto the event when written, so a past instantiation never silently changes when an ingredient twin is later corrected; it is itself editable only by deliberate correction, exactly like any logged food. A template's instantiations over time are its history.
 _Avoid_: Recipe log, recipe entry, instance (bare), cooked recipe
 
+**Unclaimed replacement**:
+A Consumption Event that was minted as the successor of others — it appears as the value of some `event/replaced_by` datom — but that no predecessor's _folded_ link still names, because a concurrent act on another device claimed them first. It is neither live nor retracted: it carries no `event/status` of its own, so it is invisible to every retraction check, and the projection drops it because it lost the link that defined it (ADR-0111 §5). Corrections cannot produce one — a correction appends onto the event it corrects — so after ADR-0111 the only source is two devices consolidating overlapping foods, plus the corrections written before it. _Claimed_ is the test: a predecessor claims exactly one successor once its datoms are folded.
+_Avoid_: orphaned correction, dangling replacement, duplicate event
+
 **Meal Type**:
 A standardized classification (`meal_type`) used to organize Consumption Events chronologically and logically in UI timelines.
 _Avoid_: mealType, meal-type
