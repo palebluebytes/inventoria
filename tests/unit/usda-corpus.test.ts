@@ -4,8 +4,10 @@ import {
   SEARCH_RESULT_LIMIT,
   buildSearchCorpus,
   mapIndexRowToPayload,
+  readStateQualifiers,
   searchIndexRows,
   searchUsdaCorpus,
+  withoutStateQualifiers,
   storedPanelFor,
   completeStagedPanel,
   type NutrientStore,
@@ -969,6 +971,71 @@ describe("the bundled search index", () => {
 // assert is that ranking the whole local corpus reaches the same answers the
 // API's boosted, paged query used to — the claim ADR-0047 makes when it retires
 // the Lucene boost.
+
+describe("withoutStateQualifiers — ADR-0049's #464 Amendment", () => {
+  // The roster the artifact ships, in the form the strip reads it. Built through
+  // the same function the corpus uses, because the ORDER is the thing being
+  // tested and a hand-sorted fixture would supply it for free.
+  const roster = readStateQualifiers([
+    "raw",
+    "uncooked",
+    "unheated",
+    "unprepared",
+    "raw or unheated",
+    "raw or frozen",
+  ]);
+  const strip = (query: string) => withoutStateQualifiers(query, roster);
+
+  it("returns null for a query naming no state, which is almost every query", () => {
+    // Null rather than the words it was typed with, because both callers ask a
+    // yes/no question: is a second phrase worth ranking, and can this vocabulary
+    // key ever be typed at the fallback.
+    expect(strip("chicken")).toBeNull();
+    expect(strip("greek yoghurt")).toBeNull();
+    expect(strip("")).toBeNull();
+  });
+
+  it("takes the word out wherever it was typed", () => {
+    expect(strip("raw chicken")).toBe("chicken");
+    expect(strip("chicken raw")).toBe("chicken");
+    expect(strip("chicken raw breast")).toBe("chicken breast");
+  });
+
+  it("takes every spelling, not just the common one", () => {
+    expect(strip("uncooked oats")).toBe("oats");
+    expect(strip("unheated ham")).toBe("ham");
+    expect(strip("unprepared flour")).toBe("flour");
+  });
+
+  it("reads a two-word spelling as one segment, longest first", () => {
+    // Shortest-first would take `raw` and leave `or frozen`, which retrieves
+    // less than the query it replaced. This is why `readStateQualifiers` sorts.
+    expect(strip("raw or frozen durian")).toBe("durian");
+    expect(strip("raw or unheated ham")).toBe("ham");
+  });
+
+  it("returns empty for a query that was nothing but state words", () => {
+    // Distinct from null: the strip DID change this query, it just left nothing.
+    // `searchIndexRows` declines to rank an empty phrase, which is what keeps
+    // the corpus's one remaining `raw` row answering to the word.
+    expect(strip("raw")).toBe("");
+    expect(strip("raw uncooked")).toBe("");
+  });
+
+  it("normalises what it keeps the way the matcher does", () => {
+    // The result is a PHRASE handed back to `compileReferenceFoodQuery`, which
+    // tokenises with the same pair — so a token no word could equal is the one
+    // thing it must not produce (#136).
+    expect(strip("RAW Chicken-Breast")).toBe("chicken breast");
+  });
+
+  it("is the shape a taxonomy key is tested against", () => {
+    // The vocabulary derivation's third acceptance property asks exactly this:
+    // a key the strip would rewrite can never be handed to the fallback.
+    expect(strip("raw beef kidney")).not.toBeNull();
+    expect(strip("beef kidney")).toBeNull();
+  });
+});
 
 describe("searchIndexRows", () => {
   it("puts Grapes above Grapefruit", () => {
@@ -2370,6 +2437,7 @@ describe("the twin merge's discarded names, as search aliases", () => {
         expansions: {},
       },
       vocabulary_local: { source: "Inventoria, hand-written", expansions: {} },
+      state_qualifiers: [],
       foods,
     });
   const row = (

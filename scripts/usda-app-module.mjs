@@ -170,8 +170,19 @@ export const VOCABULARY_EXPORTS = [
  * about the fallback, the two matching tiers, the six ranking keys and the alias
  * scoring together, and only the shipped search can answer it. Restating it here
  * would pin the entries to a ranking the app does not have.
+ *
+ * The two state-qualifier functions come with them for the derivation's third
+ * acceptance property (ADR-0049's #464 Amendment). A key holding a word the
+ * query strip removes can never be typed at the fallback, and whether a phrase
+ * is such a key is a question about the strip the search runs — so it is asked
+ * of that strip rather than of a second one written here.
  */
-export const CORPUS_EXPORTS = ["buildSearchCorpus", "searchIndexRows"];
+export const CORPUS_EXPORTS = [
+  "buildSearchCorpus",
+  "searchIndexRows",
+  "readStateQualifiers",
+  "withoutStateQualifiers",
+];
 
 /**
  * The origin rename, borrowed through the same seam and for the same reason
@@ -182,9 +193,20 @@ export const CORPUS_EXPORTS = ["buildSearchCorpus", "searchIndexRows"];
  * generator's side of the seam rather than in the app, which reads finished
  * names and never the rule that produced them. `stripNonNamingQualifiers` comes with
  * it because the aliases are renamed one at a time, after the verdict.
+ *
+ * `STATE_QUALIFIERS` is borrowed for a different reason from the eight above,
+ * and it is the only entry here the generator does not CALL. It is copied into
+ * the artifact as `state_qualifiers`, because the search has to drop from a
+ * typed query exactly the words the strip took out of the names it is searching
+ * (ADR-0049's #464 Amendment). Handing the app the roster through the artifact
+ * rather than through an import is what keeps the bundle test next door true —
+ * nothing in `src/` imports `usda-shipped-name.ts` — while making the two
+ * impossible to disagree: regenerate with a word added or removed and the query
+ * rule moves in the same commit, with the diff as the review gate.
  */
 export const SHIPPED_NAME_EXPORTS = [
   "resolveShippedNames",
+  "STATE_QUALIFIERS",
   "resolveCollapsedNames",
   "stripNonNamingQualifiers",
   "dropUncontestedQualifiers",

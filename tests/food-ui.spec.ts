@@ -61,6 +61,7 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
             source: "Inventoria, hand-written",
             expansions: {},
           },
+          state_qualifiers: [],
           foods: [
             {
               fdcId: 171705,

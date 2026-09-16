@@ -1,10 +1,11 @@
 {
 "artifact": "usda-search-index",
-"schema_version": 9,
+"schema_version": 10,
 "generated_from": [
 {"dataset":"Foundation Foods","release":"2026-04-30","file":"FoodData_Central_foundation_food_json_2026-04-30.zip","sha256":"186e988ec542e913f51ef62b86a47758e8cdd0d1dc3889e7b055581f3c09c77a"},
 {"dataset":"SR Legacy","release":"2018-04","file":"FoodData_Central_sr_legacy_food_json_2018-04.zip","sha256":"0fe8ae486a2c8eb42cb96413f058deb51863a46c8fb8eeb4b1fb45006dd338ef"}
 ],
+"state_qualifiers": ["raw","raw or frozen","raw or unheated","uncooked","unheated","unprepared"],
 "vocabulary_off": {
 "licence": "ODbL",
 "source": "Open Food Facts",
@@ -312,11 +313,6 @@
 "raisin juice": ["grape juice"],
 "rapini": ["broccoli raab"],
 "rapunzel": ["corn salad"],
-"raw almond kernels": ["almond","almonds"],
-"raw beef kidney": ["beef kidney"],
-"raw beef tongue": ["beef tongue"],
-"raw common octopus": ["octopus"],
-"raw lamb rib chop": ["lamb rib"],
 "red capsicum": ["red bell pepper","red pepper"],
 "red chile": ["red chili pepper","red chili"],
 "red chile pepper": ["red chili pepper","red chili"],

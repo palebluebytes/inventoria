@@ -123,6 +123,134 @@ describe("expandThroughVocabulary", () => {
   });
 });
 
+/**
+ * ADR-0049's #464 Amendment: the query loses every spelling of the uncooked
+ * state before anything else looks at it.
+ *
+ * Over the committed corpus rather than a stand-in, for the reason the file
+ * gives above — the defect is a relation between what the strip took out of the
+ * NAMES and what a user types, so a hand-built corpus would be free to agree
+ * with the code about a corpus nobody ships.
+ */
+describe("a query word naming a row fact (#464)", () => {
+  /** The search as it behaved before this ticket: the same code, no roster. */
+  const unstripped: SearchCorpus = { ...corpus, state_qualifiers: [] };
+
+  it("is a defect the corpus can still show: 1,047 rows, one name", () => {
+    // The premise, re-measured rather than quoted. `raw` is a fact on half the
+    // corpus and a word on one row — and that row means something else by it.
+    expect(index.foods.filter((row) => row.raw).length).toBe(1047);
+    expect(
+      index.foods.filter((row) =>
+        [row.description, ...(row.also ?? [])].some((name) =>
+          /\braw\b/i.test(name)
+        )
+      ).length
+    ).toBe(1);
+  });
+
+  it("answers a carrier query that returned nothing at all", () => {
+    expect(retrieves(unstripped, "raw chicken")).toBe(false);
+    expect(topFor("raw chicken")).toBe(
+      "Chicken, broilers or fryers, meat and skin and giblets and neck"
+    );
+    expect(topFor("raw chicken")).toBe(topFor("chicken"));
+  });
+
+  it("names no position, unlike a vocabulary key", () => {
+    // `flax seed` is a key and `seed flax` is not a way of typing it. A state
+    // word is not a phrase, so it comes off wherever it was typed.
+    expect(topFor("chicken raw")).toBe(topFor("raw chicken"));
+  });
+
+  it("strips before it expands, which is the whole of the rescue", () => {
+    // #142's motivating case. The map is positional and skips a key shorter than
+    // the query, so `raw aubergine` never reached `aubergine` and `aubergine`
+    // was the only thing that could reach `Eggplant`.
+    expect(retrieves(unstripped, "raw aubergine")).toBe(false);
+    expect(searchIndexRows(corpus, "raw aubergine").phrases).toEqual([
+      "raw aubergine",
+      "aubergine",
+      "eggplant",
+    ]);
+    expect(topFor("raw aubergine")).toBe("Eggplant");
+  });
+
+  it("shows the food under the word that answered, as any expansion does", () => {
+    const [hit] = searchIndexRows(corpus, "raw aubergine").hits;
+    expect(hit.alias).toBe("aubergine");
+  });
+
+  it("takes every spelling of the state, not just the common one", () => {
+    // Stripping `raw` alone would leave the other four unreachable and hand the
+    // rows that say them an unearned lift, which is why the roster has six
+    // entries rather than one.
+    expect(topFor("uncooked oats")).toBe(topFor("oats"));
+  });
+
+  it("reads a two-word spelling as one segment", () => {
+    // USDA pairs the state with the freezer on exactly one row and writes it as
+    // ONE segment. Longest-first is what stops `raw or frozen durian` being left
+    // as `or frozen durian`, which retrieves less than the query it replaced.
+    expect(topFor("raw or frozen durian")).toBe(topFor("durian"));
+  });
+
+  it("adds phrases and never takes a row away", () => {
+    // The strip runs unconditionally, unlike the vocabulary, and it can because
+    // `rankAgainst` keeps each row's best key across the phrases it is given. A
+    // second phrase can add a row and improve a rung; it cannot remove one.
+    for (const query of [
+      "raw",
+      "raw chicken",
+      "chicken",
+      "raw tahini",
+      "banana",
+      "uncooked oats",
+    ]) {
+      const before = new Set(
+        searchIndexRows(unstripped, query).hits.map((h) => h.row.fdcId)
+      );
+      const after = new Set(
+        searchIndexRows(corpus, query).hits.map((h) => h.row.fdcId)
+      );
+      expect([query, [...before].filter((id) => !after.has(id))]).toEqual([
+        query,
+        [],
+      ]);
+    }
+  });
+
+  it("leaves the one row that means something else by the word", () => {
+    // Typing `raw` alone strips to nothing, and an empty phrase is not ranked —
+    // so the last row in the corpus still saying the word keeps answering to it.
+    expect(searchIndexRows(corpus, "raw").phrases).toEqual(["raw"]);
+    expect(topFor("raw")).toBe(
+      "Seeds, sesame butter, tahini, from raw and stone ground kernels"
+    );
+  });
+
+  it("says nothing about a food the corpus deliberately does not hold", () => {
+    // ADR-0104 deleted 1,754 cooked rows: the corpus is ingredients as bought.
+    // Dropping a COOKING word would answer `boiled potato` with a raw potato's
+    // macros, which is worse than the nothing it answers with today.
+    expect(searchIndexRows(corpus, "boiled potato").hits).toEqual([]);
+    expect(searchIndexRows(corpus, "cooked chicken").hits).toEqual([]);
+    expect(searchIndexRows(corpus, "boiled potato").phrases).toEqual([
+      "boiled potato",
+    ]);
+  });
+
+  it("leaves a word the corpus never used to ADR-0049 §1", () => {
+    // `chopped`, `fresh` and `salad` were never ingredient names in these
+    // archives. There is no roster to derive them from and no row behind them,
+    // so they stay what they have always been: a word with no vocabulary entry.
+    expect(searchIndexRows(corpus, "chopped onion").hits).toEqual([]);
+    expect(searchIndexRows(corpus, "chopped onion").phrases).toEqual([
+      "chopped onion",
+    ]);
+  });
+});
+
 describe("the vocabulary fallback in the search", () => {
   it("answers a query the corpus has no name for", () => {
     expect(retrieves(literalOnly, "aubergine")).toBe(false);
@@ -156,6 +284,7 @@ describe("the vocabulary fallback in the search", () => {
       {
         foods: corpus.foods,
         vocabulary: { chilli: ["chile pepper", "chile"] },
+        state_qualifiers: corpus.state_qualifiers,
       },
       "chilli"
     ).hits.map((h) => h.row.description);
@@ -163,6 +292,7 @@ describe("the vocabulary fallback in the search", () => {
       {
         foods: corpus.foods,
         vocabulary: { chilli: ["chile", "chile pepper"] },
+        state_qualifiers: corpus.state_qualifiers,
       },
       "chilli"
     ).hits.map((h) => h.row.description);

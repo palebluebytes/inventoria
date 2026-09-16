@@ -188,6 +188,7 @@ export const BUNDLE_DATASETS = ["Foundation Foods", "SR Legacy"];
  * @property {(rows: { fdcId: number, description: string }[]) => ReadonlyMap<number, string>} resolveVariantDrops
  * @property {readonly (readonly [fdcId: number, description: string, why: string])[]} ADJUDICATED_VARIANTS
  * @property {readonly (readonly [fdcId: number, published: string, shipped: string, why: string])[]} ADJUDICATED_NAMES
+ * @property {ReadonlySet<string>} STATE_QUALIFIERS
  * @property {(food: BundleFood) => boolean} fdcReportsNoEnergy
  * @property {(food: BundleFood, splitNdbNumbers: ReadonlySet<number>) => string | number} fdcIdentityKey
  * @property {(group: BundleFood[]) => { food: BundleFood, merged_from: MergedSource[] }} resolveFdcGroup
@@ -971,19 +972,30 @@ async function main() {
   // FINISHED corpus retrieves, so a group's members are compared against the
   // rows that survived rather than against the archives they came from.
   const countMatches = retrievalCounter(retrievalRows(survivors), app);
+  // The roster in the form the query strip reads it, prepared once. The same
+  // words the strip above took out of every shipped name, so a key holding one
+  // of them is a key the fallback can never be handed (ADR-0049's #464
+  // Amendment).
+  const state_qualifiers = app.readStateQualifiers([...app.STATE_QUALIFIERS]);
+  const unreachable = (phrase) =>
+    app.withoutStateQualifiers(phrase, state_qualifiers) !== null;
   const vocabulary = deriveVocabulary(
     readTaxonomyGroups(await readVocabularySource(manifest.vocabulary, dir)),
     {
       denied: app.DENIED_VOCABULARY_TAGS,
       countMatches,
       corpusSize: survivors.length,
+      unreachable,
     }
   );
   // Re-measured with a counter of its own, so the check cannot simply agree with
-  // the cache that built the map (ADR-0049's two acceptance properties).
+  // the cache that built the map (ADR-0049's three acceptance properties). The
+  // third needs no second instrument: the strip is a pure function of the roster
+  // and holds no cache to agree with.
   assertVocabularyHolds(
     vocabulary.expansions,
-    retrievalCounter(retrievalRows(survivors), app)
+    retrievalCounter(retrievalRows(survivors), app),
+    unreachable
   );
   const { index, nutrientStore } = buildArtifacts(
     survivors,

@@ -68,6 +68,7 @@ function corpusOf(foods: UsdaIndexRow[]): SearchCorpus {
       sha256: "0".repeat(64),
     },
     vocabulary_local: { source: "hand", expansions: {} },
+    state_qualifiers: [],
     foods,
   });
 }

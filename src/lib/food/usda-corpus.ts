@@ -180,6 +180,24 @@ export interface SearchIndex {
   artifact: "usda-search-index";
   schema_version: number;
   generated_from: ArchiveSource[];
+  /**
+   * Every spelling of the uncooked state the generator struck out of the names
+   * below (ADR-0104, and `STATE_QUALIFIERS` in `usda-shipped-name.ts`), carried
+   * here so the search can strike them out of a typed query too (ADR-0049's
+   * #464 Amendment).
+   *
+   * It rides inside the index rather than beside it for the reason
+   * `vocabulary_off` does, and a sharper one: these are the words that make the
+   * corpus's names differ from USDA's, so a roster that disagreed with the rows
+   * it shipped with would be a query rule pointed at a corpus that never
+   * existed. Nothing in `src/` may import the strip itself — the rename stays
+   * out of the app's bundle (ADR-0047 §4) — so the artifact is the only way the
+   * two can be the same list.
+   *
+   * Phrases, not words: USDA writes `raw or frozen` as one segment, so the
+   * roster holds it as one entry and the query strip reads it as one.
+   */
+  state_qualifiers: string[];
   vocabulary_off: VocabularyMap;
   vocabulary_local: LocalVocabularyMap;
   foods: UsdaIndexRow[];
@@ -266,6 +284,16 @@ export interface SearchCorpus {
    * very rows (ADR-0049 §4).
    */
   vocabulary: VocabularyMap["expansions"];
+  /**
+   * The artifact's {@link SearchIndex.state_qualifiers}, split into words once
+   * and ordered longest first — the form {@link withoutStateQualifiers} reads.
+   *
+   * Split here for the reason the names are: it does not depend on what was
+   * typed. Ordered here because the order is load-bearing rather than
+   * cosmetic — `raw or frozen` has to be tried before `raw`, or the strip
+   * leaves `or frozen` behind and the query is worse than the one typed.
+   */
+  state_qualifiers: string[][];
 }
 
 /**
@@ -292,7 +320,71 @@ export function buildSearchCorpus(index: SearchIndex): SearchCorpus {
       ...index.vocabulary_off.expansions,
       ...index.vocabulary_local.expansions,
     },
+    state_qualifiers: readStateQualifiers(index.state_qualifiers),
   };
+}
+
+/**
+ * {@link SearchIndex.state_qualifiers} in the form {@link withoutStateQualifiers}
+ * reads: each phrase split into words, longest first.
+ *
+ * Exported because the vocabulary derivation needs the same form before there is
+ * an index to build a corpus from, and a second spelling of the sort would be
+ * free to disagree about the one thing that matters — that `raw or frozen` is
+ * tried before `raw`.
+ */
+export function readStateQualifiers(phrases: readonly string[]): string[][] {
+  return phrases
+    .map(wordsOf)
+    .filter((words) => words.length > 0)
+    .sort((a, b) => b.length - a.length);
+}
+
+/**
+ * The typed query with every spelling of the uncooked state taken out of it, as
+ * a phrase — `raw aubergine` becomes `aubergine`, and a query naming no state
+ * comes back as the words it was typed with.
+ *
+ * **This is the repair for a defect ADR-0104 created and #464 measured.** The
+ * corpus is ingredients as bought, so `raw` was struck from every shipped name;
+ * 1,047 rows carry it as a fact and not one carries it as a word. A typed token
+ * matching against name text alone therefore had nothing to reach, and the
+ * conjunction took the whole query down with it: `raw X` returned nothing for
+ * **62 of 62** foods in the vocabulary's single-word subset, and so did the
+ * remaining three carriers #142 was measured over. The word is not wrong, it is
+ * merely no longer said — so the query stops saying it too.
+ *
+ * Phrase-wise and longest-first, so USDA's one `raw or frozen` comes off as one
+ * segment rather than leaving `or frozen` behind. Positional in neither
+ * direction: `chicken raw` is as much a way of typing it as `raw chicken`, and
+ * unlike a vocabulary key a state word names no position.
+ *
+ * **`null` for a query naming no state**, which is almost every query, rather
+ * than the words it was typed with. The distinction is what both callers
+ * actually ask: the search wants to know whether a second phrase is worth
+ * ranking, and the vocabulary derivation wants to know whether a key can ever be
+ * typed at the fallback at all. A returned string is always a query this changed.
+ *
+ * The result can be EMPTY, for a query that was nothing BUT state words. It
+ * costs nothing: `searchIndexRows` declines to rank an empty phrase, so typing
+ * `raw` alone still reaches `Seeds, sesame butter, tahini, from raw and stone
+ * ground kernels` — the only row in 2,023 still holding the word, and the only
+ * one meaning something else by it.
+ */
+export function withoutStateQualifiers(
+  query: string,
+  stateQualifiers: readonly (readonly string[])[]
+): string | null {
+  const typed = wordsOf(query);
+  const kept: string[] = [];
+  for (let i = 0; i < typed.length; ) {
+    const struck = stateQualifiers.find((words) =>
+      words.every((word, k) => typed[i + k] === word)
+    );
+    if (struck) i += struck.length;
+    else kept.push(typed[i++]);
+  }
+  return kept.length === typed.length ? null : kept.join(" ");
 }
 
 /**
@@ -333,14 +425,21 @@ export interface VocabularyExpansion {
  * query is never reached at all, so `aubergine` expands and `raw aubergine` does
  * not (ADR-0049 Consequences, as corrected by its own #142 Amendment).
  *
- * That gap is #142, and it has been MEASURED since: a per-token tier reaches 72
- * of 348 carrier-phrase probes, which deflates to 28 distinct foods, and every
- * one of the 28 is already reachable by deleting a word. So the tier saves a
- * retry rather than making a food findable, and ADR-0053 found reach alone
- * insufficient to license it — the decision now rests on whether anyone actually
- * types a synonym mid-phrase, which `logs/search-log.ts` is the instrument for.
- * Do not re-measure reach here; the numbers are in
- * `docs/research/142-carrier-phrase-sweep.md`.
+ * **That is still true of this function and no longer true of a search.**
+ * `searchIndexRows` strips the state words out of the query before it gets here,
+ * so what arrives for a typed `raw aubergine` is `aubergine`, which is a key
+ * (ADR-0049's #464 Amendment). The rule below is unchanged: it is the caller
+ * that stopped handing it the carrier.
+ *
+ * #142 asked for the other repair — a per-token tier that SUBSTITUTES the food
+ * word inside the phrase — and it is closed, refuted. Measured over the 62
+ * single-word keys and four carriers it rescued **0 of 248**, because the
+ * blocker was never the synonym. Its own earlier figure of 72 rescues in 348 was
+ * measured against a 4,238-row corpus that no longer exists, and 18 of those
+ * came through a `cooked X` carrier ADR-0104 has since emptied. The numbers are
+ * in `docs/research/407-when-a-typed-word-reaches-a-food.md` §2;
+ * `docs/research/142-carrier-phrase-sweep.md` is the superseded measurement and
+ * is not a corpus this branch ships.
  *
  * That is the ONE place this parts company with `curatedMatches`, whose partial
  * tier is position-free, and the difference is the tables': a stand-in's aliases
@@ -548,41 +647,71 @@ function rankAgainst(
  * in — so the ordering is asserted against the committed artifact rather than
  * through a fetch.
  *
- * Two passes, and the second runs only when the first returns NOTHING
- * (ADR-0049 §1). That gate is the whole of the vocabulary's integration: an
- * expansion can never reorder, displace or truncate a result that exists today,
- * because it does not run when one does, which makes the no-regression property
- * structural rather than disciplinary. It is also why the ranking gains no key,
- * no tier and no clause for the vocabulary — there is never a literal match
- * present for an expanded one to rank against.
+ * Three phrases at most, in two passes.
  *
- * Takes the two fields it reads rather than a whole {@link SearchCorpus}, which
- * also carries the `schema_version` only #149's log asks for. That is not
+ * The first pass ranks the typed query AND the same query with every spelling of
+ * the uncooked state struck out of it (ADR-0049's #464 Amendment). That second
+ * phrase is UNCONDITIONAL, unlike the vocabulary below, and it can be because it
+ * is strictly additive: `rankAgainst` keeps each row's best key across the
+ * phrases it is given, so a phrase can add rows and improve a row's rung but can
+ * never remove one. The population where it changes a query that answers today
+ * is one row — a query would have to hold a state word and still match, which
+ * only `Seeds, sesame butter, tahini, from raw and stone ground kernels` allows,
+ * the last row in 2,023 saying a word the corpus stopped saying.
+ *
+ * The second pass runs only when the first returns NOTHING (ADR-0049 §1). That
+ * gate is the whole of the vocabulary's integration: an expansion can never
+ * reorder, displace or truncate a result that exists today, because it does not
+ * run when one does, which makes the no-regression property structural rather
+ * than disciplinary. It is also why the ranking gains no key, no tier and no
+ * clause for the vocabulary — there is never a literal match present for an
+ * expanded one to rank against.
+ *
+ * **The strip runs BEFORE the expansion, and the order is the whole of the
+ * rescue.** The map is phrase-keyed and positional, so a key shorter than the
+ * query is never reached: `aubergine` expands and `raw aubergine` did not.
+ * Stripping first hands the fallback `aubergine`, which is a key, so
+ * `raw aubergine` now reaches `Eggplant` under the alias that answered it. That
+ * is #142's motivating case, closed by removing a word rather than by
+ * substituting one — the substitution repaired the half that was not broken, and
+ * `docs/research/407-when-a-typed-word-reaches-a-food.md` §2 has the 0-of-248.
+ *
+ * Takes the three fields it reads rather than a whole {@link SearchCorpus},
+ * which also carries the `schema_version` only #149's log asks for. That is not
  * tidiness: `usda-vocabulary.mjs` swaps the vocabulary on a fixed set of foods
- * per question and hands this exactly `{ foods, vocabulary }`, so a whole-corpus
- * parameter would be describing a caller that does not exist.
+ * per question and hands this exactly those fields, so a whole-corpus parameter
+ * would be describing a caller that does not exist.
  */
 export function searchIndexRows(
-  corpus: Pick<SearchCorpus, "foods" | "vocabulary">,
+  corpus: Pick<SearchCorpus, "foods" | "vocabulary" | "state_qualifiers">,
   query: string,
   frecency: ReadonlyMap<string, Frecency> = new Map()
 ): IndexSearch {
   if (!query.trim()) return { phrases: [], hits: [] };
-  const literal = rankAgainst(corpus.foods, [query], frecency);
+  // `null` for the overwhelming majority of queries, which name no state, and
+  // empty for one that was nothing BUT state words. Neither is worth a second
+  // phrase: the first would rank the typed query twice and the second would rank
+  // an empty query against every row in the corpus.
+  const asked = withoutStateQualifiers(query, corpus.state_qualifiers);
+  const typedPhrases = asked ? [query, asked] : [query];
+  const literal = rankAgainst(corpus.foods, typedPhrases, frecency);
   if (literal.length > 0)
     return {
-      phrases: [query],
+      phrases: typedPhrases,
       hits: literal.map(({ row, reachedVia }) => ({ row, reachedVia })),
     };
-  const expanded = expandThroughVocabulary(corpus.vocabulary, query);
-  if (expanded.length === 0) return { phrases: [query], hits: [] };
+  // What the vocabulary is asked is what the strip left, so a carrier word can
+  // no longer hide a key from it. `asked` is empty only where the query was all
+  // state words, and the map has no key for that.
+  const expanded = expandThroughVocabulary(corpus.vocabulary, asked ?? query);
+  if (expanded.length === 0) return { phrases: typedPhrases, hits: [] };
   // The typed query rides along, and costs the ranking nothing: the pass above
   // just proved it matches no row, so it can never be any row's best key. What
   // it buys is the curated table still seeing what was typed (see
   // {@link SearchedPhrases}) — and, for the same reason, a row that somehow won
   // on it carries no alias, because there is no other name to show it under.
   const aliasOf = new Map(expanded.map((e) => [e.phrase, e.alias]));
-  const phrases = [query, ...expanded.map((e) => e.phrase)];
+  const phrases = [...typedPhrases, ...expanded.map((e) => e.phrase)];
   return {
     phrases,
     hits: rankAgainst(corpus.foods, phrases, frecency).map(

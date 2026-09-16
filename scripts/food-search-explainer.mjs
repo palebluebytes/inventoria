@@ -706,6 +706,7 @@ const searchCorpus = {
   schema_version: index.schema_version,
   vocabulary_off: index.vocabulary_off,
   vocabulary_local: index.vocabulary_local,
+  state_qualifiers: index.state_qualifiers,
   foods: index.foods.map((row) => ({
     fdcId: row.fdcId,
     description: row.description,

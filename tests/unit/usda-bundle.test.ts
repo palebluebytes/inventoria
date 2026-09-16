@@ -49,6 +49,7 @@ import { reportsNoEnergy } from "../../src/lib/food/nutrition";
 import {
   ADJUDICATED_NAMES,
   resolveShippedNames,
+  STATE_QUALIFIERS,
   stripNonNamingQualifiers,
 } from "../../src/lib/food/usda-shipped-name";
 import {
@@ -130,6 +131,7 @@ const app = {
   SUPERSEDED_RECORDS,
   SUPERSEDED_FDC_IDS,
   plainSiblingsOf,
+  STATE_QUALIFIERS,
 } satisfies Partial<AppModule> as unknown as AppModule;
 
 /**
@@ -137,6 +139,13 @@ const app = {
  * `RANKING_EXPORTS` is the vocabulary's, and never reaches `buildArtifacts`.
  */
 const BUNDLE_RANKING_EXPORTS = ["plainSiblingsOf"];
+
+/**
+ * The one shipped-name export `buildArtifacts` reads, and the only entry in any
+ * roster it does not CALL: schema 10 copies the roster into the artifact so the
+ * search can strike the same words out of a query (ADR-0049's #464 Amendment).
+ */
+const BUNDLE_SHIPPED_NAME_EXPORTS = ["STATE_QUALIFIERS"];
 
 /** One record in the bulk archives' own serialisation. */
 const archiveFood = (over: Record<string, unknown> = {}) => ({
@@ -161,10 +170,10 @@ describe("what the generator borrows, and what it never restates", () => {
     // The roster lives in `usda-app-module.mjs`; what this pins is that the
     // generator's own stub uses all of it and nothing else, so a call site added
     // here without a roster entry fails rather than reaching a bare undefined.
-    // Four rosters, because the twin ledger (ADR-0051), the food-kind
-    // judgements (#146) and ADR-0061's variant rules are each reached through
-    // the same seam from a module of their own — all four are borrowed, none is
-    // restated.
+    // Five rosters, because the twin ledger (ADR-0051), the food-kind
+    // judgements (#146), ADR-0061's variant rules and the strip's state roster
+    // (ADR-0049's #464 Amendment) are each reached through the same seam from a
+    // module of their own — all five are borrowed, none is restated.
     expect(
       [
         ...APP_EXPORTS,
@@ -172,6 +181,7 @@ describe("what the generator borrows, and what it never restates", () => {
         ...VARIANT_DROP_EXPORTS,
         ...TWIN_LEDGER_EXPORTS,
         ...BUNDLE_RANKING_EXPORTS,
+        ...BUNDLE_SHIPPED_NAME_EXPORTS,
       ].sort()
     ).toEqual(Object.keys(app).sort());
   });
