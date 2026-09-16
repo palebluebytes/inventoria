@@ -452,6 +452,17 @@ export function declarationsOf(rules: Rule[]): Record<string, string> {
  * looks exhaustive, and cannot see either. `tap-floor.test.ts` already reached
  * for both forms when it globbed `.css`; this is the same fact about `.svelte`,
  * in one place so a third caller cannot rediscover it the hard way.
+ *
+ * **A `*.prototype/` directory is not part of the population.** It is a
+ * throwaway set of variants living on a branch of its own (the `prototype`
+ * skill's convention, already worn by `meal-picker.prototype/` and its
+ * siblings): nothing in one ships, because every call site is behind a
+ * `readVariant()` that returns `null` outside DEV and Rollup drops the branch.
+ * Sweeping it would hold a variant nobody has chosen to the standards of code
+ * that shipped — and worse, would let a prototype's debug chrome onto a census
+ * the app is read by. The filter is here rather than in each caller because
+ * every one of these sweeps wants the same answer: the app, not the sketches
+ * beside it.
  */
 export function trackedSvelteFiles(): string[] {
   return execFileSync("git", ["ls-files", "src/**/*.svelte", "src/*.svelte"], {
@@ -459,7 +470,8 @@ export function trackedSvelteFiles(): string[] {
   })
     .trim()
     .split("\n")
-    .filter(Boolean);
+    .filter(Boolean)
+    .filter((file) => !file.includes(".prototype/"));
 }
 
 /**
