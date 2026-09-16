@@ -1,18 +1,23 @@
 <script lang="ts">
   import type { ConsumptionEvent } from "../../../stores/calorie.store";
   import { parseLoggedQuantity } from "../../../food/recipe-ingredient";
+  import type { NutritionInfo, Portion } from "../../../food/nutrition";
+  import type { RecipeIngredient } from "../../../food/recipe-ingredient";
   import Button from "../../../ui/Button.svelte";
   import FoodItemRow from "../FoodItemRow.svelte";
+  import IngredientAmountSheet from "../IngredientAmountSheet.svelte";
   import DebugStrip from "./DebugStrip.svelte";
   import {
     PANTRY,
     addRow,
     draftFromEvent,
+    ingredientFor,
     isDirty,
     pretendCommit,
     removeRow,
     setRowAmount,
     totalCalories,
+    type DraftRow,
   } from "./draft";
 
   // THROWAWAY — variant F, "hanging from the parent".
@@ -23,11 +28,18 @@
   // stays on the card that is the day's actual entry, and the list below it
   // reads as its contents rather than as six more entries.
   //
-  // **The claim: opening IS editing.** D and E both make you tap twice — once
-  // to open, once to say which line — and the second tap exists only because
-  // the line was drawn as text. Here an open line is already a field: the
-  // amount sits in its own box on every row, and a cook fixing a stew moves
-  // three of them in one go.
+  // **The claim: every amount is a box, on every row, the moment the recipe is
+  // open.** D and E leave a line as text until it is chosen, so the target is
+  // the whole row and what it does is only learnt by doing it. Here the column
+  // of boxes IS the affordance — a cook fixing a stew can see the three numbers
+  // to change before touching any of them.
+  //
+  // **The box opens the app's own ingredient picker** (`IngredientAmountSheet`)
+  // rather than editing in place, which is the same screen the recipe builder
+  // and the instantiation editor open on a row: its unit chips, its basis
+  // caption, its breakdown, its NOVA and source marks. An inline field was a
+  // cheaper thing that happened to fit the box; it is not what the app means by
+  // changing how much of something there is.
   //
   // That is what buys the Save. A per-line ✓ writes a superseding instantiation
   // per line (ADR-0022), which for three amounts is three retract-and-replace
@@ -36,13 +48,19 @@
   // unsaved state to lose, and the dock is what has to make that obvious.
   //
   // **Chosen at round two, then tightened.** The per-ingredient kcal is gone
-  // and the amount field shrank in both directions. Both moves say the same
-  // thing about what an open recipe is FOR: it is the place you fix an amount,
-  // not a second nutrition panel. The figure that matters is the occasion's,
-  // and that is on the parent row where the day reads it; a column of per-row
-  // kcal only competed with the amounts beside it and pushed the names into an
-  // ellipsis. The line is now name · amount · unit · ✕, which is the shortest
-  // thing that can still be edited.
+  // and the amount box shrank in both directions. Both moves say the same thing
+  // about what an open recipe is FOR: it is the place you fix an amount, not a
+  // second nutrition panel. The figure that matters is the occasion's, and that
+  // is on the parent row where the day reads it; a column of per-row kcal only
+  // competed with the amounts beside it and pushed the names into an ellipsis.
+  // The line is now name · amount · unit · ✕, which is the shortest thing that
+  // can still be edited.
+  //
+  // **And the boxes share an edge.** The unit after them is a reserved column
+  // rather than a word, because "g" and "srv" are three characters apart and
+  // that difference was sliding each box against the one above it — the list is
+  // read DOWN the numbers, so a column that does not line up is the one defect
+  // this shape cannot carry.
   let { item }: { item: ConsumptionEvent } = $props();
 
   // Seeded once, on purpose: the draft is this occasion's edit buffer.
@@ -52,6 +70,34 @@
   let adding = $state(false);
   let saved = $state(false);
   let bodyId = $derived(`proto-spine-${item.id}`);
+
+  /** The row whose amount sheet is open, with the twin it resolved to. */
+  let editing = $state<{ row: DraftRow; ing: RecipeIngredient } | null>(null);
+  /** Which row is waiting on that resolution — one database read, and the box
+   *  says so rather than looking dead for it. */
+  let opening = $state<string | null>(null);
+
+  let editPanel = $derived(
+    editing?.ing.payload.attributes["nutrition/info"] as
+      | NutritionInfo
+      | undefined
+  );
+  let editPortions = $derived(
+    (editing?.ing.payload.attributes["food/portions"] as
+      | Portion[]
+      | undefined) ?? []
+  );
+
+  async function openAmount(row: DraftRow) {
+    opening = row.key;
+    try {
+      const ing = await ingredientFor(row);
+      // The row may have been removed while the twin was being read.
+      if (draft.rows.some((r) => r.key === row.key)) editing = { row, ing };
+    } finally {
+      opening = null;
+    }
+  }
 
   let qty = $derived(parseLoggedQuantity(item.quantity));
   let total = $derived(totalCalories(draft));
@@ -80,14 +126,13 @@
       {#each draft.rows as row (row.key)}
         <div class="line">
           <span class="line-name">{row.name}</span>
-          <input
+          <button
+            type="button"
             class="line-amt"
-            inputmode="decimal"
-            value={row.amount}
-            aria-label="Amount of {row.name} in {row.unit}"
-            onchange={(e) =>
-              setRowAmount(draft, row.key, Number(e.currentTarget.value))}
-          />
+            class:waiting={opening === row.key}
+            aria-label="Amount of {row.name}"
+            onclick={() => openAmount(row)}>{row.amount}</button
+          >
           <span class="line-unit"
             >{row.unit === "serving" ? "srv" : row.unit}</span
           >
@@ -152,6 +197,32 @@
   {/if}
 </div>
 
+<!-- The app's own ingredient amount sheet — `IngredientAmountSheet`, the same
+     component the recipe builder and the instantiation editor open on a row,
+     with the same chips, the same basis caption and the same breakdown. Not a
+     stand-in this time: the box on the line is the trigger and this is the
+     picker.
+
+     **It commits to the draft, not to the ledger**, which is how the builder
+     uses it too (`IngredientListEditor` assigns straight into its list). That
+     is what leaves F's dock a job: the sheet says what the amount is, Save says
+     the occasion is corrected. If the implementation instead writes on the
+     sheet's Done — the way the DAY's picker does for a logged food — then this
+     variant loses its one-write-per-correction property and the dock should go
+     with it. The prototype cannot decide that; it can only show both halves. -->
+{#if editing}
+  {@const e = editing}
+  <IngredientAmountSheet
+    payload={e.ing.payload}
+    name={e.row.name}
+    amount={e.row.amount}
+    portions={editPortions}
+    panel={editPanel}
+    onCommit={(amount) => setRowAmount(draft, e.row.key, amount)}
+    onClose={() => (editing = null)}
+  />
+{/if}
+
 <style>
   /* The spine drops from the parent's left edge and the lines hang off it. The
      inset is one step, so the children sit under the parent's NAME rather than
@@ -203,17 +274,32 @@
      The text stays at 16px whatever the box does: under it, a phone zooms the
      page on focus and the day goes sideways. */
   .line-amt {
+    flex-shrink: 0;
     width: 3.4rem;
     height: 2rem;
+    background: var(--paper);
     border: var(--edge-thin);
     padding: 0 var(--space-3xs);
     font: inherit;
     font-size: var(--step-0);
     font-variant-numeric: tabular-nums;
     text-align: right;
+    color: inherit;
+    cursor: pointer;
   }
+  /* One database read while the twin resolves. It is usually a frame, and the
+     box says so rather than looking dead for it. */
+  .line-amt.waiting {
+    opacity: 0.5;
+  }
+  /* **A column, not a word.** The unit sits after the box, so its width decides
+     where the box ends: "g" and "srv" are three characters apart and that is
+     exactly how far the boxes were sliding against each other down the list.
+     Reserved at the widest unit this app writes, left-aligned inside it, so
+     every box in the spine shares an edge. The ✕ after it is already fixed. */
   .line-unit {
     flex-shrink: 0;
+    width: 2.2rem;
     font-size: var(--step-n3);
     font-weight: 700;
     color: var(--text-secondary);

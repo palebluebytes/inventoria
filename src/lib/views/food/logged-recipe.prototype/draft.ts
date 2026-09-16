@@ -22,9 +22,21 @@
  *     of it; the day's row shows kcal, so kcal is what the prototype moves.
  */
 
-import type { ConsumptionEvent } from "../../../stores/calorie.store";
+import {
+  getLocalFoodTwin,
+  type ConsumptionEvent,
+} from "../../../stores/calorie.store";
 import type { MealType } from "../../../food/meal-type";
-import { roundFood, type AmountUnit } from "../../../food/nutrition";
+import {
+  ingredientFromTwin,
+  type RecipeIngredient,
+} from "../../../food/recipe-ingredient";
+import {
+  PER_SERVING,
+  roundFood,
+  type AmountUnit,
+  type NutritionInfo,
+} from "../../../food/nutrition";
 import { scaleAmount } from "../../../food/scale-amount";
 
 /** One editable ingredient line, seeded from a frozen `InstantiationRow`. */
@@ -294,6 +306,50 @@ export function withDemo(
 ): Record<MealType, ConsumptionEvent[]> {
   if (hasInstantiation(groups)) return groups;
   return { ...groups, lunch: [...groups.lunch, demoEvent("lunch")] };
+}
+
+/**
+ * What the app's own amount sheet needs to open on a frozen row: a food-twin
+ * payload with a nutrition panel and a basis to scale against.
+ *
+ * **The ledger first.** A row whose ingredient twin is still there resolves
+ * through `ingredientFromTwin`, exactly as `seedRowFromRef` does for the real
+ * instantiation editor, so the sheet gets the food's real panel, its portions
+ * and its source marks.
+ *
+ * **A panel synthesised from the frozen row otherwise** — every demo row, and
+ * any real row whose ingredient has been deleted since. `seedRowFromRef`'s own
+ * fallback is per-SERVING, which would open a gram row's picker at "240
+ * servings"; the frozen row knows better than that, because it carries both an
+ * amount and the kcal at that amount. Dividing one by the other gives a per-100
+ * basis, which puts the sheet in the unit the row is actually in (ADR-0060 §1
+ * reads the unit off `serving_size`). Nothing is claimed beyond calories: the
+ * prototype only moves kcal.
+ */
+export async function ingredientFor(row: DraftRow): Promise<RecipeIngredient> {
+  // A read that throws is the same case as a twin that is gone: the row still
+  // has to open. Swallowed rather than handled, because a prototype that cannot
+  // open its own picker teaches nothing about the picker.
+  const twin = await getLocalFoodTwin(row.ref).catch(() => null);
+  const real = ingredientFromTwin(twin, row.amount, row.unit);
+  if (real) return real;
+  const measured = row.unit !== "serving" && row.base.amount > 0;
+  const info: NutritionInfo = measured
+    ? {
+        serving_size: `100 ${row.unit}`,
+        calories: roundFood((row.base.calories / row.base.amount) * 100),
+      }
+    : { serving_size: PER_SERVING, calories: roundFood(row.base.calories) };
+  return {
+    entity: row.ref,
+    name: row.name,
+    amount: row.amount,
+    unit: row.unit,
+    payload: {
+      entity: row.ref,
+      attributes: { "food/name": row.name, "nutrition/info": info },
+    },
+  };
 }
 
 /**
