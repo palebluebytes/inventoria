@@ -433,9 +433,9 @@ export interface NameKey {
    */
   tier: number;
   /**
-   * Whether the query reached the food's OWN NAME: true when some typed token
-   * matched within {@link ReferenceFoodName.nameLength}, false when every one of
-   * them matched only in a part beyond it.
+   * The rung at which the query reached the food's OWN NAME: {@link tier} when
+   * some typed token matched within {@link ReferenceFoodName.nameLength}, 0 when
+   * every one of them matched only in a part beyond it.
    *
    * ADR-0062 §1, and it is the reason `milk` reads as an answer. USDA writes an
    * ingredient where a qualifier goes, so `Cheese, mozzarella, whole milk`
@@ -451,13 +451,23 @@ export interface NameKey {
    * entry is admitted only where the search leads with the row it recorded
    * (ADR-0049 §4).
    *
-   * A boolean, and the one field here that no comparison reads: what it decides
-   * is whether the row is RETRIEVED, in {@link withoutStrayMentions}, which
-   * needs the whole result set to answer. As an ordering key it was measured at
-   * 20 moved leads, two of them a cost, and bought nothing — the milks already
-   * outranked the cheeses, so only removing them clears the screen.
+   * **A rung rather than a flag, because a row has more than one name.** For one
+   * name the two carry the same news, this field being `tier` or 0 — but a row
+   * is scored as the best of its names (ADR-0050 §4) and `compareRelevance` does
+   * not read this one, so the name that wins the key need not be a name that
+   * reached anything. A flag then has to be read off the winner, which is #465:
+   * `Seeds, sunflower seed, kernel` answers `kernel` past its own name and its
+   * alias answers inside one, and the row reported the description's answer. A
+   * rung survives {@link bestOfNames}'s collapse intact, because the best rung
+   * any name reached is a fact about the ROW rather than about one name.
+   *
+   * The one field here that no comparison reads: what it decides is whether the
+   * row is RETRIEVED, in {@link withoutStrayMentions}, which needs the whole
+   * result set to answer. As an ordering key it was measured at 20 moved leads,
+   * two of them a cost, and bought nothing — the milks already outranked the
+   * cheeses, so only removing them clears the screen.
    */
-  named: boolean;
+  named: number;
   /** How completely the query fills the head phrase; negative chars-to-go. */
   head: number;
   /**
@@ -616,7 +626,7 @@ export interface RelevanceKey extends NameKey, RowRank {}
 /** A name that does not answer the query at all — every later key is moot. */
 const NO_MATCH: NameKey = {
   tier: 0,
-  named: false,
+  named: 0,
   head: 0,
   accounted: 0,
   position: 0,
@@ -680,6 +690,51 @@ export function compareRelevance(a: RelevanceKey, b: RelevanceKey): number {
 }
 
 /**
+ * One row's answer to a query, over every name it has: its own, and any the twin
+ * merge discarded (#137). The keys come in already scored, in the row's own
+ * order — the row's own name first, so `via` 0 is the name it ships as — and at
+ * least one, which the type says because every row has a name and a collapse
+ * over nothing has no answer to give.
+ *
+ * The BEST key of all of them, which is what makes an alias unable to cost a row
+ * a place it already holds — a worse-matching alias simply never wins. It is
+ * also why the ranking gains no tier, key or clause for aliases: an alias is a
+ * name, scored by the same scorer as every other name.
+ *
+ * **`named` is the exception, and takes the best rung ANY name reached** (#465).
+ * Every other field is a fact about the winning name, and the winner is decided
+ * by {@link compareRelevance}, which deliberately does not read `named`
+ * (ADR-0062 §1) — so a row whose alias reached the food's own name and whose
+ * description won the key reported that it had reached nothing. Measured over
+ * 4,477 queries the two readings part on one row, `Seeds, sunflower seed,
+ * kernel`, and change no result set: ADR-0062's #465 Amendment carries the
+ * sweep. They part on the corpus, not in principle, and what decides which rows
+ * a query keeps is not a place to keep an accident.
+ *
+ * Here rather than in `usda-corpus.ts` beside the search, because the collapse
+ * is restated wherever the ranking is measured — the ranking instruments, the
+ * explainer, the page's own search box and the corpus suite — and only this
+ * module is importable from a plain-Node script (`usda-ranking-corpus.mjs`
+ * explains why). A restatement that keeps the winner's `named` is the defect
+ * above, one copy at a time.
+ */
+export function bestOfNames<T extends RelevanceKey>(
+  keys: readonly [T, ...T[]]
+): { key: T; via: number } {
+  let via = 0;
+  let named = keys[0].named;
+  for (let i = 1; i < keys.length; i++) {
+    if (compareRelevance(keys[i], keys[via]) < 0) via = i;
+    named = Math.max(named, keys[i].named);
+  }
+  // The winning key itself where nothing was raised, which is every row that
+  // has one name — the copy is what an alias costs, and only where it reached
+  // further into the food's own name than the name that won.
+  const best = keys[via];
+  return { key: named > best.named ? { ...best, named } : best, via };
+}
+
+/**
  * The scored rows a query keeps, less the ones that merely MENTION what was
  * typed: ADR-0062 §1's rule, applied to a whole result set because that is the
  * only place it can be applied safely.
@@ -689,6 +744,12 @@ export function compareRelevance(a: RelevanceKey, b: RelevanceKey): number {
  * answers on a STRICTLY HIGHER rung of {@link NameKey.tier}. That second
  * condition is the gate §1 asks for, and the bar being the best rung any name
  * reached is what makes it structural rather than disciplinary:
+ *
+ * The bar is taken from {@link NameKey.named} and never from `tier`, and the
+ * two differ on a row whose names disagree: `Seeds, sunflower seed, kernel` is
+ * scored on its description, which answers `kernel` past the food's own name,
+ * and named on the alias USDA filed it under, which answers inside one (#465).
+ * A bar read off that row's tier would be a rung no name of it ever reached.
  *
  * - a query no name answers leaves the bar at 0 and every row clears it, so
  *   `dried` keeps its 118 rows where an ungated cut empties the query. 739 of
@@ -711,11 +772,8 @@ export function compareRelevance(a: RelevanceKey, b: RelevanceKey): number {
 export function withoutStrayMentions<T extends { key: NameKey }>(
   scored: readonly T[]
 ): T[] {
-  const bar = scored.reduce(
-    (rung, { key }) => (key.named ? Math.max(rung, key.tier) : rung),
-    0
-  );
-  return scored.filter(({ key }) => key.named || key.tier >= bar);
+  const bar = scored.reduce((rung, { key }) => Math.max(rung, key.named), 0);
+  return scored.filter(({ key }) => key.named > 0 || key.tier >= bar);
 }
 
 /**
@@ -809,7 +867,7 @@ export function compileReferenceFoodQuery(query: string): ReferenceFoodQuery {
     // stem-matches some word, so under either branch the loop below always
     // finds one. A sentinel here would mean retrieval had broken.
     let position = 0;
-    let named = false;
+    let reachedName = false;
     for (let t = 0; t < tokens.length; t++) {
       for (let i = 0; i < words.length; i++) {
         if (stems[i] === tokenStems[t] || words[i].startsWith(tokens[t])) {
@@ -818,7 +876,7 @@ export function compileReferenceFoodQuery(query: string): ReferenceFoodQuery {
           // past the name has no earlier one, by definition of earliest. Asked
           // here rather than in a pass of its own so the two questions cannot
           // disagree about what a token matched (#131).
-          if (i < nameLength) named = true;
+          if (i < nameLength) reachedName = true;
           // Measured from where the food's own name starts, so a drink is not
           // charged for the aisle USDA walks down first (#154). A token that
           // landed IN the shelf label costs 0, which needs no special case and
@@ -856,7 +914,10 @@ export function compileReferenceFoodQuery(query: string): ReferenceFoodQuery {
 
     return {
       tier,
-      named,
+      // The rung this name reached the food's own name at, which is the rung it
+      // scored: one name answers on one rung, and `named` is that rung or
+      // nothing (#465).
+      named: reachedName ? tier : 0,
       // Within a tier, prefer the head whose length the query most nearly fills:
       // for "grap" this floats "Grapes, …" (2 characters to go) above
       // "Grapefruit, …" (6). A head the query does not cover at all ranks below

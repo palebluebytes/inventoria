@@ -58,6 +58,7 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import {
+  bestOfNames,
   compareRelevance,
   compileReferenceFoodQuery,
   plainSiblingsOf,
@@ -217,9 +218,9 @@ const leadsFor = (corpus, query, orderings) => {
     .map((food) => ({
       fdcId: food.fdcId,
       description: food.description,
-      key: food.names
-        .map((name) => ({ ...rank(name), ...food.rank }))
-        .reduce((best, key) => (compareRelevance(key, best) < 0 ? key : best)),
+      key: bestOfNames(
+        food.names.map((name) => ({ ...rank(name), ...food.rank }))
+      ).key,
     }))
     .filter(({ key }) => key.tier > 0);
   const kept = withoutStrayMentions(scored);

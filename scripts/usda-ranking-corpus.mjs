@@ -29,6 +29,7 @@ import {
   readReferenceFoodName,
   compileReferenceFoodQuery,
   compareRelevance,
+  bestOfNames,
   readRowRank,
   withoutStrayMentions,
 } from "../src/lib/food/reference-food-ranking.ts";
@@ -80,7 +81,9 @@ export const buildCorpus = (index) =>
  * typed words reached only past the food's own name (ADR-0062 §1), sort — so a
  * divergence here is a bug rather than a finding. A row scores as the BEST of
  * its names, which is the fifth thing that has to match and the reason `names`
- * is a list.
+ * is a list — and it is IMPORTED rather than restated for the reason the ranking
+ * is: a restatement of that collapse silently kept the winning name's `named`,
+ * which is #465.
  *
  * The sixth is that a scored name carries its ROW's keys too, the way
  * `bestNameKey` spreads them: a restatement that drops them does not rank worse,
@@ -92,9 +95,9 @@ export function scoreAll(corpus, query) {
   const scored = corpus
     .map((food) => ({
       description: food.description,
-      key: food.names
-        .map((name) => ({ ...rank(name), ...food.rank }))
-        .reduce((best, key) => (compareRelevance(key, best) < 0 ? key : best)),
+      key: bestOfNames(
+        food.names.map((name) => ({ ...rank(name), ...food.rank }))
+      ).key,
     }))
     .filter(({ key }) => key.tier > 0);
   return withoutStrayMentions(scored).sort((a, b) =>

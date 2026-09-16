@@ -39,6 +39,7 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 import {
+  bestOfNames,
   compareRelevance,
   compileReferenceFoodQuery,
   qualifiersOf,
@@ -317,20 +318,26 @@ const corpus = index.foods.map((row) => ({
   names: [row.description, ...(row.also ?? [])].map(readReferenceFoodName),
 }));
 
-const scoreAll = (query) => {
+/**
+ * Every row keyed against one query, the way `bestNameKey` keys it: each of the
+ * row's names scored, the row's own keys spread onto each, and `bestOfNames`
+ * collapsing them. Unfiltered and unordered — the two callers below want
+ * different rows out of the same scoring.
+ */
+const keyAll = (query) => {
   const rank = compileReferenceFoodQuery(query);
-  const scored = corpus
-    .map((food) => ({
-      description: food.description,
-      key: food.names
-        .map((name) => ({ ...rank(name), ...food.rank }))
-        .reduce((best, key) => (compareRelevance(key, best) < 0 ? key : best)),
-    }))
-    .filter(({ key }) => key.tier > 0);
-  return withoutStrayMentions(scored).sort((a, b) =>
-    compareRelevance(a.key, b.key)
-  );
+  return corpus.map((food) => ({
+    description: food.description,
+    key: bestOfNames(
+      food.names.map((name) => ({ ...rank(name), ...food.rank }))
+    ).key,
+  }));
 };
+
+const scoreAll = (query) =>
+  withoutStrayMentions(keyAll(query).filter(({ key }) => key.tier > 0)).sort(
+    (a, b) => compareRelevance(a.key, b.key)
+  );
 
 /**
  * A real corpus row that answers `query` on exactly `tier`, best-first.
@@ -341,14 +348,7 @@ const scoreAll = (query) => {
  * asked rather than remembered.
  */
 const exampleAt = (query, tier) => {
-  const rank = compileReferenceFoodQuery(query);
-  const hit = corpus
-    .map((food) => ({
-      description: food.description,
-      key: food.names
-        .map((name) => ({ ...rank(name), ...food.rank }))
-        .reduce((best, key) => (compareRelevance(key, best) < 0 ? key : best)),
-    }))
+  const hit = keyAll(query)
     .filter(({ key }) => key.tier === tier)
     .sort((a, b) => compareRelevance(a.key, b.key))[0];
   return hit ? hit.description : null;
@@ -635,6 +635,7 @@ const movedLeads = (key) => {
  * which is how this was found.
  */
 const BUNDLE_EXPORTS = [
+  "bestOfNames",
   "buildSearchCorpus",
   "searchIndexRows",
   "searchResultName",
@@ -653,7 +654,7 @@ const bundleSearch = () => {
     entry,
     "export { buildSearchCorpus, searchIndexRows, searchResultName, SEARCH_RESULT_LIMIT } from " +
       JSON.stringify(join(ROOT, "src/lib/food/usda-corpus")) +
-      ";\nexport { compareRelevance, compileReferenceFoodQuery, readReferenceFoodName, readRowRank } from " +
+      ";\nexport { bestOfNames, compareRelevance, compileReferenceFoodQuery, readReferenceFoodName, readRowRank } from " +
       JSON.stringify(join(ROOT, "src/lib/food/reference-food-ranking")) +
       ";\n"
   );

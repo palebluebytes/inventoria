@@ -29,6 +29,7 @@ import {
 } from "../../src/lib/food/usda-food-kind";
 import { resolveVariantDrops } from "../../src/lib/food/usda-variant-drops";
 import {
+  bestOfNames,
   compareRelevance,
   compileReferenceFoodQuery,
   isSeparatedFat,
@@ -97,9 +98,10 @@ const scoredFor = (phrase: string) => {
   return corpus.foods
     .map((food) => ({
       food,
-      key: [food.name, ...food.also]
-        .map((name) => ({ ...rank(name), ...food.rank }))
-        .reduce((best, key) => (compareRelevance(key, best) < 0 ? key : best)),
+      key: bestOfNames([
+        { ...rank(food.name), ...food.rank },
+        ...food.also.map((name) => ({ ...rank(name), ...food.rank })),
+      ]).key,
     }))
     .filter(({ key }) => key.tier > 0);
 };
@@ -1498,9 +1500,9 @@ describe("searchIndexRows", () => {
         .filter(({ food }) => !/^Yogurt,/.test(food.row.description))
         .map(({ food, key }) => [food.row.fdcId, key.named])
     ).toEqual([
-      [167722, true],
-      [172352, true],
-      [173586, true],
+      [167722, 40],
+      [172352, 40],
+      [173586, 40],
     ]);
   });
 
@@ -1535,6 +1537,33 @@ describe("searchIndexRows", () => {
     // is the case that shows it — the pepper is a qualifier match, and the
     // anchovy that survives every gate is a bare prefix one, a rung below.
     expect(descriptionsFor("ancho")[0]).toBe("Peppers, ancho, dried");
+  });
+
+  it("names a row at the rung ANY of its names reached, not the winner's", () => {
+    // #465, over the one row in the corpus where the two readings part. USDA
+    // files `Seeds, sunflower seed, kernel` under a second name the twin merge
+    // kept, `Seeds, sunflower seed kernels, dried` — and for a typed `kernel`
+    // the description answers PAST the food's own name while the alias answers
+    // inside one. Both score the whole-word rung, so `compareRelevance`, which
+    // does not read `named`, settles it on a later key and the description wins.
+    const scored = scoredFor("kernel");
+    const sunflower = scored.filter(({ food }) => food.row.fdcId === 2515381);
+    // Asserted rather than assumed: a filter matching nothing would leave every
+    // expectation under it reading an empty list, and passing.
+    expect(sunflower).toHaveLength(1);
+    expect(sunflower[0].key.tier).toBe(20);
+    expect(sunflower[0].key.named).toBe(20);
+    // What the reading is worth today: nothing, and that is measured rather than
+    // assumed. Sixteen sibling rows answer `kernel` inside their own names at
+    // the same rung, so the bar is 20 whichever name the rung is read off, and
+    // all 24 retrieved rows sit at that rung and clear it. The row is one alias
+    // away from mattering, which is why it is the reading and not the answer
+    // that is pinned here.
+    expect(descriptionsFor("kernel")).toContain(
+      "Seeds, sunflower seed, kernel"
+    );
+    expect(withoutStrayMentions(scored)).toHaveLength(scored.length);
+    expect(scored).toHaveLength(24);
   });
 
   it("counts what the name-part rule reaches, and what it must not", () => {

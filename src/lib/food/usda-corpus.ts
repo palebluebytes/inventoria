@@ -17,6 +17,7 @@ import {
   type FdcNutrient,
 } from "./usda-fdc";
 import {
+  bestOfNames,
   compileReferenceFoodQuery,
   compareRelevance,
   readReferenceFoodName,
@@ -434,14 +435,19 @@ export interface IndexSearch extends SearchedPhrases {
  * How well one row answers a query, over every name it has: its own, and any the
  * twin merge discarded (#137).
  *
- * The BEST key of all of them, which is what makes an alias unable to cost a row
- * a place it already holds — a worse-matching alias simply never wins. It is
- * also why the ranking gains no tier, key or clause for aliases: an alias is a
- * name, scored by the same scorer as every other name.
+ * The BEST key of all of them — {@link bestOfNames}, which is where that
+ * collapse is written and where `named` is taken as the best rung any of the
+ * names reached (#465). What this function adds is the row: the four row keys,
+ * the two frecency ones, and the alias TEXT a caller can show, which the ranking
+ * itself has no handle on.
  *
- * The loop is skipped entirely for the 1,950 rows that have no alias, so a
- * keystroke pays for this only where USDA held two names for one food. Pinned in
+ * The alias path is skipped entirely for the 1,950 rows that have no alias — no
+ * array, no collapse, the row's own key straight back — so a keystroke pays for
+ * aliases only where USDA held two names for one food. Pinned in
  * `usda-corpus.test.ts` beside the search limit's figure, for the same reason.
+ * That is also why the single-name case does not route through `bestOfNames`:
+ * over one key it returns that key, which `reference-food-ranking.test.ts` pins
+ * rather than leaves as prose.
  *
  * The row's own four keys join each name's key here, which is the ONE place a
  * finished `RelevanceKey` is built: `rank` scores a name and returns a
@@ -461,22 +467,18 @@ function bestNameKey(
   // with every meal logged, so they cannot be baked and are handed in per
   // search instead.
   const row = { ...food.rank, ...frecency };
-  let best: RelevanceKey = { ...rank(food.name), ...row };
+  const own: RelevanceKey = { ...rank(food.name), ...row };
+  if (food.also.length === 0) return { key: own };
+  const { key, via } = bestOfNames([
+    own,
+    ...food.also.map((name): RelevanceKey => ({ ...rank(name), ...row })),
+  ]);
   // Which name won, as an INDEX rather than a string: `ReferenceFoodName` keeps
   // words and stems, never the text it was read from, and `buildSearchCorpus`
   // builds `also` by mapping `row.also` one for one — so the index is the only
-  // handle back to the words a person actually typed at.
-  let via = -1;
-  for (let i = 0; i < food.also.length; i++) {
-    const key: RelevanceKey = { ...rank(food.also[i]), ...row };
-    if (compareRelevance(key, best) < 0) {
-      best = key;
-      via = i;
-    }
-  }
-  return via < 0
-    ? { key: best }
-    : { key: best, reachedVia: food.row.also?.[via] };
+  // handle back to the words a person actually typed at. Index 0 is the row's
+  // own name, and an alias sits one past its place in `also`.
+  return via === 0 ? { key } : { key, reachedVia: food.row.also?.[via - 1] };
 }
 
 /**
