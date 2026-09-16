@@ -44,8 +44,8 @@ import type { EntityPayload } from "../../src/lib/ingestion/ingest";
 
 // The committed artifact itself is the fixture (ADR-0047 §3). Search is only
 // keyless and offline if it answers from THIS file, so the ADR-0042 ordering
-// cases are asserted over the 4,238 rows the app actually ships rather than
-// over a hand-built stand-in that could agree with the code and not the data.
+// cases are asserted over the rows the app actually ships rather than over a
+// hand-built stand-in that could agree with the code and not the data.
 const index: SearchIndex = JSON.parse(
   readFileSync("public/usda/search-index.json", "utf8")
 );
@@ -442,7 +442,9 @@ describe("the bundled search index", () => {
     // from a corpus that no longer exists.
     //
     // What the alias loop is skipped for, which is the whole reason
-    // `bestNameKey` costs nothing on most rows.
+    // `bestNameKey` costs nothing on most rows — and `bestNameKey`'s own
+    // docstring is where the figure is read, which is the half this pin kept
+    // missing: it said 4,159 while this line said 1,950 and passed (#466).
     // 2,345 to 1,964, tracking the corpus: the collapse keeps the survivor's
     // own aliases and adds none, so the count moves by the rows it took.
     // 1,964 to 1,952, tracking the corpus again: none of the twelve rows the
@@ -452,8 +454,9 @@ describe("the bundled search index", () => {
     expect(index.foods.filter((row) => !(row.also ?? []).length).length).toBe(
       1950
     );
-    // And what `SEARCH_RESULT_LIMIT` is a ceiling ON. Measured after ADR-0062
-    // §1, because that is the set the list would have to render.
+    // And what `SEARCH_RESULT_LIMIT` is a ceiling ON, its docstring being where
+    // that one is read. Measured after ADR-0062 §1, because that is the set the
+    // list would have to render.
     // 734 to 727: seven of the eight rows the reconstituted-drink rule takes
     // are filed under a head phrase beginning with `b` — six `Beverages` and
     // one `Alcoholic beverage`. 706 to 429 under ADR-0103's collapse, which is

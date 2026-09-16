@@ -24,11 +24,11 @@
  *
  *   THE ROW KEYS ARE READ. `usda-ranking-audit.mjs`'s `qualifierPass` scores
  *   `rank(name)` alone and sorts it with `compareRelevance`, so
- *   `b.plainSibling - a.plainSibling` is `NaN`, `NaN ||` is falsy, and ADR-0055's
- *   two row keys fall through unread. That is deliberate there — the pass is
- *   #124's frozen pre-registration — and fatal here, because those two keys are
- *   among the ten under test. Scoring goes through the same shape `scoreAll`
- *   uses: the name key spread with the row's rank (#156).
+ *   `b.plainSibling - a.plainSibling` is `NaN`, `NaN ||` is falsy, and the four
+ *   row keys fall through unread. That is deliberate there — the pass is #124's
+ *   frozen pre-registration — and fatal here, because all four are among the
+ *   twelve under test. Scoring goes through the same shape `scoreAll` uses: the
+ *   name key spread with the row's rank (#156).
  *
  *   `plain_sibling` IS RE-DERIVED, NEVER READ. It is a corpus-relative fact
  *   baked into the index at generation time, and the pilot's collapsed corpus
@@ -181,9 +181,9 @@ const assertOrderMatchesShipped = (scored, query) => {
  * Shaped like `usda-ranking-corpus.mjs`'s `buildCorpus` and not imported from it
  * for one reason: that one reads `row.plain_sibling` off the index, which is
  * exactly the stale field this census may not trust. Everything else about the
- * shape — `also` aliases as further names, `readRowRank` for the two row keys —
- * is the same because a census measuring a different corpus than the app
- * searches measures nothing.
+ * shape — `also` aliases as further names, `readRowRank` for the row keys, the
+ * row spread into it so `raw` reaches the rank — is the same because a census
+ * measuring a different corpus than the app searches measures nothing.
  */
 const buildCorpus = (index) => {
   const descriptions = index.foods.map((row) => row.description);

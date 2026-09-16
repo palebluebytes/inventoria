@@ -691,7 +691,10 @@ export function compareRelevance(a: RelevanceKey, b: RelevanceKey): number {
  * reached is what makes it structural rather than disciplinary:
  *
  * - a query no name answers leaves the bar at 0 and every row clears it, so
- *   `raw` keeps its 1,444 rows where an ungated cut empties the query;
+ *   `dried` keeps its 118 rows where an ungated cut empties the query. 739 of
+ *   the 1,535 words the corpus contains are such a query, `raw` no longer among
+ *   them: since ADR-0104 one row says the word, and `dried` is the largest of
+ *   what is left;
  * - **the lead can never be dropped**, since it holds the highest rung there is;
  * - a word naming one food and qualifying another on the SAME rung keeps both,
  *   which is what leaves the chili peppers under `chili` and the ancho under
@@ -874,8 +877,14 @@ export function compileReferenceFoodQuery(query: string): ReferenceFoodQuery {
 }
 
 // ---------------------------------------------------------------------------
-// The two keys that read a row rather than a name (ADR-0055)
+// The keys that read a row rather than a name (ADR-0055, ADR-0104 §6)
 // ---------------------------------------------------------------------------
+//
+// ADR-0055 opened this section with two of them and there are now four: `raw`
+// joined when the corpus stopped shipping cooked foods and the name stopped
+// carrying the word (ADR-0104 §6), and `canonical` when a hand-picked row had to
+// be able to win a tie its facts could not (#165). What the two below say about
+// a ROW is true of all four.
 //
 // #134 asked whether four populations belong in a reference-food corpus at all:
 // varietal wines, protein powders, the whole American Indian/Alaska Native Foods
@@ -1064,16 +1073,28 @@ export function plainSiblingsOf(descriptions: readonly string[]): boolean[] {
 }
 
 /**
- * One row's two row-level keys.
+ * One row's four row-level keys, with the two frecency slots beside them.
  *
- * `plain_sibling` is baked into the Search index at generation time, because
- * deriving it at load costs 24 ms against the 18.5 ms the whole corpus load
- * costs (ADR-0055 §6). `foodCategory` is already on every row, so `designated`
- * is computed here rather than duplicated into a second field that could drift
- * from it — the rule ADR-0041 set for `deriveNovaVerdict`.
+ * Two of the four are READ off the row and two are COMPUTED from it, and the
+ * split is the same argument twice. `plain_sibling` and `raw` are baked into the
+ * Search index at generation time because neither can be recovered here: the
+ * first needs every description at once, and deriving it at load costs 24 ms
+ * against the 18.5 ms the whole corpus load costs (ADR-0055 §6); the second is
+ * the word USDA published, which ADR-0056's strip has taken off the shipped name
+ * by the time this sees it (ADR-0104 §6). `fdcId` and `foodCategory` are already
+ * on every row, so `canonical` and `designated` are computed here rather than
+ * duplicated into fields that could drift from them — the rule ADR-0041 set for
+ * `deriveNovaVerdict`.
+ *
+ * The frecency pair defaults to 0 rather than being required, so a caller
+ * without a ledger to read — every instrument under `scripts/` — gets the two
+ * keys tying uniformly rather than a key with `undefined` in it, which is #155's
+ * `NaN`-is-falsy bug arriving through the door this function exists to shut.
  *
  * Structurally typed rather than taking a `UsdaIndexRow`, so this module still
- * imports nothing.
+ * imports nothing. Every field it names is declared there all the same (#466):
+ * a fact the type does not state is a fact a reader or a harness can drop with
+ * nothing failing.
  */
 export function readRowRank(
   row: {

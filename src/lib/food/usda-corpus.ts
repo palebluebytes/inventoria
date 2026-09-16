@@ -202,9 +202,9 @@ export interface NutrientStore {
 /**
  * How many ranked rows one search hands to the results list. This is the page
  * size FDC's search defaulted to, kept because it is the list's ceiling and not
- * the corpus's: a bare "b" still hands back 1,424 rows once ADR-0062 §1 has
- * taken the mentions out of them, and rendering an option per row would cost far
- * more than the search itself.
+ * the corpus's: a bare "b" still hands back 422 rows once ADR-0062 §1 has taken
+ * the mentions out of them, and rendering an option per row would cost far more
+ * than the search itself.
  *
  * That figure is pinned in `usda-corpus.test.ts`, because the one it replaced
  * rotted through four regenerations with nothing to catch it.
@@ -217,16 +217,22 @@ export interface SearchableFood {
   name: ReferenceFoodName;
   /**
    * The row's aliases, read the same way — one name each, not a bag of extra
-   * words. Every ranking key derives from a description and its word order, so
-   * an alias only earns its `raw`, `plain` and `simplicity` by being read as the
-   * name it is. Empty for all but the twinned rows.
+   * words. Every NAME key derives from a description and its word order, so an
+   * alias only earns its `tier`, `plain` and `wholeness` by being read as the
+   * name it is. The row keys below are not among them: they are the same for
+   * every name a row answers to. Empty for all but the twinned rows.
    */
   also: ReferenceFoodName[];
   /**
-   * The two keys that read the ROW rather than one of its names (ADR-0055 §5) —
-   * whether a plainer twin of it exists, and whether USDA published it for a
-   * designated population. Read once here for the same reason the names are:
-   * neither depends on what was typed.
+   * The four keys that read the ROW rather than one of its names — whether USDA
+   * described it raw (ADR-0104 §6), whether the roster names it the canonical
+   * row for its head (#165), whether a plainer twin of it exists, and whether
+   * USDA published it for a designated population (ADR-0055 §5). Read once here
+   * for the same reason the names are: none of them depends on what was typed.
+   *
+   * The two frecency slots ride along at 0, the value {@link readRowRank}
+   * defaults them to. They are facts about this device's ledger rather than
+   * about the artifact, and `bestNameKey` spreads today's over these.
    */
   rank: RowRank;
 }
@@ -433,13 +439,13 @@ export interface IndexSearch extends SearchedPhrases {
  * also why the ranking gains no tier, key or clause for aliases: an alias is a
  * name, scored by the same scorer as every other name.
  *
- * The loop is skipped entirely for the 4,159 rows that have no alias, so a
+ * The loop is skipped entirely for the 1,950 rows that have no alias, so a
  * keystroke pays for this only where USDA held two names for one food. Pinned in
  * `usda-corpus.test.ts` beside the search limit's figure, for the same reason.
  *
- * The row's own two keys (ADR-0055 §5) join each name's key here, which is the
- * ONE place a finished `RelevanceKey` is built: `rank` scores a name and returns
- * a `NameKey`, so a query scorer has no way to invent a row fact. They decide
+ * The row's own four keys join each name's key here, which is the ONE place a
+ * finished `RelevanceKey` is built: `rank` scores a name and returns a
+ * `NameKey`, so a query scorer has no way to invent a row fact. They decide
  * nothing between a row's own names, being the same for all of them — what they
  * decide is this row against every other.
  */
@@ -448,10 +454,12 @@ function bestNameKey(
   food: SearchableFood,
   frecency: Frecency
 ): { key: RelevanceKey; reachedVia?: string } {
-  // Spread LAST, over the zeros `buildSearchCorpus` baked in. The other two row
-  // keys are facts about the artifact and are read once at load; these two are
-  // facts about this device's ledger and change with every meal logged, so they
-  // cannot be baked and are handed in per search instead.
+  // Spread LAST, over the zeros `buildSearchCorpus` baked in. The other four
+  // row keys are read once at load — two of them facts the artifact carries
+  // (`raw`, `plain_sibling`) and two computed from it (`canonical`,
+  // `designated`); these two are facts about this device's ledger and change
+  // with every meal logged, so they cannot be baked and are handed in per
+  // search instead.
   const row = { ...food.rank, ...frecency };
   let best: RelevanceKey = { ...rank(food.name), ...row };
   // Which name won, as an INDEX rather than a string: `ReferenceFoodName` keeps

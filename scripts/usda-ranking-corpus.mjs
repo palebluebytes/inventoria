@@ -10,9 +10,9 @@
  *
  * That is not tidiness. A second instrument that builds its own corpus is how
  * #155's bug arrives: drop `readRowRank` and `compareRelevance` is handed a key
- * with two `undefined` fields, `undefined - undefined` is `NaN`, `NaN` is
- * falsy, and the `||` chain walks straight past both row keys. The run does not
- * fail — it measures a two-key-old ranking and reports it as today's. Split out
+ * with four `undefined` fields, `undefined - undefined` is `NaN`, `NaN` is
+ * falsy, and the `||` chain walks straight past every row key. The run does not
+ * fail — it measures a ranking nobody ships and reports it as today's. Split out
  * when #158's census needed the same six steps, and the audit was at 999 lines
  * against the ~1000 `CODING_STANDARDS.md` §4 draws, which is the same wall that
  * split `usda-ranking-queries.mjs` out for #142.
@@ -56,14 +56,15 @@ export const readIndex = () => JSON.parse(readFileSync(INDEX_PATH, "utf8"));
 /**
  * Every row read into names once, which is what `buildSearchCorpus` does — ALL
  * of a row's names, its own and the ones the twin merge discarded (#137), since
- * a keystroke reaches it by any of them — plus the row's own two ranking keys.
+ * a keystroke reaches it by any of them — plus the row's own four ranking keys.
  *
- * `readRowRank` is not optional decoration. ADR-0055's `plainSibling` and
- * `designated` read the ROW rather than the name, so a corpus without them
- * hands `compareRelevance` a key missing two fields, and the way it fails is
+ * `readRowRank` is not optional decoration. `canonical`, `raw`, `plainSibling`
+ * and `designated` read the ROW rather than the name, so a corpus without them
+ * hands `compareRelevance` a key missing four fields, and the way it fails is
  * silent: `undefined - undefined` is `NaN`, `NaN` is falsy, and the `||` chain
- * walks straight past both keys to the one after. A sweep run that way measures
- * a two-key-old ranking and says nothing about it (#155).
+ * walks straight past every one of them to the key after. A sweep run that way
+ * measures a ranking nobody ships and says nothing about it (#155), and since
+ * ADR-0104 §6 what it skips includes `raw`, the fifth key of twelve.
  */
 export const buildCorpus = (index) =>
   index.foods.map((row) => ({
