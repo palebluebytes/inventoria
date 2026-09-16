@@ -9,6 +9,7 @@ import {
   entityPrefixesOf,
   facetOf,
   type FacetId,
+  isDeclaredEntity,
   nestedFacetsOf,
   ownerOfEntity,
   ownerOfViewModule,
@@ -19,7 +20,7 @@ import {
   storagePrefixesOf,
   VIEWS_ROOT,
 } from "../../src/lib/facets/registry";
-import { isDeclaredEntity, mintEntity } from "../../src/lib/facets/entity-id";
+import { mintEntity } from "../../src/lib/facets/entity-id";
 
 // The registry's *shape* invariants — one owner per prefix, no cross-owner
 // containment — are asserted by scripts/entity-ownership-check.mjs, which also

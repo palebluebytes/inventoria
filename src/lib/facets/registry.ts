@@ -592,6 +592,36 @@ export function facetOf(id: FacetId): Facet {
 export const ENTITY_PREFIXES = TRACKED_DOMAINS.flatMap((d) => d.entityPrefixes);
 
 /**
+ * Whether a string is an entity id this registry accounts for.
+ *
+ * **It lives here rather than in `entity-id.ts` for a bundling reason, and
+ * moving it back costs 2,643 B in a committed artifact.** It is the only thing
+ * that ever read `ENTITY_PREFIXES` as a VALUE from that module, and
+ * `mintEntity` deliberately does not — its prefix argument is already a
+ * compile-time union. So with this gone, `entity-id.ts` imports nothing from
+ * here but the type, that import erases at build, and this whole file leaves
+ * the module graph of everything downstream of `mintEntity`.
+ *
+ * What was downstream is `usda-corpus.ts`, and through it the search bundle
+ * `scripts/food-search-explainer.mjs` embeds in `docs/food-search.html`. That
+ * page was carrying every tracked domain's storage prefixes and view paths and
+ * both Facets' precache manifests — 29.4% of a 9,002 B bundle — so a
+ * `precacheBytes` re-declaration dirtied a document about food search.
+ *
+ * `FACETS` is what made it expensive rather than merely untidy: its `precache`
+ * spreads {@link SHARED_PRECACHE}, and esbuild cannot prove an iterator pure,
+ * so the array survives tree-shaking even with nothing referencing it. Measured
+ * both ways — the same literal without the spread is dropped.
+ *
+ * Nothing in `src/` calls this today. It is kept rather than deleted because it
+ * is the question the ledger import path asks, and `facet-registry.test.ts`
+ * holds it to the roster.
+ */
+export function isDeclaredEntity(entity: string): boolean {
+  return ENTITY_PREFIXES.some((p) => entity.startsWith(p));
+}
+
+/**
  * The id of a Tracked Domain on the roster. A literal union rather than
  * `string`, so anything declaring which domain it belongs to — a log channel
  * naming the domain whose act writes it (ADR-0080 §2) — names one that exists,

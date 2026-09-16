@@ -617,9 +617,22 @@ const movedLeads = (key) => {
  * vocabulary fallback actually live (ADR-0047 §4's import-don't-copy rule,
  * applied to a document instead of a generator).
  *
- * Twenty kilobytes, tree-shaken, and it pulls in no browser API that would need
+ * **6,316 bytes**, tree-shaken, and it pulls in no browser API that would need
  * stubbing. Reached through esbuild from the PATH or through `nix shell`, the
  * same two attempts `usda-app-module.mjs` makes.
+ *
+ * It was 9,002 B until #186, and 2,686 B of that was the Facet registry — every
+ * tracked domain's storage prefixes and view paths, both Facets' precache
+ * manifests, and both `precacheBytes`. None of it was ever called here. It
+ * arrived because `usda-corpus.ts` mints entity ids, `entity-id.ts` imported
+ * `ENTITY_PREFIXES` as a value, and `FACETS` then survived tree-shaking because
+ * its `precache` spreads a shared list and esbuild cannot prove an iterator
+ * pure. `isDeclaredEntity` moved to `registry.ts` to break that edge, and the
+ * import left behind is type-only.
+ *
+ * **So keep it type-only.** The visible cost of losing that is a document about
+ * food search changing bytes whenever somebody re-declares an install weight,
+ * which is how this was found.
  */
 const BUNDLE_EXPORTS = [
   "buildSearchCorpus",
