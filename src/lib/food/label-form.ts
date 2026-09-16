@@ -24,6 +24,7 @@ import {
   portionMeasure,
   PER_100G,
   PER_100ML,
+  type MeasuredUnit,
   type NutritionInfo,
   type Portion,
 } from "./nutrition";
@@ -102,48 +103,118 @@ export const MICROS: FieldDef[] = [
 /** Every nutrient row the form renders, in read-along order. */
 export const ALL_FIELDS: FieldDef[] = [...CORE, ...DETAIL, ...MICROS];
 
-/** One household-portion row as typed in the form (mirrors {@link Portion}). */
+/**
+ * One household-portion row as typed in the form (mirrors {@link Portion}).
+ *
+ * The row carries the unit its magnitude is in, which is the whole of #460's
+ * fix. It is NOT a choice the row offers: `portionRows` reads it off the
+ * portion's own magnitude, and a row the user adds takes the form's basis unit.
+ * There is deliberately no control to change it — the form already answers the
+ * g-versus-ml question once, above, and an earlier build that asked it twice
+ * found the two controls could disagree.
+ *
+ * What the unit decides is whether a row is **editable**: a row whose unit
+ * matches the form's basis is typed in, and one whose unit does not is shown
+ * read-only rather than hidden (ADR-0060 §6's two real shapes — a drink
+ * powder's prepared-100 ml serving on a per-100 g panel, an oat carton's 100 g
+ * on a per-100 ml one). That rule also catches a row stranded by the user
+ * flipping the basis under it: nothing is converted and nothing is cleared, the
+ * row simply stops being editable.
+ */
 export interface PortionRow {
   label: string;
-  grams: string;
-}
-
-/** A twin's portions split into the ones this form can type and the rest. */
-export interface PortionRowSplit {
-  /** The rows the form renders and the user may edit. */
-  rows: PortionRow[];
-  /** The portions it has no row for, to be re-emitted untouched on save. */
-  carried: Portion[];
+  /** The magnitude as typed. A string because it is a text box; "" ⇒ absent. */
+  amount: string;
+  /** The unit that magnitude is in — which sibling {@link buildPortions} fills. */
+  unit: MeasuredUnit;
+  /** The source portion's own `amount`, preserved so an untouched row round-trips. */
+  sourceAmount?: number;
+  /** The source portion's own `unit`, preserved for the same reason. */
+  sourceUnit?: string;
 }
 
 /**
- * Splits a twin's `food/portions` for the form: a gram weight becomes an
- * editable row, and everything else is set aside to be written back exactly as
- * it was read.
+ * A twin's `food/portions` as the form's rows — **every** portion, in source
+ * order, each carrying the unit of its own magnitude.
  *
- * A row is a label and a grams box, so a **volume** portion (ADR-0060 §6) has
- * nowhere to sit — the form types a weight, and a volume serving is still not
- * something it can express. Carrying such a portion through is the difference
- * between a form that cannot edit a drink's "1 can — 330 ml" and one that
- * deletes it: without this it would arrive in the grams box as nothing and be
- * saved back as a zero-gram weight it never was.
+ * This replaced a split that handed back gram rows plus a `carried` list the
+ * form re-emitted untouched and never rendered. Carrying bought byte-exactness
+ * and cost visibility: a drink's "1 can — 330 ml" was data the app held and
+ * showed in exactly zero places — not in this form, and not in the picker
+ * either, since `portionPresets` drops a portion in the other unit on a food
+ * with no Density Class. A user could not tell the portion was there at all
+ * (#460). Byte-exactness is kept by `sourceAmount`/`sourceUnit` instead, so
+ * nothing was traded away to get the visibility.
  *
- * A portion carrying no usable magnitude at all is carried the same way, for the
- * same reason: the form has no honest row to show it in either.
+ * A portion carrying no usable magnitude ({@link portionMeasure} says `null`)
+ * becomes a blank row in `fallbackUnit` — the form's own basis — and stays
+ * editable, because a portion naming a household measure and no amount is
+ * precisely what a correction form exists to correct. It is also the shape
+ * {@link buildPortions} now writes for an unparseable magnitude, so the form can
+ * read back every portion it can write.
  */
-export function splitPortionRows(
-  portions: Portion[] | undefined
-): PortionRowSplit {
-  const split: PortionRowSplit = { rows: [], carried: [] };
-  for (const portion of portions ?? []) {
+export function portionRows(
+  portions: Portion[] | undefined,
+  fallbackUnit: MeasuredUnit = "g"
+): PortionRow[] {
+  return (portions ?? []).map((portion) => {
     const measure = portionMeasure(portion);
-    if (measure?.unit === "g") {
-      split.rows.push({ label: portion.label, grams: String(measure.amount) });
-    } else {
-      split.carried.push(portion);
-    }
+    return {
+      label: portion.label,
+      amount: measure ? String(measure.amount) : "",
+      unit: measure?.unit ?? fallbackUnit,
+      sourceAmount: portion.amount,
+      sourceUnit: portion.unit,
+    };
+  });
+}
+
+/**
+ * The form's rows → the portions a twin stores: the inverse of
+ * {@link portionRows}, and here beside it so the two cannot drift.
+ *
+ * Three rules the component used to carry, each of them a defect from the era
+ * when this lived inside the Svelte file and nothing could test the round trip:
+ *
+ * - **The magnitude goes into the sibling its unit names**, so a hand-typed
+ *   volume is stored as one. Before #460 every typed row was written as `grams`
+ *   — a form comment said so outright — which is why a refused millilitre
+ *   portion had no door back.
+ * - **An unparseable magnitude writes neither sibling.** It was
+ *   `Number(x) || 0`, which made a blank or non-numeric box a genuine zero-gram
+ *   portion: `portionMeasure` reads 0 as a real magnitude, so the picker offered
+ *   a chip that filled nothing. Absent ≠ 0 is the rule the rest of this form is
+ *   built on (#28, ADR-0030) and this was the last row ignoring it.
+ * - **`amount`/`unit` are the source's where there is one.** They were rebuilt
+ *   from the label on every save, so a scanned twin's `unit: "medium"` came back
+ *   as `unit: "1 medium"` — a field no longer holding a unit. Nothing reads
+ *   those fields today, which is a fact about today's readers rather than a
+ *   licence to write a false value into the ledger.
+ *
+ * A row with no label is dropped, not written: every reader keys on the label —
+ * `resolvePortionAmount` matches it, `formatPortionPreset` falls back to it — so
+ * a nameless portion is a chip that renders as an empty string.
+ */
+export function buildPortions(rows: PortionRow[]): Portion[] {
+  const portions: Portion[] = [];
+  for (const row of rows) {
+    const label = row.label.trim();
+    if (label === "") continue;
+    const amount = Number(row.amount.trim());
+    const magnitude =
+      row.amount.trim() !== "" && Number.isFinite(amount) ? amount : undefined;
+    portions.push({
+      label,
+      amount: row.sourceAmount ?? 1,
+      unit: row.sourceUnit ?? label,
+      ...(magnitude === undefined
+        ? {}
+        : row.unit === "ml"
+          ? { millilitres: magnitude }
+          : { grams: magnitude }),
+    });
   }
-  return split;
+  return portions;
 }
 
 /**
