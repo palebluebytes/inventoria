@@ -10,6 +10,7 @@
 **Amended by:** the #152 Amendment below, which re-derives the map over a corpus two rows smaller and reports that nothing moved  
 **Amended by:** the Amendment below, which brackets the alias the #140 Amendment appends, and refuses the obvious alternative  
 **Amended by:** the #177 Amendment below, which adds an eighth hand-written entry that is not a British name, and reports the map unmoved  
+**Amended by:** the #464 Amendment below, which strips the uncooked state out of a query before §1's gate, adds a third acceptance property to §3, and closes the carrier-phrase gap the #142 Amendment left open  
 **Implemented:** #139 `4a01dd1`, `5868a7f`, `efadfad` (the map); #140 (the fallback that reads it); #141 (the hand-written section)
 
 This record amends [ADR-0045](0045-usda-stays-the-base-food-composition-authority.md)
@@ -829,3 +830,121 @@ question instead of the mention count it was written for. The answer is that
 `whole` falls to five rows and `wholemeal` is readmitted, which is the entry §3
 names as the reason the guard exists; ADR-0061's #177 Amendment carries the
 measurement.
+
+## Amendment (2026-09-16, #464): the state comes off the query, before the gate
+
+The #142 Amendment above closes with a gap it could not price: a typed `raw swede`
+finds nothing while `swede` finds the food, because §3's map is phrase-keyed and
+positional and a key shorter than the query is never reached.
+[ADR-0104](0104-the-corpus-is-ingredients-as-bought-and-not-yet-cooked.md) then
+made that gap much larger by taking `raw` out of every shipped name.
+[#464](https://github.com/palebluebytes/inventoria/issues/464) measured what was
+left and repairs it here, in front of §1 rather than inside it.
+
+**The defect is a word the corpus stopped saying.** `raw` is a fact on **1,047 of
+2,023 rows** and a word on **one** — `Seeds, sesame butter, tahini, from raw and
+stone ground kernels`, which means something else by it. Retrieval matches a typed
+token against name text and nothing else, and the match is a conjunction, so a
+token naming a row fact does not merely fail to contribute: it takes the whole
+query down with it. Measured over the 62 single-word keys the #142 sweep used,
+`raw X` returned nothing for **62 of 62** foods.
+
+### 1. A query loses the uncooked state before anything else reads it
+
+`searchIndexRows` strikes every phrase in `STATE_QUALIFIERS` out of the typed
+query and ranks the result as a second phrase beside the query itself. The
+`raw X` and `uncooked X` carriers go from **62 of 62 returning nothing to 0 of
+62**; every one now answers with what the bare key answers with.
+
+**It is unconditional, unlike the vocabulary, and it can be because it is
+strictly additive.** `rankAgainst` keeps each row's best key across the phrases
+it is given, so a second phrase can add a row and improve a rung and can never
+remove one. §1's structural no-regression property is therefore not weakened by
+running this outside the gate — it is obtained a second way, from the shape of
+the pass rather than from a condition on it.
+
+**It runs before the expansion, and the order is the whole of the rescue.** What
+reaches the fallback for a typed `raw aubergine` is `aubergine`, which is a key,
+so the query now leads with `Eggplant` under the alias that answered it. The
+positional rule in §3 is untouched; it is the caller that stopped handing it a
+carrier.
+
+**The roster is the strip's own, carried in the artifact.** `usda-shipped-name.ts`
+may not be imported from `src/` — ADR-0047 §4 keeps the rename out of the app's
+bundle, and a test pins it — so schema **10** copies `STATE_QUALIFIERS` into
+`search-index.json` as `state_qualifiers`. The words a query loses are then the
+same six the names lost, by construction rather than by discipline, and a word
+added to the strip moves the query rule in the same commit. Restating the six in
+the runtime was the alternative and is refused: a fact restated in two
+instruments is free to drift in one of them, which is the defect
+[#465](https://github.com/palebluebytes/inventoria/issues/465) had just finished
+removing elsewhere.
+
+### 2. A key the strip would rewrite is not a key
+
+§3's two filters gain a third, and the reason it is a filter of its own is worth
+stating because the obvious expectation is wrong. **The effect filter does not
+catch these.** It asks what a phrase _retrieves_, and `raw beef kidney` retrieves
+nothing, exactly as it always did. What disqualifies it is that the strip reaches
+it first, so nothing a user can type will ever arrive at that key. The reach
+filter drops such a key at derivation and `assertVocabularyHolds` refuses one in a
+finished map, as a third acceptance property beside the two §3 already had.
+
+Five keys leave: `raw almond kernels`, `raw beef kidney`, `raw beef tongue`,
+`raw common octopus` and `raw lamb rib chop`. The map is **425 keys → 420**, over
+305 targets. Every one of the five was OFF's taxonomy recording a carrier phrase
+by accident, and every one of them still answers — `raw beef kidney` leads with
+`Beef, kidneys` through the general rule instead of through a special case. The
+#142 Amendment's closing observation, that eight such keys existed and any
+per-token tier would have to run after the whole-phrase match, is resolved rather
+than answered: there is no per-token tier, and the keys are gone.
+
+### 3. What is deliberately not repaired
+
+**A cooking word is not a state word, and dropping one would be a defect.**
+ADR-0104 deleted 1,754 cooked rows because the corpus is ingredients as bought.
+Answering `boiled potato` by dropping `boiled` would return a raw potato's
+macros for a boiled potato, at the one moment a user is least able to notice —
+so `boiled`, `cooked`, `roasted` and the rest of `PREPARATION` stay out of the
+roster, and those queries still return nothing. That is the corpus telling the
+truth about itself. Making it _say_ so is a separate question and a separate
+ticket.
+
+**A word the corpus never used stays §1's business.** `chopped`, `fresh` and
+`salad` were never ingredient names in these archives, carry no row fact and have
+no roster to be derived from. They return nothing, the map has no key for them,
+and the honest description of that is the one this record already gives: a phrase
+the corpus does not use, with nothing in the vocabulary to reach. The #464 sweep
+measures them unchanged at **62 of 62** for each of the three carriers.
+
+### 4. Two repairs priced and refused
+
+**Letting a token match the row fact** is the most literal reading and the worst.
+Its cheapest implementation needs no code at all — the strip already preserves
+discarded names in `also[]`, which _is_ matched, so restoring `Eggplant, raw`
+would do it — and that is exactly why it loses: typing `raw` would then retrieve
+1,047 rows of 2,023, which is not retrieval.
+
+**Treating the token as a conjunctive filter** — `raw chicken` as chicken rows
+where the fact is set — avoids that, and fails on what the fact means. `raw` is
+not "this food is raw"; every row is. It records whether USDA's published
+description said the word, which is a fact about an editorial practice the user
+cannot see and has no reason to predict.
+
+### 5. What it costs
+
+Nothing measurable. The strip adds one phrase to at most the queries that name a
+state, the corpus is unchanged at 2,023 rows, and no query loses a row it
+returned before — including `raw` typed alone, which strips to the empty phrase,
+is not ranked, and still reaches the one row in the corpus that means the word.
+
+**How often this bites is still unmeasured, and the repair did not wait for it.**
+ADR-0053's search log records the typed query, so the question is answerable —
+zero-result sessions rescuable by the strip, against all sessions and against
+zero-result sessions — but the population is the last 200 recorded sessions since
+2026-09-06 on one device. #465 settled the principle this rests on: a correction
+whose sweep moves nothing is still worth landing when the no-op is an accident of
+the corpus rather than a property of the rule. Here it is not even a no-op — 1,047
+rows were unreachable by a word that was true of every one of them — and the
+repair deletes five special cases rather than adding any. The number belongs in
+the record when it arrives, not in front of it.
