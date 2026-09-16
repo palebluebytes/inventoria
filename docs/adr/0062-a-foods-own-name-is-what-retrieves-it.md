@@ -2,8 +2,8 @@
 
 **Status:** Accepted  
 **Date:** 2026-08-28  
-**Amended by:** the #176 Amendment below, which gates §1's cut on a row answering the query on a strictly higher rung, and re-measures §1's table over the corpus that ships; [ADR-0104](0104-the-corpus-is-ingredients-as-bought-and-not-yet-cooked.md)'s 2026-09-14 Amendment, which moves whole cow's milk to the top of `milk` by renaming four rows and naming one in a two-entry roster. §4's refusal of a SPECIES KEY is untouched and still binds: no rule reads an animal word, and the other animals' milks hold their order  
-**Implemented:** #176 `0ba9bb5`, `82328d4`, `1f5d82c`, `ded43e6` — §1 as `ReferenceFoodName.nameLength`, `NameKey.named` and `withoutStrayMentions` in `src/lib/food/reference-food-ranking.ts`, asked of each expanded phrase by `rankAgainst` in `src/lib/food/usda-corpus.ts`; #175 `d1c6637`, `b915de3`, `c9918c2`, `98dcadc` — §2's roster as `FORTIFICATION_QUALIFIERS` and §3's condition as the collision check beside it, both in `src/lib/food/usda-shipped-name.ts` and applied by `scripts/usda-adjudication.mjs`; Search index `schema_version` 7 to 8. The seventeen-row answer §1's Consequences claim is pinned by #178 `4f23964` in `tests/unit/usda-corpus.test.ts`
+**Amended by:** the #176 Amendment below, which gates §1's cut on a row answering the query on a strictly higher rung, and re-measures §1's table over the corpus that ships; the #465 Amendment below, which makes `named` the rung a name reached rather than a flag read off whichever of a row's names ranked best; [ADR-0104](0104-the-corpus-is-ingredients-as-bought-and-not-yet-cooked.md)'s 2026-09-14 Amendment, which moves whole cow's milk to the top of `milk` by renaming four rows and naming one in a two-entry roster. §4's refusal of a SPECIES KEY is untouched and still binds: no rule reads an animal word, and the other animals' milks hold their order  
+**Implemented:** #176 `0ba9bb5`, `82328d4`, `1f5d82c`, `ded43e6` — §1 as `ReferenceFoodName.nameLength`, `NameKey.named` and `withoutStrayMentions` in `src/lib/food/reference-food-ranking.ts`, asked of each expanded phrase by `rankAgainst` in `src/lib/food/usda-corpus.ts`; #175 `d1c6637`, `b915de3`, `c9918c2`, `98dcadc` — §2's roster as `FORTIFICATION_QUALIFIERS` and §3's condition as the collision check beside it, both in `src/lib/food/usda-shipped-name.ts` and applied by `scripts/usda-adjudication.mjs`; Search index `schema_version` 7 to 8. The seventeen-row answer §1's Consequences claim is pinned by #178 `4f23964` in `tests/unit/usda-corpus.test.ts`; #465 `e8a87e46` — `NameKey.named` as a rung and the collapse as `bestOfNames`, with the sunflower-kernel row pinned in `reference-food-ranking.test.ts` and `usda-corpus.test.ts`
 
 This record amends [ADR-0042](0042-usda-search-reference-foods.md) §5, whose
 retrieval test admits a row on any word of its description, and
@@ -280,3 +280,87 @@ across the union drops rows in 21 of them that a phrase of their own names —
 the butter under `Oil` — and hands `mandarine` a tangerine where a mandarin
 answers. Applied per phrase it keeps everything the union keeps and those rows
 besides, which is why the search scores each phrase, filters, and then merges.
+
+## Amendment (2026-09-16, #465): the flag a row was named by belonged to whichever name ranked best
+
+§1 is unchanged and the sweep moves nothing. What changes is which of a row's
+names the rule reads it off, and the field stops being a flag.
+
+### The interaction
+
+`withoutStrayMentions` asks `NameKey.named`, and a row is scored as the best of
+the names it answers to — its own, and any the twin merge discarded (ADR-0050 §4,
+#137). `compareRelevance` deliberately does not read `named`, which is the
+Amendment above's own arrangement, so the name that wins the key is under no
+obligation to be a name that reached the food's own name part. The surviving
+flag belonged to the best-ranked name.
+
+Either row in the bar could be wrong. A row whose alias is named and whose
+description outranks it is cut as a stray mention; a row whose description is
+named and whose alias outranks it survives, and raises the bar with the alias's
+rung rather than with the one its own name reached.
+
+73 of the 2,023 rows that ship carry an `also` alias, 76 aliases between them.
+
+### What the sweep found
+
+Over 4,477 queries — the 2,577 head phrases and head words `sweepQueries`
+produces, the 1,535 words the shipped names contain, the 50 adjudicated heads of
+`docs/research/143-gold-set.json`, and the 315 phrases the vocabulary map expands
+to, 3,563 of them distinct because the four sets overlap — the two readings part
+on **one row**, at two queries:
+
+| row                             | alias                                  | query               |
+| ------------------------------- | -------------------------------------- | ------------------- |
+| `Seeds, sunflower seed, kernel` | `Seeds, sunflower seed kernels, dried` | `kernel`, `kernels` |
+
+The description answers `kernel` past the food's own name; the alias answers
+inside one. Both score the whole-word rung, so a later key settles the winner and
+the description takes it.
+
+**No result set changes**: 0 rows gained, 0 rows lost, 0 leads moved, 0 queries
+emptied. The gold set is untouched because nothing it could measure moved — this
+Amendment swept its 50 heads as queries and no ordered result list differs, so no
+verdict in it can have. (The bar above asks for "the 29 adjudicated cases", which
+is neither of the file's numbers: it holds 50 cases, 19 of them carrying
+`verdict: "correct"`, and those 19 are the leads ADR-0055 §2 protects.
+`usda-key-census.mjs` records the same discrepancy.) Sixteen sibling rows answer `kernel` inside
+their own names at that same rung, so the bar is 20 whichever name it is read
+off, and all 24 retrieved rows sit at that rung and clear it. Re-run end to end
+against the code that now ships, the ordered result lists are identical over
+every one of the 3,392 distinct queries of the two corpus-derived sets — and the
+comparison is not vacuous: removing §1's exemption instead moves 376 of them.
+
+### Why it shipped anyway
+
+Because "it cannot bite" is a fact about this corpus and not about the rule. The
+bar holds at 20 because sixteen other rows happen to name at that rung; one alias
+minted by a later refresh is the whole distance between that and a row being cut
+from a query its own name answers. ADR-0055 §2 prices a wrong cut as
+unreachability rather than demotion, which is not a cost to leave resting on an
+accident when the correction is measured at nothing.
+
+### What ships
+
+`NameKey.named` is a **rung** rather than a boolean: the rung at which the query
+reached the food's own name, 0 where it reached nothing. For one name that is the
+same news in another shape — a name answers on one rung, and `named` is that rung
+or nothing. What it survives is the collapse, because the best rung any of a
+row's names reached is a fact about the ROW, where a flag has to be read off one
+name.
+
+Both halves of the interaction close with it. A row is exempt where ANY of its
+names reached the name part, and the bar it raises is the rung that name reached,
+never a higher rung a different name of the same row scored.
+
+It amends [ADR-0050](0050-a-merged-food-keeps-the-name-its-twin-lost.md) §4,
+which says a row keeps the best key of its names full stop: the best key still
+wins every field but this one, because `named` is the only field no comparison
+reads and so the only one the winner cannot be trusted to carry.
+
+The collapse itself moves to `bestOfNames` in `reference-food-ranking.ts`, which
+is the one place it is now written. Beside the search it was restated in six: the
+ranking corpus every instrument reads, the key census, the explainer twice, the
+page's own search box, and the corpus suite — and a restatement keeping the
+winner's `named` is this defect, one copy at a time. `compareRelevance` still
+does not read the field, and no key is added or reordered.

@@ -2,7 +2,7 @@
 
 **Status:** Accepted  
 **Date:** 2026-08-21  
-**Amended by:** [ADR-0051](0051-a-shared-ndb-number-is-not-proof-of-one-food.md) (the rule stands; the alias population falls from 87 to 80, because a refused merge discards no name)  
+**Amended by:** [ADR-0051](0051-a-shared-ndb-number-is-not-proof-of-one-food.md) (the rule stands; the alias population falls from 87 to 80, because a refused merge discards no name); [ADR-0062](0062-a-foods-own-name-is-what-retrieves-it.md)'s #465 Amendment, which narrows §4 by one field: the best key still wins, except that `NameKey.named` takes the best rung ANY of the row's names reached, since no comparison reads it and the winning name need not be one that reached the food's own name part  
 **Implemented:** #137 `2e52374` (the absence tool), `3afcc17` (the alias), `cd19059` (the two instruments)
 
 This record amends [ADR-0045](0045-usda-stays-the-base-food-composition-authority.md)
