@@ -22,6 +22,7 @@
 **Amended by:** [ADR-0056](0056-a-name-loses-the-parts-that-do-not-name-the-food.md) (§3's principle covered which records ship and how they rank, but never what they are CALLED; a shipped description now loses the qualifier parts that do not name the food)  
 **Amended by:** [ADR-0062](0062-a-foods-own-name-is-what-retrieves-it.md) §1, which narrows §5's retrieval test: a row is discarded when every typed token matched only in a qualifier beyond the food's own name part, and some retrieved row answers on a higher tier rung  
 **Amended by:** [ADR-0103](0103-what-was-done-to-a-food-is-not-another-food.md) §1, which makes a corpus row a food as bought rather than a USDA record as published  
+**Amended by:** the #164 Amendment below, which closes the shelf-label roster as a family rather than as a scope, and records what the only surviving shape would cost  
 **Implemented:** `dabb1fe`, `082ad31`, `fcb3b60`, `1365343`; `src/lib/food/food-search.ts`, and since `aa6c53b` the filter roster §3 describes is `src/lib/food/usda-food-kind.ts` rather than `src/lib/food/usda-fdc.ts` (see the Note below)
 
 ## Context
@@ -1999,3 +2000,113 @@ ranking one.
 `salmon` still leads with a 345 kcal smoked sockeye and `almonds` with a 14.6
 kcal almond milk. Both defects are real, both are measured, and neither has a
 mechanism that survives its own price.
+
+## Amendment (2026-09-16, #164): the roster is closed as a family, and the only shape left costs thirty rows
+
+The #153 Amendment refused the tier reading the shelf-label roster **at three
+scopes** and left the family open: a fourth scope, or a narrower roster, might
+still work. [#164](https://github.com/palebluebytes/inventoria/issues/164) then
+recorded four dead ends and proposed nothing.
+[#159](https://github.com/palebluebytes/inventoria/issues/159)'s eight defects
+have stood unfixed since August, and the Amendment above leaves them there.
+
+This closes the family. The measurement is
+[`docs/research/164-where-a-name-starts.md`](../research/164-where-a-name-starts.md),
+pre-registered at `b43c3f34` before the sweep and reported at `ebed65ef`.
+**Nothing shipped.**
+
+### The candidate, and the correction it needed first
+
+`tier` walking `[shelfLength, nameLength)` — the food's own name — rather than
+`[0, headLength)`. One loop bound, identical on the 1,474 rows carrying no shelf
+label.
+
+#164's own first sketch was to **bake** that offset at generation instead, as a
+per-row fact like `plain_sibling`. That is not a different mechanism. An offset
+computed at generation from the same roster carries what `shelfLength` carries at
+read time, so it must produce the same leads and the same failures; moving a
+computation earlier does not change what it computes. What baking buys is that a
+row can be **overridden by hand**, which is the only reason the sweep was worth
+running.
+
+### The band failed on three clauses of six
+
+1,924 queries, **82 leads moved — 14 better, 34 worse, 34 neutral.** The `worse`
+set is **30 distinct rows** against a pre-registered ceiling of 25; three of
+#159's twelve protected leads move (`cottage`, `ginger`, `horse`); and
+[ADR-0055](0055-who-eats-a-food-ranks-it-and-never-drops-it.md) §1's
+designated-in-window count falls **396 → 394**. The gold set holds at 9 of 28,
+and 13 pins break across two files.
+
+### It is the first mechanism in six to reach the defects at all
+
+The Amendment above and #164's four dead ends were every one of them refused on
+price **without clearing a single case**. This one clears six of #159's eight:
+`almonds`, `salmon`, `trout`, `smelt`, `octopus` and `deer` all move to the row
+that ticket names. `cranberry` and `hazelnuts` do not.
+
+**Two of #159's own verdicts are stale and are corrected here.** That ticket
+records `crab` and `swiss` as unreachable — `crab` as needing the rung-30/20 swap
+it refused, `swiss` as already decided by `raw`. Both move under this candidate,
+to `Crustaceans, crab, dungeness` and `Cheese, swiss`. Both readings were taken
+over 4,335 rows, a corpus ADR-0103 and ADR-0104 have since replaced.
+
+### The finding: every label is mixed, so no roster can be narrowed
+
+| label       | better | worse | neutral |
+| ----------- | -----: | ----: | ------: |
+| `Cheese`    |      2 |     7 |       6 |
+| `Fish`      |      4 |     5 |       2 |
+| `Nuts`      |      2 |     6 |       7 |
+| `Spices`    |      0 |     5 |       4 |
+| `Beverages` |      1 |     3 |       0 |
+| `Milk`      |      1 |     1 |       3 |
+| `Game meat` |      2 |     0 |       1 |
+
+`Nuts, almonds` files a nut down the nut aisle, so the name is `almonds`.
+`Nuts, pine nuts` names pine nuts, so `Nuts` is half the name. `Cheese, cottage`
+is cottage cheese; `Cheese, parmesan` is parmesan. Every one is
+`Label, qualifier` and nothing in any of them says which kind it is.
+
+**So the #153 Amendment's refusal widens from three scopes to the whole family.**
+Its narrowest variant restricted the promotion to `nuts` alone; `Nuts` is itself
+2 better and 6 worse. A roster cannot be the unit of this decision at any scope,
+because the decision is per row and no name carries it.
+
+### What the general rule gains
+
+The #159 Amendment's rule — no key sits above `tier` unless it is silent on the
+queries it does not concern — is untouched and stands. This adds the mirror of
+it, about `tier` itself:
+
+**`tier` may not read a roster, because a roster cannot say whether a label is an
+aisle or a name, and the same label is both.**
+
+That is stronger than "the four keys are not separable" and than "the roster
+cannot be narrowed underneath them". Both of those are about the mechanics of
+moving an offset. This is about the information: there is none to move.
+
+### The only shape left, and its price
+
+A **per-row** offset, hand-adjudicated where the roster is wrong. It is the shape
+`ADJUDICATED_NAMES`, `ADJUDICATED_DISHES`, `ADJUDICATED_VARIANTS` and the twin
+ledger already have, and this sweep prices it at **30 rows**.
+
+Two properties make that a real figure. **No row is wanted both ways** — the 13
+rows behind the better leads and the 30 behind the worse do not intersect, so
+such a list would be coherent rather than self-contradicting. And **30 against 25
+is a near miss**, where `ADJUDICATED_VARIANTS` carries 40 and the twin ledger 190.
+
+**The ceiling is not moved here, and that is deliberate.** It was set by analogy
+before the sweep, and re-arguing an analogy with the answer in view is the
+narrowing the #159 Amendment refuses in so many words. A fresh pre-registration
+may set one from the maintenance cost of the list itself — the argument nobody
+could make until the thirty rows existed — and it inherits the 13 broken pins as
+the specification of what such a list must leave standing.
+
+### What is left standing
+
+Unchanged from the Amendment above, and now measured twice: `salmon` leads with a
+345 kcal smoked sockeye and `almonds` with a 14.6 kcal almond milk against a
+626 kcal nut. #159 keeps the defects. #164 closes, its question answered as far
+as a roster can answer it.
