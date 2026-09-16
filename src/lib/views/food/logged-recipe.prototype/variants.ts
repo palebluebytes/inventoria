@@ -34,7 +34,7 @@
  *                             picker, Done writes. Open by default.
  *   F  hanging from the parent children are lines on a rule dropped from the
  *                             parent's left edge, and every amount is already a
- *                             box. One Save at the foot, for the whole set.
+ *                             box, and every act writes at once.
  *                             **This is the one that was chosen**, then
  *                             tightened: no per-row kcal, a smaller amount box
  *                             on a shared edge, and the box opens the app's own
@@ -53,11 +53,17 @@
  * question is what this looks like, not whether the ledger works — it already
  * does.
  *
- * **What the three really disagree about** is how many ledger writes a
- * correction costs. D and E write per line, which is what the day's own amount
- * picker does; F batches the set behind one Save, which is what the sheet does
- * today. Every one of those writes is a retract-and-replace, so the choice is
- * visible in the strip under each open recipe.
+ * **The write model was the last question, and it is settled** (2026-09-16):
+ * every act writes at once and no screen here has a Save. These lines are
+ * another view of the ingredients the occasion already records, so a logged
+ * ingredient behaves like a logged food — the day's own amount picker commits
+ * on Done, and a second rule on one screen is not worth what batching saves.
+ *
+ * The price is that an instantiation's ingredients are ONE frozen blob and no
+ * Datom holds a single row (ADR-0022), so each act appends a whole fresh copy
+ * of the list and retracts the one before it. `writes` in the strip under each
+ * open recipe counts the retract-and-replace pairs the shipped version would
+ * write. D and E follow the same rule; only their surfaces differ.
  *
  * **The day may have no logged recipe on it.** When it doesn't, `draft.ts`
  * injects one demo instantiation into lunch so there is always something to
@@ -84,7 +90,7 @@ export const VARIANT_NAMES: Record<Variant, string> = {
 export const VARIANT_NOTES: Record<Variant, string> = {
   D: "The children are lines INSIDE the parent's frame — one card, one ✕, one place in the list. Tap a line and its amount becomes a field in place; ✓ writes.",
   E: "The children are the same logged card, one size down, inset a step. Tapping one opens the app's amount picker, exactly as a banana does. Open by default.",
-  F: "Chosen. Lines on a rule dropped from the parent's left edge, each with its amount in a box; tapping one opens the app's own ingredient picker, and one Save at the foot commits the set. No per-row kcal — the occasion's figure is on the parent.",
+  F: "Chosen. Lines on a rule dropped from the parent's left edge, each with its amount in a box; tapping one opens the app's own ingredient picker, and every act writes at once — no Save, because a logged ingredient behaves like a logged food. No per-row kcal: the occasion's figure is on the parent.",
   B: "Round one: the recipe becomes a header line over its rows. The arrangement that was close, with the parent that was not.",
   now: "A bottom sheet over the whole day, re-seeded from the current twins, committing by retract-and-replace.",
 };

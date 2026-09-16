@@ -66,6 +66,17 @@ export interface Draft {
   rows: DraftRow[];
   /** The headline the event actually carries, for the "was → is" line. */
   frozenCalories: number;
+  /**
+   * How many Ledger writes this occasion has taken since the screen opened.
+   *
+   * It exists because the write model is the decision this prototype was kept
+   * open for, and a count is the only honest way to show its price. An
+   * instantiation's ingredients are ONE frozen blob (ADR-0022) — no Datom holds
+   * a single row — so every act appends a whole fresh copy of the list and
+   * retracts the one before it. Correct three amounts and the Ledger holds
+   * three snapshots of six ingredients, not three amounts.
+   */
+  writes: number;
 }
 
 let keySeq = 0;
@@ -99,6 +110,7 @@ export function draftFromEvent(event: ConsumptionEvent): Draft {
     servings: 1,
     rows,
     frozenCalories: Number(event.calories) || 0,
+    writes: 0,
   };
 }
 
@@ -358,10 +370,16 @@ export async function ingredientFor(row: DraftRow): Promise<RecipeIngredient> {
  * it here would answer a question the ledger already answers. This just makes
  * the edit the new baseline, so the surface behaves as though the write landed
  * and `isDirty` goes quiet.
+ *
+ * **Called by every act in variant F**, which is the write model that was
+ * chosen: the amount sheet's Done, the ✕, and an added row each commit on their
+ * own, exactly as a logged food does. So the tally it keeps is a count of real
+ * retract-and-replace pairs the shipped version would write.
  */
 export function pretendCommit(draft: Draft): void {
   for (const row of draft.rows) {
     row.base = { amount: row.amount, calories: row.calories };
   }
   draft.frozenCalories = totalCalories(draft);
+  draft.writes += 1;
 }

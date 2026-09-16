@@ -3,7 +3,6 @@
   import { parseLoggedQuantity } from "../../../food/recipe-ingredient";
   import type { NutritionInfo, Portion } from "../../../food/nutrition";
   import type { RecipeIngredient } from "../../../food/recipe-ingredient";
-  import Button from "../../../ui/Button.svelte";
   import FoodItemRow from "../FoodItemRow.svelte";
   import IngredientAmountSheet from "../IngredientAmountSheet.svelte";
   import DebugStrip from "./DebugStrip.svelte";
@@ -12,7 +11,6 @@
     addRow,
     draftFromEvent,
     ingredientFor,
-    isDirty,
     pretendCommit,
     removeRow,
     setRowAmount,
@@ -41,11 +39,27 @@
   // cheaper thing that happened to fit the box; it is not what the app means by
   // changing how much of something there is.
   //
-  // That is what buys the Save. A per-line ✓ writes a superseding instantiation
-  // per line (ADR-0022), which for three amounts is three retract-and-replace
-  // pairs on the Ledger for one correction; one Save at the foot of the spine
-  // makes it one. The cost is that this is the one variant of the three with an
-  // unsaved state to lose, and that Save is what has to make it obvious.
+  // **Every act writes, and there is no Save** (settled 2026-09-16). These lines
+  // are another view of the ingredients this occasion already records, so a
+  // logged ingredient behaves like a logged food: the sheet's Done writes, the
+  // ✕ writes, an added row writes, and nothing on the screen is ever unsaved.
+  // The earlier build staged the set behind one Save to keep a correction to a
+  // single Ledger write; that is not worth a second rule on a screen where
+  // every other row commits as you leave it.
+  //
+  // **The price is real and the debug strip counts it.** A Recipe
+  // Instantiation's ingredients are one frozen blob and no Datom holds one row
+  // alone (ADR-0022), so each act appends a fresh copy of the WHOLE list and
+  // retracts its predecessor. Three amounts corrected is three snapshots, not
+  // three rows. `writes` in the strip is that count.
+  //
+  // **What the implementation owes, and it is not cosmetic.** Every write mints
+  // a NEW Consumption Event id, so the row being edited is a different entity
+  // after each act — `computeConsumption`'s `event/replaced_by` walk keeps it in
+  // its slot, but anything keyed by the id is not so lucky: the open/closed
+  // state of this fold, the Selection, and #440's reveal. The real one has to
+  // follow the successor rather than re-mount on it. The prototype cannot show
+  // that defect, because its draft is local and its id never moves.
   //
   // **Chosen at round two, then tightened.** The per-ingredient kcal is gone
   // and the amount box shrank in both directions. Both moves say the same thing
@@ -68,7 +82,6 @@
   let draft = $state(draftFromEvent(item));
   let open = $state(false);
   let adding = $state(false);
-  let saved = $state(false);
   let bodyId = $derived(`proto-spine-${item.id}`);
 
   /** The row whose amount sheet is open, with the twin it resolved to. */
@@ -101,7 +114,6 @@
 
   let qty = $derived(parseLoggedQuantity(item.quantity));
   let total = $derived(totalCalories(draft));
-  let dirty = $derived(isDirty(draft));
 </script>
 
 {#snippet caret()}
@@ -140,7 +152,10 @@
             type="button"
             class="line-x"
             aria-label="Remove {row.name}"
-            onclick={() => removeRow(draft, row.key)}>✕</button
+            onclick={() => {
+              removeRow(draft, row.key);
+              pretendCommit(draft);
+            }}>✕</button
           >
         </div>
       {/each}
@@ -152,6 +167,7 @@
               type="button"
               onclick={() => {
                 addRow(draft, p);
+                pretendCommit(draft);
                 adding = false;
               }}>{p.name}</button
             >
@@ -168,35 +184,6 @@
         >
       {/if}
 
-      <!-- The save row only exists once there is something to lose. A row of
-           dead controls under every open recipe would say the opposite of what
-           this variant is claiming — that reading one costs nothing.
-
-           **Not a Dock**, and the name matters here: `CONTEXT.md` spends that
-           word on the pinned region at the foot of a SHEET, and says so against
-           exactly this mistake. This is a row on the day, inside a list, and it
-           scrolls with everything around it. -->
-      {#if dirty}
-        <div class="save-row">
-          <Button
-            variant="primary"
-            size="sm"
-            onclick={() => {
-              pretendCommit(draft);
-              saved = true;
-              setTimeout(() => (saved = false), 1400);
-            }}>Save — {total} kcal</Button
-          >
-          <Button
-            variant="secondary"
-            size="sm"
-            onclick={() => (draft = draftFromEvent(item))}>Revert</Button
-          >
-        </div>
-      {:else if saved}
-        <p class="said" role="status">Saved</p>
-      {/if}
-
       <DebugStrip {draft} />
     </div>
   {/if}
@@ -208,13 +195,16 @@
      stand-in this time: the box on the line is the trigger and this is the
      picker.
 
-     **It commits to the draft, not to the ledger**, which is how the builder
-     uses it too (`IngredientListEditor` assigns straight into its list). That
-     is what leaves F's Save a job: the sheet says what the amount is, Save says
-     the occasion is corrected. If the implementation instead writes on the
-     sheet's Done — the way the DAY's picker does for a logged food — then this
-     variant loses its one-write-per-correction property and the Save row should
-     go with it. The prototype cannot decide that; it can only show both halves. -->
+     **Done writes.** Settled 2026-09-16: a logged ingredient behaves like a
+     logged food, so the act that ends the sheet is the act that reaches the
+     Ledger — the same rule the day's own amount picker follows, and the reason
+     there is no Save anywhere on this screen.
+
+     Note what that makes this one component mean in two places. In
+     `IngredientListEditor` the same sheet fills in a list nobody has committed
+     yet; here it corrects an occasion already logged. The component is right
+     either way, because `onCommit` is the caller's, but the record has to say
+     so or the next reader will assume the builder's meaning. -->
 {#if editing}
   {@const e = editing}
   <IngredientAmountSheet
@@ -223,7 +213,10 @@
     amount={e.row.amount}
     portions={editPortions}
     panel={editPanel}
-    onCommit={(amount) => setRowAmount(draft, e.row.key, amount)}
+    onCommit={(amount) => {
+      setRowAmount(draft, e.row.key, amount);
+      pretendCommit(draft);
+    }}
     onClose={() => (editing = null)}
   />
 {/if}
@@ -338,16 +331,5 @@
   }
   .pantry-x {
     color: var(--text-muted);
-  }
-  .save-row {
-    display: flex;
-    gap: var(--space-2xs);
-    padding: var(--space-2xs) 0;
-  }
-  .said {
-    padding: var(--space-2xs) 0;
-    font-size: var(--step-n2);
-    font-weight: 700;
-    color: var(--text-secondary);
   }
 </style>

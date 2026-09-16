@@ -6,16 +6,19 @@
   // three variants because it is not part of any of them — it wears the
   // switcher's debug skin (mono, dark, raw pixels) for exactly that reason.
   //
-  // The line worth watching is ADR-0022's invariant: this surface holds yield
-  // at 1, so the headline it would freeze is simply Σ of the rows on screen.
+  // Two lines worth watching. ADR-0022's invariant: this surface holds yield at
+  // 1, so the headline it would freeze is simply Σ of the rows on screen. And
+  // `writes`: variant F commits on every act, and each one appends a fresh copy
+  // of the WHOLE ingredient list, so the count is the price of the write model
+  // that was chosen.
   let { draft }: { draft: Draft } = $props();
 </script>
 
 <div class="proto-state">
-  <b>{isDirty(draft) ? "dirty" : "clean"}</b>
-  Σrows = {totalCalories(draft)} kcal · yield 1 · was {Math.round(
-    draft.frozenCalories
-  )}
+  <b>writes: {draft.writes}</b>
+  Σrows = {totalCalories(draft)} kcal · yield 1 · {isDirty(draft)
+    ? `unwritten (was ${Math.round(draft.frozenCalories)})`
+    : "written"}
   <small>{snapshotLine(draft)}</small>
 </div>
 
