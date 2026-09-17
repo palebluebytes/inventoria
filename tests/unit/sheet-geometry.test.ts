@@ -265,12 +265,21 @@ describe("a sheet over a sheet replaces it on a phone (§7)", () => {
  *   is transparent on purpose, and `place()` writes its two inset values from
  *   the chip's own rect because the top layer resolves them against the
  *   viewport (#453).
+ *
+ *   The two `pairing.prototype/` entries are THROWAWAY (#244) and leave with
+ *   the branch. They are debug chrome — the variant switcher and its two tabs —
+ *   deliberately pinned and deliberately off the design system, so that what
+ *   flips a variant can never be mistaken for the design being judged. Named
+ *   here rather than exempted by path, because a sweep that skips a directory
+ *   is a sweep that stops proving anything the day something real moves into it.
  */
 const PINNED_OUTSIDE_THE_PRIMITIVE = [
   "src/lib/views/food/LabelPhotoReader.svelte",
   "src/lib/views/food/MealPicker.svelte",
   "src/lib/views/food/SelectionBar.svelte",
   "src/lib/views/food/WayInBar.svelte",
+  "src/lib/views/food/pairing.prototype/PairingPrototype.svelte",
+  "src/lib/views/food/pairing.prototype/PrototypeSwitcher.svelte",
 ];
 
 describe("no surface hand-rolls a centred card (§6)", () => {

@@ -83,6 +83,9 @@
   import PastMealSheet from "./food/PastMealSheet.svelte";
   import LogFoodSheet from "./food/LogFoodSheet.svelte";
   import RecipeModal from "./food/RecipeModal.svelte";
+  // THROWAWAY (#244) — see the block at the foot of this file.
+  import PairingPrototype from "./food/pairing.prototype/PairingPrototype.svelte";
+  import { readVariant, readSubject } from "./food/pairing.prototype/variants";
   import RecipeLibrarySheet from "./food/RecipeLibrarySheet.svelte";
   import InstantiationSheet from "./food/InstantiationSheet.svelte";
   import IngredientAmountSheet from "./food/IngredientAmountSheet.svelte";
@@ -990,6 +993,19 @@
     openRecipe("consolidate", null, seed);
     clearSelection();
   }
+
+  // THROWAWAY (#244). Both read null / the default outside DEV, and the markup
+  // below is behind `{#if protoVariant}` so Rollup drops the branch entirely.
+  let protoVariant = $state(readVariant());
+  let protoSubject = $state(readSubject());
+  $effect(() => {
+    function reread() {
+      protoVariant = readVariant();
+      protoSubject = readSubject();
+    }
+    window.addEventListener("prototype-variant", reread);
+    return () => window.removeEventListener("prototype-variant", reread);
+  });
 </script>
 
 <!-- Escape leaves a Selection (ADR-0088 §3). The bar covers the tab bar, so the
@@ -1558,6 +1574,15 @@
     onClose={closeRecipe}
     onLogged={(ids) => (just_logged = ids)}
   />
+{/if}
+
+<!-- THROWAWAY (#244), branch `prototype/244-estimate-beside-measurement`.
+     What an estimate looks like sitting next to a measurement, over the food
+     page rather than in a vacuum. `readVariant()` returns null outside DEV, so
+     Rollup drops this whole branch and a stray merge cannot ship it.
+     Open `/?pairing=A` (…B, C, now) with `&food=oil|syrup|kefir|beans`. -->
+{#if protoVariant}
+  <PairingPrototype variant={protoVariant} subject={protoSubject} />
 {/if}
 
 <style>
