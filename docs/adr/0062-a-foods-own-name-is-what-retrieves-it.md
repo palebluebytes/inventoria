@@ -364,3 +364,100 @@ ranking corpus every instrument reads, the key census, the explainer twice, the
 page's own search box, and the corpus suite — and a restatement keeping the
 winner's `named` is this defect, one copy at a time. `compareRelevance` still
 does not read the field, and no key is added or reordered.
+
+## Amendment (2026-09-17, #411): §4's second refusal, confirmed by the census it was written without
+
+§4 refused stopping `milk` from prefix-matching `milkfish`, and left a prediction
+in place of a measurement: _"Two milkfish rows sit at the bottom of a seventeen-row
+list and are left there."_ [#411](https://github.com/palebluebytes/inventoria/issues/411)
+was filed against that refusal from the other side — `butter` reaching
+`Butterbur, (fuki)`, `bread` reaching `Breadfruit`, `salmon` reaching
+`Salmonberries` — and named by [ADR-0103](0103-what-was-done-to-a-food-is-not-another-food.md)
+§11 as one of two instruments that record could not supply. It is closed with
+nothing built, because the census §4 never had says §4 was right.
+
+### The census
+
+Over the 44 gating one-word queries of `docs/research/188-consolidation-bar.json`,
+against the shipped index (`schema_version` 10, 2,023 rows):
+
+|                                             |        |
+| ------------------------------------------- | -----: |
+| rows retrieved, all 44 queries              |    822 |
+| of those, reached only by a sub-word prefix | **20** |
+| of those 20, inside the first five results  |  **1** |
+| queries over C2's 25-row cap today          |     13 |
+| queries over it with all 20 rows removed    | **13** |
+
+The twenty, by query and rank: `ham` 6 (ranks 28–33, the hamburger rolls), `butter`
+4 (22, 37, 38, 39 — butterbur, butterfish, butternuts, buttermilk), `bread` 5
+(39–43 — breadfruit, breadfruit seeds, breadnut tree seeds), `egg` 2 (8, 9 — the
+two eggplants), `milk` 1 (15 — `Fish, milkfish`, §4's own row, still at the
+bottom), `apple` 1 (14 — applesauce), `salmon` 1 (**rank 2** — `Salmonberries`).
+
+So the prediction holds nineteen times in twenty. It is also worth saying what
+the census refutes in the ticket that prompted it: #411's stated motivation was
+that these reaches push four gating queries over the cap. They do not push any
+query over the cap. Removing every one of the twenty moves C2 from 13 failures to
+13, and `salmon` — filed at 32 rows — now returns 22 and is already under it.
+
+#411's table conflated two defects. Of the eleven strays it named, four are
+sub-word prefix reaches. The other seven carry the typed word as a whole word in
+their own name part: every row on its `cream` line (`cream` reaches 31 rows and
+**none** of them by a prefix), the nut butters, and `Butter replacement`. A rule
+that kept `Cream, heavy` and dropped `Cream cheese` on lexical grounds does not
+exist, and those rows are volume under a legitimate head — ADR-0103 §11's _other_
+instrument, [#412](https://github.com/palebluebytes/inventoria/issues/412).
+
+### What the one exception costs
+
+`Salmonberries` is not §4's business either, and that is the second finding. It
+leads the twenty salmon rows because its head is covered by the typed prefix —
+ADR-0042 §5's rung 30 — while every fish is `Fish, salmon, …`, whose head is the
+shelf label, so the typed word lands in a qualifier and scores rung 20. The berry
+outranks the fish because of `Fish,`, not because of the prefix branch. That is
+`tier`'s table and [ADR-0042](0042-usda-search-reference-foods.md) has already
+closed it: **`tier` may not read a roster, because a roster cannot say whether a
+label is an aisle or a name, and the same label is both.**
+
+The mechanism §4 refused was priced anyway, by re-sorting each query's own
+results so that every row carrying a whole-word match precedes every row reached
+only by a prefix. This bounds a demotion's effect on leads; it is not an
+implementation of one, and no rung was changed to obtain it.
+
+| population                                                              | leads moved |
+| ----------------------------------------------------------------------- | ----------: |
+| ADR-0055 §2's protected leads (`143-gold-set.json`, `verdict: correct`) |     0 of 19 |
+| the 44 gating queries                                                   |     0 of 44 |
+| the strings actually typed on the device                                | **2 of 21** |
+
+The two are `blue`, which stops leading with `Blueberries` and leads with
+`Cheese, blue`, and `pine`, which stops leading with `Pineapple` and leads with
+`Nuts, pine nuts`. `blue` is the single query traceable end to end through the
+two on-device exports, and what it produced was `Blueberries, raw`. §4's sentence
+— _"there is no lexical rule that keeps one and loses the other"_ — is that table.
+
+### Priced against use
+
+[ADR-0042](0042-usda-search-reference-foods.md)'s #159 Amendment closed a
+seven-attempt ranking arc by pricing a defect against the two on-device exports
+rather than against the corpus. The same instrument, on this ticket: of #411's
+four queries, `butter` is the only one ever typed — once, in 22 settled sessions
+over six days — and the ledger records `Butter, stick, salted` 6.2 seconds later,
+at rank 4 of 39 with nothing prefix-only above it. `cream`, `bread` and `salmon`
+have never been typed. Benefit zero, by the arithmetic that closed #159.
+
+### The clause that reopens this
+
+One, and it is currently false, stated with a number as `CODING_STANDARDS.md` §8
+requires: **one settled search session in which a row reached only by a sub-word
+prefix outranks the row the ledger records within the same minute.** It measures
+the harm rather than the population, and both files it needs already exist.
+
+### What ships
+
+Nothing. No ranking key, no rung, no roster, no corpus row, no `schema_version`.
+§4's second refusal stands, now with a census behind it instead of a prediction.
+ADR-0103 §11 is discharged on this half: the instrument it says is owed turns out
+to have nothing to instrument, which is an answer rather than a default. The
+`Salmonberries` row is handed to #412, where the shelf-label heads already live.
