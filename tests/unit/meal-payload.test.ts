@@ -489,6 +489,14 @@ describe("the reference attributes the registry marks", () => {
    * instead of a sentence nothing checks, which is the failure ADR-0078 §8 is
    * about, one level up.
    *
+   * And admissible only where the **holder** is not a prefix a meal carries
+   * (#427, ADR-0105's third Amendment). A twin's rows land attribute-verbatim,
+   * so a marked-but-unwalked reference held by one would land on a recipient's
+   * ledger naming an entity their jar never held; a root's rows are re-minted
+   * and never land at all, which is why the criterion reads the holder and not
+   * the target. Both current entries clear it — `event:consume_` and `habit:`
+   * are neither of them twin prefixes.
+   *
    * Neither is a closure edge either: a meal crosses as it stands, not as the
    * corrections that produced it (ADR-0073 §1).
    */
@@ -548,6 +556,25 @@ describe("the reference attributes the registry marks", () => {
         ownerOfEntity(to)?.id,
         `${attribute} points out of its domain`
       ).toBe(holder?.id);
+    }
+  });
+
+  /**
+   * The criterion #427 settled on, and the reason there is no ninth receive
+   * refusal: the decision about a marked-but-unwalked reference is taken here,
+   * in this repo, at the moment somebody coins one — not months later on
+   * somebody else's device, where a rule keyed on the mark would refuse a
+   * marked dangling reference and accept an identical unmarked one
+   * (`meal-reader.test.ts` asserts that acceptance).
+   */
+  it("refuses a named reference held by a prefix a meal carries", () => {
+    for (const [attribute, [from]] of Object.entries(
+      RESOLVES_IN_ITS_OWN_DOMAIN
+    )) {
+      expect(
+        MEAL_TWIN_PREFIXES.some((prefix) => from.startsWith(prefix)),
+        `${attribute} is held by a twin a meal carries, so it would land dangling`
+      ).toBe(false);
     }
   });
 
