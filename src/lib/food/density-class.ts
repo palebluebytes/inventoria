@@ -7,7 +7,7 @@
 // the corpus". True of USDA, and false of the record that needs one: a `gtin:`
 // twin whose Open Food Facts payload says `product_quantity_unit: "ml"`. What
 // was missing was never the signal but the figure, and the corpus this app
-// already ships carries it — 942 volume portions across 636 foods, public
+// already ships carries it — 933 volume portions across 627 foods, public
 // domain, on disk.
 //
 // A user never types a density. They say what KIND of liquid they have — "this
@@ -91,7 +91,7 @@ export const DENSITY_CLASS_BAR = { minFoods: 8, maxCvPercent: 2 } as const;
 
 /**
  * The five classes that clear the bar, measured against schema 9 of the shipped
- * corpus (2,437 foods).
+ * corpus (2,418 foods).
  *
  * The classes are wide by design: a class figure sits within 0.75% of the
  * per-food figure for every common case measured, which is the same fact as
