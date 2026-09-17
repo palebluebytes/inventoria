@@ -2,6 +2,7 @@
 
 **Status:** Accepted  
 **Date:** 2026-09-16  
+**Implemented:** §5 [#468](https://github.com/palebluebytes/inventoria/issues/468) `src/lib/food/consumption-state.ts`; §6 [#470](https://github.com/palebluebytes/inventoria/issues/470) `8fb7ed3e`. §1 is [#467](https://github.com/palebluebytes/inventoria/issues/467), not yet landed.  
 **Amends:** [ADR-0022](0022-recipe-instantiations-as-editable-snapshots.md) §2 (its "editing is by supersession, retract-and-replace per ADR-0008" bullet; the snapshot principle itself is untouched), [ADR-0088](0088-a-selection-is-a-mode-with-its-own-verbs-and-its-own-way-out.md) §8 and its 2026-09-02 "a scaled row lets go" amendment (a move stops being the exception and the release keeps one of its two reasons), [ADR-0107](0107-a-row-you-have-just-logged-is-revealed-in-three-rules.md) (its exclusion of corrections keeps its rule and loses its reason)
 
 ## Context
@@ -314,3 +315,40 @@ shrinks to nothing reachable. Carried by
 
 **Deferred behind a seam:** a surface that reads §8's history. Nothing reads one
 now; the trigger is a feature that wants to show what a logged occasion used to say.
+
+## Amendment (2026-09-17, #468): §6's prerequisite shipped, and §5 is now the projection's
+
+§6 says `RecipeBuilder.svelte` **currently** passes `recipeId`, the `recipe:`
+template, where the attribute is defined as one event naming another. That was
+true of `main` the day this record was written and is false now:
+[#470](https://github.com/palebluebytes/inventoria/issues/470)'s consolidation
+work fixed the call site (`8fb7ed3e`, on `main` as `42ec90f5`), so Consolidate's
+retraction hands `retractConsumptionEvent` the `event:consume_` it has just
+logged. The argument above is left as written; what changed is the code.
+
+Two things follow, and the second is why §6 called the fix a prerequisite rather
+than a tidy-up.
+
+**The slot walk fires for the first time.** Its `slot < held` minimum was written
+for Consolidate and for nothing else, and a `recipe:` id is in no event group, so
+it had never once run: a consolidated dish fell to the bottom of its meal instead
+of taking its first ingredient's place. `calorie-store.test.ts` covered the walk
+with event ids throughout and so never saw this.
+
+**§5's test is whether a folded link names an event.** A link naming a template
+names nothing the projection can claim, so no consolidation could ever have been
+claimed or unclaimed — the rule would have been inert on the population it exists
+for.
+
+§5 now ships in `computeConsumption` and nowhere else, as §7 requires: the set of
+ids appearing as **any** `event/replaced_by` value, read off the raw datoms
+before the fold discards the superseded ones, against the successors the folded
+links still name. An id in the first set and not the second is an Unclaimed
+replacement and is dropped. `tests/unit/unclaimed-replacement.test.ts` carries the
+#463 fixture at 267 kcal, both its controls, and the two consolidation shapes
+§5 decided between — same foods converging to one dish, partial overlap staying
+two and counting the shared food twice.
+
+§1 is unchanged and still [#467](https://github.com/palebluebytes/inventoria/issues/467)'s.
+Corrections go on forking until it lands; this half repairs the ledgers that
+forked before either did, which is the independence the Consequences claimed.
