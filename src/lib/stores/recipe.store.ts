@@ -22,6 +22,7 @@ import {
   logFoodConsumption,
   correctConsumptionEvent,
   getLocalFoodTwin,
+  retractConsumptionEvent,
 } from "./calorie.store";
 import {
   deriveRecipeNutrition,
@@ -41,6 +42,7 @@ import {
 import {
   impromptuRecipeId,
   ingredientFromTwin,
+  nameFromIngredients,
   quantityLabel,
   sourceFromIngredients,
   toReferenceIngredient,
@@ -266,6 +268,72 @@ export async function nameRecipe(entity: string, name: string): Promise<void> {
   await dbClient.append(
     ingestEntity({ entity, attributes: { "recipe/name": trimmed } })
   );
+}
+
+/**
+ * **Consolidate**: N logged foods become one dish on the day (ADR-0022 §4), in
+ * the four writes the act has always been — ingest each ingredient's food twin,
+ * save the Recipe Twin, log the instantiation, retract the events that remain as
+ * ingredients.
+ *
+ * It lives here because the act is the ledger's and not the builder's. The
+ * sequence was written inline in `RecipeBuilder.save()` while the builder was
+ * the only way to reach it; the Selection bar's one-tap verb is a second entry
+ * point to the same act (ADR-0088's 2026-09-17 amendment), and a second copy of
+ * these four writes is where the retraction link, the ingest and the ordering
+ * would drift apart.
+ *
+ * **The order is the argument.** The ingest precedes the save because a twin the
+ * recipe references has to exist before the reference does. The retraction
+ * follows the log because `event/replaced_by` names the event this consolidation
+ * just logged, not the twin it was seeded from (#468) — there is no id to name
+ * before it. Nothing here rolls back: each write is append-only and independently
+ * true, so a failure part-way leaves facts rather than a half-built dish, and the
+ * caller keeps its Selection so the run can be repeated (ADR-0088 §10).
+ *
+ * `fields` is everything a Recipe Twin may carry beyond its ingredients, and the
+ * empty default is the whole of what the one-tap verb passes: **no name**, so
+ * {@link saveRecipe} derives the id from the sorted refs and lands on the dish
+ * those ingredients already minted rather than minting a second one (ADR-0110
+ * §4). The yield is sanitised once and used for both the twin and the occasion,
+ * so what the dish says it makes and what the day divided by can never disagree.
+ *
+ * Returns the logged event's id, which is the row the day reveals (#440).
+ */
+export async function consolidateIntoRecipe(
+  ingredients: readonly RecipeIngredient[],
+  meal_type: string,
+  selectedDate: Date,
+  fields: Omit<RecipeInput, "ingredients"> = {}
+): Promise<string> {
+  const rows = [...ingredients];
+  const references = rows.map(toReferenceIngredient);
+  for (const ing of rows) {
+    await dbClient.append(ingestEntity(ing.payload));
+  }
+  const recipeYield = sanitizeYield(fields.yield ?? 1);
+  const recipeId = await saveRecipe({
+    ...fields,
+    yield: recipeYield,
+    ingredients: references,
+  });
+  const logged = await logRecipeConsumption(
+    recipeId,
+    references,
+    recipeYield,
+    (ref) => sourceFromIngredients(rows, ref),
+    (ref) => nameFromIngredients(rows, ref),
+    meal_type,
+    selectedDate
+  );
+  // A row can carry SEVERAL events: two logs of the same food fold into one
+  // ingredient (ADR-0024), and the dish replaces both of them.
+  for (const ing of rows) {
+    for (const event_id of ing.event_ids ?? []) {
+      await retractConsumptionEvent(event_id, logged);
+    }
+  }
+  return logged;
 }
 
 /**
