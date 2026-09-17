@@ -1,7 +1,7 @@
 # ADR 0022: Recipes are templates; each logging is an editable instantiation snapshot
 
 **Status:** Accepted  
-**Amended by:** ADR-0030 (#28), see the amendment below; [ADR-0106](0106-a-recipe-occasion-is-sized-by-the-weight-you-put-on-the-scale.md) (the servings amendment's count is no longer the only way to size an occasion, and the logged quantity stops being a literal); [ADR-0110](0110-an-impromptu-recipe-is-identified-by-its-ingredients-and-named-only-if-you-keep-it.md) (§4's Consolidate creates **or reuses** a twin and no longer requires a name, and the 2026-08-28 amendment's review-and-edit screen gains a second entry point)  
+**Amended by:** ADR-0030 (#28), see the amendment below; [ADR-0106](0106-a-recipe-occasion-is-sized-by-the-weight-you-put-on-the-scale.md) (the servings amendment's count is no longer the only way to size an occasion, and the logged quantity stops being a literal); [ADR-0110](0110-an-impromptu-recipe-is-identified-by-its-ingredients-and-named-only-if-you-keep-it.md) (§4's Consolidate creates **or reuses** a twin and no longer requires a name, and the 2026-08-28 amendment's review-and-edit screen gains a second entry point); [ADR-0111](0111-a-correction-is-another-datom-on-the-event-never-another-event.md) (§2's "editing is by supersession" bullet and its ADR-0008 citation; the snapshot principle itself stands)  
 **Implemented:** #11 foundation, #12 Instantiate + correct, #13 Define + template edit
 
 ## Context
@@ -292,3 +292,39 @@ The button now opens a **library** rather than the builder directly.
   separates it from the meal browsers, not the surface it happens to be on.
 - **`create` keeps its meaning**, reached now through the library's "＋ New
   recipe" instead of the header button itself.
+
+## Amendment (ADR-0111 / #463): editing is an append onto the event, and the inherited citation is struck
+
+§2's fourth bullet said editing an instantiation is "by supersession, like a logged
+food (`LogFoodSheet`, retract-and-replace per ADR-0008): open the instantiation,
+tweak, save; a new event is appended with a freshly-derived snapshot and the old is
+retracted with `event/replaced_by`." That mechanism is replaced.
+
+**It does not converge.** Two devices correcting the same event without having seen
+each other each append a replacement and each retract the original. The fold hides
+only the original, both replacements survive, and the occasion shows twice with a
+doubled total. Measured in #463 and quoted in ADR-0111.
+
+**A correction now appends onto the event it corrects** — `event/instantiation`,
+`event/metrics`, `event/quantity` — keeping its id, its place and its time.
+Concurrent corrections converge to the later HLC's value, like every other
+attribute.
+
+**§2's governing principle is untouched, and this amendment is careful to say so.**
+"Snapshot on write, never re-derive on read" is a rule about _when a derivation is
+frozen_, not about _which entity holds it_. Each correction still freezes the
+derivation's output at the moment of writing; the read still takes the latest frozen
+value and re-derives nothing; the superseded value stays in the ledger behind it.
+What changes is only that the frozen values accumulate on one entity instead of a
+chain of them. ADR-0111 §3 adds the one constraint that follows: every datom of a
+correction rides a single append, so `event/metrics` and `event/instantiation` can
+never be read as a new headline beside an old breakdown.
+
+**The ADR-0008 citation is struck rather than amended.** ADR-0008 reasons about
+Habit Blueprints, which Execution Events target by version; a Consumption Event is a
+leaf and nothing targets it. The convention was inherited by resemblance, not
+derived. ADR-0008 remains Accepted and correct about habits.
+
+`event/replaced_by` survives, narrowed to the one job it was shaped for: the
+many-to-one link from foods consolidated into a recipe to the event that consumed
+them.
