@@ -2686,10 +2686,17 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     await expect(breakfastSection).toContainText("161.5 kcal");
 
     // Reopening it to correct: the denominator came back off the snapshot, so
-    // "actually I ate 300 g" has something to divide against.
-    await breakfastSection
-      .locator(".meal-item-card", { hasText: "Dinner Combo" })
-      .locator(".fi-name")
+    // "actually I ate 300 g" has something to divide against. How much of the
+    // pot was eaten is the one question the day's fold does not ask, so it is
+    // reached through the fold rather than by tapping the row (#462).
+    const loggedCard = breakfastSection.locator(".meal-item-card", {
+      hasText: "Dinner Combo",
+    });
+    await loggedCard.locator(".fi-name").click();
+    const eventId = await loggedCard.getAttribute("data-event-id");
+    await page
+      .locator(`[data-testid="occasion-fold-${eventId}"]`)
+      .getByRole("button", { name: "How much of it?" })
       .click();
     await expect(page.locator('[data-testid="instantiation-name"]')).toHaveText(
       "Dinner Combo"
@@ -2724,7 +2731,7 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     await expect(page.locator("#recipe-batch-weight")).toHaveValue("400");
   });
 
-  test("corrects a past instantiation by supersession (retract-and-replace)", async ({
+  test("corrects a past instantiation in the day, one act, keeping its id", async ({
     page,
   }) => {
     await page.goto("/?mem=1");
@@ -2732,41 +2739,47 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     await setupApiKeys(page);
 
     const dinnerSection = await buildDinnerCombo(page);
+    const card = dinnerSection.locator(".meal-item-card", {
+      hasText: "Dinner Combo",
+    });
+    // The id the occasion is logged under. A correction appends onto the event
+    // (ADR-0111 §1), so this is what must still be here at the end — and it is
+    // what the fold's open state is keyed on (#462).
+    const eventId = await card.getAttribute("data-event-id");
 
-    // Tap the logged recipe card to open the correction editor (not the amount
-    // picker — a recipe instantiation is corrected on its own surface).
-    await dinnerSection
-      .locator(".meal-item-card", { hasText: "Dinner Combo" })
-      .locator(".fi-name")
-      .click();
-    // The correction sheet heads with the thing, not the verb (`text-is`, since
-    // "Recipe" is a substring of the add flow's "Log recipe").
+    // Tapping the row opens its ingredients where they are, rather than a sheet
+    // over the whole day (ADR-0022, amended 2026-09-17).
+    await card.locator(".fi-name").click();
+    const fold = page.locator(`[data-testid="occasion-fold-${eventId}"]`);
+    await expect(fold).toBeVisible();
+    // No sheet was raised: the correction editor is not what a tap reaches now.
+    await expect(page.locator('h2:text-is("Recipe")')).toHaveCount(0);
+
+    // Every amount is a box the moment the fold is open, and the box opens the
+    // app's own picker. Done writes — there is no Save anywhere on this screen.
+    await fold.getByLabel("Amount of Mock Oats").click();
+    const sheet = page.locator(".amount-sheet");
+    await sheet.getByLabel("Amount in grams").fill("100"); // 379 + 133.5 = 512.5
+    await sheet.locator("#amount-done-btn").click();
+    await expect(sheet).toBeHidden();
+
+    // One occasion, at the corrected total, under the id it was logged with —
+    // and the fold it was corrected through is still open on it.
+    await expect(card).toHaveCount(1);
+    await expect(
+      dinnerSection.locator(`.meal-item-card[data-event-id="${eventId}"]`)
+    ).toHaveCount(1);
+    await expect(page.locator(".macro-item.calories .macro-now")).toHaveText(
+      "512.5 kcal"
+    );
+    await expect(fold).toBeVisible();
+
+    // The sheet is still reachable for the one question the fold does not ask:
+    // how much of the dish was eaten (ADR-0106 §5, §8).
+    await fold.getByRole("button", { name: "How much of it?" }).click();
     await expect(page.locator('h2:text-is("Recipe")')).toBeVisible();
     await expect(page.locator('[data-testid="instantiation-name"]')).toHaveText(
       "Dinner Combo"
-    );
-
-    // Correct the amount — re-derived from the current ingredient twins.
-    await expect(
-      page
-        .locator(".recipe-ingredient", { hasText: "Mock Oats" })
-        .locator(".fi-qty")
-    ).toHaveText("50g");
-    await setIngredientGrams(page, "Mock Oats", "100"); // 379 + 133.5 = 512.5
-    await expect(
-      page.locator('[data-testid="recipe-figures"] .nutrient-calories strong')
-    ).toContainText("512.5 kcal");
-
-    await page.locator("#save-instantiation-btn").click();
-
-    // Exactly one instantiation remains (the old is retracted, a superseding one
-    // appended), now at the corrected total.
-    await expect(
-      dinnerSection.locator(".meal-item-card", { hasText: "Dinner Combo" })
-    ).toHaveCount(1);
-    await expect(dinnerSection).toContainText("512.5 kcal");
-    await expect(page.locator(".macro-item.calories .macro-now")).toHaveText(
-      "512.5 kcal"
     );
   });
 
