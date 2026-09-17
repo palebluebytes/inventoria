@@ -23,6 +23,7 @@ import {
   correctConsumptionEvent,
   getLocalFoodTwin,
   retractConsumptionEvent,
+  type ConsumptionEvent,
 } from "./calorie.store";
 import {
   deriveRecipeNutrition,
@@ -36,13 +37,16 @@ import {
 } from "../food/recipe-instantiation";
 import {
   RECIPE_BATCH_WEIGHT_ATTR,
+  sanitizeWeight,
   weighedOccasion,
   type OccasionSize,
 } from "../food/batch-weight";
+import { scaleAmount } from "../food/scale-amount";
 import {
   impromptuRecipeId,
   ingredientFromTwin,
   nameFromIngredients,
+  parseLoggedQuantity,
   quantityLabel,
   sourceFromIngredients,
   toReferenceIngredient,
@@ -51,6 +55,7 @@ import {
 import {
   nutritionFromMacros,
   PER_SERVING,
+  roundFood,
   type AmountUnit,
   type NutritionBreakdown,
 } from "../food/nutrition";
@@ -468,6 +473,105 @@ export async function correctInstantiation(
   });
 }
 
+/**
+ * How big a logged occasion was, read back off the event it is (ADR-0106 §5, §8).
+ *
+ * The two weights when the cook had a scale, the serving count when nobody
+ * weighed anything, and never both — they are two answers to one question and
+ * the ledger says one of them. The denominator is the snapshot's own frozen
+ * `batch_weight` rather than the template's current figure, because a logged
+ * occasion is a historical reading and the recipe may have been re-weighed
+ * since; the numerator is the event's own quantity, which is the portion's
+ * weight exactly when one was taken.
+ *
+ * It exists so that a correction which changes only an ingredient **preserves
+ * how the occasion was sized**. Without it every inline edit would re-derive the
+ * quantity from nothing and a weighed occasion would silently become "1 serving".
+ */
+export function occasionSizeOf(event: ConsumptionEvent): OccasionSize {
+  const eaten = parseLoggedQuantity(event.quantity);
+  return (
+    weighedOccasion({
+      batch_weight: sanitizeWeight(event.instantiation?.batch_weight),
+      portion_weight: eaten.unit === "g" ? eaten.amount : undefined,
+    }) ?? { servings: eaten.unit === "serving" ? eaten.amount : 1 }
+  );
+}
+
+/**
+ * A logged occasion's rows, re-seeded against each ref's **current** twin and
+ * opened at one serving — the read behind both surfaces that correct one
+ * (ADR-0022, ADR-0111 §1).
+ *
+ * **Open at one serving.** The snapshot stores the batch over the yield it was
+ * divided by; a surface that shows a row has to show one serving's worth, or the
+ * amounts on screen describe something other than the occasion. Dividing here
+ * and holding the yield at 1 leaves `Σrows ÷ yield` the same number either way,
+ * which is the invariant ADR-0022 §2 turns on.
+ *
+ * Reading the live twin is what lets a correction re-derive from current
+ * ingredient data; where a twin is gone, {@link seedRowFromRef} falls back to the
+ * frozen row, so a dangling ref still opens.
+ */
+export async function seedOccasionRows(
+  event: ConsumptionEvent
+): Promise<RecipeIngredient[]> {
+  const inst = event.instantiation;
+  if (!inst) return [];
+  const rows = await Promise.all(
+    inst.ingredients.map((r) =>
+      seedRowFromRef(r.ref, r.amount, r.unit, {
+        name: r.name,
+        calories: r.calories,
+        protein: r.protein,
+        fat: r.fat,
+        carbs: r.carbs,
+      })
+    )
+  );
+  const batchYield = sanitizeYield(inst.yield || 1);
+  return batchYield === 1
+    ? rows
+    : rows.map((ing) => ({
+        ...ing,
+        amount: scaleAmount(ing.amount, batchYield, "divide"),
+      }));
+}
+
+/**
+ * Writes a corrected set of rows onto the occasion they belong to: ingest each
+ * twin, then append the re-derived snapshot onto the event (ADR-0111 §1).
+ *
+ * The ingest is what makes an added ingredient's twin exist before the snapshot
+ * references it, and is idempotent for the ones that already do.
+ *
+ * It takes `size` rather than deriving one, because the two surfaces that
+ * correct an occasion know it differently: the sheet has just asked for the
+ * weights, and the inline fold is carrying forward what the occasion already
+ * said ({@link occasionSizeOf}). Deriving it here would make one of them lie.
+ */
+export async function correctOccasion(
+  eventId: string,
+  based_on: string,
+  rows: readonly RecipeIngredient[],
+  recipeYield: number,
+  size: OccasionSize
+): Promise<void> {
+  const list = [...rows];
+  for (const ing of list) {
+    await dbClient.append(ingestEntity(ing.payload));
+  }
+  await correctInstantiation(
+    eventId,
+    based_on,
+    list.map(toReferenceIngredient),
+    recipeYield,
+    (ref) => sourceFromIngredients(list, ref),
+    (ref) => nameFromIngredients(list, ref),
+    size
+  );
+}
+
 /** A frozen instantiation row's display name + macros, for the seed fallback. */
 export interface FrozenRow {
   name: string;
@@ -482,10 +586,20 @@ export interface FrozenRow {
  * **current** twin — the shared seed step behind editing a Recipe Twin template
  * (#13) and instantiating/correcting one (ADR-0022). Reading the live twin is
  * what lets an edit re-derive from current ingredient data. When the twin is
- * gone (a soft/dangling ref) it falls back to a self-contained per-serving twin:
- * equal to the `frozen` snapshot row when given (a correction — the row still
+ * gone (a soft/dangling ref) it falls back to a self-contained twin, built from
+ * the `frozen` snapshot row when there is one (a correction — the row still
  * derives to what was logged rather than vanishing), or a zero-macro placeholder
  * keyed by the ref (a template edit, where no historical reading exists).
+ *
+ * **The fabricated basis is one unit's worth, and the row keeps its amount**
+ * (#462). A frozen row knows both the amount it was logged at and what that
+ * amount contributed, so dividing one by the other gives a basis the row can be
+ * read and re-scaled in: per 100 g for a measured row, per serving for a counted
+ * one. This fell back to a flat "1 serving" for every dangling ref until #462,
+ * which opened a 240 g row at `1 srv` — an amount nobody logged, in a unit the
+ * row was never in. The derived contribution is unchanged either way, because
+ * the basis is scaled by exactly what the amount was divided by; what changes is
+ * that the reading is now true.
  */
 export async function seedRowFromRef(
   ref: string,
@@ -497,20 +611,26 @@ export async function seedRowFromRef(
   const ing = ingredientFromTwin(twin, amount, unit);
   if (ing) return ing;
   const name = frozen?.name ?? ref;
+  // How many of the fabricated basis this row stands at, and so what to divide
+  // its frozen figures by. A row with no amount to divide by keeps the old
+  // answer: one serving of exactly what it contributed.
+  const measured = unit !== "serving";
+  const basis = measured ? 100 : 1;
+  const per = frozen && amount > 0 ? basis / amount : undefined;
   const nutrition = nutritionFromMacros(
     {
-      calories: frozen?.calories ?? 0,
-      protein: frozen?.protein ?? 0,
-      fat: frozen?.fat ?? 0,
-      carbs: frozen?.carbs ?? 0,
+      calories: roundFood((frozen?.calories ?? 0) * (per ?? 1)),
+      protein: roundFood((frozen?.protein ?? 0) * (per ?? 1)),
+      fat: roundFood((frozen?.fat ?? 0) * (per ?? 1)),
+      carbs: roundFood((frozen?.carbs ?? 0) * (per ?? 1)),
     },
-    PER_SERVING
+    per !== undefined && measured ? `${basis} ${unit}` : PER_SERVING
   );
   return {
     entity: ref,
     name,
-    amount: frozen ? 1 : amount,
-    unit: frozen ? "serving" : unit,
+    amount: frozen && per === undefined ? 1 : amount,
+    unit: frozen && per === undefined ? "serving" : unit,
     payload: {
       entity: ref,
       attributes: { "food/name": name, "nutrition/info": nutrition },
