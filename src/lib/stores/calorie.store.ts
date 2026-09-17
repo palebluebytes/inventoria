@@ -16,8 +16,10 @@ import {
   EXTRA_NUTRIENT_KEYS,
   type AmountUnit,
   type MeasuredUnit,
+  type Macros,
   type NutritionInfo,
   type NutritionBreakdown,
+  type NutritionExtras,
   type Portion,
 } from "../food/nutrition";
 import type { LabelCapture, ManualEntry } from "../food/provenance";
@@ -148,12 +150,12 @@ export async function logFoodConsumption(
  * **absent, never 0** (ADR-0035 §7) — the daily macro meters read it as
  * not-counted and only the calorie ring moves.
  */
-export interface FrozenHeadline {
+export interface FrozenHeadline extends Partial<Macros> {
   calories: number;
-  protein?: number;
-  fat?: number;
-  carbs?: number;
 }
+
+/** The whole `event/metrics` value: the headline plus the extras. */
+export interface FrozenMetrics extends FrozenHeadline, NutritionExtras {}
 
 /**
  * The `event/metrics` value a log or a correction of that log freezes: the
@@ -168,8 +170,8 @@ export interface FrozenHeadline {
 function frozenMetrics(
   headline: FrozenHeadline,
   breakdown?: NutritionBreakdown
-): Record<string, number> {
-  const metrics: Record<string, number> = { calories: headline.calories };
+): FrozenMetrics {
+  const metrics: FrozenMetrics = { calories: headline.calories };
   if (typeof headline.protein === "number") metrics.protein = headline.protein;
   if (typeof headline.fat === "number") metrics.fat = headline.fat;
   if (typeof headline.carbs === "number") metrics.carbs = headline.carbs;
@@ -183,6 +185,20 @@ function frozenMetrics(
 }
 
 /**
+ * The headline a re-derived breakdown freezes, at the stored food precision —
+ * the rounding a logged figure gets so the rows a day sums are the rows it
+ * shows. The extras ride the breakdown itself and are already at that precision.
+ */
+function roundedHeadline(breakdown: NutritionBreakdown): FrozenHeadline {
+  return {
+    calories: roundFood(breakdown.calories),
+    protein: roundFood(breakdown.protein),
+    fat: roundFood(breakdown.fat),
+    carbs: roundFood(breakdown.carbs),
+  };
+}
+
+/**
  * What one correction may append onto a Consumption Event (ADR-0111 §1). Only
  * what changed is written: every key omitted here keeps the value the event
  * already holds, where a replacement had to restate every attribute of the event
@@ -193,10 +209,11 @@ function frozenMetrics(
  * touches it writes all of it.
  */
 export interface Correction {
-  /** The food twin the occasion now names. A correction reached through the
-   *  label form can mint a fresh twin rather than enrich the one it opened on,
-   *  and an event left pointing at the old one would read as the food the user
-   *  has just replaced. */
+  /** The food twin the occasion now names — said ONLY where it changed, which
+   *  is one path: a correction reached through the label form can mint a fresh
+   *  twin rather than enrich the one it opened on, and an event left pointing at
+   *  the old one would read as the food the user has just replaced. Every other
+   *  correction leaves the target alone rather than restating it. */
   target?: string;
   quantity?: string;
   meal_type?: string;
@@ -222,12 +239,12 @@ function correctionDatoms(eventId: string, correction: Correction) {
     attributes["event/quantity"] = correction.quantity;
   if (correction.meal_type !== undefined)
     attributes["event/meal_type"] = correction.meal_type;
-  if (correction.macros)
+  if (correction.macros !== undefined)
     attributes["event/metrics"] = frozenMetrics(
       correction.macros,
       correction.breakdown
     );
-  if (correction.instantiation)
+  if (correction.instantiation !== undefined)
     attributes["event/instantiation"] = correction.instantiation;
   return ingestEntity({ entity: eventId, attributes });
 }
@@ -248,6 +265,10 @@ function correctionDatoms(eventId: string, correction: Correction) {
  * It returns nothing. A caller holding the event's id already holds the only id
  * there is, and ADR-0107's reveal turns on being handed an id: a correction that
  * reported one would move the page under a hand that has just committed an edit.
+ *
+ * A correction carrying nothing throws at {@link ingestEntity} rather than
+ * appending an empty batch, which is the behaviour to want: a caller that
+ * decided there was nothing to correct should not have called this.
  */
 export async function correctConsumptionEvent(
   eventId: string,
@@ -308,12 +329,7 @@ export async function scaleLoggedFoods(
     datoms.push(
       ...correctionDatoms(change.event.id, {
         quantity: quantityLabel(change.amount, change.unit),
-        macros: {
-          calories: roundFood(breakdown.calories),
-          protein: roundFood(breakdown.protein),
-          fat: roundFood(breakdown.fat),
-          carbs: roundFood(breakdown.carbs),
-        },
+        macros: roundedHeadline(breakdown),
         breakdown,
       })
     );
@@ -730,44 +746,45 @@ export async function moveLoggedFoodsToMeal(
  * the unit that reaches it, and the scaling factor puts that amount into the
  * panel's own unit first (ADR-0108 §5) rather than rewriting the panel.
  *
- * `event.target` is written back onto the event rather than assumed unchanged.
- * Its one caller that hands a different one is the label form's edit path, where
- * a correction may have minted a fresh twin instead of enriching the one it
- * opened on — an event left naming the old twin would read as the food the user
- * has just replaced.
+ * `retarget` is the twin the occasion should now name, and only the label form's
+ * edit path passes one: a correction there may have minted a fresh twin instead
+ * of enriching the one it opened on, and an event left naming the old twin would
+ * read as the food the user has just replaced. It is both what the panel is read
+ * from and what is written onto the event. Omitted — every other caller — the
+ * correction says nothing at all about the target, because nothing about it
+ * changed (ADR-0111 §1: only what changed is written).
  *
- * Answers whether it corrected anything: `false` is nothing to scale from (no
- * target, or a twin carrying no panel), which tells a caller the food was left
- * exactly as it was. It hands back **no id**, because the event's id has not
- * changed and the one it was given is still the only one (ADR-0111 §1).
+ * It returns nothing, and the two things it might have returned are both
+ * refused for one reason: nothing reads them. **No id**, because the event's is
+ * unchanged and the caller already holds it (ADR-0111 §1). **No "did it write"
+ * flag**, because a twin carrying no panel is a food that cannot be scaled at
+ * all, which the amount picker settled before it drew — both call sites discard
+ * the answer, and a flag nobody reads is the id churn's mistake in a smaller
+ * shape.
  */
 export async function changeLoggedFoodAmount(
   event: ConsumptionEvent,
   amount: number,
-  unit: MeasuredUnit
-): Promise<boolean> {
-  if (!event.target) return false;
-  const twin = await getLocalFoodTwin(event.target);
+  unit: MeasuredUnit,
+  retarget?: string
+): Promise<void> {
+  const target = retarget ?? event.target;
+  if (!target) return;
+  const twin = await getLocalFoodTwin(target);
   const panel = twin?.attributes?.["nutrition/info"] as
     | NutritionInfo
     | undefined;
-  if (!panel) return false;
+  if (!panel) return;
   const breakdown = deriveIngredientMacros(
-    { ref: event.target, amount, unit },
+    { ref: target, amount, unit },
     () => ({ panel, density: readFoodDensity(twin?.attributes) })
   );
   await correctConsumptionEvent(event.id, {
-    target: event.target,
+    target: retarget,
     quantity: quantityLabel(amount, unit),
-    macros: {
-      calories: roundFood(breakdown.calories),
-      protein: roundFood(breakdown.protein),
-      fat: roundFood(breakdown.fat),
-      carbs: roundFood(breakdown.carbs),
-    },
+    macros: roundedHeadline(breakdown),
     breakdown,
   });
-  return true;
 }
 
 /**

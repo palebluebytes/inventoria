@@ -555,10 +555,15 @@
             )
           : "1 serving";
         if (edit && logged != null && isMeasuredUnit(logged.unit)) {
+          // `twinId` is handed over as the retarget: the save may have minted a
+          // fresh twin rather than enriching the one this edit opened on, and
+          // this is the one correction in the app that can change WHICH food an
+          // occasion was (ADR-0111 §1).
           await changeLoggedFoodAmount(
-            { ...edit, target: twinId },
+            edit,
             logged.amount,
-            logged.unit
+            logged.unit,
+            twinId
           );
         } else if (edit) {
           // The corrected panel, appended onto the occasion (ADR-0111 §1).

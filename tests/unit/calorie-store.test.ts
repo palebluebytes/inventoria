@@ -953,10 +953,10 @@ describe("correctInstantiation", () => {
       new Set(["event:consume_old"])
     );
 
-    // The snapshot is re-derived from the CURRENT twins.
-    expect(datoms.find((d) => d.attribute === "event/target")?.value).toBe(
-      "recipe:oatmeal"
-    );
+    // The snapshot is re-derived from the CURRENT twins, and says which template
+    // it came from. `event/target` is NOT restated: the event already names that
+    // template, and a correction writes only what changed (ADR-0111 §1).
+    expect(datoms.map((d) => d.attribute)).not.toContain("event/target");
     const inst = datoms.find((d) => d.attribute === "event/instantiation")
       ?.value as any;
     expect(inst.based_on).toBe("recipe:oatmeal");
@@ -1000,7 +1000,7 @@ describe("changeLoggedFoodAmount", () => {
       .spyOn(dbClient, "append")
       .mockResolvedValue(undefined);
 
-    const corrected = await changeLoggedFoodAmount(
+    await changeLoggedFoodAmount(
       {
         id: "event:consume_old",
         target: "fdc:oats",
@@ -1018,9 +1018,6 @@ describe("changeLoggedFoodAmount", () => {
     expect(new Set(datoms.map((d) => d.entity))).toEqual(
       new Set(["event:consume_old"])
     );
-    expect(datoms.find((d) => d.attribute === "event/target")?.value).toBe(
-      "fdc:oats"
-    );
     expect(datoms.find((d) => d.attribute === "event/quantity")?.value).toBe(
       "100g"
     );
@@ -1028,15 +1025,12 @@ describe("changeLoggedFoodAmount", () => {
       datoms.find((d) => d.attribute === "event/metrics")?.value
     ).toMatchObject({ calories: 379, protein: 13.1 });
 
-    // The meal is not rewritten: it is the event's own and the correction does
-    // not touch it. Nor is a status or a link (ADR-0111 §4).
+    // Neither the meal nor the food is rewritten: both are the event's own and
+    // this correction changed neither. Nor is a status or a link (ADR-0111 §4).
     expect(datoms.map((d) => d.attribute)).not.toContain("event/meal_type");
+    expect(datoms.map((d) => d.attribute)).not.toContain("event/target");
     expect(datoms.map((d) => d.attribute)).not.toContain("event/status");
     expect(datoms.map((d) => d.attribute)).not.toContain("event/replaced_by");
-
-    // It answers that it corrected something, and hands back no id: the id it
-    // was given is still the only one there is.
-    expect(corrected).toBe(true);
   });
 
   it("re-logs a drink in its panel's own unit, never as a gram weight", async () => {
@@ -1076,21 +1070,54 @@ describe("changeLoggedFoodAmount", () => {
     ).toMatchObject({ calories: 138.6, carbs: 34.98 });
   });
 
+  it("names the new twin only when the caller retargets the occasion", async () => {
+    // The label form's edit path: the save enriched nothing and minted a fresh
+    // `food:custom_` twin, so the occasion must stop naming the one it opened on
+    // (ADR-0111 §1). The panel is read from the new twin too.
+    vi.spyOn(dbClient, "query").mockResolvedValue([
+      { attribute: "nutrition/info", value: JSON.stringify(OATS_PANEL) },
+    ] as any);
+    const mockAppend = vi
+      .spyOn(dbClient, "append")
+      .mockResolvedValue(undefined);
+
+    await changeLoggedFoodAmount(
+      {
+        id: "event:consume_old",
+        target: "gtin:poor",
+        quantity: "50g",
+        meal_type: "breakfast",
+        time: new Date("2026-05-31T08:00:00").getTime(),
+      } as any,
+      100,
+      "g",
+      "food:custom_corrected"
+    );
+
+    const datoms = mockAppend.mock.calls[0][0];
+    expect(datoms.find((d) => d.attribute === "event/target")?.value).toBe(
+      "food:custom_corrected"
+    );
+    expect(
+      datoms.find((d) => d.attribute === "event/metrics")?.value
+    ).toMatchObject({ calories: 379 });
+  });
+
   it("no-ops when the twin carries no nutrition panel (can't re-derive)", async () => {
     vi.spyOn(dbClient, "query").mockResolvedValue([] as any);
     const mockAppend = vi
       .spyOn(dbClient, "append")
       .mockResolvedValue(undefined);
 
-    const corrected = await changeLoggedFoodAmount(
+    await changeLoggedFoodAmount(
       { id: "event:x", target: "fdc:ghost", quantity: "50g", time: 0 } as any,
       100,
       "g"
     );
 
+    // The food is left exactly as it was, and nothing is reported: a twin with
+    // no panel is a food the amount picker could not have offered to scale.
     expect(mockAppend).not.toHaveBeenCalled();
-    // `false`, so the caller knows the food was left exactly as it was.
-    expect(corrected).toBe(false);
   });
 });
 

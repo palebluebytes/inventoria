@@ -365,10 +365,11 @@ function occasionFreeze(
  * food), so a stale frozen row is only ever superseded by a deliberate edit,
  * never rewritten under a reader.
  *
- * `based_on` is the template the occasion was seeded from (carried through from
- * the original instantiation's `based_on`, equal to its `event/target`), and is
- * written back so the correction says which template it derived from — the same
- * pair a log freezes together (ADR-0022 §2).
+ * `based_on` is the template the occasion was seeded from — carried through from
+ * the original instantiation's `based_on`, which is its `event/target`. It is
+ * therefore not written back: the event already names it, and a correction
+ * writes only what changed (ADR-0111 §1). The snapshot still records it, because
+ * `based_on` is a field of the instantiation itself (ADR-0022 §2).
  *
  * It takes no `meal_type` and no date, and returns no id, because it can no
  * longer change any of the three: the occasion's meal and its clock are the
@@ -392,7 +393,6 @@ export async function correctInstantiation(
     occasion
   );
   await correctConsumptionEvent(editId, {
-    target: based_on,
     quantity,
     macros: snapshot,
     breakdown: snapshot,
