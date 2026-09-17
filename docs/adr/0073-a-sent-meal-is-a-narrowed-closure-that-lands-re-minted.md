@@ -227,7 +227,7 @@ this erases the free provenance mark a foreign `device_id` would have given, whi
 **Third inversion for the own-device half**, and the sharpest: there, keeping stamps and
 advancing on receive **is** the convergence mechanism.
 
-### 8. Seven refusals, judged at receive, in one pass
+### 8. Eight refusals, judged at receive, in one pass
 
 **Judged when the payload arrives, before anything is shown** — so a hostile payload never
 reaches the screen, and the failure lands while the sender is still present to be told.
@@ -257,12 +257,22 @@ Stated explicitly because the next reader will go looking for the second pass.
    closure. This is the check that catches §5's nameless-row failure.
 7. **One of §2's three forbidden attributes is present.** Refused rather than silently
    dropped: a recipient quietly given less than was sent cannot tell.
+8. **The attribute belongs to no namespace a meal carries** — `event/`, `food/`,
+   `nutrition/`, `recipe/`. Added by
+   [ADR-0081](0081-a-meals-closure-is-bounded-by-kind-not-by-reachability-alone.md) §3,
+   and listed here so the count above and the list below it agree. What it refuses is a
+   whole domain rather than an attribute, which is why the clause that follows survives it.
 
 **An unknown _attribute_ is explicitly not a refusal.** (5) already contains the threat: an
 unknown attribute can only ride an entity the closure reaches, so it is a fact about a
 food, harmless if unread. Refusing it would need a hand-maintained allow-list mirroring
 `docs/eavt-vocabulary.md`, and ADR-0014's own amendment records what keeping a growing list
-inside a fixed decision costs.
+inside a fixed decision costs. **That justification is ADR-0081 §2's and §3's now, not this
+one's**: the premise stated here is false, because two projections scope by attribute
+rather than by entity, and the clause stands on the kind and namespace bounds instead.
+[ADR-0105](0105-a-pairing-is-scoped-to-the-facet-its-act-ran-in.md)'s final Amendment
+refuses a ninth refusal keyed on the registry's reference marks, on the grounds that this
+clause makes a marked and an unmarked dangling reference indistinguishable to the reader.
 
 ### 9. The ceiling is 1 MiB, on decoded bytes, counted incrementally
 

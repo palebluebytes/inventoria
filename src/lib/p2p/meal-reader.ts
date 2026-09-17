@@ -178,9 +178,8 @@ interface PayloadReference {
 }
 
 /**
- * The eight refusals, judged in one pass over the payload. ADR-0073 §8 counts
- * seven; ADR-0081 amended it to eight, adding the attribute-namespace refusal
- * below.
+ * The eight refusals, judged in one pass over the payload. ADR-0073 §8 lists
+ * eight; the last is the attribute-namespace refusal ADR-0081 §3 added.
  *
  * **One pass, not two.** ADR-0067 §5 reads a file twice to promise
  * all-or-nothing over something too large to hold in memory; a payload is
