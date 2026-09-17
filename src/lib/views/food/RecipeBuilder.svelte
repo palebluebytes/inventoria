@@ -5,6 +5,7 @@
   import { retractConsumptionEvent } from "../../stores/calorie.store";
   import {
     saveRecipe,
+    nameRecipe,
     logRecipeConsumption,
     seedRowsFromTemplate,
   } from "../../stores/recipe.store";
@@ -12,6 +13,7 @@
     toReferenceIngredient,
     sourceFromIngredients,
     nameFromIngredients,
+    isImpromptuTwin,
     type RecipeIngredient,
   } from "../../food/recipe-ingredient";
   import { sanitizeYield } from "../../food/recipe-nutrition";
@@ -192,12 +194,51 @@
     reader.readAsDataURL(file);
   }
 
+  // Consolidate alone may go unnamed (ADR-0110 §1): an Impromptu Recipe is
+  // identified by its ingredients, so leaving the box empty is a complete
+  // answer rather than an unfinished one. The other three modes keep the gate.
+  // Create and Edit are reached from the library, so an unnamed twin would
+  // vanish from the very surface it was made on; Define is the verb for writing
+  // a recipe down, and a recipe you sat down to write has a name.
+  let nameSatisfied = $derived(mode === "consolidate" || !!recipeName.trim());
+
+  // An Impromptu Recipe opened for review (ADR-0110 §7): a twin that resolves
+  // and carries no name, which is the whole discriminant — no flag records the
+  // kind, because absence IS the value (§1).
+  //
+  // It makes this screen a different one. Its ingredient set is its identity,
+  // so the list is read-only; its yield, notes, steps and image are a
+  // template's remembered defaults and it has none; and the one edit it takes
+  // is a name, which promotes it (§5). What the screen still does in full is
+  // show it — including, below, every day it was made.
+  let impromptu = $derived(mode === "edit" && isImpromptuTwin(template));
+
+  /**
+   * Naming an Impromptu Recipe, which is the whole of what this screen does to
+   * one (ADR-0110 §5): one appended `recipe/name` datom, after which the twin
+   * is in the library and every past occasion of it is an occasion of the named
+   * recipe.
+   *
+   * It is `edit` by ADR-0022 §4's three columns — creates no twin, logs
+   * nothing, retracts nothing — but it is not {@link saveRecipe}'s edit branch,
+   * which writes the ingredients and all five optionals unconditionally and so
+   * would rewrite the list §7 calls read-only and clear fields this screen
+   * never offered. The ingredient twins are not re-ingested either: they were
+   * ingested when the dish was consolidated, and nothing here could have
+   * changed them.
+   */
+  async function promote(entity: string) {
+    await nameRecipe(entity, recipeName);
+    onCommitted([]);
+  }
+
   async function save() {
-    if (!recipeName.trim() || ingredients.length === 0 || status === "loading")
+    if (!nameSatisfied || ingredients.length === 0 || status === "loading")
       return;
     status = "loading";
     error = "";
     try {
+      if (impromptu && template) return await promote(template.entity);
       // 1. Ingest each ingredient's food twin so it exists in the ledger.
       for (const ing of ingredients) {
         await dbClient.append(ingestEntity(ing.payload));
@@ -236,7 +277,7 @@
         // live display above and the projection's derivation, so the frozen
         // snapshot equals what the builder showed at the moment it was logged.
         // Panels are read in memory, so real food twins are never mutated.
-        logged = await logRecipeConsumption(
+        const loggedEventId = await logRecipeConsumption(
           recipeId,
           referenceIngredients,
           yieldNum,
@@ -245,16 +286,25 @@
           meal_type,
           selectedDate
         );
+        logged = loggedEventId;
         // Replace (consolidate only): retract the selection events that remain as
         // ingredients. Define builds from scratch, so it has no seeded event_ids
         // and nothing to retract — the guard keeps its fresh foods untouched.
         //
         // A row can carry SEVERAL events: two logs of the same food fold into
         // one ingredient (ADR-0024), and the recipe replaces both of them.
+        //
+        // The link names the EVENT this consolidation just logged, not the twin
+        // it was seeded from (#468). `event/replaced_by` is defined as one
+        // `event:consume_` naming the `event:consume_` that superseded it, and
+        // the projection's slot walk reads it to hand the recipe its first
+        // ingredient's place — a twin id is in no event group, so the walk
+        // donated the slot to nothing and the dish fell to the bottom of its
+        // meal.
         if (mode === "consolidate") {
           for (const ing of ingredients) {
             for (const event_id of ing.event_ids ?? []) {
-              await retractConsumptionEvent(event_id, recipeId);
+              await retractConsumptionEvent(event_id, loggedEventId);
             }
           }
         }
@@ -289,20 +339,19 @@
   requestSave = save;
   $effect(() => {
     saveReady =
-      ready &&
-      !!recipeName.trim() &&
-      ingredients.length > 0 &&
-      status !== "loading";
+      ready && nameSatisfied && ingredients.length > 0 && status !== "loading";
   });
   $effect(() => {
     saveLabel =
       status === "loading"
         ? "Saving…"
-        : mode === "edit"
-          ? "Save changes"
-          : mode === "create"
-            ? "Save recipe"
-            : "Log";
+        : impromptu
+          ? "Save name"
+          : mode === "edit"
+            ? "Save changes"
+            : mode === "create"
+              ? "Save recipe"
+              : "Log";
   });
 </script>
 
@@ -317,9 +366,23 @@
       placeholder="e.g. Overnight oats"
       bind:value={recipeName}
     />
+    {#if impromptu}
+      <!-- What naming it does, said where the naming happens. Nothing on this
+           screen asks you to finish an Impromptu Recipe (§1) — it is a complete
+           record already — so this states the consequence rather than prompting
+           for a gap. -->
+      <p class="promote-hint">
+        Name it to keep it in your recipes. Every day you made it comes with it.
+      </p>
+    {/if}
   </div>
 
-  <IngredientListEditor bind:ingredients bind:recipeYield bind:batchWeight />
+  <IngredientListEditor
+    bind:ingredients
+    bind:recipeYield
+    bind:batchWeight
+    readonly={impromptu}
+  />
 
   <!-- Optional schema.org sections as a real accordion (#66): bits-ui supplies
        the role=heading trigger, aria-expanded, roving arrow-key focus between
@@ -330,101 +393,107 @@
        hand. `value` is controlled by `openSections`; every change funnels
        through `onSectionsChange`, so an arrow-key toggle seeds the first step
        exactly as a click does. -->
-  <div class="rec-sections">
-    <Accordion.Root
-      type="multiple"
-      value={openSections}
-      onValueChange={onSectionsChange}
-      class="sections"
-    >
-      {#each SECTIONS as s (s.key)}
-        <Accordion.Item value={s.key} class="section">
-          <Accordion.Header level={3} class="sec-heading">
-            <Accordion.Trigger
-              class="sec-head"
-              id={headId(s.key)}
-              data-section={s.key}
-              aria-controls={bodyId(s.key)}
-            >
-              <!-- A drawn mark, not a glyph: `▸`/`▾` fall outside every
-                   unicode-range Epilogue is served in, so both were left to
-                   whatever fallback the device had. One shape rotated also
-                   keeps the title from shifting sideways when it opens. Same
-                   mark as the day dashboard's; the primitive in #316 takes
-                   both copies. -->
-              <svg
-                class="chev"
-                class:is-open={openSections.includes(s.key)}
-                viewBox="0 0 24 24"
-                aria-hidden="true"
+  <!-- The optional schema.org sections belong to a template you are writing.
+       An Impromptu Recipe carries none of them and takes no edit that could
+       fill one, so it is offered none rather than four empty drawers. -->
+  {#if !impromptu}
+    <div class="rec-sections">
+      <Accordion.Root
+        type="multiple"
+        value={openSections}
+        onValueChange={onSectionsChange}
+        class="sections"
+      >
+        {#each SECTIONS as s (s.key)}
+          <Accordion.Item value={s.key} class="section">
+            <Accordion.Header level={3} class="sec-heading">
+              <Accordion.Trigger
+                class="sec-head"
+                id={headId(s.key)}
+                data-section={s.key}
+                aria-controls={bodyId(s.key)}
               >
-                <path d="M7 6 L17 12 L7 18 Z" fill="currentColor"></path>
-              </svg>
-              <span class="sec-title">{s.label}</span>
-              {#if s.filled()}<span class="dot" title="has content"></span>{/if}
-            </Accordion.Trigger>
-          </Accordion.Header>
-          <Accordion.Content
-            class="sec-body"
-            id={bodyId(s.key)}
-            role="region"
-            aria-labelledby={headId(s.key)}
-          >
-            {#if s.key === "source"}
-              <input
-                class="tin"
-                placeholder="Link or where it's from…"
-                bind:value={source}
-              />
-            {:else if s.key === "notes"}
-              <Textarea placeholder="Any notes…" bind:value={notes} />
-            {:else if s.key === "steps"}
-              <ol class="steps">
-                {#each steps as step, i (step.id)}
-                  <li>
-                    <span class="snum">{i + 1}</span>
-                    <input
-                      class="sin recipe-step"
-                      placeholder="Describe step {i + 1}…"
-                      bind:value={step.text}
-                    />
-                    <button
-                      class="srm"
-                      onclick={() => removeStep(step.id)}
-                      aria-label="Remove step {i + 1}">✕</button
-                    >
-                  </li>
-                {/each}
-              </ol>
-              <button class="add-step" id="add-step-btn" onclick={addStep}
-                >+ Add step</button
-              >
-            {:else}
-              <input
-                type="file"
-                accept="image/*"
-                class="hidden-file"
-                bind:this={fileInput}
-                onchange={onFile}
-              />
-              {#if image}
-                <div class="img-prev">
-                  <img src={image} alt="Recipe" />
-                  <button class="change" onclick={() => fileInput?.click()}
-                    >Change</button
-                  >
-                </div>
-              {:else}
-                <button class="photo" onclick={() => fileInput?.click()}
-                  >📷 Add image</button
+                <!-- A drawn mark, not a glyph: `▸`/`▾` fall outside every
+                     unicode-range Epilogue is served in, so both were left to
+                     whatever fallback the device had. One shape rotated also
+                     keeps the title from shifting sideways when it opens. Same
+                     mark as the day dashboard's; the primitive in #316 takes
+                     both copies. -->
+                <svg
+                  class="chev"
+                  class:is-open={openSections.includes(s.key)}
+                  viewBox="0 0 24 24"
+                  aria-hidden="true"
                 >
+                  <path d="M7 6 L17 12 L7 18 Z" fill="currentColor"></path>
+                </svg>
+                <span class="sec-title">{s.label}</span>
+                {#if s.filled()}<span class="dot" title="has content"
+                  ></span>{/if}
+              </Accordion.Trigger>
+            </Accordion.Header>
+            <Accordion.Content
+              class="sec-body"
+              id={bodyId(s.key)}
+              role="region"
+              aria-labelledby={headId(s.key)}
+            >
+              {#if s.key === "source"}
+                <input
+                  class="tin"
+                  placeholder="Link or where it's from…"
+                  bind:value={source}
+                />
+              {:else if s.key === "notes"}
+                <Textarea placeholder="Any notes…" bind:value={notes} />
+              {:else if s.key === "steps"}
+                <ol class="steps">
+                  {#each steps as step, i (step.id)}
+                    <li>
+                      <span class="snum">{i + 1}</span>
+                      <input
+                        class="sin recipe-step"
+                        placeholder="Describe step {i + 1}…"
+                        bind:value={step.text}
+                      />
+                      <button
+                        class="srm"
+                        onclick={() => removeStep(step.id)}
+                        aria-label="Remove step {i + 1}">✕</button
+                      >
+                    </li>
+                  {/each}
+                </ol>
+                <button class="add-step" id="add-step-btn" onclick={addStep}
+                  >+ Add step</button
+                >
+              {:else}
+                <input
+                  type="file"
+                  accept="image/*"
+                  class="hidden-file"
+                  bind:this={fileInput}
+                  onchange={onFile}
+                />
+                {#if image}
+                  <div class="img-prev">
+                    <img src={image} alt="Recipe" />
+                    <button class="change" onclick={() => fileInput?.click()}
+                      >Change</button
+                    >
+                  </div>
+                {:else}
+                  <button class="photo" onclick={() => fileInput?.click()}
+                    >📷 Add image</button
+                  >
+                {/if}
               {/if}
-            {/if}
-          </Accordion.Content>
-        </Accordion.Item>
-      {/each}
-    </Accordion.Root>
-  </div>
+            </Accordion.Content>
+          </Accordion.Item>
+        {/each}
+      </Accordion.Root>
+    </div>
+  {/if}
 {/if}
 
 {#if status === "error"}
@@ -444,6 +513,11 @@
      through `:global` under a box this file does own. */
   .name-field :global(.field-caption) {
     margin: var(--space-s) 0 var(--space-3xs);
+  }
+  .promote-hint {
+    margin-top: var(--space-2xs);
+    font-size: var(--step-n2);
+    color: var(--text-secondary);
   }
   .tin {
     width: 100%;

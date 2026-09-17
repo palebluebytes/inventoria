@@ -25,6 +25,7 @@ import {
 } from "./calorie.store";
 import {
   deriveRecipeNutrition,
+  sanitizeYield,
   type IngredientSource,
   type ReferenceIngredient,
 } from "../food/recipe-nutrition";
@@ -38,14 +39,18 @@ import {
   type OccasionSize,
 } from "../food/batch-weight";
 import {
+  impromptuRecipeId,
   ingredientFromTwin,
   quantityLabel,
+  sourceFromIngredients,
+  toReferenceIngredient,
   type RecipeIngredient,
 } from "../food/recipe-ingredient";
 import {
   nutritionFromMacros,
   PER_SERVING,
   type AmountUnit,
+  type NutritionBreakdown,
 } from "../food/nutrition";
 
 /** One saved Recipe Twin, surfaced for the Instantiate browser (ADR-0022). */
@@ -111,8 +116,13 @@ export function recipeIngredientLists(
 }
 
 export interface RecipeInput {
-  /** schema.org name. */
-  name: string;
+  /**
+   * schema.org name — **optional**, and its absence is a fact rather than a
+   * gap (ADR-0110 §1). A twin that carries one is a Recipe Twin and belongs to
+   * the library; one that does not is an Impromptu Recipe, a dish made once
+   * from what was already on the day. Nothing else records the difference.
+   */
+  name?: string;
   /** Pure `{ ref, amount, unit }` references to the ingredient food twins. */
   ingredients: ReferenceIngredient[];
   /** schema.org description (the "Notes" field in the UI). */
@@ -142,33 +152,60 @@ export interface RecipeInput {
  * That derived aggregate is frozen into the Consumption Event's `event/metrics`
  * snapshot at log time, so later recipe edits never rewrite logged history.
  *
- * Called two ways (ADR-0022 #13):
- *   • **Define / Consolidate** (no `entity`): mints a fresh `recipe:<id>`. Empty
- *     optional fields are skipped, keeping the ledger clean.
+ * Called three ways (ADR-0022 #13, extended by ADR-0110 §4):
+ *   • **Define / Create / a named Consolidate** (no `entity`, a name given):
+ *     mints a fresh random `recipe:<id>`. Empty optional fields are skipped,
+ *     keeping the ledger clean.
+ *   • **An unnamed Consolidate** (no `entity`, no name): an Impromptu Recipe.
+ *     Its id is {@link impromptuRecipeId}, so the same ingredients reach the
+ *     same twin — and where that twin is already in the ledger this **writes
+ *     nothing at all** and hands its id back. Writing would mean taking the
+ *     edit branch below, whose unconditional optionals would clear the notes,
+ *     steps, image and batch weight of a twin somebody had since named and
+ *     filled in. The consolidation logs its instantiation and retracts its
+ *     sources; the dish it landed on is left as it was.
  *   • **Edit** (`entity` given): appends newer `recipe/*` datoms to that SAME
  *     twin. Latest-wins re-seeds only **future** instantiations; past ones,
  *     being snapshots, never move. Optional fields are written *unconditionally*
  *     here — append-only has no delete, so an omitted attribute would keep its
  *     old value; writing an empty value is how an edit clears a field.
+ *
+ * `recipe/name` is written only where there is one, in **all three** cases, and
+ * so it is not one of the optionals an edit clears by writing empty. Not an
+ * empty string: the library is `WHERE attribute = 'recipe/name'`, and a blank
+ * name would put an impromptu dish in it while reading as a name-shaped falsy
+ * value everywhere else. The consequence is that naming is one-way — an edit
+ * promotes an Impromptu Recipe (ADR-0110 §5) and no edit demotes a Recipe Twin
+ * back. That is the ADR's model rather than an oversight: membership is derived
+ * from the name, and it names no verb for taking one away.
  */
 export async function saveRecipe(
   input: RecipeInput,
   entity?: string
 ): Promise<string> {
   const isEdit = entity !== undefined;
+  const name = input.name?.trim();
+  const impromptu = !isEdit && !name;
   const entityId =
     entity ??
-    mintEntity(
-      "recipe:",
-      `${Math.random().toString(36).substring(2, 9)}_${Date.now()}`
-    );
+    (impromptu
+      ? await impromptuRecipeId(input.ingredients)
+      : mintEntity(
+          "recipe:",
+          `${Math.random().toString(36).substring(2, 9)}_${Date.now()}`
+        ));
+
+  // Reuse is the point of a derived id, and reuse appends nothing. `null` is
+  // this read's answer for "no such entity", so the test is against that rather
+  // than the truthiness of the `any` it hands back otherwise.
+  if (impromptu && (await getLocalFoodTwin(entityId)) !== null) return entityId;
 
   const attributes: Record<string, any> = {
-    "recipe/name": input.name,
     // Store direct JSON arrays/objects; ingestEntity/worker stringifies them.
     "recipe/ingredients": input.ingredients,
     "recipe/yield": input.yield ?? 1,
   };
+  if (name) attributes["recipe/name"] = name;
   // Optional schema.org fields. One rule for all four: write the present value,
   // or — on edit only — its `empty` sentinel to clear the field (append-only has
   // no delete). `value` falsy on a Define simply skips the attribute.
@@ -192,6 +229,43 @@ export async function saveRecipe(
 
   await dbClient.append(ingestEntity({ entity: entityId, attributes }));
   return entityId;
+}
+
+/**
+ * Promotes an Impromptu Recipe to a Recipe Twin by giving it a name (ADR-0110
+ * §5): one appended `recipe/name` datom, after which the twin is in the library
+ * and every past occasion of it is an occasion of the named recipe.
+ *
+ * **It is not a new verb.** It scores exactly as `edit` does on ADR-0022 §4's
+ * three columns — creates no twin, logs nothing, retracts nothing — and writes
+ * the same attribute on the same entity. What feels distinct about it is the
+ * change in membership, and membership is derived rather than written.
+ *
+ * It is not {@link saveRecipe}'s edit branch either, and that is why it exists.
+ * That branch writes the ingredients, the yield and all five optionals
+ * unconditionally, because an empty value is how an edit clears a field — so
+ * naming a dressing through it would spend eight datoms, clear notes and steps
+ * that a later edit may have filled in, and rewrite the ingredient list §7 calls
+ * read-only. The id is a fingerprint of those refs; rewriting them would make it
+ * a lie.
+ *
+ * The id is **not** re-minted, because ids are immutable and every existing
+ * instantiation names this one. A promoted twin therefore stays in the reuse
+ * pool, and consolidating those ingredients again becomes an instantiation of
+ * the named recipe (§4).
+ *
+ * A blank name is refused rather than written. The library is
+ * `WHERE attribute = 'recipe/name'`, so an empty one would put the dish in it
+ * while reading as a name-shaped falsy value everywhere else — the one thing
+ * {@link saveRecipe} will not write. The screen above gates on the same
+ * question; this refuses rather than trusting that it held.
+ */
+export async function nameRecipe(entity: string, name: string): Promise<void> {
+  const trimmed = name.trim();
+  if (!trimmed) throw new Error("a recipe name cannot be blank");
+  await dbClient.append(
+    ingestEntity({ entity, attributes: { "recipe/name": trimmed } })
+  );
 }
 
 /**
@@ -348,4 +422,41 @@ export function seedRowsFromTemplate(
   const refs = (attributes["recipe/ingredients"] ??
     []) as ReferenceIngredient[];
   return Promise.all(refs.map((r) => seedRowFromRef(r.ref, r.amount, r.unit)));
+}
+
+/**
+ * A saved recipe's per-serving figures as the ledger holds them **now** — the
+ * macros line on a library row (#488).
+ *
+ * It is {@link seedRowsFromTemplate} plus the shared derivation: resolve the
+ * twin, seed each stored `{ ref, amount, unit }` off its own current food twin,
+ * and run {@link deriveRecipeNutrition} over the twin's yield — the same three
+ * steps the instantiation editor opens on, over the same twin. It is a **read**
+ * of them, which is why that editor does not call this: it re-derives on every
+ * keystroke from rows the cook is still changing, and only this caller wants
+ * the figures the ledger alone implies. A yield the twin never carried divides
+ * by 1, which is {@link sanitizeYield}'s single rule and not restated here.
+ * `null` when there is no such entity, which is the browser's answer for a row
+ * whose twin has gone.
+ *
+ * **Nothing is memoised, deliberately.** The figures derive from three things
+ * the ledger holds apart — the twin's `recipe/ingredients`, its `recipe/yield`,
+ * and each referenced twin's own panel — and an edit moves any of them while
+ * leaving the entity id exactly where it was. A cache keyed by entity is
+ * therefore keyed on the one input that cannot change, which is how a recipe
+ * came to wear its first macros for the rest of the session. A key honest
+ * enough to bust would have to name all three, and re-reading them is what
+ * computing that key costs anyway.
+ */
+export async function recipePerServingNutrition(
+  entity: string
+): Promise<NutritionBreakdown | null> {
+  const twin = await getLocalFoodTwin(entity);
+  if (!twin) return null;
+  const rows = await seedRowsFromTemplate(twin.attributes);
+  return deriveRecipeNutrition(
+    rows.map(toReferenceIngredient),
+    sanitizeYield(twin.attributes["recipe/yield"]),
+    (ref) => sourceFromIngredients(rows, ref)
+  );
 }

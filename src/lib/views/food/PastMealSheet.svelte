@@ -1,5 +1,6 @@
 <script lang="ts">
   import BottomSheet from "../../ui/BottomSheet.svelte";
+  import ContentsRow from "./ContentsRow.svelte";
   import { roundFoodDisplay } from "../../food/nutrition";
   import {
     quantityLabel,
@@ -12,7 +13,9 @@
 
   // The past-meal picker (ADR-0058 §12): one row per past day, newest first,
   // each spelling the meal out one food per line with its amount, so what is
-  // about to be copied is legible without a second tap.
+  // about to be copied is legible without a second tap. That row anatomy is
+  // `ContentsRow`, shared since ADR-0110 §6 put a second list of occasions on
+  // the Recipes screen.
   //
   // Its own sheet, not a tab in the stager: every method there picks a FOOD,
   // this picks a MEAL and commits several entries at once (ADR-0059 §2). It
@@ -48,27 +51,22 @@
   <ul class="pm-list" data-testid="past-meal-list">
     {#each meals as meal (meal.date.getTime())}
       <li>
-        <button
-          type="button"
-          class="pm-row"
+        <!-- The verb is the point here, not the contents: a copy names the meal
+             it is about to reproduce rather than reading its foods out. -->
+        <ContentsRow
+          head={dayLabel(meal.date)}
+          trailing="{roundFoodDisplay(
+            meal.calories,
+            $calorieDisplayDecimals
+          )} kcal"
+          lines={meal.items.map((item) => ({
+            id: item.id,
+            label: item.foodName ?? "",
+            amount: amountLabel(item.quantity),
+          }))}
+          ariaLabel="Copy {dayLabel(meal.date)}'s {meal_type}"
           onclick={() => onCopy(meal)}
-          aria-label="Copy {dayLabel(meal.date)}'s {meal_type}"
-        >
-          <span class="pm-head">
-            <span class="pm-date">{dayLabel(meal.date)}</span>
-            <span class="pm-kcal"
-              >{roundFoodDisplay(meal.calories, $calorieDisplayDecimals)} kcal</span
-            >
-          </span>
-          <span class="pm-foods">
-            {#each meal.items as item (item.id)}
-              <span class="pm-food">
-                <span>{item.foodName}</span>
-                <span class="pm-amount">{amountLabel(item.quantity)}</span>
-              </span>
-            {/each}
-          </span>
-        </button>
+        />
       </li>
     {/each}
   </ul>
@@ -82,62 +80,5 @@
     display: flex;
     flex-direction: column;
     gap: var(--space-2xs);
-  }
-  .pm-row {
-    min-height: var(--tap-min);
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-3xs);
-    width: 100%;
-    padding: var(--space-xs);
-    font: inherit;
-    text-align: left;
-    color: var(--ink);
-    background: var(--paper);
-    border: var(--edge);
-    border-radius: var(--radius);
-    box-shadow: var(--shadow-1);
-    cursor: pointer;
-  }
-  .pm-row:active {
-    box-shadow: none;
-    transform: translate(1px, 1px);
-  }
-  .pm-row:focus-visible {
-    outline: 2px solid var(--ink);
-    outline-offset: 2px;
-  }
-  .pm-head {
-    display: flex;
-    justify-content: space-between;
-    align-items: baseline;
-    gap: var(--space-2xs);
-  }
-  .pm-date {
-    font-size: var(--step-n1);
-    font-weight: 700;
-    letter-spacing: 0.03em;
-  }
-  .pm-kcal {
-    font-size: var(--step-n2);
-    font-weight: 700;
-  }
-  .pm-foods {
-    display: flex;
-    flex-direction: column;
-    gap: 0.1rem;
-    padding-top: var(--space-3xs);
-    border-top: var(--edge-thin);
-  }
-  .pm-food {
-    display: flex;
-    justify-content: space-between;
-    gap: var(--space-2xs);
-    font-size: var(--step-n2);
-    color: var(--text-secondary);
-  }
-  .pm-amount {
-    flex-shrink: 0;
-    font-variant-numeric: tabular-nums;
   }
 </style>

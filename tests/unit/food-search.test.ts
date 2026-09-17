@@ -2,13 +2,18 @@ import { describe, it, expect, vi } from "vitest";
 import {
   isPoorFoodTwin,
   mapPayloadToFoodResult,
+  mapLedgerFoodToResult,
   isCatalogueFood,
   searchUsdaFoods,
   NoReferenceFoodError,
   NO_FOOD_FOUND,
 } from "../../src/lib/food/food-search";
+import type { LedgerFood } from "../../src/lib/food/ledger-foods";
 import { searchUsdaCorpus } from "../../src/lib/food/usda-corpus";
-import type { NutritionInfo } from "../../src/lib/food/nutrition";
+import {
+  parseBasisQuantity,
+  type NutritionInfo,
+} from "../../src/lib/food/nutrition";
 import {
   buildArrival,
   buildManualEntry,
@@ -316,5 +321,125 @@ describe("mapPayloadToFoodResult", () => {
       attributes: { "food/name": "Leftovers" },
     });
     expect(bare.basis).toBe("100 g");
+  });
+
+  it("answers a nameless twin with an empty name, not undefined", () => {
+    // `attributes` is a `Record<string, any>`, so a twin carrying no `food/name`
+    // — a `recipe:` one, say — used to return `name: undefined` past a field
+    // declared `string`. The declared type is now true, which is what lets the
+    // render tail drop the row on a plain emptiness test (#485).
+    const nameless = mapPayloadToFoodResult({
+      entity: "recipe:abc",
+      attributes: { "recipe/ingredients": [] },
+    });
+    expect(nameless.name).toBe("");
+  });
+});
+
+describe("mapLedgerFoodToResult", () => {
+  // #485. The "Your foods" block resolved its rows through the payload mapper,
+  // which reads `food/name` and `nutrition/info` — two attributes a `recipe:`
+  // twin does not carry (ADR-0021). The row came back nameless and 0/0/0/0, and
+  // ADR-0090 §6 makes a row its name, so a nameless one rendered as nothing at
+  // all while staying selectable.
+  const logged = (over: Partial<LedgerFood> = {}): LedgerFood => ({
+    target: "recipe:abc",
+    name: "Bean salad",
+    time: 1,
+    quantity: "1 serving",
+    metrics: { calories: 420, protein: 18, fat: 12, carbs: 55 },
+    ...over,
+  });
+
+  it("names the row from the log, which is what the query matched", () => {
+    const row = mapLedgerFoodToResult(logged(), {
+      entity: "recipe:abc",
+      attributes: { "recipe/ingredients": [] },
+    });
+    expect(row.name).toBe("Bean salad");
+    expect(row.entity).toBe("recipe:abc");
+  });
+
+  it("quotes a panel-less twin against the reading that occasion froze", () => {
+    const row = mapLedgerFoodToResult(logged(), {
+      entity: "recipe:abc",
+      attributes: { "recipe/ingredients": [] },
+    });
+    expect(row.calories).toBe(420);
+    expect(row.protein).toBe(18);
+    expect(row.fat).toBe(12);
+    expect(row.carbs).toBe(55);
+    expect(row.basis).toBe("1 serving");
+  });
+
+  it("prefers the twin's own panel, which is the reusable reading", () => {
+    // A scanned or hand-typed twin publishes per its own basis, and every
+    // scaler downstream divides by it. The log froze one portion of it; putting
+    // that on the row would restate a single occasion as the food's panel.
+    const row = mapLedgerFoodToResult(
+      logged({ target: "gtin:5449000000996" }),
+      {
+        entity: "gtin:5449000000996",
+        attributes: {
+          "food/name": "Coca-Cola",
+          "nutrition/info": { serving_size: "100 ml", calories: 42 },
+        },
+      }
+    );
+    expect(row.calories).toBe(42);
+    expect(row.basis).toBe("100 ml");
+  });
+
+  it("carries the logged quantity verbatim, however big the occasion was", () => {
+    // The metrics are the WHOLE occasion (ADR-0022), so a two-serving log must
+    // say two: quoting 840 kcal against "1 serving" would state twice the food
+    // it was. Whether anything can DIVIDE by that string is a separate question
+    // the app already answers the same way for every panel — a whole-serving
+    // basis names no weight, and `parseBasisQuantity` falls back to 100 for it.
+    const row = mapLedgerFoodToResult(
+      logged({
+        quantity: "2 serving",
+        metrics: { calories: 840, protein: 36, fat: 24, carbs: 110 },
+      }),
+      { entity: "recipe:abc", attributes: { "recipe/ingredients": [] } }
+    );
+    expect(row.basis).toBe("2 serving");
+    expect(row.calories).toBe(840);
+    expect(parseBasisQuantity(row.basis)).toBe(100);
+  });
+
+  it("carries a weighed occasion's basis, which a scaler CAN divide by", () => {
+    // ADR-0106 §8: a weighed occasion is logged in grams, and that basis is
+    // measured rather than nominal, so the reading is fully usable.
+    const row = mapLedgerFoodToResult(
+      logged({
+        quantity: "160 g",
+        metrics: { calories: 420, protein: 18, fat: 12, carbs: 55 },
+      }),
+      { entity: "recipe:abc", attributes: { "recipe/ingredients": [] } }
+    );
+    expect(row.basis).toBe("160 g");
+    expect(parseBasisQuantity(row.basis)).toBe(160);
+  });
+
+  it("falls back to the reference basis when neither reading exists", () => {
+    const row = mapLedgerFoodToResult(
+      logged({ metrics: undefined, quantity: undefined }),
+      { entity: "recipe:abc", attributes: { "recipe/ingredients": [] } }
+    );
+    expect(row.basis).toBe("100 g");
+    expect(row.calories).toBe(0);
+  });
+
+  it("leaves the payload alone, so committing writes no panel onto a recipe", () => {
+    // The staged payload IS what the host ingests (`ingestEntity`), so a
+    // synthesised `nutrition/info` here would append one to the recipe twin and
+    // contradict ADR-0021.
+    const payload = {
+      entity: "recipe:abc",
+      attributes: { "recipe/ingredients": [] },
+    };
+    expect(mapLedgerFoodToResult(logged(), payload).payload).toBe(payload);
+    expect(Object.keys(payload.attributes)).toEqual(["recipe/ingredients"]);
   });
 });

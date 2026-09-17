@@ -1,7 +1,7 @@
 # ADR 0022: Recipes are templates; each logging is an editable instantiation snapshot
 
 **Status:** Accepted  
-**Amended by:** ADR-0030 (#28), see the amendment below; [ADR-0106](0106-a-recipe-occasion-is-sized-by-the-weight-you-put-on-the-scale.md) (the servings amendment's count is no longer the only way to size an occasion, and the logged quantity stops being a literal)  
+**Amended by:** ADR-0030 (#28), see the amendment below; [ADR-0106](0106-a-recipe-occasion-is-sized-by-the-weight-you-put-on-the-scale.md) (the servings amendment's count is no longer the only way to size an occasion, and the logged quantity stops being a literal); [ADR-0110](0110-an-impromptu-recipe-is-identified-by-its-ingredients-and-named-only-if-you-keep-it.md) (§4's Consolidate creates **or reuses** a twin and no longer requires a name, and the 2026-08-28 amendment's review-and-edit screen gains a second entry point)  
 **Implemented:** #11 foundation, #12 Instantiate + correct, #13 Define + template edit
 
 ## Context

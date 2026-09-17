@@ -145,6 +145,30 @@ describe("the Recent list carries no rank mark", () => {
 });
 
 describe("a row is its name", () => {
+  it("does not render one that has no name", () => {
+    // §6's other edge (#485): a row IS its name, so a row whose name resolves
+    // empty is not a degraded row — it is an invisible one that can still be
+    // selected, and selecting it stages a food nobody could see they picked.
+    const rows = searchList(
+      [food(1), { ...food(2), name: "  " }, food(3)],
+      true
+    );
+
+    expect(rows.map((r) => r.food.name)).toEqual([
+      "Mock Food 1",
+      "Mock Food 3",
+    ]);
+  });
+
+  it("closes the ranking over the row it dropped", () => {
+    // The rank is the row's place in what is SHOWN, so a gap would crown the
+    // second-best and then number the third `2` with nothing at `1`.
+    const rows = searchList([{ ...food(1), name: "" }, food(2), food(3)], true);
+
+    expect(rows.map((r) => r.rank)).toEqual([0, 1]);
+    expect(rows[0].food.name).toBe("Mock Food 2");
+  });
+
   it("prints no macros line", () => {
     // §6, the clause most likely to be argued with: ~18px of a ~69px row, which
     // at this density is the difference between two visible rows and three.

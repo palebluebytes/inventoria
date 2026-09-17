@@ -1,6 +1,9 @@
 import type { StoredDatom } from "../db/db.client";
 import { groupByEntity } from "../db/datom-fold";
-import type { Instantiation } from "./recipe-instantiation";
+import {
+  labelFromInstantiation,
+  type Instantiation,
+} from "./recipe-instantiation";
 import { sumNutrition, type NutritionBreakdown } from "./nutrition";
 
 export interface ConsumptionEvent {
@@ -127,7 +130,21 @@ export function computeConsumption(datoms: StoredDatom[]): ConsumptionEvent[] {
     // `groupByEntity` merges the food/ and recipe/ prefixes into one flat map,
     // so a recipe twin's `recipe/name` and a food twin's `food/name` both land
     // as `t.name`.
-    event.foodName = t.name;
+    //
+    // A twin that resolves and carries no name is an Impromptu Recipe (ADR-0110
+    // §1), and it is labelled from the event's own frozen snapshot instead —
+    // derived at render and never written back, so the twin stays genuinely
+    // nameless, which is what keeps it out of the library. This is the line that
+    // makes the absence survivable: without it `foodName` is undefined, and
+    // `partitionCopyable` sorts the row into `lost`, a sent meal drops it on
+    // landing, and search and reports skip it.
+    //
+    // **A twin that does not resolve at all is a different state and keeps its
+    // old answer.** `Unknown Food` is reserved for exactly that, and ADR-0058
+    // §11 counts such a row as lost rather than copying it — deriving a label
+    // here would mint a second one instead. Which is why the fallback sits
+    // after the `!twin` guard rather than before it.
+    event.foodName = t.name || labelFromInstantiation(event.instantiation);
     event.photoBase64 = t.photo_base64 || t.photo || t.image;
     // schema.org/Recipe display identity, read live from the template (ADR-0021).
     // The logged occasion's nutrition and ingredient breakdown are NOT read here:

@@ -19,14 +19,8 @@
     type ConsumptionEvent,
   } from "../../stores/calorie.store";
   import {
-    recipeTwinsStore,
-    seedRowsFromTemplate,
-  } from "../../stores/recipe.store";
-  import {
     parseLoggedQuantity,
     quantityLabel,
-    toReferenceIngredient,
-    sourceFromIngredients,
   } from "../../food/recipe-ingredient";
   import {
     recentCandidatesForMeal,
@@ -50,10 +44,6 @@
     type NutritionBreakdown,
     type MeasuredUnit,
   } from "../../food/nutrition";
-  import {
-    deriveRecipeNutrition,
-    sanitizeYield,
-  } from "../../food/recipe-nutrition";
   import { calorieDisplayDecimals } from "../../stores/device-settings";
   import type { ManualEntry } from "../../food/provenance";
   import { parseDatomValue } from "../../db/datom-fold";

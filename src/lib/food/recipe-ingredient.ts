@@ -1,5 +1,5 @@
 import type { FoodResult } from "./food-search";
-import { mintEntity } from "../facets/entity-id";
+import { digestSuffix, mintEntity } from "../facets/entity-id";
 import type { EntityPayload } from "../ingestion/ingest";
 import {
   basisUnit,
@@ -354,4 +354,57 @@ export function customIngredient(
       },
     },
   };
+}
+
+/**
+ * An Impromptu Recipe's entity id: the `recipe:` prefix over a digest of its
+ * ingredient `ref`s, sorted (ADR-0110 §4). Computing it is how the twin is
+ * found — consolidating the same things again lands on the twin that already
+ * exists, and a second device doing so converges on it rather than forking.
+ *
+ * **Only the sorted refs go in.** Amounts, units, yield and batch weight are
+ * left out because they are the occasion rather than the dish: they are already
+ * frozen on the event, they vary every time, and including them would make the
+ * reuse a no-op in practice, since `scaleAmount` leaves an amount unrounded on
+ * some paths. This is ADR-0022 §2's boundary applied to identity — the twin is
+ * what the dish is, the event is what you made that day.
+ *
+ * The sort is what makes the key canonical, and it costs the stored ingredient
+ * order where two consolidations collapse onto one twin: nothing normalises
+ * that order today, so whichever minted the twin first is the one that survives.
+ */
+export async function impromptuRecipeId(
+  ingredients: ReferenceIngredient[]
+): Promise<string> {
+  const refs = ingredients.map((i) => i.ref).sort();
+  // Newline-joined: an entity id cannot contain one, so no two ref sets can
+  // render to the same string by running together at the seam.
+  return mintEntity("recipe:", await digestSuffix(refs.join("\n")));
+}
+
+/**
+ * Whether a resolved `recipe:` twin is an Impromptu Recipe: it carries no
+ * `recipe/name` (ADR-0110 §1).
+ *
+ * The absence of the name is the whole discriminant — no attribute records
+ * which verb minted a twin and no flag records its kind, because absence IS the
+ * value. It reads the twin rather than the event on purpose: since §3 an
+ * impromptu dish is labelled from its own frozen snapshot, so `event.foodName`
+ * carries a label indistinguishable from a typed name and cannot answer this.
+ *
+ * **The attribute's presence, not its value.** The library is the query
+ * `WHERE attribute = 'recipe/name'`, which never looks at what the name says,
+ * so a twin carrying an empty one is in the library — and a reading here that
+ * called it nameless would put one twin in the library AND on the screen that
+ * says it is not. No writer makes such a twin (`saveRecipe` omits a blank name
+ * and `nameRecipe` refuses one), and agreeing by construction is what keeps
+ * that true of a twin arriving from anywhere else.
+ *
+ * It lives here beside {@link impromptuRecipeId} rather than in the screen that
+ * asks it, because three surfaces ask it of one twin — the sheet that titles
+ * itself, the builder that decides what it may edit, and the list that decides
+ * membership — and a second reading of "nameless" is how those would disagree.
+ */
+export function isImpromptuTwin(twin: EntityPayload | null): boolean {
+  return twin !== null && !("recipe/name" in twin.attributes);
 }

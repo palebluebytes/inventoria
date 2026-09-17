@@ -52,6 +52,7 @@
     sizedByWeight = false,
     servings = $bindable(1),
     servingsMode = "makes",
+    readonly = false,
   }: {
     ingredients: RecipeIngredient[];
     /** schema.org recipeYield; held loosely so the field can be cleared while
@@ -120,6 +121,19 @@
      *    headline (Σrows ÷ yield) follows to exactly two servings' worth.
      */
     servingsMode?: "makes" | "portions";
+    /**
+     * Whether the list may be changed at all. An Impromptu Recipe's identity IS
+     * its ingredient set — its entity id is a fingerprint of the sorted refs —
+     * so editing them would make that id a lie: a later consolidation of the new
+     * contents would mint a second twin, while one of the old contents would
+     * land on this twin, whose ingredients had moved (ADR-0110 §7).
+     *
+     * So the rows are shown and not touched: no add, no remove, no amount
+     * picker, and no servings or batch weight either, since those belong to a
+     * template and the one edit this screen takes is a name. Nothing is lost by
+     * it — each occasion's real amounts are frozen on its own event.
+     */
+    readonly?: boolean;
   } = $props();
 
   // The basis each change scales from, so the amounts move by the ratio between
@@ -287,10 +301,10 @@
         amount={row.amount}
         unit={ing.unit}
         calories={row.macros.calories}
-        onclick={isMeasuredUnit(ing.unit)
+        onclick={isMeasuredUnit(ing.unit) && !readonly
           ? () => (editingIndex = i)
           : undefined}
-        onRemove={() => removeIngredient(ing.entity)}
+        onRemove={readonly ? undefined : () => removeIngredient(ing.entity)}
       />
     </li>
   {/each}
@@ -298,9 +312,11 @@
     <li class="empty">No ingredients — add some below.</li>
   {/if}
 </ul>
-<button class="add" id="add-ingredient-btn" onclick={() => (showAdd = true)}
-  >+ Add ingredient</button
->
+{#if !readonly}
+  <button class="add" id="add-ingredient-btn" onclick={() => (showAdd = true)}
+    >+ Add ingredient</button
+  >
+{/if}
 
 <!-- Servings — the number the whole surface is read against, asked in the terms
      of whichever verb brought the user here (see `servingsMode`). Defining a
@@ -310,7 +326,12 @@
      which is why the list no longer offers a ×/÷ on individual amounts: the
      serving count is the thing a cook actually knows, and rescaling every
      ingredient by hand was only ever a way of saying it. -->
-{#if servingsMode === "makes"}
+{#if readonly}
+  <!-- An Impromptu Recipe has neither number to offer. A yield and a batch
+       weight are a template's remembered defaults for the NEXT time it is
+       cooked, and the one edit this screen takes is a name (ADR-0110 §7); the
+       real amounts of every occasion are frozen on its own event. -->
+{:else if servingsMode === "makes"}
   <div class="yield-row">
     <FieldCaption for="recipe-yield">Makes (servings)</FieldCaption>
     <input

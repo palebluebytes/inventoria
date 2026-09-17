@@ -38,13 +38,23 @@ export interface SearchListRow {
  * the weak end of a ranking unreachable rather than merely far — see the record's
  * 2026-09-03 Amendment. Every candidate the search returns is rendered, and the
  * worst of them are reached the way Spotlight's are: by scrolling.
+ *
+ * **Except a candidate with no name**, which is the one thing this drops — §6 read
+ * to its edge by the record's 2026-09-17 Amendment (#485). A row whose name
+ * resolves empty is not a degraded row, it is an invisible one that is still an
+ * option and can still crown itself `best`; and dropping it is not the withdrawn
+ * cap, because a cap withholds something a reader could otherwise see. The rank
+ * is assigned after the drop, so a ranking closes over the row it lost rather
+ * than numbering around a gap.
  */
 export function searchList(
   foods: readonly FoodResult[],
   ranked: boolean
 ): SearchListRow[] {
-  return foods.map((food, index) => ({
-    food,
-    rank: ranked ? index : null,
-  }));
+  return foods
+    .filter((food) => food.name.trim() !== "")
+    .map((food, index) => ({
+      food,
+      rank: ranked ? index : null,
+    }));
 }
