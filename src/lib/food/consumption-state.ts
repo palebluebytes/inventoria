@@ -31,10 +31,13 @@ export interface ConsumptionEvent {
   status?: string;
   /**
    * The **consumption link**: the `event:consume_` that consumed this one, on
-   * each of the N events a Consolidate folded into one. Never a twin, and never
-   * written by a correction (ADR-0111 §6). Folded, so it names the one successor
-   * this event claims — see {@link mintedAsReplacement} for what the superseded
-   * values are evidence of.
+   * each of the N events a Consolidate folded into one, and never a twin
+   * (ADR-0111 §6). A correction writes one too until #467 lands §1, and the
+   * links it has already written stay in ledgers and stay readable.
+   *
+   * Folded, so it names the one successor this event claims — see
+   * {@link idsMintedAsReplacements} for what the values it superseded are
+   * evidence of.
    */
   replaced_by?: string;
   // schema.org/Recipe display fields, enriched live from the recipe twin
@@ -67,7 +70,7 @@ export interface ConsumptionEvent {
  * `groupByEntity`'s latest-wins fold discards, so by the time there are entity
  * groups the evidence is gone.
  */
-function mintedAsReplacement(datoms: StoredDatom[]): Set<string> {
+function idsMintedAsReplacements(datoms: StoredDatom[]): Set<string> {
   const minted = new Set<string>();
   for (const { attribute, value } of datoms) {
     if (attribute !== "event/replaced_by") continue;
@@ -140,7 +143,7 @@ export function computeConsumption(datoms: StoredDatom[]): ConsumptionEvent[] {
     const held = slotOf.get(successor);
     if (held === undefined || slot < held) slotOf.set(successor, slot);
   }
-  const minted = mintedAsReplacement(datoms);
+  const minted = idsMintedAsReplacements(datoms);
 
   const events: ConsumptionEvent[] = groups
     .map((g) => {

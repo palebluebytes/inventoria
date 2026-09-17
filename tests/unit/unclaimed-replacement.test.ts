@@ -52,8 +52,9 @@ const supersededBy = (id: string, successor: string, at: number): Datom[] => [
 
 /**
  * The union of several devices' streams in the order the ledger reads them back
- * in — HLC, not wall clock (ADR-0020). Each device stamps its own rows, so the
- * device id is the tiebreak the fold's latest-wins actually turns on.
+ * in — HLC, not wall clock (ADR-0020). Each device stamps its own rows, which is
+ * what the fold's latest-wins then resolves: whichever device wrote the later
+ * stamp onto an attribute holds it.
  */
 const converged = (...streams: StoredDatom[][]): StoredDatom[] =>
   streams.flat().sort(compareHlc);
@@ -65,28 +66,32 @@ describe("an unclaimed replacement is not live (ADR-0111 §5)", () => {
     // retract-and-replace both corrections survive the fold — one banana shows
     // twice and the day reads 445 kcal where the truth is 267.
     const banana = asStored(
-      logged("event:e1", "fdc:banana", { at: T, grams: 100, calories: 89 }),
+      logged("event:consume_e1", "fdc:banana", {
+        at: T,
+        grams: 100,
+        calories: 89,
+      }),
       "phone"
     );
     const phone = asStored(
       [
-        ...logged("event:e2", "fdc:banana", {
+        ...logged("event:consume_e2", "fdc:banana", {
           at: T + 10,
           grams: 200,
           calories: 178,
         }),
-        ...supersededBy("event:e1", "event:e2", T + 10),
+        ...supersededBy("event:consume_e1", "event:consume_e2", T + 10),
       ],
       "phone"
     );
     const laptop = asStored(
       [
-        ...logged("event:e3", "fdc:banana", {
+        ...logged("event:consume_e3", "fdc:banana", {
           at: T + 11,
           grams: 300,
           calories: 267,
         }),
-        ...supersededBy("event:e1", "event:e3", T + 11),
+        ...supersededBy("event:consume_e1", "event:consume_e3", T + 11),
       ],
       "laptop"
     );
@@ -94,13 +99,13 @@ describe("an unclaimed replacement is not live (ADR-0111 §5)", () => {
     it("keeps the one correction the predecessor's folded link names", () => {
       const events = computeConsumption(converged(banana, phone, laptop));
 
-      expect(events.map((e) => e.id)).toEqual(["event:e3"]);
+      expect(events.map((e) => e.id)).toEqual(["event:consume_e3"]);
       expect(totalNutrition(events).calories).toBe(267);
     });
 
     it("leaves an ordinary log alone, since no predecessor names it", () => {
       const apple = asStored(
-        logged("event:apple", "fdc:apple", {
+        logged("event:consume_apple", "fdc:apple", {
           at: T + 1,
           grams: 150,
           calories: 78,
@@ -112,7 +117,10 @@ describe("an unclaimed replacement is not live (ADR-0111 §5)", () => {
         converged(banana, apple, phone, laptop)
       );
 
-      expect(events.map((e) => e.id)).toEqual(["event:e3", "event:apple"]);
+      expect(events.map((e) => e.id)).toEqual([
+        "event:consume_e3",
+        "event:consume_apple",
+      ]);
       expect(totalNutrition(events).calories).toBe(345);
     });
   });
@@ -124,21 +132,21 @@ describe("an unclaimed replacement is not live (ADR-0111 §5)", () => {
     it("gives one row when it corrects once", () => {
       const events = computeConsumption(
         asStored([
-          ...logged("event:e1", "fdc:banana", {
+          ...logged("event:consume_e1", "fdc:banana", {
             at: T,
             grams: 100,
             calories: 89,
           }),
-          ...logged("event:e2", "fdc:banana", {
+          ...logged("event:consume_e2", "fdc:banana", {
             at: T + 10,
             grams: 200,
             calories: 178,
           }),
-          ...supersededBy("event:e1", "event:e2", T + 10),
+          ...supersededBy("event:consume_e1", "event:consume_e2", T + 10),
         ])
       );
 
-      expect(events.map((e) => e.id)).toEqual(["event:e2"]);
+      expect(events.map((e) => e.id)).toEqual(["event:consume_e2"]);
       expect(totalNutrition(events).calories).toBe(178);
     });
 
@@ -147,27 +155,27 @@ describe("an unclaimed replacement is not live (ADR-0111 §5)", () => {
       // replacement is unclaimed.
       const events = computeConsumption(
         asStored([
-          ...logged("event:e1", "fdc:banana", {
+          ...logged("event:consume_e1", "fdc:banana", {
             at: T,
             grams: 100,
             calories: 89,
           }),
-          ...logged("event:e2", "fdc:banana", {
+          ...logged("event:consume_e2", "fdc:banana", {
             at: T + 10,
             grams: 200,
             calories: 178,
           }),
-          ...supersededBy("event:e1", "event:e2", T + 10),
-          ...logged("event:e3", "fdc:banana", {
+          ...supersededBy("event:consume_e1", "event:consume_e2", T + 10),
+          ...logged("event:consume_e3", "fdc:banana", {
             at: T + 20,
             grams: 300,
             calories: 267,
           }),
-          ...supersededBy("event:e2", "event:e3", T + 20),
+          ...supersededBy("event:consume_e2", "event:consume_e3", T + 20),
         ])
       );
 
-      expect(events.map((e) => e.id)).toEqual(["event:e3"]);
+      expect(events.map((e) => e.id)).toEqual(["event:consume_e3"]);
       expect(totalNutrition(events).calories).toBe(267);
     });
   });
@@ -179,17 +187,17 @@ describe("an unclaimed replacement is not live (ADR-0111 §5)", () => {
     // some of them into a dish.
     const day = asStored(
       [
-        ...logged("event:oats", "fdc:oats", {
+        ...logged("event:consume_oats", "fdc:oats", {
           at: T,
           grams: 50,
           calories: 190,
         }),
-        ...logged("event:milk", "gtin:milk", {
+        ...logged("event:consume_milk", "gtin:milk", {
           at: T + 1,
           grams: 200,
           calories: 128,
         }),
-        ...logged("event:apple", "fdc:apple", {
+        ...logged("event:consume_apple", "fdc:apple", {
           at: T + 2,
           grams: 150,
           calories: 78,
@@ -198,75 +206,89 @@ describe("an unclaimed replacement is not live (ADR-0111 §5)", () => {
       "phone"
     );
 
+    // The phone's act, shared by both fixtures below: the oats and the milk
+    // become one dish. What changes is what the laptop did meanwhile.
+    const phone = asStored(
+      [
+        ...logged("event:consume_dish_p", "recipe:oatmeal", {
+          at: T + 10,
+          grams: 250,
+          calories: 318,
+        }),
+        ...supersededBy("event:consume_oats", "event:consume_dish_p", T + 10),
+        ...supersededBy("event:consume_milk", "event:consume_dish_p", T + 10),
+      ],
+      "phone"
+    );
+
+    // The laptop turning the same two foods into its own dish, unaware of the
+    // phone's. One of the two wins every predecessor; the other is claimed by
+    // none.
+    const laptopSameFoods = asStored(
+      [
+        ...logged("event:consume_dish_l", "recipe:oatmeal", {
+          at: T + 11,
+          grams: 250,
+          calories: 318,
+        }),
+        ...supersededBy("event:consume_oats", "event:consume_dish_l", T + 11),
+        ...supersededBy("event:consume_milk", "event:consume_dish_l", T + 11),
+      ],
+      "laptop"
+    );
+
     it("converges to one recipe, leaving no ingredient stranded", () => {
-      // The same two foods on both devices: one dish wins every predecessor and
-      // the other is claimed by none.
-      const phone = asStored(
-        [
-          ...logged("event:dish_p", "recipe:oatmeal", {
-            at: T + 10,
-            grams: 250,
-            calories: 318,
-          }),
-          ...supersededBy("event:oats", "event:dish_p", T + 10),
-          ...supersededBy("event:milk", "event:dish_p", T + 10),
-        ],
-        "phone"
-      );
-      const laptop = asStored(
-        [
-          ...logged("event:dish_l", "recipe:oatmeal", {
-            at: T + 11,
-            grams: 250,
-            calories: 318,
-          }),
-          ...supersededBy("event:oats", "event:dish_l", T + 11),
-          ...supersededBy("event:milk", "event:dish_l", T + 11),
-        ],
-        "laptop"
-      );
+      const events = computeConsumption(converged(day, phone, laptopSameFoods));
 
-      const events = computeConsumption(converged(day, phone, laptop));
-
-      // The surviving dish takes the place its first ingredient held, so it
-      // reads as the oats being adjusted rather than a dish appearing after
-      // everything else in the meal.
-      expect(events.map((e) => e.id)).toEqual(["event:dish_l", "event:apple"]);
+      // One dish and the apple nobody touched. The oats and the milk are inside
+      // the dish rather than stranded beside it, and the day is the 396 kcal it
+      // was before either device consolidated anything.
+      expect(new Set(events.map((e) => e.id))).toEqual(
+        new Set(["event:consume_dish_l", "event:consume_apple"])
+      );
       expect(totalNutrition(events).calories).toBe(396);
+    });
+
+    it("lands the surviving dish where its first ingredient sat", () => {
+      // The `event/replaced_by` slot walk, on the population it was written for
+      // and could not reach until §6's link named an event (ADR-0111 §6). The
+      // dish reads as the oats being adjusted, not as a dish arriving after
+      // everything else in the meal.
+      const events = computeConsumption(converged(day, phone, laptopSameFoods));
+
+      expect(events.map((e) => e.id)).toEqual([
+        "event:consume_dish_l",
+        "event:consume_apple",
+      ]);
     });
 
     it("stays two recipes where they overlap only partly", () => {
       // The decided behaviour, not a bug (ADR-0111 §5): two genuinely different
       // acts, and every alternative shape loses a food rather than
       // double-counting the shared one.
-      const phone = asStored(
-        [
-          ...logged("event:dish_p", "recipe:oatmeal", {
-            at: T + 10,
-            grams: 250,
-            calories: 318,
-          }),
-          ...supersededBy("event:oats", "event:dish_p", T + 10),
-          ...supersededBy("event:milk", "event:dish_p", T + 10),
-        ],
-        "phone"
-      );
       const laptop = asStored(
         [
-          ...logged("event:dish_l", "recipe:fruit_milk", {
+          ...logged("event:consume_dish_l", "recipe:fruit_milk", {
             at: T + 11,
             grams: 350,
             calories: 206,
           }),
-          ...supersededBy("event:milk", "event:dish_l", T + 11),
-          ...supersededBy("event:apple", "event:dish_l", T + 11),
+          ...supersededBy("event:consume_milk", "event:consume_dish_l", T + 11),
+          ...supersededBy(
+            "event:consume_apple",
+            "event:consume_dish_l",
+            T + 11
+          ),
         ],
         "laptop"
       );
 
       const events = computeConsumption(converged(day, phone, laptop));
 
-      expect(events.map((e) => e.id)).toEqual(["event:dish_p", "event:dish_l"]);
+      expect(events.map((e) => e.id)).toEqual([
+        "event:consume_dish_p",
+        "event:consume_dish_l",
+      ]);
       // The milk's 128 kcal is inside both dishes: 318 + 206 against the 396
       // the day really was.
       expect(totalNutrition(events).calories).toBe(524);

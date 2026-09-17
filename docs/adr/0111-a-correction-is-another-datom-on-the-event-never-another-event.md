@@ -2,8 +2,8 @@
 
 **Status:** Accepted  
 **Date:** 2026-09-16  
-**Implemented:** §5 [#468](https://github.com/palebluebytes/inventoria/issues/468) `src/lib/food/consumption-state.ts`; §6 [#470](https://github.com/palebluebytes/inventoria/issues/470) `8fb7ed3e`. §1 is [#467](https://github.com/palebluebytes/inventoria/issues/467), not yet landed.  
-**Amends:** [ADR-0022](0022-recipe-instantiations-as-editable-snapshots.md) §2 (its "editing is by supersession, retract-and-replace per ADR-0008" bullet; the snapshot principle itself is untouched), [ADR-0088](0088-a-selection-is-a-mode-with-its-own-verbs-and-its-own-way-out.md) §8 and its 2026-09-02 "a scaled row lets go" amendment (a move stops being the exception and the release keeps one of its two reasons), [ADR-0107](0107-a-row-you-have-just-logged-is-revealed-in-three-rules.md) (its exclusion of corrections keeps its rule and loses its reason)
+**Amends:** [ADR-0022](0022-recipe-instantiations-as-editable-snapshots.md) §2 (its "editing is by supersession, retract-and-replace per ADR-0008" bullet; the snapshot principle itself is untouched), [ADR-0088](0088-a-selection-is-a-mode-with-its-own-verbs-and-its-own-way-out.md) §8 and its 2026-09-02 "a scaled row lets go" amendment (a move stops being the exception and the release keeps one of its two reasons), [ADR-0107](0107-a-row-you-have-just-logged-is-revealed-in-three-rules.md) (its exclusion of corrections keeps its rule and loses its reason)  
+**Implemented:** §5 [#468](https://github.com/palebluebytes/inventoria/issues/468) `src/lib/food/consumption-state.ts`; §6 [#470](https://github.com/palebluebytes/inventoria/issues/470) `8fb7ed3e`. §1 is [#467](https://github.com/palebluebytes/inventoria/issues/467), not yet landed.
 
 ## Context
 
@@ -345,9 +345,10 @@ ids appearing as **any** `event/replaced_by` value, read off the raw datoms
 before the fold discards the superseded ones, against the successors the folded
 links still name. An id in the first set and not the second is an Unclaimed
 replacement and is dropped. `tests/unit/unclaimed-replacement.test.ts` carries the
-#463 fixture at 267 kcal, both its controls, and the two consolidation shapes
-§5 decided between — same foods converging to one dish, partial overlap staying
-two and counting the shared food twice.
+#463 fixture at 267 kcal, both its controls, the two consolidation shapes §5
+decided between — same foods converging to one dish, partial overlap staying two
+and counting the shared food twice — and the slot the surviving dish lands in,
+which is the walk above running for the first time.
 
 §1 is unchanged and still [#467](https://github.com/palebluebytes/inventoria/issues/467)'s.
 Corrections go on forking until it lands; this half repairs the ledgers that
