@@ -25,6 +25,7 @@ import {
 } from "./calorie.store";
 import {
   deriveRecipeNutrition,
+  sanitizeYield,
   type IngredientSource,
   type ReferenceIngredient,
 } from "../food/recipe-nutrition";
@@ -41,12 +42,15 @@ import {
   impromptuRecipeId,
   ingredientFromTwin,
   quantityLabel,
+  sourceFromIngredients,
+  toReferenceIngredient,
   type RecipeIngredient,
 } from "../food/recipe-ingredient";
 import {
   nutritionFromMacros,
   PER_SERVING,
   type AmountUnit,
+  type NutritionBreakdown,
 } from "../food/nutrition";
 
 /** One saved Recipe Twin, surfaced for the Instantiate browser (ADR-0022). */
@@ -418,4 +422,41 @@ export function seedRowsFromTemplate(
   const refs = (attributes["recipe/ingredients"] ??
     []) as ReferenceIngredient[];
   return Promise.all(refs.map((r) => seedRowFromRef(r.ref, r.amount, r.unit)));
+}
+
+/**
+ * A saved recipe's per-serving figures as the ledger holds them **now** — the
+ * macros line on a library row (#488).
+ *
+ * It is {@link seedRowsFromTemplate} plus the shared derivation: resolve the
+ * twin, seed each stored `{ ref, amount, unit }` off its own current food twin,
+ * and run {@link deriveRecipeNutrition} over the twin's yield — the same three
+ * steps the instantiation editor opens on, over the same twin. It is a **read**
+ * of them, which is why that editor does not call this: it re-derives on every
+ * keystroke from rows the cook is still changing, and only this caller wants
+ * the figures the ledger alone implies. A yield the twin never carried divides
+ * by 1, which is {@link sanitizeYield}'s single rule and not restated here.
+ * `null` when there is no such entity, which is the browser's answer for a row
+ * whose twin has gone.
+ *
+ * **Nothing is memoised, deliberately.** The figures derive from three things
+ * the ledger holds apart — the twin's `recipe/ingredients`, its `recipe/yield`,
+ * and each referenced twin's own panel — and an edit moves any of them while
+ * leaving the entity id exactly where it was. A cache keyed by entity is
+ * therefore keyed on the one input that cannot change, which is how a recipe
+ * came to wear its first macros for the rest of the session. A key honest
+ * enough to bust would have to name all three, and re-reading them is what
+ * computing that key costs anyway.
+ */
+export async function recipePerServingNutrition(
+  entity: string
+): Promise<NutritionBreakdown | null> {
+  const twin = await getLocalFoodTwin(entity);
+  if (!twin) return null;
+  const rows = await seedRowsFromTemplate(twin.attributes);
+  return deriveRecipeNutrition(
+    rows.map(toReferenceIngredient),
+    sanitizeYield(twin.attributes["recipe/yield"]),
+    (ref) => sourceFromIngredients(rows, ref)
+  );
 }
