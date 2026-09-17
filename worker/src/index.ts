@@ -92,7 +92,7 @@ function errorResponse(message: string, status: number): Response {
  * room's object can no longer be found by its room id when debugging a live
  * incident.
  *
- * The digest-to-hex render is `receivedEventId`'s in `src/lib/p2p/meal-accept.ts`
+ * The digest-to-hex render is `digestSuffix`'s in `src/lib/facets/entity-id.ts`
  * a second time, and it stays that way: `scripts/worker-closure-check.mjs` pins
  * what this script may compile in to `worker/src/` and `src/lib/ingestion/`, so
  * sharing the six lines would mean moving app code to the edge to save them.

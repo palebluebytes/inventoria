@@ -1,4 +1,4 @@
-import { mintEntity } from "../facets/entity-id";
+import { digestSuffix, mintEntity } from "../facets/entity-id";
 import type { EntityPrefix } from "../facets/registry";
 /**
  * What a received Meal payload becomes when the recipient accepts it
@@ -149,8 +149,8 @@ const LEDGER_SEAMS: MealAcceptSeams = {
 };
 
 /**
- * The id a declared root is re-minted under: `event:consume_` and the first half
- * of a SHA-256 over the root entity id, rendered hex (ADR-0073 §5).
+ * The id a declared root is re-minted under: `event:consume_` and
+ * {@link digestSuffix} over the root entity id (ADR-0073 §5).
  *
  * Derived rather than random, because `logFoodConsumption`'s own mint is fresh
  * on every call and a second accept of the same payload would log the meal
@@ -165,13 +165,7 @@ const LEDGER_SEAMS: MealAcceptSeams = {
  * deduplication.
  */
 export async function receivedEventId(root: string): Promise<string> {
-  const digest = await crypto.subtle.digest(
-    "SHA-256",
-    new TextEncoder().encode(root)
-  );
-  const half = new Uint8Array(digest).subarray(0, 16);
-  const hex = [...half].map((b) => b.toString(16).padStart(2, "0")).join("");
-  return mintEntity(MEAL_ROOT_PREFIX, hex);
+  return mintEntity(MEAL_ROOT_PREFIX, await digestSuffix(root));
 }
 
 /**
