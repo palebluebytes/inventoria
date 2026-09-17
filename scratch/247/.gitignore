@@ -1,0 +1,7 @@
+# The prompts are the fullest restatement of one person's shopping — every
+# product name, brand, ingredient list and label panel in the basket — and this
+# repo is public. They are regenerable for free from the harness and #241's
+# export with `--dry`, which writes the prompt and makes no call, so there is no
+# reason to publish them. The model's REPLIES carry only a gtin, an fdc_id and a
+# reason, and are committed: they are the evidence.
+*.prompt.txt

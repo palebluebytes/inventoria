@@ -1,0 +1,23 @@
+{
+  "name": "rescored: model-full-only-1-cat-2023",
+  "offers": 0,
+  "agrees": 0,
+  "wrong": 0,
+  "wrongWhereSilenceWasRight": 0,
+  "stateGapAccepted": 0,
+  "hallucinated": 0,
+  "silent": 1,
+  "rows": [
+    {
+      "gtin": "0078895126396",
+      "food": "Premium Soy Sauce",
+      "verdict": "paired",
+      "want": 174277,
+      "got": null,
+      "gotName": null,
+      "mark": "refused (missed)",
+      "why": null,
+      "inSilent19": false
+    }
+  ]
+}

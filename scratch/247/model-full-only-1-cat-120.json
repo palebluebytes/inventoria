@@ -1,0 +1,23 @@
+{
+  "name": "model",
+  "offers": 1,
+  "agrees": 1,
+  "wrong": 0,
+  "wrongWhereSilenceWasRight": 0,
+  "stateGapAccepted": 0,
+  "hallucinated": 0,
+  "silent": 0,
+  "rows": [
+    {
+      "gtin": "0078895126396",
+      "food": "Premium Soy Sauce",
+      "verdict": "paired",
+      "want": 174277,
+      "got": 174277,
+      "gotName": "Soy sauce made from soy and wheat (shoyu)",
+      "mark": "agrees",
+      "why": "Soy sauce made from soy and wheat",
+      "inSilent19": false
+    }
+  ]
+}

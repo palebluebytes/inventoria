@@ -1,0 +1,7 @@
+{
+  "label": "model-full-only-1-cat-2023",
+  "model": "@cf/meta/llama-4-scout-17b-16e-instruct",
+  "status": 200,
+  "ms": 1026,
+  "body": "{\"result\":{\"choices\":[{\"finish_reason\":\"stop\",\"index\":0,\"logprobs\":null,\"message\":{\"annotations\":null,\"audio\":null,\"content\":\"[{\\\"gtin\\\":\\\"0078895126396\\\",\\\"fdc_id\\\":null,\\\"why\\\":\\\"condiment, not matched\\\"}]\",\"function_call\":null,\"reasoning\":null,\"refusal\":null,\"role\":\"assistant\"},\"routed_experts\":null,\"stop_reason\":null,\"token_ids\":null}],\"created\":1789669403,\"ec_transfer_params\":null,\"id\":\"chatcmpl-9d4d16f3-712a-401d-8f75-b8f796064ca6\",\"kv_transfer_params\":null,\"metrics\":null,\"model\":\"@cf/meta/llama-4-scout-17b-16e-instruct\",\"object\":\"chat.completion\",\"prompt_logprobs\":null,\"prompt_text\":null,\"prompt_token_ids\":null,\"response\":[{\"fdc_id\":null,\"gtin\":\"0078895126396\",\"why\":\"condiment, not matched\"}],\"service_tier\":null,\"tool_calls\":[],\"usage\":{\"prompt_tokens\":25082,\"completion_tokens\":26,\"total_tokens\":25108,\"prompt_tokens_details\":{\"cached_tokens\":0},\"neurons\":617.658203125}},\"success\":true,\"errors\":[],\"messages\":[]}"
+}
