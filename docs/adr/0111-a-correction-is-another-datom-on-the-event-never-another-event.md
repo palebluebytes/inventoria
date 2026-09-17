@@ -314,3 +314,21 @@ shrinks to nothing reachable. Carried by
 
 **Deferred behind a seam:** a surface that reads §8's history. Nothing reads one
 now; the trigger is a feature that wants to show what a logged occasion used to say.
+
+## Amendment (2026-09-17): the §7 hole this record narrowed was already shut on the receive side
+
+The Consequences say "the ADR-0105 §7 hole narrows and does not close", and
+reason from what happens to the **population** of events carrying the link once
+§1 lands: only consolidated-away ones, which are retracted, so nothing reachable
+remains.
+
+That reasoning is sound and the conclusion it supports is unnecessary. A meal
+payload could never land an `event/replaced_by` in the first place, for a reason
+on the **recipient's** side that has nothing to do with what a correction writes:
+a payload's roots are re-minted and re-logged through a fixed field set, so a
+root's own datoms are never written, and a non-root `event:` entity is refused
+outright. ADR-0105's 2026-09-17 Amendment carries it in full.
+
+What this record says about the link's population after §1 is unaffected. It is
+the sentence about what a meal payload would land that is withdrawn — the hole
+was not narrowed by this decision, because it was not open.

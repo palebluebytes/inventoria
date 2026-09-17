@@ -823,3 +823,56 @@ a bundle main reshaped, so what the two entries share is not what they shared
 when each ticket was weighed. A per-ticket figure that cannot be added to its
 neighbours is the ordinary case for a shared-chunk build, and naming it here is
 cheaper than leaving a reader to find the 2 KiB themselves.
+
+## Amendment (2026-09-17): §7's meal consequence is covered by the re-mint rather than by what a send picks, and the partition it rests on is missing two references
+
+Two corrections to the 2026-09-13 Amendment above: one narrows a consequence it
+left open, and one widens a doubt it closed.
+
+**1. The consequence it named is unreachable, and the reason it gave was the
+wrong guarantee.** That Amendment closes by saying nothing sends an
+`event/replaced_by` today "since a send picks a day's live events and a live
+event holds no correction link", and leaves the hole open on that basis. The
+reason credits the **sender's choice of roots**. The guarantee is the
+**recipient's re-mint**, and it is stronger in three ways: it does not depend on
+which roots a sender picks, it does not depend on a root being live, and it holds
+for every attribute rather than for this one.
+
+`acceptMealPayload` never writes a root's own datoms at all — "the roots are
+re-minted rather than carried, so their own rows are read as events below and
+never land as datoms of their own". They are re-logged through `copyPastMeal` →
+`logFoodConsumption`, whose field set is fixed: `event/type`, `event/target`,
+`event/quantity`, `event/meal_type`, `event/metrics`, and `event/instantiation`
+where there is one. An attribute outside that set reaches the fold, reaches the
+re-log, and stops there. A **non**-root `event:` entity cannot be carried at all:
+§8's entity-kind refusal admits declared roots and `MEAL_TWIN_PREFIXES`, and
+there is no `event:` prefix in it.
+
+So no meal payload can land an `event/replaced_by`, whatever a send picks. What
+stays open is the same shape one namespace over — twins land attribute-verbatim,
+so a **marked-but-unwalked reference in `food/`, `nutrition/` or `recipe/`**
+would land a dangling row. That set is empty today, and
+[#427](https://github.com/palebluebytes/inventoria/issues/427) carries it under
+that description rather than the one it was filed with.
+
+Both halves are asserted now rather than reasoned about: the re-mint's guarantee
+in the meal-accept tests, and the re-log's field set **entire** in the
+calorie-store tests. The second matters more than it looks — widening that set is
+an ordinary change to make for an ordinary reason, and it would reopen this in
+silence.
+
+**2. The partition this section rests on does not range over everything it
+claims to.** The Amendment concludes that both named references stay inside their
+own Tracked Domain, "and a lane scoped to one Facet still cannot ship a row
+pointing outside its scope". That conclusion is drawn over the references which
+carry the mark. `habit/instrument` and `event/instrument_used` hold `twin:`
+entity ids, carry no mark, and sit in neither half of the partition — so they
+were never in the set the argument ranged over, and both point **out** of their
+own domain.
+
+§7's property is therefore unproven rather than proven, and the gap is the one
+the registry names against itself: it "cannot see a reference nobody marked".
+Carried by [#507](https://github.com/palebluebytes/inventoria/issues/507). The
+repair there is a design question rather than a bookkeeping one — marking the two
+fails the partition's own second test, which is the finding and not an obstacle
+to it.
