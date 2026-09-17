@@ -289,6 +289,14 @@ centralising it, and a simpler model to a cleverer mechanism.
   overriding it — surface it as a reopening ("Contradicts ADR-XXXX, but …").
 - **Keep the glossary honest.** Introducing a genuinely new domain concept means
   adding it to `CONTEXT.md`, with the synonyms to avoid.
+- **A pre-registered clause carries a number.** Where a change is measured against
+  a band committed before the sweep — the pattern `docs/research/` uses throughout
+  — every clause states what would make it fail, not only what will be looked at.
+  A clause that names a measurement and no threshold cannot fail, and is not a
+  clause: #164's "run the whole suite and report every break" passed on thirteen
+  broken pins, and #159's band had the same hole before it. Setting the number
+  after seeing the result is the narrowing the band exists to prevent, so a band
+  that turns out to be missing one reports the gap rather than filling it.
 
 ---
 
