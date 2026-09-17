@@ -2110,3 +2110,86 @@ Unchanged from the Amendment above, and now measured twice: `salmon` leads with 
 345 kcal smoked sockeye and `almonds` with a 14.6 kcal almond milk against a
 626 kcal nut. #159 keeps the defects. #164 closes, its question answered as far
 as a roster can answer it.
+
+## Amendment (2026-09-17, #159): the defect is priced against use and declined, and the invitation above is withdrawn
+
+The Amendment above ends by handing the per-row list forward — "a fresh
+pre-registration may set one from the maintenance cost of the list itself". This
+withdraws that hand-off. **#159 closes with its defects unfixed and no successor
+ticket**, and the ceiling that invitation asked for turns out to be arguable from
+a figure nobody had looked for: what the defect does to the only recorded use of
+the app.
+
+`docs/research/159-name-match-versus-base-form.md` §17 carries the measurement;
+its two inputs are a search-log export and a Facet-scoped ledger export, neither
+of which is in this repository and neither of which will be (#464, #241).
+
+### The two figures
+
+**Benefit: zero, on both halves.** Across 22 readable search sessions
+(2026-09-09 → 2026-09-16, 21 distinct typed strings), **none of the eight defect
+queries was typed** in any spelling or prefix. Across 375 consume events
+(2026-08-29 → 2026-09-13), of which 168 name a `fdc:` row over 38 distinct USDA
+foods, **neither the eight wrong leads nor the eight intended rows were logged**
+— no almond, salmon, trout, cranberry, hazelnut, smelt, octopus or deer row of
+any kind.
+
+**Cost: one, traced end to end.** Where the exports overlap they pair to the
+minute. A typed `blue` at 2026-09-11 07:23 produced `Blueberries, raw` logged at
+07:23, and `blue` is in the #164 sweep's `worse` set. The one query for which
+this project holds both a typed string and the food it produced is a query the
+surviving candidate breaks — and the #159 Amendment above already refused a
+different mechanism partly for costing that same lead.
+
+### Why that settles the ceiling the Amendment above could not
+
+A hand list is priced by what it buys. The list #164 costed at 30 rows reaches
+six of #159's eight defects, and those six correspond to no query anyone is
+recorded as having asked and no food anyone is recorded as having eaten. **A list
+whose entries correct leads nobody reaches costs upkeep and buys nothing**, and
+upkeep here is real: an entry is keyed to an `fdcId`, and two corpus
+regenerations have already moved 1,754 rows out from under lists of exactly this
+kind.
+
+That is the argument the Amendment above said was unavailable until the thirty
+rows existed. It is available now, and it goes against the list.
+
+### What is refused, and what is merely unpriced
+
+**Refused: the deny-list shape that was measured** — the offset applied
+corpus-wide with hand-written exceptions. It fails open: a row USDA adds later
+takes the offset until a human notices, and the direction it fails in is the one
+`blue`, `butternut`, `pine` and `ginger` sit in.
+
+**Unpriced, not refuted: the allow-list shape** — the offset applied only to rows
+a human wrote down, which fails closed and would leave every query named in the
+previous sentence exactly as it is today. Nobody has measured it and this record
+does not pretend to have. It is **unauthorised rather than closed**, with no
+ticket and no owner, and one narrow condition would make it worth pricing: **one
+of #159's eight queries actually typed**, on a search-log export. That condition
+is currently false.
+
+### Three verdicts of #159's corrected on the way out
+
+Read off a 4,335-row corpus that ADR-0103 and ADR-0104 have twice replaced, and
+carried forward unexamined until #164's sweep:
+
+- **`crab` and `swiss` are not unreachable.** #159's _Closed before the sweep_
+  section declares both beyond any mechanism. Under #164's candidate `crab` leads
+  `Crustaceans, crab, dungeness` and `swiss` leads `Cheese, swiss`. The verdicts
+  were true of a corpus that no longer exists.
+- **`cranberry` is unreachable, and for a reason #159 never states.** Neither
+  `Cranberries` nor `Cranberry, low bush or lingenberry` carries a shelf-label
+  head, so a name-start offset is a no-op on both by construction — not a cost
+  question at all.
+- **`hazelnuts` is not reached either**, and by a second mechanism: `Nuts,
+hazelnuts or filberts` names the food in three words, only one of which is
+  typed, so the offset moves its rung nowhere.
+
+### What is left standing, for the last time
+
+`salmon` leads with a 345 kcal smoked sockeye and `almonds` with a 14.6 kcal
+almond milk against a 626 kcal nut. Both are real, both reproduce on the shipped
+index, and both are declined — on price, measured against use, rather than on the
+absence of a mechanism. Nothing in the ranking, the corpus or the generated
+artifacts changes.
