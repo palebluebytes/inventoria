@@ -16,6 +16,7 @@
     setFoodDensity,
     type ConsumptionEvent,
   } from "../stores/calorie.store";
+  import { consolidateIntoRecipe } from "../stores/recipe.store";
   import {
     scaleAmount,
     parseScaleFactor,
@@ -903,7 +904,7 @@
   }
 
   // Turn selected consumption events into recipe ingredients carrying each
-  // event's id, so the recipe builder can retract the ones that remain as
+  // event's id, so the consolidation can retract the ones that remain as
   // ingredients. Each seed references its ORIGINAL food twin with the logged
   // quantity parsed back to {amount, unit}, so the recipe derives from that
   // twin's real nutrition/info panel (ADR-0021) and keeps the link to its
@@ -911,9 +912,16 @@
   // it was rounded when logged, so the recipe still totals exactly what these
   // foods contributed — the replace flow stays neutral. If the twin carries no
   // panel, synthesize a per-serving twin equal to the logged macros rather than
-  // corrupt the real twin. Then open the seeded builder.
-  async function buildRecipe() {
-    const items = selectedItems;
+  // corrupt the real twin.
+  //
+  // **Both consolidation verbs seed from here** (ADR-0088's 2026-09-17
+  // amendment): the builder opens on this list, and the one-tap verb commits it
+  // unchanged. What a Selection means as a set of ingredients is one reading,
+  // and the fallbacks below — a missing panel, a unit mismatch — are the reason
+  // it may not be two.
+  async function selectionIngredients(
+    items: typeof selectedItems
+  ): Promise<RecipeIngredient[]> {
     const resolved = await Promise.all(
       items.map(async (it) => {
         const target = it.target || it.id;
@@ -989,8 +997,58 @@
       });
     }
 
-    recipe_meal_type = asMealType(items[0]?.meal_type, "dinner");
+    return seed;
+  }
+
+  /** The meal a consolidation lands in: the first selected food's, as the
+   *  builder has always read it. A Selection is not meal-scoped (ADR-0088 §4),
+   *  so one of them has to be chosen and the first is the one on screen. */
+  function consolidationMeal(items: typeof selectedItems): MealType {
+    return asMealType(items[0]?.meal_type, "dinner");
+  }
+
+  /** Consolidate through the builder: the seeded form, a name if you want one,
+   *  and every optional a Recipe Twin can carry. */
+  async function buildRecipe() {
+    const items = selectedItems;
+    const seed = await selectionIngredients(items);
+    recipe_meal_type = consolidationMeal(items);
     openRecipe("consolidate", null, seed);
+    clearSelection();
+  }
+
+  /**
+   * Consolidate in one tap: the same act, with no form in front of it (ADR-0088's
+   * 2026-09-17 amendment). The foods become one **Impromptu Recipe** on the day —
+   * unnamed, so it is identified by its ingredients, stays out of the library, and
+   * lands on the dish those same ingredients already minted if there is one
+   * (ADR-0110 §1, §4).
+   *
+   * Silent on success (§2): the rows visibly fold into one, which needs no
+   * narrating, and the new row is revealed like any other (#440). A failure is not
+   * a finish, so it keeps the Selection — every write in the sequence is
+   * append-only and independently true, so what landed before the throw is not
+   * rolled back, and running it again lands on the same derived id rather than
+   * minting a second dish.
+   */
+  async function combineSelected() {
+    const items = selectedItems;
+    if (items.length === 0) return;
+    const seed = await selectionIngredients(items);
+    try {
+      just_logged = [
+        await consolidateIntoRecipe(
+          seed,
+          consolidationMeal(items),
+          selectedDate
+        ),
+      ];
+    } catch (e) {
+      appError("combining the selection failed", e);
+      status_note = "could not combine these foods";
+      return;
+    }
+    status_note = "";
     clearSelection();
   }
 </script>
@@ -1532,6 +1590,7 @@
       onHandOff={() => (selection_panel_open = true)}
       onScale={toggleScale}
       onMove={() => (move_open = true)}
+      onCombine={combineSelected}
       onRecipe={buildRecipe}
     >
       {#snippet tier()}
