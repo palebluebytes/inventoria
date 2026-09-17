@@ -192,8 +192,16 @@
     reader.readAsDataURL(file);
   }
 
+  // Consolidate alone may go unnamed (ADR-0110 §1): an Impromptu Recipe is
+  // identified by its ingredients, so leaving the box empty is a complete
+  // answer rather than an unfinished one. The other three modes keep the gate.
+  // Create and Edit are reached from the library, so an unnamed twin would
+  // vanish from the very surface it was made on; Define is the verb for writing
+  // a recipe down, and a recipe you sat down to write has a name.
+  let nameSatisfied = $derived(mode === "consolidate" || !!recipeName.trim());
+
   async function save() {
-    if (!recipeName.trim() || ingredients.length === 0 || status === "loading")
+    if (!nameSatisfied || ingredients.length === 0 || status === "loading")
       return;
     status = "loading";
     error = "";
@@ -298,10 +306,7 @@
   requestSave = save;
   $effect(() => {
     saveReady =
-      ready &&
-      !!recipeName.trim() &&
-      ingredients.length > 0 &&
-      status !== "loading";
+      ready && nameSatisfied && ingredients.length > 0 && status !== "loading";
   });
   $effect(() => {
     saveLabel =

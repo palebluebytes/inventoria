@@ -16,7 +16,7 @@
 import { dbClient } from "../db/db.client";
 import { createQueryStore } from "./datoms.store";
 import { HLC_ORDER_DESC } from "../db/hlc";
-import { mintEntity } from "../facets/entity-id";
+import { digestSuffix, mintEntity } from "../facets/entity-id";
 import { ingestEntity } from "../ingestion/ingest";
 import {
   logFoodConsumption,
@@ -111,8 +111,13 @@ export function recipeIngredientLists(
 }
 
 export interface RecipeInput {
-  /** schema.org name. */
-  name: string;
+  /**
+   * schema.org name — **optional**, and its absence is a fact rather than a
+   * gap (ADR-0110 §1). A twin that carries one is a Recipe Twin and belongs to
+   * the library; one that does not is an Impromptu Recipe, a dish made once
+   * from what was already on the day. Nothing else records the difference.
+   */
+  name?: string;
   /** Pure `{ ref, amount, unit }` references to the ingredient food twins. */
   ingredients: ReferenceIngredient[];
   /** schema.org description (the "Notes" field in the UI). */
@@ -136,39 +141,86 @@ export interface RecipeInput {
 }
 
 /**
+ * An Impromptu Recipe's entity id: the `recipe:` prefix over a digest of its
+ * ingredient `ref`s, sorted (ADR-0110 §4). Computing it is how the twin is
+ * found — consolidating the same things again lands on the twin that already
+ * exists, and a second device doing so converges on it rather than forking.
+ *
+ * **Only the sorted refs go in.** Amounts, units, yield and batch weight are
+ * left out because they are the occasion rather than the dish: they are already
+ * frozen on the event, they vary every time, and including them would make the
+ * reuse a no-op in practice, since `scaleAmount` leaves an amount unrounded on
+ * some paths. This is ADR-0022 §2's boundary applied to identity — the twin is
+ * what the dish is, the event is what you made that day.
+ *
+ * The sort is what makes the key canonical, and it costs the stored ingredient
+ * order where two consolidations collapse onto one twin: nothing normalises
+ * that order today, so whichever minted the twin first is the one that survives.
+ */
+async function impromptuRecipeId(
+  ingredients: ReferenceIngredient[]
+): Promise<string> {
+  const refs = ingredients.map((i) => i.ref).sort();
+  // Newline-joined: an entity id cannot contain one, so no two ref sets can
+  // render to the same string by running together at the seam.
+  return mintEntity("recipe:", await digestSuffix(refs.join("\n")));
+}
+
+/**
  * Saves a schema.org/Recipe twin (ADR-0021). A recipe stores **no** macros of
  * its own — `recipe/ingredients` holds pure `{ ref, amount, unit }` references,
  * and per-serving nutrition is derived from the referenced ingredient twins.
  * That derived aggregate is frozen into the Consumption Event's `event/metrics`
  * snapshot at log time, so later recipe edits never rewrite logged history.
  *
- * Called two ways (ADR-0022 #13):
- *   • **Define / Consolidate** (no `entity`): mints a fresh `recipe:<id>`. Empty
- *     optional fields are skipped, keeping the ledger clean.
+ * Called three ways (ADR-0022 #13, extended by ADR-0110 §4):
+ *   • **Define / Create / a named Consolidate** (no `entity`, a name given):
+ *     mints a fresh random `recipe:<id>`. Empty optional fields are skipped,
+ *     keeping the ledger clean.
+ *   • **An unnamed Consolidate** (no `entity`, no name): an Impromptu Recipe.
+ *     Its id is {@link impromptuRecipeId}, so the same ingredients reach the
+ *     same twin — and where that twin is already in the ledger this **writes
+ *     nothing at all** and hands its id back. Writing would mean taking the
+ *     edit branch below, whose unconditional optionals would clear the notes,
+ *     steps, image and batch weight of a twin somebody had since named and
+ *     filled in. The consolidation logs its instantiation and retracts its
+ *     sources; the dish it landed on is left as it was.
  *   • **Edit** (`entity` given): appends newer `recipe/*` datoms to that SAME
  *     twin. Latest-wins re-seeds only **future** instantiations; past ones,
  *     being snapshots, never move. Optional fields are written *unconditionally*
  *     here — append-only has no delete, so an omitted attribute would keep its
  *     old value; writing an empty value is how an edit clears a field.
+ *
+ * `recipe/name` is written only where there is one. Not an empty string: the
+ * library is `WHERE attribute = 'recipe/name'`, and a blank name would put an
+ * impromptu dish in it while reading as a name-shaped falsy value everywhere
+ * else.
  */
 export async function saveRecipe(
   input: RecipeInput,
   entity?: string
 ): Promise<string> {
   const isEdit = entity !== undefined;
+  const name = input.name?.trim();
+  const impromptu = !isEdit && !name;
   const entityId =
     entity ??
-    mintEntity(
-      "recipe:",
-      `${Math.random().toString(36).substring(2, 9)}_${Date.now()}`
-    );
+    (impromptu
+      ? await impromptuRecipeId(input.ingredients)
+      : mintEntity(
+          "recipe:",
+          `${Math.random().toString(36).substring(2, 9)}_${Date.now()}`
+        ));
+
+  // Reuse is the point of a derived id, and reuse appends nothing.
+  if (impromptu && (await getLocalFoodTwin(entityId))) return entityId;
 
   const attributes: Record<string, any> = {
-    "recipe/name": input.name,
     // Store direct JSON arrays/objects; ingestEntity/worker stringifies them.
     "recipe/ingredients": input.ingredients,
     "recipe/yield": input.yield ?? 1,
   };
+  if (name) attributes["recipe/name"] = name;
   // Optional schema.org fields. One rule for all four: write the present value,
   // or — on edit only — its `empty` sentinel to clear the field (append-only has
   // no delete). `value` falsy on a Define simply skips the attribute.

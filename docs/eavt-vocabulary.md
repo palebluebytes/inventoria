@@ -263,6 +263,20 @@ Nutrition panels on food-bearing twins (schema.org/NutritionInformation).
 Recipe twins (schema.org/Recipe).
 
 - `name`, `description`, `url`, `image`, `yield`.
+- `name` is **optional, and its absence is a value**
+  ([ADR-0110](adr/0110-an-impromptu-recipe-is-identified-by-its-ingredients-and-named-only-if-you-keep-it.md) §1).
+  A twin carrying one is a Recipe Twin and is in the recipe library, which is the query
+  `WHERE attribute = 'recipe/name'` and nothing else; one carrying none is an Impromptu
+  Recipe, a dish assembled on a day, labelled at render from its occasion's frozen
+  ingredient rows. So a writer with no name to write **omits the attribute** rather than
+  writing `""`: a blank would put the dish in the library while reading as a name-shaped
+  falsy value everywhere downstream. Appending a `name` later promotes the twin, reaching
+  every past occasion of it at once, and the entity id never moves. An Impromptu Recipe's
+  id is the one `recipe:` id that is **derived** rather than drawn: a digest of its sorted
+  ingredient `ref`s (§4), so assembling the same things again lands on the twin that
+  already exists instead of minting a rival holding the same facts. The refs alone go in:
+  amounts, units, yield and batch weight are the occasion, and are already frozen on the
+  event.
 - `instructions`: ordered HowToStep text.
 - `ingredients` **(reference)**: pure `{ ref, amount, unit }` references. Nutrition is
   derived, never stored.
