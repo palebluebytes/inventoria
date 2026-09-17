@@ -392,11 +392,19 @@ export async function impromptuRecipeId(
  * impromptu dish is labelled from its own frozen snapshot, so `event.foodName`
  * carries a label indistinguishable from a typed name and cannot answer this.
  *
+ * **The attribute's presence, not its value.** The library is the query
+ * `WHERE attribute = 'recipe/name'`, which never looks at what the name says,
+ * so a twin carrying an empty one is in the library — and a reading here that
+ * called it nameless would put one twin in the library AND on the screen that
+ * says it is not. No writer makes such a twin (`saveRecipe` omits a blank name
+ * and `nameRecipe` refuses one), and agreeing by construction is what keeps
+ * that true of a twin arriving from anywhere else.
+ *
  * It lives here beside {@link impromptuRecipeId} rather than in the screen that
- * asks it, because two surfaces ask it of one twin — the sheet that titles
- * itself, and the builder that decides what it may edit — and a second reading
- * of "nameless" is how those two would come to disagree.
+ * asks it, because three surfaces ask it of one twin — the sheet that titles
+ * itself, the builder that decides what it may edit, and the list that decides
+ * membership — and a second reading of "nameless" is how those would disagree.
  */
 export function isImpromptuTwin(twin: EntityPayload | null): boolean {
-  return twin !== null && !twin.attributes["recipe/name"];
+  return twin !== null && !("recipe/name" in twin.attributes);
 }

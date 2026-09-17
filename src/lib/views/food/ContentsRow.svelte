@@ -1,3 +1,18 @@
+<script lang="ts" module>
+  /**
+   * One thing in the row, and how much of it: a logged food at the amount it
+   * was logged at, or a frozen ingredient row at the amount it was cooked at.
+   * Named rather than inline so the two callers build the same shape instead of
+   * two that drift (`CODING_STANDARDS.md` §3.1); `id` keys the line and is the
+   * event's or the reference's, whichever the caller is holding.
+   */
+  export interface RowLine {
+    id: string;
+    label: string;
+    amount: string;
+  }
+</script>
+
 <script lang="ts">
   // One occasion spelled out: a head that dates it with a figure opposite, and
   // a line per thing in it with its amount. What is on offer is legible without
@@ -20,7 +35,7 @@
     /** What sits opposite it: the meal's total, or the meal it was made at. */
     trailing: string;
     /** One per thing in it: what it was, and how much. */
-    lines: { id: string; label: string; amount: string }[];
+    lines: RowLine[];
     onclick: () => void;
     /**
      * The button's accessible name, where the row's own text is the wrong one.

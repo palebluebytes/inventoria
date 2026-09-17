@@ -213,28 +213,32 @@
   // show it — including, below, every day it was made.
   let impromptu = $derived(mode === "edit" && isImpromptuTwin(template));
 
+  /**
+   * Naming an Impromptu Recipe, which is the whole of what this screen does to
+   * one (ADR-0110 §5): one appended `recipe/name` datom, after which the twin
+   * is in the library and every past occasion of it is an occasion of the named
+   * recipe.
+   *
+   * It is `edit` by ADR-0022 §4's three columns — creates no twin, logs
+   * nothing, retracts nothing — but it is not {@link saveRecipe}'s edit branch,
+   * which writes the ingredients and all five optionals unconditionally and so
+   * would rewrite the list §7 calls read-only and clear fields this screen
+   * never offered. The ingredient twins are not re-ingested either: they were
+   * ingested when the dish was consolidated, and nothing here could have
+   * changed them.
+   */
+  async function promote(entity: string) {
+    await nameRecipe(entity, recipeName);
+    onCommitted([]);
+  }
+
   async function save() {
     if (!nameSatisfied || ingredients.length === 0 || status === "loading")
       return;
     status = "loading";
     error = "";
     try {
-      // Promotion is the whole of what this screen does to an Impromptu Recipe
-      // (ADR-0110 §5): one appended `recipe/name` datom, after which the twin
-      // is in the library and every past occasion of it is an occasion of the
-      // named recipe. It is `edit` by ADR-0022 §4's three columns, but it is
-      // not `saveRecipe`'s edit branch — that one writes the ingredients and
-      // all five optionals unconditionally, which would rewrite the list §7
-      // calls read-only and clear fields this screen never offered.
-      //
-      // The ingredient twins are not re-ingested either: they were ingested
-      // when the dish was consolidated, and nothing here could have changed
-      // them. Nothing is logged, for the reason no path on this surface logs.
-      if (impromptu && template) {
-        await nameRecipe(template.entity, recipeName);
-        onCommitted([]);
-        return;
-      }
+      if (impromptu && template) return await promote(template.entity);
       // 1. Ingest each ingredient's food twin so it exists in the ledger.
       for (const ing of ingredients) {
         await dbClient.append(ingestEntity(ing.payload));

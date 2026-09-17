@@ -33,6 +33,21 @@
   // disagreeing about which twins are named.
   let named = $derived(new Set($recipeTwinsStore.map((row) => row.entity)));
   let occasions = $derived(impromptuOccasions($consumptionStore, named));
+
+  // **Both reads have to have happened**, and this list is the reason the rule
+  // cuts both ways. A ledger store's initial value is indistinguishable from a
+  // real empty result (`LedgerLoadStatus`), so while the library query is still
+  // pending the named set is empty and EVERY recipe occasion in the ledger
+  // reads as impromptu — the dishes you named listed under a heading that says
+  // you did not. A day's dashboard guards the other direction, against saying
+  // "nothing logged" before it knows; this guards the same mistake made
+  // affirmatively. `failed` counts as known, for the dashboard's reason: there
+  // is nothing more coming, and what is held is then the truthful reading.
+  const consumptionStatus = consumptionStore.status;
+  const twinsStatus = recipeTwinsStore.status;
+  let known = $derived(
+    $consumptionStatus !== "pending" && $twinsStatus !== "pending"
+  );
 </script>
 
 <!-- Nothing at all when there is nothing, rather than an empty hint. The
@@ -40,7 +55,7 @@
      statement about the user's history for the length of the database's boot —
      the failure `LedgerLoadStatus` exists to name. A heading that appears when
      it has something under it says nothing either way. -->
-{#if occasions.length > 0}
+{#if known && occasions.length > 0}
   <!-- The heading is the CONTEXT.md term. The vocabulary and the screen copy
        are pinned to each other, so renaming one renames the other. -->
   <p class="impromptu-head">Impromptu recipes</p>

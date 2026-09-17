@@ -389,15 +389,18 @@ describe("isImpromptuTwin", () => {
     ).toBe(false);
   });
 
-  // Naming is one-way and a blank name is never written, but a twin is asked
-  // about by two surfaces and both must read a falsy name the same way.
-  it("reads an empty name as no name", () => {
+  // The library is `WHERE attribute = 'recipe/name'` and never reads the value,
+  // so a twin carrying an empty name is IN it. Reading that as nameless would
+  // put one twin in the library and on the screen that says it is not. No
+  // writer makes one — `saveRecipe` omits a blank name and `nameRecipe` refuses
+  // one — and this is what keeps the two readings agreeing if one ever arrives.
+  it("reads an empty name the way the library's query does", () => {
     expect(
       isImpromptuTwin({
         ...dressing,
         attributes: { ...dressing.attributes, "recipe/name": "" },
       })
-    ).toBe(true);
+    ).toBe(false);
   });
 
   // A twin that does not resolve is a different state — ADR-0110 §3 keeps

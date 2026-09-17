@@ -23,12 +23,20 @@
   } = $props();
 
   let occasions = $derived(occasionsOf($consumptionStore, entity));
+
+  // "Not logged on any day yet" is a statement about the user's history, and
+  // the projection's initial value is indistinguishable from a real empty one
+  // (`LedgerLoadStatus`), so it would be false for the length of the database's
+  // boot. Said only once the read has happened; `failed` counts as known, since
+  // nothing more is coming and what is held is then the truthful reading.
+  const consumptionStatus = consumptionStore.status;
+  let known = $derived($consumptionStatus !== "pending");
 </script>
 
 <section class="history" data-testid="recipe-history">
   <h3 class="history-head">History</h3>
   {#if occasions.length === 0}
-    <p class="history-empty">Not logged on any day yet.</p>
+    {#if known}<p class="history-empty">Not logged on any day yet.</p>{/if}
   {:else}
     <ul class="history-list">
       {#each occasions as occasion (occasion.id)}
