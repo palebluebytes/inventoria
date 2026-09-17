@@ -539,7 +539,7 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
 
     // §3 — the tap on the row IS the commit; there is no confirm step. §5 — it
     // appends, and §2 — at the amount it was logged at.
-    await picker.locator(".pm-row").first().click();
+    await picker.locator(".contents-row").first().click();
     await expect(picker).toHaveCount(0);
     await expect(breakfast).toContainText("Mock Banana");
     await expect(breakfast).toContainText("150g");
