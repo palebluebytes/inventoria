@@ -6,7 +6,7 @@
 // past the ~1000-line mark CODING_STANDARDS §4 sets, and this is the seam it
 // came apart on: everything here is about a **recipe**, everything left behind
 // is about a logged **food**, and the two meet at three functions —
-// `logFoodConsumption`, `retractConsumptionEvent` and `getLocalFoodTwin` —
+// `logFoodConsumption`, `correctConsumptionEvent` and `getLocalFoodTwin` —
 // imported below rather than reached into. The dependency runs one way, so
 // `calorie.store.ts` names this module nowhere.
 //
@@ -20,7 +20,7 @@ import { mintEntity } from "../facets/entity-id";
 import { ingestEntity } from "../ingestion/ingest";
 import {
   logFoodConsumption,
-  retractConsumptionEvent,
+  correctConsumptionEvent,
   getLocalFoodTwin,
 } from "./calorie.store";
 import {
@@ -297,22 +297,17 @@ export async function logRecipeConsumption(
   selectedDate: Date,
   occasion: OccasionSize = {}
 ): Promise<string> {
-  const weighed = weighedOccasion(occasion);
-  const snapshot = deriveRecipeNutrition(ingredients, recipeYield, resolve);
-  const instantiation = buildInstantiation(
+  const { quantity, instantiation, snapshot } = occasionFreeze(
     recipeId,
     ingredients,
     recipeYield,
     resolve,
     resolveName,
-    weighed?.batch_weight
+    occasion
   );
   return logFoodConsumption(
     recipeId,
-    // The weight when one was taken, the count when none was (ADR-0106 §8).
-    weighed
-      ? quantityLabel(weighed.portion_weight, "g")
-      : quantityLabel(occasion.servings ?? 1, "serving"),
+    quantity,
     meal_type,
     snapshot.calories,
     snapshot.protein,
@@ -325,15 +320,59 @@ export async function logRecipeConsumption(
 }
 
 /**
- * Corrects a past Recipe Instantiation by supersession (ADR-0008 / ADR-0022): it
- * logs a **new** instantiation with a freshly-derived snapshot, then retracts the
- * old event with `event/replaced_by` pointing at the replacement. A read never
- * silently drifts — the correction re-derives from the *current* ingredient twins
- * (via `resolve` / `resolveName`, exactly like editing a logged food), so a stale
- * frozen row is only ever replaced by a deliberate edit, never rewritten in place.
+ * What one occasion of a recipe freezes, derived and not yet written: the
+ * quantity it is said in, the `event/instantiation` snapshot, and the
+ * `event/metrics` headline those rows add up to.
+ *
+ * Shared by logging an occasion and correcting one, because the two derive
+ * identically — the difference between them is only whether the datoms land on a
+ * new entity or on the one already there (ADR-0111 §1).
+ */
+function occasionFreeze(
+  recipeId: string,
+  ingredients: ReferenceIngredient[],
+  recipeYield: number,
+  resolve: (ref: string) => IngredientSource | undefined,
+  resolveName: (ref: string) => string | undefined,
+  occasion: OccasionSize
+) {
+  const weighed = weighedOccasion(occasion);
+  return {
+    // The weight when one was taken, the count when none was (ADR-0106 §8).
+    quantity: weighed
+      ? quantityLabel(weighed.portion_weight, "g")
+      : quantityLabel(occasion.servings ?? 1, "serving"),
+    instantiation: buildInstantiation(
+      recipeId,
+      ingredients,
+      recipeYield,
+      resolve,
+      resolveName,
+      weighed?.batch_weight
+    ),
+    snapshot: deriveRecipeNutrition(ingredients, recipeYield, resolve),
+  };
+}
+
+/**
+ * Corrects a past Recipe Instantiation by appending onto the event it corrects
+ * (ADR-0111 §1): a freshly-derived snapshot, headline and quantity, in one
+ * append, onto the occasion that is already there. Nothing is retracted and no
+ * id is minted, so the occasion keeps its place in its meal and its time.
+ *
+ * A read never silently drifts — the correction re-derives from the *current*
+ * ingredient twins (via `resolve` / `resolveName`, exactly like editing a logged
+ * food), so a stale frozen row is only ever superseded by a deliberate edit,
+ * never rewritten under a reader.
+ *
  * `based_on` is the template the occasion was seeded from (carried through from
- * the original instantiation's `based_on`, equal to its `event/target`). Returns
- * the new event's id.
+ * the original instantiation's `based_on`, equal to its `event/target`), and is
+ * written back so the correction says which template it derived from — the same
+ * pair a log freezes together (ADR-0022 §2).
+ *
+ * It takes no `meal_type` and no date, and returns no id, because it can no
+ * longer change any of the three: the occasion's meal and its clock are the
+ * event's own, and its id is the one the caller already holds.
  */
 export async function correctInstantiation(
   editId: string,
@@ -342,22 +381,23 @@ export async function correctInstantiation(
   recipeYield: number,
   resolve: (ref: string) => IngredientSource | undefined,
   resolveName: (ref: string) => string | undefined,
-  meal_type: string,
-  selectedDate: Date,
   occasion: OccasionSize = {}
-): Promise<string> {
-  const newId = await logRecipeConsumption(
+): Promise<void> {
+  const { quantity, instantiation, snapshot } = occasionFreeze(
     based_on,
     ingredients,
     recipeYield,
     resolve,
     resolveName,
-    meal_type,
-    selectedDate,
     occasion
   );
-  await retractConsumptionEvent(editId, newId);
-  return newId;
+  await correctConsumptionEvent(editId, {
+    target: based_on,
+    quantity,
+    macros: snapshot,
+    breakdown: snapshot,
+    instantiation,
+  });
 }
 
 /** A frozen instantiation row's display name + macros, for the seed fallback. */

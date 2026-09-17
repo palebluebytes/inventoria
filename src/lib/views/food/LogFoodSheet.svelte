@@ -14,7 +14,7 @@
     saveLabelFood,
     saveManualFood,
     changeLoggedFoodAmount,
-    retractConsumptionEvent,
+    correctConsumptionEvent,
     consumptionStore,
     type ConsumptionEvent,
   } from "../../stores/calorie.store";
@@ -66,8 +66,8 @@
   // A single sheet for logging food into one meal. Opens directly on "+ Add"
   // (no chooser); the shared FoodStager (issue #16) owns the Search / Scan /
   // Custom staging flow, and this sheet adds the log-specific shell: a chosen
-  // food is logged as a Consumption Event (or an edited one retracted and
-  // replaced), and the Recipe browser instantiates / defines / edits saved
+  // food is logged as a Consumption Event (or an edited one corrected in place,
+  // ADR-0111 §1), and the Recipe browser instantiates / defines / edits saved
   // Recipe Twins.
   //
   // Both the meal AND the way in are fixed by the header control that opened it
@@ -96,9 +96,10 @@
      * them on screen (#440).
      *
      * Fired only on an add. Every commit path here can also be an edit — `edit`
-     * is set, the sheet logs a replacement and retracts the original — and a
-     * replacement is a fresh id for a row the user is already looking at, which
-     * is the one case the three rules must not act on.
+     * is set and the sheet corrects that event in place — and a correction has
+     * no id to report: it is the row the user is already looking at, which is
+     * the one case the three rules must not act on (ADR-0107, as ADR-0111 §9
+     * re-reasons it).
      */
     onLogged?: (ids: string[]) => void;
     /**
@@ -121,8 +122,9 @@
      * When set, the sheet edits an existing logged event instead of adding a new
      * one: it opens pre-staged on that event's food (at the amount it was logged
      * at, in its panel's own unit) or pre-filled on the custom form
-     * (per-serving entry). Saving logs the new event and
-     * retracts `edit` (append-only), so history stays immutable (ADR-0008).
+     * (per-serving entry). Saving appends what changed onto that event
+     * (ADR-0111 §1), so the occasion keeps its id, its place and its clock, and
+     * every superseded value stays in the ledger behind the new one.
      */
     edit?: ConsumptionEvent | null;
     /**
@@ -389,8 +391,8 @@
 
   // Commit a chosen food into this meal: ingest the twin and append a
   // proportional Consumption Event, or save-and-log a custom entry. Editing
-  // retracts the original in the same step (append-only, ADR-0008). Success
-  // closes the sheet; a failure keeps it open with the reason.
+  // corrects the event it opened on instead of logging a second one (ADR-0111
+  // §1). Success closes the sheet; a failure keeps it open with the reason.
   async function handleChoose(choice: FoodChoice): Promise<ChooseOutcome> {
     try {
       if (choice.kind === "food") {
@@ -421,31 +423,44 @@
             readFoodDensity(f.payload.attributes)
           ) / parseBasisQuantity(panel?.serving_size);
         const breakdown = scaleNutrition(panel, factor);
-        const newId = await logFoodConsumption(
-          f.entity,
-          // One spelling for every logged quantity (ADR-0060 §4) — this and
-          // changeLoggedFoodAmount agreed with `quantityLabel` only by
-          // coincidence, and a second spelling is how the two drift.
-          //
-          // The unit is the one the amount was ENTERED in, which the choice
-          // carries. It was re-read off the panel here, which was the same
-          // answer while a unit could not be chosen (ADR-0060 §1) and is the
-          // wrong one now: a bottle of oil weighed into a recipe is recorded as
-          // the grams that went on the scale, not as the millilitres the label
-          // is per. Forward-only, and a receipt already in the ledger keeps the
-          // string it was written with (§9).
-          quantityLabel(choice.amount, choice.unit),
-          meal_type,
-          breakdown.calories,
-          breakdown.protein,
-          breakdown.fat,
-          breakdown.carbs,
-          selectedDate,
-          undefined,
-          breakdown
-        );
-        if (edit) await retractConsumptionEvent(edit.id, newId);
-        else onLogged?.([newId]);
+        // One spelling for every logged quantity (ADR-0060 §4) — this and
+        // changeLoggedFoodAmount agreed with `quantityLabel` only by
+        // coincidence, and a second spelling is how the two drift.
+        //
+        // The unit is the one the amount was ENTERED in, which the choice
+        // carries. It was re-read off the panel here, which was the same answer
+        // while a unit could not be chosen (ADR-0060 §1) and is the wrong one
+        // now: a bottle of oil weighed into a recipe is recorded as the grams
+        // that went on the scale, not as the millilitres the label is per.
+        // Forward-only, and a receipt already in the ledger keeps the string it
+        // was written with (§9).
+        const quantity = quantityLabel(choice.amount, choice.unit);
+        // An edit corrects the occasion it opened on (ADR-0111 §1): the same
+        // frozen values, appended onto that event rather than onto a fresh one.
+        // `event/target` rides along because this screen can also change WHICH
+        // food the occasion was — the stager is still a search box in edit mode.
+        if (edit) {
+          await correctConsumptionEvent(edit.id, {
+            target: f.entity,
+            quantity,
+            macros: breakdown,
+            breakdown,
+          });
+        } else {
+          const newId = await logFoodConsumption(
+            f.entity,
+            quantity,
+            meal_type,
+            breakdown.calories,
+            breakdown.protein,
+            breakdown.fat,
+            breakdown.carbs,
+            selectedDate,
+            undefined,
+            breakdown
+          );
+          onLogged?.([newId]);
+        }
       } else {
         // Three custom writer paths, chosen by what the choice carries:
         //   • a `manualEntry` envelope → saveManualFood (ADR-0035): a calories-only
@@ -512,7 +527,7 @@
         // label / legacy paths freeze the four macros as before.
         const macrosOnly = !choice.manualEntry;
         // Correcting a food's panel must not silently change how much of it was
-        // eaten. An entry logged against a panel basis is therefore re-logged at
+        // eaten. An entry logged against a panel basis is therefore corrected at
         // the SAME amount with its macros re-derived from the corrected twin —
         // the amount editor's own path — instead of collapsing to the fresh
         // capture's own quantity below. (`target` follows the save: an enrich
@@ -545,6 +560,20 @@
             logged.amount,
             logged.unit
           );
+        } else if (edit) {
+          // The corrected panel, appended onto the occasion (ADR-0111 §1).
+          // `target` follows the save: an enrich returns the same twin, a mint a
+          // new one, and the occasion must name whichever it is.
+          await correctConsumptionEvent(edit.id, {
+            target: twinId,
+            quantity: capturedQuantity,
+            macros: {
+              calories: choice.calories,
+              protein: macrosOnly ? choice.protein : undefined,
+              fat: macrosOnly ? choice.fat : undefined,
+              carbs: macrosOnly ? choice.carbs : undefined,
+            },
+          });
         } else {
           const newId = await logFoodConsumption(
             twinId,
@@ -556,8 +585,7 @@
             macrosOnly ? choice.carbs : undefined,
             selectedDate
           );
-          if (edit) await retractConsumptionEvent(edit.id, newId);
-          else onLogged?.([newId]);
+          onLogged?.([newId]);
         }
       }
       onClose();
