@@ -42,7 +42,8 @@
     "usda:ranking-audit": "node scripts/usda-ranking-audit.mjs",
     "usda:ranking-ties": "node scripts/usda-ranking-ties.mjs",
     "pairing:census": "node scripts/pairing-census.mjs",
-    "limits:census": "node scripts/limit-fill-census.mjs"
+    "limits:census": "node scripts/limit-fill-census.mjs",
+    "targets:census": "node scripts/pairing-target-census.mjs"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^5.20260826.1",
