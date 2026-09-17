@@ -3,7 +3,7 @@
 **Status:** Accepted  
 **Date:** 2026-09-16  
 **Amends:** [ADR-0022](0022-recipe-instantiations-as-editable-snapshots.md) §2 (its "editing is by supersession, retract-and-replace per ADR-0008" bullet; the snapshot principle itself is untouched), [ADR-0088](0088-a-selection-is-a-mode-with-its-own-verbs-and-its-own-way-out.md) §8 and its 2026-09-02 "a scaled row lets go" amendment (a move stops being the exception and the release keeps one of its two reasons), [ADR-0107](0107-a-row-you-have-just-logged-is-revealed-in-three-rules.md) (its exclusion of corrections keeps its rule and loses its reason)  
-**Implemented:** §5 [#468](https://github.com/palebluebytes/inventoria/issues/468) `src/lib/food/consumption-state.ts`; §6 [#470](https://github.com/palebluebytes/inventoria/issues/470) `8fb7ed3e`. §1 is [#467](https://github.com/palebluebytes/inventoria/issues/467), not yet landed.
+**Implemented:** §1-§4 and §6 [#467](https://github.com/palebluebytes/inventoria/issues/467) `src/lib/stores/calorie.store.ts`, `src/lib/stores/recipe.store.ts`; §5 and §7 [#468](https://github.com/palebluebytes/inventoria/issues/468) `src/lib/food/consumption-state.ts`; §6's prerequisite [#470](https://github.com/palebluebytes/inventoria/issues/470) `8fb7ed3e`. §8 is deferred behind a seam, and §9 moves nothing.
 
 ## Context
 

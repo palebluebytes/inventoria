@@ -124,10 +124,14 @@
      * **all** of them to arrive before it moves, and an id that never lands
      * would hold the reveal open forever.
      *
-     * What is deliberately NOT in here: an amount edit, which retracts and
-     * replaces and therefore mints a fresh id for a row you were already looking
-     * at, and a meal that arrives from a paired device, which is not something
-     * this person just did.
+     * What is deliberately NOT in here: an amount edit, and a meal that arrives
+     * from a paired device, which is not something this person just did. The
+     * edit is excluded because **your attention is already on the row you just
+     * corrected**, and moving the page under a hand that has just committed an
+     * edit is what the three rules exist to prevent (ADR-0111 §9, re-reasoning
+     * ADR-0107's exclusion). Note the failure mode inverts if a correction path
+     * ever reports its id: since the id is already in the day, the reveal would
+     * fire immediately rather than not at all.
      */
     justLogged?: string[];
   } = $props();
