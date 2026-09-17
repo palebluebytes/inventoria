@@ -312,7 +312,7 @@ because it names the ingestion machinery rather than a domain, and nothing may s
   mints. Where two records from one source were merged to complete a panel, it also names
   the record that filled the gaps and the fields it supplied (`merged_from`,
   [ADR-0045](adr/0045-usda-stays-the-base-food-composition-authority.md) §4). It was
-  `provenance/raw` until ADR-0086 §5.
+  `twin/raw_provenance` until ADR-0086 §5.
 
 ### `habit/`
 
