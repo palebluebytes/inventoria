@@ -37,10 +37,15 @@ Two are caught by `manufacturing_input` and the superseded list, seventeen by th
 | search index, shipped corpus         |   794,587 |  90,746 |  62,509 |
 | search index, one bundled corpus     | 1,273,826 | 129,856 |  86,755 |
 | — the cooked rows alone, collapsed   |   460,552 |  42,932 |  28,853 |
+| — the cooked rows alone, uncollapsed |       n/a |     n/a |     n/a |
 
 The vocabulary sections are stubbed out in both arms so the deltas are comparable; that is why the index's baseline sits below the committed 812,093 B. The store carries no vocabulary, so its baseline _is_ the committed file.
 
-**The whole cost is +1,172,147 B of store and +479,239 B of index** — about 1.6 MB raw, 269 KB brotli. Not the 6.9 MB the extrapolation feared.
+**The whole cost is +1,172,147 B of store and +479,239 B of index** — about 1.6 MB raw and **144,400 B brotli** (+120,154 store, +24,246 index). Not the 6.9 MB the extrapolation feared.
+
+**Corrected 2026-09-17 ([#510](https://github.com/palebluebytes/inventoria/issues/510)).** This line first read "about 1.6 MB raw, 269 KB brotli". The raw half is exact; the brotli half was a column slip — 269,580 B is the **gzip** sum of the two cooked-rows-alone lines, and no brotli sum in the table above is 269 KB. The error ran against the bundled route, making it look nearly twice as dear on the wire as it is, and #510 chose the other route anyway on grounds that do not turn on this number.
+
+The uncollapsed search index is the one figure this section does not carry: `pairing-target-census.mjs` computes `onlyUncollapsed.index` and never prints it, so the 1,725-row arm's index weight is **not established** — the row above says so rather than leaving a reader to infer it from the store. At the collapsed arm's 389.6 B/row it would be near 210 KB raw, which is an extrapolation and not a measurement. It stopped mattering when #510 took the collapse.
 
 ### It breaks both precache bands
 
