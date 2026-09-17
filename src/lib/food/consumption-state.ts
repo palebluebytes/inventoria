@@ -123,27 +123,28 @@ export function computeConsumption(datoms: StoredDatom[]): ConsumptionEvent[] {
 
   // Enrich each event with its target twin's display fields.
   for (const event of events) {
-    // An Impromptu Recipe has no name to read — absence is what makes it one
-    // (ADR-0110 §1) — so a dish that was never named is labelled from its own
-    // frozen snapshot instead. Derived here and never written back: the twin
-    // stays genuinely nameless, which is what keeps it out of the library.
-    //
-    // This is the line that makes the absence survivable at all. Without it
-    // `foodName` is undefined, and the day renders `Unknown Food` — the string
-    // reserved for a twin that no longer resolves — while `partitionCopyable`
-    // sorts the row into `lost`, a sent meal drops it on landing, and search
-    // and reports skip it.
-    const derived = labelFromInstantiation(event.instantiation);
-    if (derived) event.foodName = derived;
     if (!event.target) continue;
     const twin = twinGroups.get(event.target);
     if (!twin) continue;
     const t = twin.fields as Record<string, any>;
     // `groupByEntity` merges the food/ and recipe/ prefixes into one flat map,
     // so a recipe twin's `recipe/name` and a food twin's `food/name` both land
-    // as `t.name`. A name the twin carries wins: it is what you called the
-    // dish, and the snapshot label only ever stands in for one nobody gave.
-    if (t.name) event.foodName = t.name;
+    // as `t.name`.
+    //
+    // A twin that resolves and carries no name is an Impromptu Recipe (ADR-0110
+    // §1), and it is labelled from the event's own frozen snapshot instead —
+    // derived at render and never written back, so the twin stays genuinely
+    // nameless, which is what keeps it out of the library. This is the line that
+    // makes the absence survivable: without it `foodName` is undefined, and
+    // `partitionCopyable` sorts the row into `lost`, a sent meal drops it on
+    // landing, and search and reports skip it.
+    //
+    // **A twin that does not resolve at all is a different state and keeps its
+    // old answer.** `Unknown Food` is reserved for exactly that, and ADR-0058
+    // §11 counts such a row as lost rather than copying it — deriving a label
+    // here would mint a second one instead. Which is why the fallback sits
+    // after the `!twin` guard rather than before it.
+    event.foodName = t.name || labelFromInstantiation(event.instantiation);
     event.photoBase64 = t.photo_base64 || t.photo || t.image;
     // schema.org/Recipe display identity, read live from the template (ADR-0021).
     // The logged occasion's nutrition and ingredient breakdown are NOT read here:

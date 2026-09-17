@@ -1,5 +1,5 @@
 import type { FoodResult } from "./food-search";
-import { mintEntity } from "../facets/entity-id";
+import { digestSuffix, mintEntity } from "../facets/entity-id";
 import type { EntityPayload } from "../ingestion/ingest";
 import {
   basisUnit,
@@ -354,4 +354,30 @@ export function customIngredient(
       },
     },
   };
+}
+
+/**
+ * An Impromptu Recipe's entity id: the `recipe:` prefix over a digest of its
+ * ingredient `ref`s, sorted (ADR-0110 §4). Computing it is how the twin is
+ * found — consolidating the same things again lands on the twin that already
+ * exists, and a second device doing so converges on it rather than forking.
+ *
+ * **Only the sorted refs go in.** Amounts, units, yield and batch weight are
+ * left out because they are the occasion rather than the dish: they are already
+ * frozen on the event, they vary every time, and including them would make the
+ * reuse a no-op in practice, since `scaleAmount` leaves an amount unrounded on
+ * some paths. This is ADR-0022 §2's boundary applied to identity — the twin is
+ * what the dish is, the event is what you made that day.
+ *
+ * The sort is what makes the key canonical, and it costs the stored ingredient
+ * order where two consolidations collapse onto one twin: nothing normalises
+ * that order today, so whichever minted the twin first is the one that survives.
+ */
+export async function impromptuRecipeId(
+  ingredients: ReferenceIngredient[]
+): Promise<string> {
+  const refs = ingredients.map((i) => i.ref).sort();
+  // Newline-joined: an entity id cannot contain one, so no two ref sets can
+  // render to the same string by running together at the seam.
+  return mintEntity("recipe:", await digestSuffix(refs.join("\n")));
 }

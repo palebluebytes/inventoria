@@ -16,7 +16,7 @@
 import { dbClient } from "../db/db.client";
 import { createQueryStore } from "./datoms.store";
 import { HLC_ORDER_DESC } from "../db/hlc";
-import { digestSuffix, mintEntity } from "../facets/entity-id";
+import { mintEntity } from "../facets/entity-id";
 import { ingestEntity } from "../ingestion/ingest";
 import {
   logFoodConsumption,
@@ -38,6 +38,7 @@ import {
   type OccasionSize,
 } from "../food/batch-weight";
 import {
+  impromptuRecipeId,
   ingredientFromTwin,
   quantityLabel,
   type RecipeIngredient,
@@ -141,32 +142,6 @@ export interface RecipeInput {
 }
 
 /**
- * An Impromptu Recipe's entity id: the `recipe:` prefix over a digest of its
- * ingredient `ref`s, sorted (ADR-0110 §4). Computing it is how the twin is
- * found — consolidating the same things again lands on the twin that already
- * exists, and a second device doing so converges on it rather than forking.
- *
- * **Only the sorted refs go in.** Amounts, units, yield and batch weight are
- * left out because they are the occasion rather than the dish: they are already
- * frozen on the event, they vary every time, and including them would make the
- * reuse a no-op in practice, since `scaleAmount` leaves an amount unrounded on
- * some paths. This is ADR-0022 §2's boundary applied to identity — the twin is
- * what the dish is, the event is what you made that day.
- *
- * The sort is what makes the key canonical, and it costs the stored ingredient
- * order where two consolidations collapse onto one twin: nothing normalises
- * that order today, so whichever minted the twin first is the one that survives.
- */
-async function impromptuRecipeId(
-  ingredients: ReferenceIngredient[]
-): Promise<string> {
-  const refs = ingredients.map((i) => i.ref).sort();
-  // Newline-joined: an entity id cannot contain one, so no two ref sets can
-  // render to the same string by running together at the seam.
-  return mintEntity("recipe:", await digestSuffix(refs.join("\n")));
-}
-
-/**
  * Saves a schema.org/Recipe twin (ADR-0021). A recipe stores **no** macros of
  * its own — `recipe/ingredients` holds pure `{ ref, amount, unit }` references,
  * and per-serving nutrition is derived from the referenced ingredient twins.
@@ -191,10 +166,14 @@ async function impromptuRecipeId(
  *     here — append-only has no delete, so an omitted attribute would keep its
  *     old value; writing an empty value is how an edit clears a field.
  *
- * `recipe/name` is written only where there is one. Not an empty string: the
- * library is `WHERE attribute = 'recipe/name'`, and a blank name would put an
- * impromptu dish in it while reading as a name-shaped falsy value everywhere
- * else.
+ * `recipe/name` is written only where there is one, in **all three** cases, and
+ * so it is not one of the optionals an edit clears by writing empty. Not an
+ * empty string: the library is `WHERE attribute = 'recipe/name'`, and a blank
+ * name would put an impromptu dish in it while reading as a name-shaped falsy
+ * value everywhere else. The consequence is that naming is one-way — an edit
+ * promotes an Impromptu Recipe (ADR-0110 §5) and no edit demotes a Recipe Twin
+ * back. That is the ADR's model rather than an oversight: membership is derived
+ * from the name, and it names no verb for taking one away.
  */
 export async function saveRecipe(
   input: RecipeInput,
@@ -212,8 +191,10 @@ export async function saveRecipe(
           `${Math.random().toString(36).substring(2, 9)}_${Date.now()}`
         ));
 
-  // Reuse is the point of a derived id, and reuse appends nothing.
-  if (impromptu && (await getLocalFoodTwin(entityId))) return entityId;
+  // Reuse is the point of a derived id, and reuse appends nothing. `null` is
+  // this read's answer for "no such entity", so the test is against that rather
+  // than the truthiness of the `any` it hands back otherwise.
+  if (impromptu && (await getLocalFoodTwin(entityId)) !== null) return entityId;
 
   const attributes: Record<string, any> = {
     // Store direct JSON arrays/objects; ingestEntity/worker stringifies them.

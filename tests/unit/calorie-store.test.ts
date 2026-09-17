@@ -30,6 +30,7 @@ import {
   totalNutrition,
 } from "../../src/lib/food/consumption-state";
 import type { ReferenceIngredient } from "../../src/lib/food/recipe-nutrition";
+import type { Instantiation } from "../../src/lib/food/recipe-instantiation";
 import {
   basisUnit,
   parseBasisQuantity,
@@ -408,11 +409,15 @@ describe("Calorie Store Actions", () => {
         { ref: "fdc:mustard", amount: 5, unit: "g" },
       ];
 
-      it("writes no name at all, rather than an empty one", async () => {
+      // An empty ledger: the derived id names no twin yet, so every save here
+      // mints unless the test says otherwise.
+      beforeEach(() => {
         vi.spyOn(dbClient, "query").mockResolvedValue([]);
-        const mockAppend = vi
-          .spyOn(dbClient, "append")
-          .mockResolvedValue(undefined);
+        vi.spyOn(dbClient, "append").mockResolvedValue(undefined);
+      });
+
+      it("writes no name at all, rather than an empty one", async () => {
+        const mockAppend = vi.spyOn(dbClient, "append");
 
         await saveRecipe({ ingredients: dressing, yield: 1 });
 
@@ -431,9 +436,6 @@ describe("Calorie Store Actions", () => {
       });
 
       it("derives its id from its ingredient refs, in any order", async () => {
-        vi.spyOn(dbClient, "query").mockResolvedValue([]);
-        vi.spyOn(dbClient, "append").mockResolvedValue(undefined);
-
         const first = await saveRecipe({ ingredients: dressing });
         const shuffled = await saveRecipe({
           ingredients: [dressing[2], dressing[0], dressing[1]],
@@ -446,9 +448,6 @@ describe("Calorie Store Actions", () => {
       });
 
       it("ignores the amounts, which are the occasion rather than the dish", async () => {
-        vi.spyOn(dbClient, "query").mockResolvedValue([]);
-        vi.spyOn(dbClient, "append").mockResolvedValue(undefined);
-
         const asCooked = await saveRecipe({ ingredients: dressing });
         const twiceAsMuch = await saveRecipe({
           ingredients: dressing.map((i) => ({ ...i, amount: i.amount * 2 })),
@@ -460,9 +459,6 @@ describe("Calorie Store Actions", () => {
       });
 
       it("a different ingredient set is a different dish", async () => {
-        vi.spyOn(dbClient, "query").mockResolvedValue([]);
-        vi.spyOn(dbClient, "append").mockResolvedValue(undefined);
-
         const withMustard = await saveRecipe({ ingredients: dressing });
         const without = await saveRecipe({ ingredients: dressing.slice(0, 2) });
 
@@ -475,8 +471,6 @@ describe("Calorie Store Actions", () => {
       // consolidation logs its instantiation and retracts its sources; the twin
       // it landed on is left exactly as it was.
       it("lands on an existing twin and appends none of its attributes", async () => {
-        vi.spyOn(dbClient, "query").mockResolvedValue([]);
-        vi.spyOn(dbClient, "append").mockResolvedValue(undefined);
         const minted = await saveRecipe({ ingredients: dressing });
 
         vi.clearAllMocks();
@@ -498,8 +492,6 @@ describe("Calorie Store Actions", () => {
       // instantiation of the recipe rather than minting a rival twin. The name
       // it was given is not overwritten, because nothing is written at all.
       it("lands on a twin that has since been named, and leaves the name alone", async () => {
-        vi.spyOn(dbClient, "query").mockResolvedValue([]);
-        vi.spyOn(dbClient, "append").mockResolvedValue(undefined);
         const minted = await saveRecipe({ ingredients: dressing });
 
         vi.clearAllMocks();
@@ -519,10 +511,7 @@ describe("Calorie Store Actions", () => {
       // named recipe is its instructions, notes and image as much as its refs,
       // so two methods over one ingredient list are two recipes.
       it("mints a random id the moment a name is typed", async () => {
-        vi.spyOn(dbClient, "query").mockResolvedValue([]);
-        const mockAppend = vi
-          .spyOn(dbClient, "append")
-          .mockResolvedValue(undefined);
+        const mockAppend = vi.spyOn(dbClient, "append");
 
         const first = await saveRecipe({
           name: "House dressing",
@@ -534,7 +523,12 @@ describe("Calorie Store Actions", () => {
         });
 
         expect(first).not.toBe(second);
-        expect(first).not.toMatch(/^recipe:[0-9a-f]{32}$/);
+        // And neither is the twin an unnamed save of the same things reaches:
+        // a named recipe is its instructions and notes as much as its refs, so
+        // it is out of the reuse pool rather than merely differently spelled.
+        expect([first, second]).not.toContain(
+          await saveRecipe({ ingredients: dressing })
+        );
         expect(
           mockAppend.mock.calls[0][0].find((d) => d.attribute === "recipe/name")
             ?.value
@@ -544,10 +538,7 @@ describe("Calorie Store Actions", () => {
       // Whitespace is not a name. The builder trims before it asks, and the
       // store agrees rather than trusting it to.
       it("reads a whitespace-only name as no name", async () => {
-        vi.spyOn(dbClient, "query").mockResolvedValue([]);
-        const mockAppend = vi
-          .spyOn(dbClient, "append")
-          .mockResolvedValue(undefined);
+        const mockAppend = vi.spyOn(dbClient, "append");
 
         const id = await saveRecipe({ name: "   ", ingredients: dressing });
 
@@ -557,11 +548,78 @@ describe("Calorie Store Actions", () => {
         ).toBeUndefined();
       });
 
+      // #486's second acceptance criterion, asserted on the ledger rather than
+      // the screen: making the same dish on two different days is ONE twin
+      // carrying TWO instantiations. The twin is minted once and reused; each
+      // occasion still appends its own event, frozen against the day it was
+      // cooked on, because the twin is what the dish is and the event is what
+      // you made that day (ADR-0022 §2).
+      it("is one twin and two occasions when the same dish is made twice", async () => {
+        const appended: Datom[] = [];
+        vi.spyOn(dbClient, "append").mockImplementation(async (datoms) => {
+          appended.push(...datoms);
+        });
+        const panels = new Map(
+          dressing.map((i) => [
+            i.ref,
+            { panel: { calories: 100, serving_size: "100g" } as NutritionInfo },
+          ])
+        );
+        const names = new Map([
+          ["fdc:olive_oil", "Olive oil"],
+          ["fdc:lemon", "Lemon"],
+          ["fdc:mustard", "Mustard"],
+        ]);
+        const consolidate = async (day: Date) => {
+          const twin = await saveRecipe({ ingredients: dressing });
+          await logRecipeConsumption(
+            twin,
+            dressing,
+            1,
+            (ref) => panels.get(ref),
+            (ref) => names.get(ref),
+            "dinner",
+            day
+          );
+          return twin;
+        };
+
+        const monday = await consolidate(new Date("2026-09-14T19:00:00"));
+        // The twin now exists, so the second consolidation must find it.
+        vi.spyOn(dbClient, "query").mockResolvedValue([
+          { attribute: "recipe/ingredients", value: JSON.stringify(dressing) },
+        ]);
+        const thursday = await consolidate(new Date("2026-09-17T19:00:00"));
+
+        expect(thursday).toBe(monday);
+        // One twin: the `recipe/ingredients` datom was written once, by the
+        // mint. The reuse appended nothing at all.
+        expect(
+          appended.filter((d) => d.attribute === "recipe/ingredients")
+        ).toHaveLength(1);
+        // Two occasions, both pointing at it, on the two different days.
+        const occasions = appended.filter(
+          (d) => d.attribute === "event/instantiation"
+        );
+        expect(occasions).toHaveLength(2);
+        expect(
+          occasions.map((d) => (d.value as unknown as Instantiation).based_on)
+        ).toEqual([monday, monday]);
+        expect(
+          appended
+            .filter((d) => d.attribute === "event/target")
+            .map((d) => d.value)
+        ).toEqual([monday, monday]);
+        // Two days: a Consumption Event carries its day on the datom's own
+        // `time`, which `consumptionDatoms` stamps from the viewed date.
+        expect(
+          new Set(occasions.map((d) => new Date(d.time as number).getDate()))
+        ).toEqual(new Set([14, 17]));
+      });
+
       // Edit is untouched: an explicit entity still wins, and the optionals are
       // still written unconditionally so an emptied field clears.
       it("never derives an id when an entity was passed", async () => {
-        vi.spyOn(dbClient, "append").mockResolvedValue(undefined);
-
         expect(
           await saveRecipe({ ingredients: dressing }, "recipe:existing_123")
         ).toBe("recipe:existing_123");
@@ -1465,7 +1523,17 @@ describe("computeConsumption", () => {
         row("fdc:mustard", "Mustard"),
       ],
     };
-    const loggedDish = (twinDatoms: Datom[]) => [
+    // The twin as an unnamed consolidation leaves it: ingredients, a yield, and
+    // no `recipe/name` at all.
+    const namelessTwin: Datom[] = [
+      {
+        entity: "recipe:deadbeef",
+        attribute: "recipe/ingredients",
+        value: s([{ ref: "fdc:olive_oil", amount: 30, unit: "g" }]),
+        time: 1717000000000,
+      },
+    ];
+    const loggedDish = (extra: Datom[] = []) => [
       {
         entity: "event:consume_d",
         attribute: "event/target",
@@ -1478,46 +1546,26 @@ describe("computeConsumption", () => {
         value: s(instantiation),
         time: t,
       },
-      ...twinDatoms,
+      ...extra,
     ];
 
     it("reads its ingredients where the twin has no name", () => {
-      const events = computeConsumption(
-        asStored(
-          loggedDish([
-            {
-              entity: "recipe:deadbeef",
-              attribute: "recipe/ingredients",
-              value: s([{ ref: "fdc:olive_oil", amount: 30, unit: "g" }]),
-              time: 1717000000000,
-            },
-          ])
-        )
-      );
+      const events = computeConsumption(asStored(loggedDish(namelessTwin)));
 
       expect(events).toHaveLength(1);
       expect(events[0].foodName).toBe("Olive oil, Lemon, Mustard");
     });
 
-    // The label is derived at render and never written back. A stored one would
-    // masquerade as authorship — editable, promotable, and indistinguishable
-    // from a name you typed — and would put the twin in the library.
-    it("leaves the twin nameless, deriving rather than storing", () => {
-      const datoms = loggedDish([]);
-      const before = JSON.stringify(datoms);
+    // A twin that no longer resolves at all is a **different state**, and keeps
+    // the answer it already had. `Unknown Food` is reserved for it, and
+    // ADR-0058 §11 counts such a row as lost rather than copying it — a label
+    // derived here would reach past that guard and mint a second one. The
+    // fallback is about a name nobody gave, not about a twin that is gone.
+    it("says nothing for a dish whose twin no longer resolves", () => {
+      const events = computeConsumption(asStored(loggedDish()));
 
-      computeConsumption(asStored(datoms));
-
-      expect(JSON.stringify(datoms)).toBe(before);
-    });
-
-    // A twin that no longer resolves at all is a different state, and keeps the
-    // answer it already had: the fallback is about a name that was never given,
-    // not about a twin that is gone.
-    it("labels a dish whose twin is missing entirely", () => {
-      const events = computeConsumption(asStored(loggedDish([])));
-
-      expect(events[0].foodName).toBe("Olive oil, Lemon, Mustard");
+      expect(events[0].foodName).toBeUndefined();
+      expect(partitionCopyable(events).lost).toHaveLength(1);
     });
 
     // The narrowing between a past meal and the day it is copied onto drops an
@@ -1529,6 +1577,7 @@ describe("computeConsumption", () => {
       const events = computeConsumption(
         asStored(
           loggedDish([
+            ...namelessTwin,
             {
               entity: "event:consume_d",
               attribute: "event/quantity",
@@ -1556,6 +1605,7 @@ describe("computeConsumption", () => {
       const events = computeConsumption(
         asStored(
           loggedDish([
+            ...namelessTwin,
             {
               entity: "recipe:deadbeef",
               attribute: "recipe/name",
