@@ -400,14 +400,16 @@ describe("Calorie Store Actions", () => {
         .spyOn(dbClient, "append")
         .mockResolvedValue(undefined);
 
-      await retractConsumptionEvent("event:consume_abc", "recipe:xyz");
+      await retractConsumptionEvent("event:consume_abc", "event:consume_xyz");
 
       const datoms = mockAppend.mock.calls[0][0];
       const status = datoms.find((d) => d.attribute === "event/status");
       expect(status?.entity).toBe("event:consume_abc");
       expect(status?.value).toBe("retracted");
+      // The link names the event that superseded this one, never the twin it
+      // was seeded from (#468).
       const link = datoms.find((d) => d.attribute === "event/replaced_by");
-      expect(link?.value).toBe("recipe:xyz");
+      expect(link?.value).toBe("event:consume_xyz");
     });
   });
 });
@@ -998,7 +1000,7 @@ describe("computeConsumption", () => {
       {
         entity: "event:consume_b",
         attribute: "event/replaced_by",
-        value: s("recipe:z"),
+        value: s("event:consume_z"),
         time: t + 1,
       },
     ];
@@ -1413,7 +1415,7 @@ describe("store action → computeConsumption round-trip (Seam 2)", () => {
     // headline AND the snapshot rows itself from the ingredient panels/names
     // (via the resolvers) — the test never calls the derivation helpers.
     const recipeId = await saveRecipe({ name: "Oatmeal", ingredients: refs });
-    await logRecipeConsumption(
+    const recipeEventId = await logRecipeConsumption(
       recipeId,
       refs,
       1,
@@ -1422,8 +1424,9 @@ describe("store action → computeConsumption round-trip (Seam 2)", () => {
       "breakfast",
       day
     );
-    // logRecipeConsumption logs only — Consolidate's retraction is a separate act.
-    await retractConsumptionEvent(ingredientEventId, recipeId);
+    // logRecipeConsumption logs only — Consolidate's retraction is a separate
+    // act, and its link names the event just logged rather than the twin (#468).
+    await retractConsumptionEvent(ingredientEventId, recipeEventId);
 
     const events = computeConsumption(asLedger([...twinDatoms, ...appended]));
     // Retraction hides the replaced ingredient event — only the recipe remains.

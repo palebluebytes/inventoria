@@ -236,7 +236,7 @@
         // live display above and the projection's derivation, so the frozen
         // snapshot equals what the builder showed at the moment it was logged.
         // Panels are read in memory, so real food twins are never mutated.
-        logged = await logRecipeConsumption(
+        const loggedEventId = await logRecipeConsumption(
           recipeId,
           referenceIngredients,
           yieldNum,
@@ -245,16 +245,25 @@
           meal_type,
           selectedDate
         );
+        logged = loggedEventId;
         // Replace (consolidate only): retract the selection events that remain as
         // ingredients. Define builds from scratch, so it has no seeded event_ids
         // and nothing to retract — the guard keeps its fresh foods untouched.
         //
         // A row can carry SEVERAL events: two logs of the same food fold into
         // one ingredient (ADR-0024), and the recipe replaces both of them.
+        //
+        // The link names the EVENT this consolidation just logged, not the twin
+        // it was seeded from (#468). `event/replaced_by` is defined as one
+        // `event:consume_` naming the `event:consume_` that superseded it, and
+        // the projection's slot walk reads it to hand the recipe its first
+        // ingredient's place — a twin id is in no event group, so the walk
+        // donated the slot to nothing and the dish fell to the bottom of its
+        // meal.
         if (mode === "consolidate") {
           for (const ing of ingredients) {
             for (const event_id of ing.event_ids ?? []) {
-              await retractConsumptionEvent(event_id, recipeId);
+              await retractConsumptionEvent(event_id, loggedEventId);
             }
           }
         }
