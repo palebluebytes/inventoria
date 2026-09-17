@@ -1,5 +1,5 @@
 import type { StoredDatom } from "../db/db.client";
-import { groupByEntity } from "../db/datom-fold";
+import { groupByEntity, parseDatomValue } from "../db/datom-fold";
 import {
   labelFromInstantiation,
   type Instantiation,
@@ -29,6 +29,16 @@ export interface ConsumptionEvent {
   photoBase64?: string;
   /** "retracted" hides the event from the projection (append-only "delete"). */
   status?: string;
+  /**
+   * The **consumption link**: the `event:consume_` that consumed this one, on
+   * each of the N events a Consolidate folded into one, and never a twin
+   * (ADR-0111 §6). A correction writes one too until #467 lands §1, and the
+   * links it has already written stay in ledgers and stay readable.
+   *
+   * Folded, so it names the one successor this event claims — see
+   * {@link idsMintedAsReplacements} for what the values it superseded are
+   * evidence of.
+   */
   replaced_by?: string;
   // schema.org/Recipe display fields, enriched live from the recipe twin
   // (ADR-0021). These are the template's identity, safe to read live; the logged
@@ -51,6 +61,26 @@ export interface ConsumptionEvent {
 }
 
 /**
+ * Every event id that appears as the value of an `event/replaced_by` datom —
+ * the evidence that an event was **minted as a replacement** rather than logged
+ * (ADR-0111 §5). One that appears here and is no predecessor's folded winner is
+ * an **Unclaimed replacement**.
+ *
+ * It has to read the raw datoms: a superseded link is exactly what
+ * `groupByEntity`'s latest-wins fold discards, so by the time there are entity
+ * groups the evidence is gone.
+ */
+function idsMintedAsReplacements(datoms: StoredDatom[]): Set<string> {
+  const minted = new Set<string>();
+  for (const { attribute, value } of datoms) {
+    if (attribute !== "event/replaced_by") continue;
+    const successor = parseDatomValue(attribute, value);
+    if (typeof successor === "string") minted.add(successor);
+  }
+  return minted;
+}
+
+/**
  * Folds the consumption datom stream (Consumption Events joined to their food /
  * recipe twins) into enriched events for the whole history. The pure worker-side
  * projection behind `CONSUMPTION`; the Food dashboard narrows to a day on the
@@ -62,6 +92,14 @@ export interface ConsumptionEvent {
  * macros are read from that snapshot, never live-derived from the (mutable)
  * template, so logged history is immutable. The twin join only supplies the
  * recipe's live display identity (name, image, description, …).
+ *
+ * Two kinds of event are folded and then dropped: a retracted one, and an
+ * **Unclaimed replacement** — an event minted as another's successor that no
+ * predecessor's folded link still names (ADR-0111 §5). A reader taking
+ * `ConsumptionEvent[]` has had both applied, and neither rule is repeatable
+ * downstream: an unclaimed replacement carries no status, and a pure function
+ * over projected events cannot rebuild the raw-datom view the second one needs
+ * (ADR-0111 §7).
  */
 export function computeConsumption(datoms: StoredDatom[]): ConsumptionEvent[] {
   const { twins: twinGroups, events: eventGroups } = groupByEntity(datoms, [
@@ -93,13 +131,19 @@ export function computeConsumption(datoms: StoredDatom[]): ConsumptionEvent[] {
   // their slots, landing where the first ingredient sat rather than the last.
   const slotOf = new Map<string, number>();
   groups.forEach((g, i) => slotOf.set(g.id, i));
+  // The successors the folded links still name. A predecessor claims exactly
+  // one, whatever it was linked to earlier, which is the whole of ADR-0111 §5's
+  // test: a replacement no predecessor names here won nothing.
+  const claimed = new Set<string>();
   for (const g of groups) {
     const successor = (g.fields as Record<string, any>).replaced_by;
     if (typeof successor !== "string") continue;
+    claimed.add(successor);
     const slot = slotOf.get(g.id) as number;
     const held = slotOf.get(successor);
     if (held === undefined || slot < held) slotOf.set(successor, slot);
   }
+  const minted = idsMintedAsReplacements(datoms);
 
   const events: ConsumptionEvent[] = groups
     .map((g) => {
@@ -117,6 +161,18 @@ export function computeConsumption(datoms: StoredDatom[]): ConsumptionEvent[] {
     // deleted — the ledger keeps their datoms. Read after the slots are worked
     // out, not before: a retracted event is what carries the link forward.
     .filter((e) => e.status !== "retracted")
+    // **An Unclaimed replacement is dropped too** (ADR-0111 §5): it was minted
+    // as another event's successor and no predecessor's folded link names it,
+    // because a concurrent act on another device claimed them first. Two
+    // devices correcting one banana before either saw the other left both
+    // replacements live and the day reading 445 kcal where the truth was 267
+    // (#463); two devices consolidating the same foods left two dishes. It is
+    // not retracted — it carries no `event/status` at all — so the filter above
+    // cannot see it, and this is the one place the rule lives (ADR-0111 §7).
+    // The cost is that a real logged event goes: it did not lose a log, it lost
+    // the link that defined it as a replacement, to the same latest-wins
+    // discipline every other attribute obeys.
+    .filter((e) => !minted.has(e.id) || claimed.has(e.id))
     .sort(
       (a, b) => (slotOf.get(a.id) as number) - (slotOf.get(b.id) as number)
     );

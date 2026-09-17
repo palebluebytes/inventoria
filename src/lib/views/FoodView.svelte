@@ -301,7 +301,8 @@
   // bulk rescale.
   let copying = $state(false);
   // The logged event being edited (null = adding). When set, the log sheet opens
-  // in edit mode and saving replaces this event (append-only).
+  // in edit mode and saving corrects this event in place (ADR-0111 §1). The
+  // sheet's meal is the event's own, so a correction never moves it.
   let editEvent = $state<ConsumptionEvent | null>(null);
   // Whether that edit was asked for from the source explainer's "Edit" — then the
   // sheet opens straight on the label form instead of the food's card, since the
@@ -344,7 +345,7 @@
   // FoodAmountPanel; the dashboard equivalent of a recipe row tap) needs to show
   // it: the twin's panel + portions, so the sheet shows the same screen the
   // search flow does, with the food's serving surfaced as a chip. `amount` is
-  // what the picker opens at; Done retract-and-replaces the event via
+  // what the picker opens at; Done corrects the event via
   // changeLoggedFoodAmount.
   interface AmountEdit {
     event: ConsumptionEvent;
@@ -410,8 +411,8 @@
    * A fresh array per act — the day watches its identity, so reassigning is the
    * signal and mutating would be silence. Set by every path that ADDS a row and
    * by none that corrects one: an amount edit and an instantiation correction
-   * both retract and replace, which mints an id for a row already on screen, and
-   * a meal arriving from a paired device is not something this person just did.
+   * both land on a row already on screen, and a meal arriving from a paired
+   * device is not something this person just did.
    */
   let just_logged = $state<string[]>([]);
 
@@ -491,7 +492,7 @@
    * published per 100 ml — or `null` when it has no basis to scale against at
    * all. Both a measured log and a per-serving food with a KNOWN serving weight
    * resolve: they edit their amount in the shared picker, the same screen the
-   * search flow stages into, and both re-log via changeLoggedFoodAmount (which
+   * search flow stages into, and both correct via changeLoggedFoodAmount (which
    * reads the unit and the divisor off that same panel). The food's own serving
    * is surfaced as a chip so a whole-serving food is one tap from its serving
    * while still editable to any amount.
@@ -803,10 +804,9 @@
   });
 
   /**
-   * Applies the factor, append-only: each food is re-logged at its scaled
-   * amount and the original retracted, so the day's nutrition re-derives from
-   * the twins rather than being edited in place — the same path the amount
-   * picker's Done takes, across the Selection.
+   * Applies the factor, append-only: each food's new figures are re-derived from
+   * its twin and appended onto the event itself (ADR-0111 §1) — the same path
+   * the amount picker's Done takes, across the Selection.
    *
    * The whole run is **one append**. Nothing here needs the worker until the
    * write: `scalables` already holds every panel, resolved before the tier
@@ -853,11 +853,14 @@
     }
     closeScale();
     // **A finished verb ends the mode; what it did not finish stays picked.**
-    // Cleared rather than re-pointed at the new ids: the events chosen were
-    // retracted, so carrying their successors forward would leave a Selection
-    // of things nobody chose. What is left behind is what the run never wrote —
-    // which is also what keeps the bar on screen to carry the note below, since
-    // an empty Selection unmounts it.
+    // The events chosen are still there and still theirs — a scale corrects them
+    // in place now (ADR-0111 §1) — so the release stands on the reason CONTEXT.md
+    // gives without reference to retraction: a Selection is the subject of a
+    // verb, and a verb that has run has no subject left. Keeping it alive would
+    // make Scale the only verb that survives itself, and repeated scaling would
+    // compound silently (ADR-0111 §9). What is left behind is what the run never
+    // wrote — which is also what keeps the bar on screen to carry the note below,
+    // since an empty Selection unmounts it.
     setSelection(
       new Set(
         (failed > 0
@@ -1409,8 +1412,7 @@
 
 <!-- Amount picker — change a logged food's amount, append-only. The same sheet a
      recipe ingredient row opens (and the search flow stages into); here Done
-     retract-and-replaces the event via changeLoggedFoodAmount, in the panel's
-     own unit. -->
+     corrects the event via changeLoggedFoodAmount, in the panel's own unit. -->
 {#if amountEdit}
   {@const ae = amountEdit}
   <IngredientAmountSheet

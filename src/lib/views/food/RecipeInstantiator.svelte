@@ -37,8 +37,8 @@
   // twin). Either way the user tweaks amounts / adds / removes / adjusts yield,
   // then commit:
   //   • Instantiate → logs a Recipe Instantiation, retracts nothing (additive).
-  //   • Correct → appends a superseding instantiation and retracts the old
-  //     (retract-and-replace, ADR-0008).
+  //   • Correct → appends the re-derived snapshot onto the occasion it is
+  //     correcting; no id changes and nothing is retracted (ADR-0111 §1).
   // Its commit is driven by the host's shared dock: it exposes `requestSave` /
   // `saveReady`, mirroring ManualEntryFlow, and calls `onCommitted` on success.
   let {
@@ -256,7 +256,9 @@
       const resolveName = (ref: string) =>
         nameFromIngredients(ingredients, ref);
       if (edit) {
-        // Correct: append a superseding instantiation, retract the old event.
+        // Correct: append the re-derived snapshot onto the occasion itself
+        // (ADR-0111 §1). It takes neither the meal nor the day — both are the
+        // event's own, and an append cannot move either.
         await correctInstantiation(
           edit.id,
           based_on,
@@ -264,8 +266,6 @@
           yieldNum,
           resolve,
           resolveName,
-          meal_type,
-          selectedDate,
           occasionSize()
         );
         onCommitted();

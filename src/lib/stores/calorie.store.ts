@@ -16,8 +16,10 @@ import {
   EXTRA_NUTRIENT_KEYS,
   type AmountUnit,
   type MeasuredUnit,
+  type Macros,
   type NutritionInfo,
   type NutritionBreakdown,
+  type NutritionExtras,
   type Portion,
 } from "../food/nutrition";
 import type { LabelCapture, ManualEntry } from "../food/provenance";
@@ -88,23 +90,6 @@ export function consumptionForDay(
  * twice (ADR-0073 §5).
  */
 export async function logFoodConsumption(
-  ...args: Parameters<typeof consumptionDatoms>
-): Promise<string> {
-  const { entity, datoms } = consumptionDatoms(...args);
-  await dbClient.append(datoms);
-  return entity;
-}
-
-/**
- * The datoms one Consumption Event is made of, minted but not yet appended.
- *
- * Split out of `logFoodConsumption` so a caller writing SEVERAL events can put
- * them all in one append (see `scaleLoggedFoods`). Appending per event costs a
- * worker round trip and a full re-projection each, and a retract-and-replace
- * split across two appends is briefly visible as BOTH the old food and its
- * replacement — the day grows a row, then loses it again.
- */
-function consumptionDatoms(
   targetEntity: string,
   quantity: string,
   meal_type: string,
@@ -116,7 +101,7 @@ function consumptionDatoms(
   instantiation?: Instantiation,
   breakdown?: NutritionBreakdown,
   entityId?: string
-) {
+): Promise<string> {
   // Use selected date's time, but keep current hour/minute/second so events don't all cluster at 00:00
   const now = new Date();
   const eventDate = new Date(selectedDate);
@@ -135,27 +120,15 @@ function consumptionDatoms(
       `${Math.random().toString(36).substring(2, 9)}_${timestamp}`
     );
 
-  // `calories` is always frozen; each of the three headline macros is frozen only
-  // when supplied (a manual-entry intent omits them, ADR-0035 §7 — absent ≠ 0).
-  // The rest of the panel is merged in under its panel name only for nutrients the
-  // food actually reported (ADR-0030 / #28).
-  const metrics: Record<string, number> = { calories };
-  if (typeof protein === "number") metrics.protein = protein;
-  if (typeof fat === "number") metrics.fat = fat;
-  if (typeof carbs === "number") metrics.carbs = carbs;
-  if (breakdown) {
-    for (const key of EXTRA_NUTRIENT_KEYS) {
-      const v = breakdown[key];
-      if (typeof v === "number") metrics[key] = v;
-    }
-  }
-
   const attributes: Record<string, unknown> = {
     "event/type": "ConsumeAction",
     "event/target": targetEntity,
     "event/quantity": quantity,
     "event/meal_type": meal_type,
-    "event/metrics": metrics,
+    "event/metrics": frozenMetrics(
+      { calories, protein, fat, carbs },
+      breakdown
+    ),
   };
   if (instantiation) attributes["event/instantiation"] = instantiation;
 
@@ -167,12 +140,146 @@ function consumptionDatoms(
     datom.time = timestamp;
   }
 
-  return { entity, datoms };
+  await dbClient.append(datoms);
+  return entity;
+}
+
+/**
+ * The headline a Consumption Event freezes: `calories` always, and each of the
+ * three macros only where it was measured. A macro passed as `undefined` is
+ * **absent, never 0** (ADR-0035 §7) — the daily macro meters read it as
+ * not-counted and only the calorie ring moves.
+ */
+export interface FrozenHeadline extends Partial<Macros> {
+  calories: number;
+}
+
+/** The whole `event/metrics` value: the headline plus the extras. */
+export interface FrozenMetrics extends FrozenHeadline, NutritionExtras {}
+
+/**
+ * The `event/metrics` value a log or a correction of that log freezes: the
+ * headline above, plus every extra nutrient the food actually reported merged in
+ * under its panel name (ADR-0030 / #28). An extra a food never reported is never
+ * written, so it reads as absent forever.
+ *
+ * One spelling, because `event/metrics` is a single value and latest-wins
+ * replaces the whole of it: a correction that froze a narrower shape than the log
+ * it corrects would silently drop nutrients the food still reports (ADR-0111 §1).
+ */
+function frozenMetrics(
+  headline: FrozenHeadline,
+  breakdown?: NutritionBreakdown
+): FrozenMetrics {
+  const metrics: FrozenMetrics = { calories: headline.calories };
+  if (typeof headline.protein === "number") metrics.protein = headline.protein;
+  if (typeof headline.fat === "number") metrics.fat = headline.fat;
+  if (typeof headline.carbs === "number") metrics.carbs = headline.carbs;
+  if (breakdown) {
+    for (const key of EXTRA_NUTRIENT_KEYS) {
+      const v = breakdown[key];
+      if (typeof v === "number") metrics[key] = v;
+    }
+  }
+  return metrics;
+}
+
+/**
+ * The headline a re-derived breakdown freezes, at the stored food precision —
+ * the rounding a logged figure gets so the rows a day sums are the rows it
+ * shows. The extras ride the breakdown itself and are already at that precision.
+ */
+function roundedHeadline(breakdown: NutritionBreakdown): FrozenHeadline {
+  return {
+    calories: roundFood(breakdown.calories),
+    protein: roundFood(breakdown.protein),
+    fat: roundFood(breakdown.fat),
+    carbs: roundFood(breakdown.carbs),
+  };
+}
+
+/**
+ * What one correction may append onto a Consumption Event (ADR-0111 §1). Only
+ * what changed is written: every key omitted here keeps the value the event
+ * already holds, where a replacement had to restate every attribute of the event
+ * plus two datoms on its predecessor.
+ *
+ * `macros` and `breakdown` are the pair a log freezes, for the reason
+ * {@link frozenMetrics} gives: the blob is one value, so a correction that
+ * touches it writes all of it.
+ */
+export interface Correction {
+  /** The food twin the occasion now names — said ONLY where it changed, which
+   *  is one path: a correction reached through the label form can mint a fresh
+   *  twin rather than enrich the one it opened on, and an event left pointing at
+   *  the old one would read as the food the user has just replaced. Every other
+   *  correction leaves the target alone rather than restating it. */
+  target?: string;
+  quantity?: string;
+  meal_type?: string;
+  macros?: FrozenHeadline;
+  breakdown?: NutritionBreakdown;
+  instantiation?: Instantiation;
+}
+
+/**
+ * The datoms one correction is made of, minted but not yet appended — so a
+ * caller correcting SEVERAL events can put them all in one append (see
+ * {@link scaleLoggedFoods}).
+ *
+ * No `time` is injected. An event takes its **first** datom's time, so a
+ * correction stamped now leaves the occasion where it was logged: correcting a
+ * 9am banana at 5pm no longer restamps it 5pm (ADR-0111 §1).
+ */
+function correctionDatoms(eventId: string, correction: Correction) {
+  const attributes: Record<string, unknown> = {};
+  if (correction.target !== undefined)
+    attributes["event/target"] = correction.target;
+  if (correction.quantity !== undefined)
+    attributes["event/quantity"] = correction.quantity;
+  if (correction.meal_type !== undefined)
+    attributes["event/meal_type"] = correction.meal_type;
+  if (correction.macros !== undefined)
+    attributes["event/metrics"] = frozenMetrics(
+      correction.macros,
+      correction.breakdown
+    );
+  if (correction.instantiation !== undefined)
+    attributes["event/instantiation"] = correction.instantiation;
+  return ingestEntity({ entity: eventId, attributes });
+}
+
+/**
+ * Corrects one logged occasion by appending onto the event it corrects
+ * (ADR-0111 §1): no id changes, nothing is retracted, and no
+ * `event/replaced_by` is written. Latest-wins per attribute does the rest, which
+ * is what makes two devices correcting the same occasion converge on the later
+ * value instead of leaving two live events (#463).
+ *
+ * **Every datom of one correction rides one append** (ADR-0111 §3). Appending
+ * onto a live entity makes a new headline beside an old breakdown representable
+ * for the first time, and the P2P payload builder's `winningRows` narrows per
+ * `(entity, attribute)` — exactly the granularity at which a half-arrived set
+ * would split.
+ *
+ * It returns nothing. A caller holding the event's id already holds the only id
+ * there is, and ADR-0107's reveal turns on being handed an id: a correction that
+ * reported one would move the page under a hand that has just committed an edit.
+ *
+ * A correction carrying nothing throws at {@link ingestEntity} rather than
+ * appending an empty batch, which is the behaviour to want: a caller that
+ * decided there was nothing to correct should not have called this.
+ */
+export async function correctConsumptionEvent(
+  eventId: string,
+  correction: Correction
+): Promise<void> {
+  await dbClient.append(correctionDatoms(eventId, correction));
 }
 
 /** One logged food, already resolved to what a scale will act on. */
 export interface ScaleChange {
-  /** The event being replaced. Its meal, its day and its id come from here. */
+  /** The event being corrected. Its id is where the datoms land. */
   event: ConsumptionEvent;
   /** The scaled amount, in `unit`. */
   amount: number;
@@ -182,12 +289,14 @@ export interface ScaleChange {
    *  the same reason the panel is: a gram amount against a per-100 ml panel has
    *  to be converted before it can be divided (ADR-0108 §5). */
   source: IngredientSource;
-  /** The food twin the replacement points at. */
+  /** The food twin whose panel the new figures are derived from — the event's
+   *  own target. A scale changes how much, never what. */
   ref: string;
 }
 
 /**
- * Scales several logged foods in **one append** (ADR-0088 §5).
+ * Scales several logged foods in **one append** (ADR-0088 §5), each by
+ * correcting the event it is (ADR-0111 §1).
  *
  * `changeLoggedFoodAmount` below is the single-food version and re-reads the
  * twin each time. Across a Selection that read is pure waste: the Scale tier
@@ -196,10 +305,15 @@ export interface ScaleChange {
  * find them again. What is left is arithmetic, and the whole run becomes one
  * round trip instead of three per food.
  *
- * The single append is what makes the change land as one event rather than a
- * cascade: every row takes its new figure and lets go of its mark in the same
- * frame, and no intermediate state is ever projected — not a day holding an old
- * food beside its replacement, and not a half-scaled Selection.
+ * The single append is what makes the run land as one change rather than a
+ * cascade: every row takes its new figure in the same frame, and no intermediate
+ * state is ever projected — not a half-scaled Selection, and not a day where
+ * some rows have moved and others have not.
+ *
+ * It returns a **count**, and should, even though every id it wrote is an id it
+ * was handed. Nothing wants them: a Selection holding those ids needs nothing
+ * back now that none of them changed, and a reveal handed one would fire on a
+ * row the user is already looking at (ADR-0111 §9).
  */
 export async function scaleLoggedFoods(
   changes: ScaleChange[]
@@ -212,29 +326,11 @@ export async function scaleLoggedFoods(
       { ref: change.ref, amount: change.amount, unit: change.unit },
       () => change.source
     );
-    const replacement = consumptionDatoms(
-      change.ref,
-      quantityLabel(change.amount, change.unit),
-      change.event.meal_type ?? "snack",
-      roundFood(breakdown.calories),
-      roundFood(breakdown.protein),
-      roundFood(breakdown.fat),
-      roundFood(breakdown.carbs),
-      new Date(change.event.time),
-      undefined,
-      breakdown
-    );
-    datoms.push(...replacement.datoms);
-    // The same retraction `retractConsumptionEvent` writes, inlined so it rides
-    // the one append. `event/replaced_by` is also what keeps the row where it
-    // is: the projection hands a replacement its predecessor's place.
     datoms.push(
-      ...ingestEntity({
-        entity: change.event.id,
-        attributes: {
-          "event/status": "retracted",
-          "event/replaced_by": replacement.entity,
-        },
+      ...correctionDatoms(change.event.id, {
+        quantity: quantityLabel(change.amount, change.unit),
+        macros: roundedHeadline(breakdown),
+        breakdown,
       })
     );
   }
@@ -545,10 +641,21 @@ export async function saveManualFood(input: ManualFoodInput): Promise<string> {
 
 /**
  * Retracts a Consumption Event by appending a newer `event/status = "retracted"`
- * datom (never deletes — the projection's latest-wins fold hides it). Mirrors the
- * habit soft-archive convention (ADR-0008). `replacedBy` links the retracted event
- * to whatever supersedes it (e.g. the recipe event, or the re-logged event of an
- * edit) for an auditable trail; omit it for a plain user-initiated removal.
+ * datom (never deletes — the projection's latest-wins fold hides it).
+ *
+ * `replacedBy` is the **consumption link**: the one event the retracted one was
+ * consumed INTO, written on each of the N foods a Consolidate folds into a
+ * recipe, all naming the same successor (ADR-0111 §6). That many-to-one shape is
+ * its only job. A plain user-initiated removal omits it, and a correction never
+ * writes one at all — a correction appends onto the event it corrects, so no id
+ * changes and there is nothing to link (§1).
+ *
+ * The ADR-0008 citation this comment used to carry is struck. It reasons about
+ * Habit Blueprints, whose Execution Events target a fixed blueprint *version*;
+ * nothing targets a Consumption Event, which is a leaf, so the convention was
+ * inherited here rather than derived. The "auditable trail" it claimed for the
+ * link is struck too: nothing in the repo audits one, and a correction's history
+ * is one entity's datoms in HLC order (§8).
  */
 export async function retractConsumptionEvent(
   eventId: string,
@@ -566,13 +673,15 @@ export async function retractConsumptionEvent(
  * `event/meal_type` datom onto each existing Consumption Event** (ADR-0088 §8).
  * Latest-wins does the rest.
  *
- * It is deliberately NOT the re-log-and-retract every other edit in this module
- * performs. Re-logging would assert that you un-ate that banana at breakfast and
- * ate a different one at lunch, leaving two bananas in the history with one
- * retracted; a move corrects a fact about one event and re-derives no numbers,
- * so the event keeps its id, its `event/time`, its metrics, its photo, its
- * provenance and its arrival mark. `retractConsumptionEvent` above is the
- * precedent: a Consumption Event may gain an attribute after the fact.
+ * This was once the exception in this module and is now an instance of the rule
+ * (ADR-0111 §1): re-logging would assert that you un-ate that banana at
+ * breakfast and ate a different one at lunch, leaving two bananas in the history
+ * with one retracted, and the argument ADR-0088 §8 made for a move — the event
+ * keeps its id, its `event/time`, its metrics, its photo, its provenance and its
+ * arrival mark — turned out to apply word for word to every correction. What
+ * dropped out was the line it drew: re-deriving numbers produces a new *value*
+ * for `event/metrics`, and storing a new value for an attribute is what an
+ * append is.
  *
  * Because no id changes, a caller holding the old ids — the Selection — needs
  * nothing back.
@@ -621,13 +730,13 @@ export async function moveLoggedFoodsToMeal(
 }
 
 /**
- * Changes a plain logged food's measured amount, append-only: re-derives its
- * macros from the food twin's `nutrition/info` panel at the new amount (the
- * ADR-0021 formula, the same one the recipe rows use), logs a fresh Consumption
- * Event, and retracts the old one — the amount-picker equivalent of
- * `LogFoodSheet`'s edit, but amount-only (ADR-0008). For plain foods scaled
- * against a panel; recipe instantiations are corrected on their own editor and
- * whole-serving foods are locked (future work).
+ * Changes a plain logged food's measured amount by correcting the event
+ * (ADR-0111 §1): it re-derives the macros from the food twin's `nutrition/info`
+ * panel at the new amount (the ADR-0021 formula, the same one the recipe rows
+ * use) and appends the new quantity and metrics onto the event that is already
+ * there. The amount-picker equivalent of `LogFoodSheet`'s edit, but amount-only.
+ * For plain foods scaled against a panel; recipe instantiations are corrected on
+ * their own editor and whole-serving foods are locked (future work).
  *
  * `amount` travels with the `unit` it was entered in rather than having one read
  * back off the panel, which is what it did until #430. The two coincide on every
@@ -637,41 +746,45 @@ export async function moveLoggedFoodsToMeal(
  * the unit that reaches it, and the scaling factor puts that amount into the
  * panel's own unit first (ADR-0108 §5) rather than rewriting the panel.
  *
- * Returns the id of the Consumption Event that replaced the old one, or `null`
- * when there was nothing to scale from (no target, or a twin carrying no
- * panel). Callers holding the old id — the dashboard's selection — need the new
- * one, since the old event is now retracted; `null` tells them the food was
- * left exactly as it was.
+ * `retarget` is the twin the occasion should now name, and only the label form's
+ * edit path passes one: a correction there may have minted a fresh twin instead
+ * of enriching the one it opened on, and an event left naming the old twin would
+ * read as the food the user has just replaced. It is both what the panel is read
+ * from and what is written onto the event. Omitted — every other caller — the
+ * correction says nothing at all about the target, because nothing about it
+ * changed (ADR-0111 §1: only what changed is written).
+ *
+ * It returns nothing, and the two things it might have returned are both
+ * refused for one reason: nothing reads them. **No id**, because the event's is
+ * unchanged and the caller already holds it (ADR-0111 §1). **No "did it write"
+ * flag**, because a twin carrying no panel is a food that cannot be scaled at
+ * all, which the amount picker settled before it drew — both call sites discard
+ * the answer, and a flag nobody reads is the id churn's mistake in a smaller
+ * shape.
  */
 export async function changeLoggedFoodAmount(
   event: ConsumptionEvent,
   amount: number,
-  unit: MeasuredUnit
-): Promise<string | null> {
-  if (!event.target) return null;
-  const twin = await getLocalFoodTwin(event.target);
+  unit: MeasuredUnit,
+  retarget?: string
+): Promise<void> {
+  const target = retarget ?? event.target;
+  if (!target) return;
+  const twin = await getLocalFoodTwin(target);
   const panel = twin?.attributes?.["nutrition/info"] as
     | NutritionInfo
     | undefined;
-  if (!panel) return null;
+  if (!panel) return;
   const breakdown = deriveIngredientMacros(
-    { ref: event.target, amount, unit },
+    { ref: target, amount, unit },
     () => ({ panel, density: readFoodDensity(twin?.attributes) })
   );
-  const newId = await logFoodConsumption(
-    event.target,
-    quantityLabel(amount, unit),
-    event.meal_type ?? "snack",
-    roundFood(breakdown.calories),
-    roundFood(breakdown.protein),
-    roundFood(breakdown.fat),
-    roundFood(breakdown.carbs),
-    new Date(event.time),
-    undefined,
-    breakdown
-  );
-  await retractConsumptionEvent(event.id, newId);
-  return newId;
+  await correctConsumptionEvent(event.id, {
+    target: retarget,
+    quantity: quantityLabel(amount, unit),
+    macros: roundedHeadline(breakdown),
+    breakdown,
+  });
 }
 
 /**

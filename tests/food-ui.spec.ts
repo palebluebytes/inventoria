@@ -1054,8 +1054,9 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     const sheet = page.locator(".amount-sheet");
     await expect(sheet.getByLabel("Amount in grams")).toHaveValue("150");
 
-    // Change the amount and confirm; the entry is replaced (append-only, not
-    // duplicated) with macros re-derived from the twin at the new amount.
+    // Change the amount and confirm; the entry is corrected in place (ADR-0111
+    // §1 — the same event, not a second one) with macros re-derived from the
+    // twin at the new amount.
     await sheet.getByLabel("Amount in grams").fill("300"); // 89 * 3 = 267
     await sheet.locator("#amount-done-btn").click();
     await expect(sheet).toBeHidden();
@@ -2135,10 +2136,10 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     await expect(oats).toContainText("100g");
     await expect(oats.locator(".is-preview")).toHaveCount(0);
 
-    // Applying ENDS the Selection (ADR-0088's Amendment of 2026-09-02): every
-    // event picked was retracted and replaced, so carrying the successors
-    // forward would leave a Selection of foods nobody chose. The row washing
-    // back to paper is the acknowledgement that the write happened.
+    // Applying ENDS the Selection (ADR-0088's Amendment of 2026-09-02, on the
+    // reason ADR-0111 §9 leaves it): a Selection is the subject of a verb, and a
+    // verb that has run has no subject left. The row washing back to paper is
+    // the acknowledgement that the write happened.
     await expect(page.locator(".selbar")).toHaveCount(0);
     await expect(oats.locator(".select-check.on")).toHaveCount(0);
   });
