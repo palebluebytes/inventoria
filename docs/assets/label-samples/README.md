@@ -16,9 +16,9 @@ deliberately, with that in mind.
 
 The same four photographs appear twice. They differ in transport, not in subject.
 
-| Arm                              | Dimensions  | Provenance                                                                                                      |
-| -------------------------------- | ----------- | --------------------------------------------------------------------------------------------------------------- |
-| [`as-captured/`](as-captured/)   | 2250 × 4000 | Off the phone directly. Rotated 90° clockwise losslessly with `jpegtran -rotate 90 -copy none`, which also drops all metadata. Pixel data is the camera's, re-encoded by nothing. |
+| Arm                              | Dimensions  | Provenance                                                                                                                                                                                                    |
+| -------------------------------- | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [`as-captured/`](as-captured/)   | 2250 × 4000 | Off the phone directly. Rotated 90° clockwise losslessly with `jpegtran -rotate 90 -copy none`, which also drops all metadata. Pixel data is the camera's, re-encoded by nothing.                             |
 | [`via-whatsapp/`](via-whatsapp/) | 1125 × 2000 | The same four, as they arrived through WhatsApp in 2026. Downscaled and re-compressed by WhatsApp; EXIF already stripped when they arrived, and stamped 21:15:24, the send time rather than the capture time. |
 
 `as-captured/` is the set to reach for. `via-whatsapp/` is kept because it is a real
@@ -39,20 +39,20 @@ worse, a clean one-to-one match.
 
 ## What each file holds
 
-| File                                               | Product                                   | In frame                        | Languages                        | Decimals                       | Basis      |
-| -------------------------------------------------- | ----------------------------------------- | ------------------------------- | -------------------------------- | ------------------------------ | ---------- |
-| `peanut-butter-8710411045003-panel-and-barcode.jpg` | Peanut butter, `8710411045003`            | Panel **and** barcode, one face | Dutch + German                   | Period: `5.4 g`, `0.6 g`       | per 100 g  |
-| `olive-oil-8436578483808-panel.jpg`                 | La Chinata extra virgin olive oil         | Nutrition only, no barcode      | Spanish + English                | **Comma**: `3701,13 kJ`, `13,808 g` | per 100 ml |
-| `olive-oil-8436578483808-barcode.jpg`               | The same bottle, the other side           | Barcode + net quantity, no panel | Spanish + English + German + French | —                          | 50 ml net  |
-| `indian-paste-8901222932167-panel-and-barcode.jpg`  | Indian paste, `8901222932167` (GS1 `890`) | Panel **and** barcode, one face | English + Spanish + Italian + French + Polish + Dutch | Period: `937.21` | per 100 g  |
+| File                                                | Product                                   | In frame                         | Languages                                             | Decimals                            | Basis      |
+| --------------------------------------------------- | ----------------------------------------- | -------------------------------- | ----------------------------------------------------- | ----------------------------------- | ---------- |
+| `peanut-butter-8710411045003-panel-and-barcode.jpg` | Peanut butter, `8710411045003`            | Panel **and** barcode, one face  | Dutch + German                                        | Period: `5.4 g`, `0.6 g`            | per 100 g  |
+| `olive-oil-8436578483808-panel.jpg`                 | La Chinata extra virgin olive oil         | Nutrition only, no barcode       | Spanish + English                                     | **Comma**: `3701,13 kJ`, `13,808 g` | per 100 ml |
+| `olive-oil-8436578483808-barcode.jpg`               | The same bottle, the other side           | Barcode + net quantity, no panel | Spanish + English + German + French                   | —                                   | 50 ml net  |
+| `indian-paste-8901222932167-panel-and-barcode.jpg`  | Indian paste, `8901222932167` (GS1 `890`) | Panel **and** barcode, one face  | English + Spanish + Italian + French + Polish + Dutch | Period: `937.21`                    | per 100 g  |
 
 ## What the set exercises
 
 - **A panel that is prose, not a table.** The olive oil declares itself in a running
-  sentence — *"Valor energético 3701,13kJ/884 kcal, grasas 100g (de las cuales:
-  saturadas 13,808g), hidratos de carbono 0g…"* — twice over, Spanish then English.
+  sentence — _"Valor energético 3701,13kJ/884 kcal, grasas 100g (de las cuales:
+  saturadas 13,808g), hidratos de carbono 0g…"_ — twice over, Spanish then English.
   Every other panel here is a ruled grid. Nothing in the effort had noticed that the
-  hardest sample is hard because of its *layout*.
+  hardest sample is hard because of its _layout_.
 - **A comma-decimal that is a 1000× trap.** `13,808 g` of saturates per 100 ml. Read
   as a thousands separator it becomes 13,808 g, and olive oil is about 14 g of
   saturates per 100 g, so the correct reading is 13.808. This is the sharpest single
@@ -62,10 +62,10 @@ worse, a clean one-to-one match.
   [ADR-0052](../../adr/0052-a-drinks-panel-is-carried-per-100-ml.md)'s and
   [ADR-0060](../../adr/0060-an-amount-is-entered-in-its-panels-unit.md)'s territory,
   not a per-100-g panel with a unit relabelled.
-- **Six languages in one row label**, stacked and set small: *"Saturated Fat/ Grasas
-  saturadas/ Grassi saturi/ Graisses saturées/Tłuszcz nasycony// Verzadigd vet"* —
+- **Six languages in one row label**, stacked and set small: _"Saturated Fat/ Grasas
+  saturadas/ Grassi saturi/ Graisses saturées/Tłuszcz nasycony// Verzadigd vet"_ —
   including Polish diacritics, a doubled slash that is a printing error, and a `Fiber`
-  row whose Polish *Błonnik* is printed faint enough to read as *Bionnik*.
+  row whose Polish _Błonnik_ is printed faint enough to read as _Bionnik_.
 - **Two faces of one bottle**, which is the only reason a request contract has to
   carry more than one image.
 - **A barcode sharing the frame with the panel**, on two of the three products, and on
@@ -76,9 +76,10 @@ worse, a clean one-to-one match.
 
 ## What the set does not exercise
 
-**No micronutrient rows. None of the four photographs contains one.** All three
-panels are the eight rows EU law requires — energy, fat, saturates, carbohydrate,
-sugars, fibre, protein, salt — and the olive oil's prose carries the same eight. This
+**No micronutrient rows. None of the four photographs contains one.** The peanut
+butter and the paste print the eight rows EU law requires — energy, fat, saturates,
+carbohydrate, sugars, fibre, protein, salt. The olive oil's prose carries **seven**:
+it prints no fibre row, in either the Spanish or the English sentence. This
 was verified on the 2250 × 4000 arm, not inferred from the degraded copies.
 
 This matters because the twelve micronutrients are a target of the app's own
@@ -86,7 +87,7 @@ This matters because the twelve micronutrients are a target of the app's own
 had been lost. Map #47's grounding text records only a blank name, a low completeness
 score, a two-photo bottle and a barcode that failed automated decode; it never claimed
 a micronutrient row. `docs/research/49-multimodal-llm-nutrition-extraction.md` §1
-nonetheless illustrates the hard case with a 6 pt *"Vitamine B12 … 0,5 µg"* row and
+nonetheless illustrates the hard case with a 6 pt _"Vitamine B12 … 0,5 µg"_ row and
 attributes the observation to that investigation, and its §3 lists "12 micronutrients
 in mg/µg" among the residual risks these samples were supposed to retire.
 
@@ -98,6 +99,13 @@ is a verdict about eight mandatory rows in six languages, and it should say so.
 A fifth photograph of a product that does print micronutrients would close the gap for
 the cost of one picture. It was considered and deliberately not taken; the gap is
 recorded instead.
+
+The oil's missing fibre row turned out to matter more than a count. Fibre is a row the
+_other two_ labels do print, so a model reading the bottle has every reason to expect one
+— which makes it a second absent-row instrument alongside the twelve micros, and a
+sharper one, because there is a plausible wrong answer to give. When
+[#482](https://github.com/palebluebytes/inventoria/issues/482) ran, the model it rejected
+wrote `0` there every single time.
 
 ## Corrections this set forces
 
