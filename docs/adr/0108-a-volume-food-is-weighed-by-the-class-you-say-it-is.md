@@ -618,3 +618,151 @@ of the food and not of the screen. It is not breached. The density is one fact o
 one twin and both units stay available everywhere; what is scoped is only which
 unit the field opens on, which was already a per-context rule the moment context
 was allowed to set a default at all.
+
+## Amendment (2026-09-17): §12's model pick is refused, §2's sixth-class bar is answered, and four counts are stale
+
+§12 defers a per-food density to a model and reserves a typed seam for one.
+Charting [#474](https://github.com/palebluebytes/inventoria/issues/474) — the map
+that gives this app one gated way to ask a model anything — asked what that model
+would be for, and spent two tickets finding out
+([#481](https://github.com/palebluebytes/inventoria/issues/481),
+[#499](https://github.com/palebluebytes/inventoria/issues/499)). The answer is that
+**the density lane asks no model, at build time or at runtime, and the seam §12
+reserves is not owed.**
+
+Nothing above §12 moves. The class is still the unit of the answer, the figures are
+still pinned, and the gate still proves them.
+
+### §12 is wrong in both directions
+
+It reads: a per-food density "would be better than a class", and the way to get one
+is a model. Both halves fail against the corpus this record is measured over.
+
+**Better is available without a model.** Of the 627 corpus foods that state a
+density, 513 sit outside all five classes — but 325 of those sit below 0.85 g/ml,
+which is the packing density of a heaped solid (freeze-dried chives at 0.0135,
+swiss chard at 0.1522) and must never convert anything. The 0.85–1.60 band above
+them is mayonnaise, cottage cheese, peanut butter, tahini, tofu, miso and table
+salt, which are packing densities of semi-solids. The genuinely pourable residue is
+about thirty foods: ten syrups, honeys and molasses, fifteen spirits and liqueurs,
+three coconut products. **USDA measured every one of them.** §2 refused syrup
+(CV 8.99% over a 44.4% spread) and spirits (2.63%) as _classes_, which is a fact
+about an average and not about its members: honey at 1.4265 against maple at 1.3420
+is a gap between two foods, each tight across its own portions. Pinning those per
+food is the same source, the same derivation and the same gate minus the averaging
+step, so it is **more** evidenced than a class rather than a weaker kind of thing.
+Filed as [#501](https://github.com/palebluebytes/inventoria/issues/501).
+
+**And where the corpus holds nothing, a model cannot measure — it can only recall.**
+A figure a model produces for a food USDA never portioned has no source to open, no
+n, no CV and no pattern, which is exactly the _"disclosure theatre"_ this record's
+2026-09-15 amendment refused by name for the user's own typed figure. If the user's
+own assertion is not a measurement, a model's recollection of one is not either, and
+ratifying it converts nothing: a maintainer waving a table through is
+[#130](https://github.com/palebluebytes/inventoria/issues/130)'s unread verdict
+class with a different label on it.
+
+**And §12 prices its own remainder.** A class already takes olive oil's 78 kcal of
+error down to 6 on 100 ml. What a model is being asked to buy is that 6, against a
+Worker route, a secret, a network dependency in an offline-first app and a number
+nobody can check. So a model-adjudicated per-food density table is **refused**, and
+the three arguments stand in that order: the corpus holds the numbers, a model can
+only recall what it does not, and the remainder is not worth the infrastructure.
+
+### The one job that survived is refused too, and on value rather than on a rule
+
+#481 narrowed the proposal to a model **naming a class** — no figure, so no number a
+model invented ever reaches a panel — with the pinned constant still doing the
+arithmetic. On the map's own rules that is admissible by construction. #499 measured
+it anyway and refused it at every location it could sit, because what it buys is not
+worth a question, let alone a route:
+
+- **The four non-oil classes pool to n=73, median 1.0009, CV 1.90%**, which clears
+  §2's own bar. _"It is a liquid"_ is an admissible class by this record's standard,
+  so the whole four-way distinction between water-like, milk-like, juice and
+  beer/wine is worth **at most 11.6 kcal, on one food**, and 0.02 to 5.6 kcal on the
+  mean of each class over 250 ml. The distinctions that do pay are three: oil at
+  11 kcal a tablespoon, syrup at 20, aerated at 72 kcal per 100 ml.
+- **The nutrition panel carries the signal the category tags were being asked for.**
+  Three lines — fat ≥ 80 g is oil; kcal ≥ 250 with fat < 5 g and carbohydrate ≥ 55 g
+  is syrup; otherwise liquid — recover **123 of 124** non-aerated foods (41 of 41
+  oils, 9 of 10 syrups, 73 of 73 liquids). The miss is `Syrups, sugar free` at
+  51 kcal, costing 0.1 kcal on a tablespoon. Every twin has a panel, so unlike
+  `categories_tags` this reaches the quarter of millilitre products carrying no
+  usable tags at all, which was the model's entire stated prize. The guard is
+  load-bearing: run over the whole corpus rather than where the pre-fill asks, the
+  same rule calls dry noodles and freeze-dried chives syrup at 400 kcal of error.
+- **Aerated is the one case a panel cannot see**, because air has no macros, and it
+  still leaves 10 to 17 kcal per 100 ml even once classed. So it is the one place a
+  question earns its keep, which means no aerated figure is needed at all — only the
+  knowledge of when to ask.
+
+The redesign those measurements imply — collapse the picker, read the outlier off
+the panel, spend a question only where a wrong answer costs more than about
+10 kcal — is [#505](https://github.com/palebluebytes/inventoria/issues/505), against
+this record's lane. **This amendment records the verdict; #505 amends the
+mechanism.** What is settled here is only that no part of it asks a model.
+
+### §2's sixth-class bar is answered, and it stays unexercised
+
+§2 set a bar that admits a sixth class at n ≥ 8 foods and CV ≤ 2%. Every candidate
+anyone has proposed was measured against the shipped artifact, and **every one fails
+on n, not on CV**:
+
+| candidate  |   n | range       | CV     | fails |
+| ---------- | --: | ----------- | ------ | ----- |
+| vinegar    |   4 | 1.008–1.078 | 2.89%  | n     |
+| soy sauce  |   5 | 0.960–1.217 | 9.89%  | n     |
+| ice cream  |   2 | 0.575–0.727 | 11.69% | n     |
+| plant milk |   1 | 1.014       | 0.00%  | n     |
+| soup       |   0 | —           | —      | n     |
+| carbonated |   0 | —           | —      | n     |
+
+The members do not exist to be found, which is not a thing a pattern-matcher can
+fix: a model hunting for a sixth class hunts for foods USDA never portioned by
+volume. Vinegar, the candidate every reader reaches for first, is worth **one
+kilocalorie a tablespoon**. The bar is doing its job rather than standing in
+anybody's way, and it is recorded as answered so the next reader does not re-run it.
+
+### Four counts are stale, and they are deliberately ungated
+
+The five class figures are recomputed exactly by `scripts/density-class-check.mjs`
+and all five still pass. The **headline counts beside them** are checked by nothing,
+and four have drifted through a corpus regeneration in silence:
+
+| claim                                      | stated | artifact holds |
+| ------------------------------------------ | ------ | -------------- |
+| §12, "USDA foods that carry one"           | 896    | 627            |
+| `density-class.ts:10`, volume portions     | 942    | 933            |
+| `density-class.ts:10`, foods carrying one  | 636    | 627            |
+| `density-class.ts:94`, foods in the corpus | 2,437  | 2,418          |
+
+§12's 896 is the **schema-8** number: the 2026-09-14 re-pin amendment moved every
+figure it touched to schema 9 and never reached §12, which nothing had built. The
+header counts in `density-class.ts` are corrected in place, because they are
+narration rather than a decision, and this record carries what they used to say.
+
+They stay **ungated on purpose**. A corpus regeneration legitimately moves them, and
+a gate that failed on them would train a reader to edit a number until the build
+went green — which is the opposite of what the figure check does, where a moved
+number means a decision is owed. A check nobody believes is worse than no check, so
+the counts are described as descriptive and left that way.
+
+### Consequences
+
+- **§12 is refused rather than deferred.** "Not built by this record" in the
+  Consequences above becomes, for the per-food model pick, _not to be built_. §10's
+  household portions are untouched and stay merely unbuilt.
+- **No typed seam is owed**, and none exists: `readFoodDensity` would today drop the
+  `fdc_id` of a per-food density it was handed
+  ([#502](https://github.com/palebluebytes/inventoria/issues/502)), which is
+  unreachable precisely because nothing mints one.
+- **The reopening bar [ADR-0060](0060-an-amount-is-entered-in-its-panels-unit.md)
+  set for itself is retired in that record**, in one line at its foot. It asked for
+  a density _measured rather than derived_, and nothing in this repo passes that
+  test — not a class, not the user's own typed figure — so left standing it
+  generates a ticket out of nothing every time somebody reads it. #481 is that
+  ticket, written three days after the sentence was spent.
+- **The lane's remaining work asks no model**: #501's per-food pin for the thirty
+  pourable foods no class fits, and #505's panel rule. Both amend this record and
+  want sequencing behind this one.

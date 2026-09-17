@@ -703,3 +703,32 @@ itself which of the two field names a millilitre goes in.
 Nothing about Open Food Facts contributions changes: `buildOffWriteBody` posts no
 portions, and the `serving_size` it does post is skipped for every per-100 panel
 this form writes.
+
+## Amendment (2026-09-17): the reopening bar this record set for itself is retired
+
+The Consequences above close the measuring-jug case with a test for reopening it:
+
+> What would reopen it is a per-food density that is _measured_ rather than
+> derived: a curated table under
+> [ADR-0046](0046-curated-stand-ins-for-base-foods-usda-lacks.md)'s eligibility
+> rules would qualify, a constant never will.
+
+**That sentence is spent, and it names a test nothing in this repo passes.**
+[ADR-0108](0108-a-volume-food-is-weighed-by-the-class-you-say-it-is.md) reopened
+the case on different ground and has since ruled, in its own 2026-09-15
+correction, that even a figure the user types by hand is _"an asserted density,
+not a measured one"_. A class figure is a median over a measured corpus, which is
+derived. So nothing that has shipped, or that anybody has proposed, clears the bar
+as written, and the four grounds ADR-0108 §11 states — bounded by a measured
+corpus with a stated spread, asserted by the user rather than inferred about the
+food, disclosed at the point of use and overridable, and wrong by a percent of one
+nutrient rather than by a claim about the food — are the live admissibility test.
+The pointer at ADR-0046 misfires for the same reason: its four eligibility tests
+ask whether a **composition** may be curated where USDA has none, and a density is
+not a composition.
+
+Left standing, the sentence generates work out of nothing.
+[#481](https://github.com/palebluebytes/inventoria/issues/481) was written against
+it three days after ADR-0108 spent it, and cost a census to answer with "the bar
+you are quoting no longer exists". This line is what stops the next reader doing
+the same.
