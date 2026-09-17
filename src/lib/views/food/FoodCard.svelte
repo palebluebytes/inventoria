@@ -3,9 +3,16 @@
   import type { EntityPayload } from "../../ingestion/ingest";
   import {
     reportsNoEnergy,
+    type MeasuredUnit,
     type NutritionInfo,
     type Portion,
   } from "../../food/nutrition";
+  import {
+    densityClassFromCategoryTags,
+    readFoodDensity,
+    type FoodDensity,
+  } from "../../food/density";
+  import { offCategoryTagsFromTwin } from "../../food/open-food-facts";
   import { deriveNovaVerdict, type NovaVerdict } from "../../food/nova-verdict";
   import {
     deriveDietaryVerdict,
@@ -38,6 +45,8 @@
     panel = undefined,
     portions = [],
     amount = $bindable(),
+    unit = $bindable(),
+    onAssertDensity = undefined,
     onEdit,
     onExplainSource,
     onExplainNova,
@@ -52,8 +61,24 @@
     panel?: NutritionInfo;
     /** Household portions surfaced as picker chips (ADR-0030). */
     portions?: Portion[];
-    /** The amount in view, in the panel's own unit (ADR-0060 §1). */
+    /** The amount in view, in {@link unit}. */
     amount: number;
+    /**
+     * The unit that amount is in. The host seeds it — only the host knows
+     * whether this food is being measured INTO something or consumed, which is
+     * what decides the opening unit on a food that can answer in either
+     * (ADR-0108 §7, as amended) — and the control writes back to it when the
+     * user switches, because an amount that left here as a bare number would be
+     * re-derived wrongly by every reader that read its unit off the food.
+     */
+    unit: MeasuredUnit;
+    /**
+     * The user has said what kind of liquid this food is. Where that lands is
+     * the host's too: a twin already in the ledger takes a datom, a staged one
+     * carries the assertion to its own commit. Omit on a surface with nowhere to
+     * put it, and the toggle then offers only the unit the panel names.
+     */
+    onAssertDensity?: (density: FoodDensity) => void;
     /**
      * Correct this food from its label. Drives the pencil origin badge, which
      * shows only for a twin that already carries a label capture (§7) — an
@@ -120,6 +145,32 @@
   // reaches this is an OFF record, a curated stand-in, a label capture, or a
   // corpus row a future mirror refresh admits.
   let noEnergy = $derived(reportsNoEnergy(panel));
+
+  // What the user has just said on this screen, held until the host's write
+  // comes back through the payload. The assertion is the host's to persist —
+  // this card has no store — but the field has to switch the moment it is
+  // answered, and a control that waits for a round trip to respond reads as
+  // broken. Cleared when the card moves to another food, because it is a claim
+  // about the twin under it and not about the screen.
+  let asserted = $state<FoodDensity | undefined>(undefined);
+  $effect(() => {
+    void payload.entity;
+    asserted = undefined;
+  });
+
+  // The density and the source's own proposal, both read off the payload every
+  // other mark on this card reads from. A proposal is not a class: it opens the
+  // picker and is never written until the user has seen it (ADR-0108's pre-fill
+  // amendment).
+  let density = $derived(asserted ?? readFoodDensity(payload.attributes));
+  let prefill = $derived(
+    densityClassFromCategoryTags(offCategoryTagsFromTwin(payload.attributes))
+  );
+
+  function assertDensity(next: FoodDensity) {
+    asserted = next;
+    onAssertDensity?.(next);
+  }
 </script>
 
 <div class="food-card">
@@ -196,7 +247,25 @@
     </p>
   {/if}
 
-  <FoodAmountPanel {panel} {portions} bind:amount />
+  <!-- The density and the source's proposal are read off the same twin every
+       other mark on this card is read from, so no host re-derives either and the
+       staging screen and the edit sheet cannot come to different conclusions
+       about the same carton (ADR-0108 §1: a density is a property of the food).
+
+       Keyed on the entity because the question the picker asks is about THIS
+       food: staging another one is a new control, not the same control with a
+       half-answered question still open. -->
+  {#key payload.entity}
+    <FoodAmountPanel
+      {panel}
+      {portions}
+      bind:amount
+      bind:unit
+      {density}
+      {prefill}
+      onAssertDensity={onAssertDensity ? assertDensity : undefined}
+    />
+  {/key}
 
   <!-- Allergen safety block (ADR-0043 §3, #104): a static, present-only block
        below the quantity row — Contains › May-contain › Free-from, one allergen

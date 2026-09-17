@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
+import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   FACETS,
@@ -9,7 +10,6 @@ import {
   entityPrefixesOf,
   facetOf,
   type FacetId,
-  isDeclaredEntity,
   nestedFacetsOf,
   ownerOfEntity,
   ownerOfViewModule,
@@ -20,7 +20,7 @@ import {
   storagePrefixesOf,
   VIEWS_ROOT,
 } from "../../src/lib/facets/registry";
-import { mintEntity } from "../../src/lib/facets/entity-id";
+import { isDeclaredEntity, mintEntity } from "../../src/lib/facets/entity-id";
 
 // The registry's *shape* invariants — one owner per prefix, no cross-owner
 // containment — are asserted by scripts/entity-ownership-check.mjs, which also
@@ -353,5 +353,79 @@ describe("what the Facet gates read off the registry (ADR-0083 §4)", () => {
     // the cleanup rule nor the navigation denylist is written against `root`.
     expect(nestedFacetsOf("root").map((f) => f.id)).toEqual(["food"]);
     expect(nestedFacetsOf("food")).toEqual([]);
+  });
+});
+
+describe("the registry's two halves", () => {
+  /**
+   * Every module reachable from an entry by following relative imports.
+   *
+   * Written here rather than borrowed, because the question is about what a
+   * **bundler** would pull in and that is a transitive fact: `importersOf`
+   * answers who names a module directly, and a direct import is exactly the
+   * edge that would be easiest to re-add one level down.
+   */
+  function importClosureOf(entry: string): Set<string> {
+    const seen = new Set<string>();
+    const frontier = [entry];
+    while (frontier.length > 0) {
+      const path = frontier.pop()!;
+      if (seen.has(path)) continue;
+      seen.add(path);
+      const source = readFileSync(path, "utf8");
+      for (const [, clause, specifier] of source.matchAll(
+        /(?:^|\n)\s*(?:import|export)([\s\S]*?)from\s+["'](\.[^"']*)["']/g
+      )) {
+        // **A type-only edge is not an edge here.** `import type` is erased
+        // before a bundler resolves anything, so following it would answer a
+        // different question than the one this test asks — and it would answer
+        // it wrongly: the search reaches `version-vector.ts` through three
+        // type-only hops, and that module does import the roster for real.
+        if (/^\s*type\s/.test(clause)) continue;
+        const resolved = resolve(dirname(path), specifier);
+        for (const candidate of [`${resolved}.ts`, `${resolved}/index.ts`])
+          if (existsSync(candidate)) frontier.push(candidate);
+      }
+    }
+    return seen;
+  }
+
+  const fromRoot = (path: string) =>
+    fileURLToPath(new URL(`../../${path}`, import.meta.url));
+
+  it("keeps the Facet roster out of anything that only needs a prefix", () => {
+    // `entity-id.ts` needs `ENTITY_PREFIXES` and nothing else, and the food
+    // search reaches it — which `scripts/food-search-explainer.mjs` bundles
+    // into `docs/food-search.html`, a committed artifact compared byte for
+    // byte. While the roster and the domains lived in one module that bundle
+    // carried `FACETS` as dead code esbuild could not drop (the `precache`
+    // spread may invoke an iterator), so editing `precacheBytes` rewrote
+    // 1.3 MiB of HTML and failed `pnpm check` until the page was regenerated.
+    const closure = importClosureOf(fromRoot("src/lib/food/usda-corpus.ts"));
+    const reached = [...closure].map((path) =>
+      path.slice(path.indexOf("src/lib/"))
+    );
+    expect(reached).toContain("src/lib/facets/domains.ts");
+    expect(reached).not.toContain("src/lib/facets/registry.ts");
+  });
+
+  it("holds no install data in the half the search reaches", () => {
+    // The claim above is about a graph; this one is about the file, so a
+    // future edit that moves a manifest field into `domains.ts` fails here
+    // rather than silently re-coupling the page to the roster.
+    const domains = readFileSync(fromRoot("src/lib/facets/domains.ts"), "utf8");
+    // As a declared field, not as a word: that module's header explains the
+    // split by naming `precacheBytes`, and a test that forbade the mention
+    // would be satisfied by deleting the sentence doing the documenting.
+    for (const installField of ["precacheBytes", "themeColor", "startUrl"])
+      expect(domains).not.toMatch(new RegExp(`\\b${installField}\\s*:`));
+  });
+
+  it("re-exports the domain half, so no caller knows the split exists", () => {
+    // The whole cost of the split is meant to be paid inside this directory.
+    // This file's own imports at the top are the assertion: every domain name
+    // it uses comes from `registry`, and it would not compile otherwise.
+    expect(TRACKED_DOMAINS.length).toBeGreaterThan(0);
+    expect(ownerOfEntity("fdc:1")).not.toBeNull();
   });
 });

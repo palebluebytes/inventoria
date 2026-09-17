@@ -1,5 +1,6 @@
 import type { FoodResult } from "./food-search";
-import type { NutritionInfo, Portion } from "./nutrition";
+import type { MeasuredUnit, NutritionInfo, Portion } from "./nutrition";
+import type { FoodDensity } from "./density";
 import type { EntityPayload } from "../ingestion/ingest";
 import type { LabelCapture, ManualEntry, ManualEntryKind } from "./provenance";
 
@@ -71,7 +72,14 @@ export interface LabelCaptureSeed {
  * come to disagree about the same food.
  */
 export type FoodChoice =
-  | { kind: "food"; food: FoodResult; amount: number }
+  | {
+      kind: "food";
+      food: FoodResult;
+      amount: number;
+      /** The unit `amount` is in, which on a food carrying a Density Class the
+       *  log recorded rather than the panel implying (ADR-0108 §7). */
+      unit: MeasuredUnit;
+    }
   | ({
       kind: "custom";
       name: string;
@@ -114,6 +122,15 @@ export type FoodChoice =
        * on a fresh capture, where the barcode (or its lack) keys the save as before.
        */
       editEntityId?: string;
+      /**
+       * What kind of liquid this food is, where the capture form asked
+       * (ADR-0108 §1). The second door to a millilitre basis is this form, where
+       * the user ticks `ml` themselves: no Open Food Facts tags exist to pre-fill
+       * from, and they are already answering questions about the food, so the
+       * class question costs nothing extra here. Absent on a per-100 g capture,
+       * which has nothing to ask.
+       */
+      density?: FoodDensity;
     } & LabelCaptureSeed);
 
 /**
@@ -167,7 +184,14 @@ export interface ManualEntrySeed {
  * back to the control that entered it.
  */
 export type StagerSeed =
-  | { kind: "food"; food: FoodResult; amount: number }
+  | {
+      kind: "food";
+      food: FoodResult;
+      amount: number;
+      /** The unit `amount` is in, which on a food carrying a Density Class the
+       *  log recorded rather than the panel implying (ADR-0108 §7). */
+      unit: MeasuredUnit;
+    }
   /**
    * Edit a food's own twin in the label form (ADR-0034 §7). The whole twin
    * rides along because a logged event freezes only the four headline macros:

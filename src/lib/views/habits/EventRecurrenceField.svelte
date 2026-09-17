@@ -127,7 +127,7 @@
       style="margin-top: var(--space-s); margin-bottom: var(--space-s);"
     >
       <span class="field-sublabel">UNTIL (OPTIONAL)</span>
-      <div class="input-wrapper">
+      <div class="field-slot">
         <DateField bind:date={untilDateVal} iconSize={14} />
       </div>
     </div>
@@ -148,7 +148,7 @@
         >
         {#each extraTimeSlots as slot, i}
           <div class="slot-row" style="margin-bottom: var(--space-xs);">
-            <div class="input-wrapper">
+            <div class="field-slot">
               <input
                 class="time-input flex-1"
                 type="time"
@@ -209,13 +209,13 @@
     gap: var(--space-xs);
   }
 
-  .input-wrapper {
+  .field-slot {
     position: relative;
     display: flex;
     align-items: center;
     flex: 1;
   }
-  .input-wrapper input {
+  .field-slot input {
     width: 100%;
   }
 

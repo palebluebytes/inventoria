@@ -3,6 +3,8 @@ import {
   recentCandidatesForMeal,
   emptyMealDefaultHint,
   rememberedAmount,
+  rememberedIngredientUnit,
+  rememberedUnit,
   type RecentCandidate,
 } from "../../src/lib/food/recent-foods";
 import type { ConsumptionEvent } from "../../src/lib/food/consumption-state";
@@ -37,6 +39,34 @@ function ate(
     target,
     quantity,
     meal_type,
+  };
+}
+
+/**
+ * A Recipe Instantiation: a Consumption Event targeting a Recipe Twin and
+ * carrying the frozen `event/instantiation` snapshot that makes it one. Its
+ * quantity is a real serving count, because #424 stopped it being a literal.
+ */
+function cooked(target: string, meal_type: string): ConsumptionEvent {
+  const event = ate(target, meal_type, "2 servings");
+  return {
+    ...event,
+    instantiation: {
+      based_on: target,
+      yield: 1,
+      ingredients: [
+        {
+          ref: "fdc:1",
+          name: "Mock Oats",
+          amount: 200,
+          unit: "g",
+          calories: 200,
+          protein: 10,
+          fat: 4,
+          carbs: 20,
+        },
+      ],
+    },
   };
 }
 
@@ -230,7 +260,8 @@ describe("rememberedAmount", () => {
   it("refuses to seed a gram field from a millilitre log, and the reverse", () => {
     // ADR-0060 §1/§2: nothing converts. 330 is a true amount and the wrong one,
     // and a control opened on it would be pre-filled with a number measured
-    // against something the food is not entered in.
+    // against something else. Still true on a food carrying a density: what
+    // unit to open in is `rememberedUnit`'s question, asked first.
     const events = [ate("food:cola", "dinner", "330ml")];
 
     expect(rememberedAmount(events, "food:cola", "ml")).toBe(330);
@@ -262,6 +293,54 @@ describe("rememberedAmount", () => {
     const events = [ate("food:cream", "dinner", "32.5g")];
 
     expect(rememberedAmount(events, "food:cream", "g")).toBe(32.5);
+  });
+});
+
+describe("rememberedUnit", () => {
+  it("answers which unit this food was last logged in", () => {
+    // The memory half of ADR-0108 §7's opening-unit rule, and a reader of its
+    // own: the amount above refuses a mismatch and must keep refusing, which a
+    // single function choosing the unit could not report.
+    const older = { ...ate("food:oil", "dinner", "250ml"), time: 8_000 };
+    const newer = { ...ate("food:oil", "dinner", "30g"), time: 9_000 };
+
+    expect(rememberedUnit([older, newer], "food:oil")).toBe("g");
+  });
+
+  it("is null for a food with no measured log, so the context decides", () => {
+    expect(rememberedUnit([], "food:oats")).toBeNull();
+    expect(
+      rememberedUnit([ate("food:soup", "lunch", "1 serving")], "food:soup")
+    ).toBeNull();
+  });
+});
+
+describe("rememberedIngredientUnit", () => {
+  const oilInMl = [{ ref: "food:oil", amount: 15, unit: "ml" as const }];
+  const oilInG = [{ ref: "food:oil", amount: 14, unit: "g" as const }];
+
+  it("answers from the newest recipe holding this food", () => {
+    // The lists arrive newest first, so the first one holding the food is the
+    // last one it was put into.
+    expect(rememberedIngredientUnit([oilInG, oilInMl], "food:oil")).toBe("g");
+    expect(rememberedIngredientUnit([oilInMl, oilInG], "food:oil")).toBe("ml");
+  });
+
+  it("is null for a food no recipe uses, which takes the recipe default", () => {
+    // What this food was last DRUNK in is not consulted here: a can of Coke
+    // logged in millilitres for months is still a thing measured into something
+    // the first time it reaches an ingredient list (ADR-0108 §7, as amended).
+    expect(rememberedIngredientUnit([oilInMl], "food:cola")).toBeNull();
+    expect(rememberedIngredientUnit([], "food:oil")).toBeNull();
+  });
+
+  it("ignores a whole-serving row, which names no measured unit", () => {
+    expect(
+      rememberedIngredientUnit(
+        [[{ ref: "food:dish", amount: 1, unit: "serving" }]],
+        "food:dish"
+      )
+    ).toBeNull();
   });
 });
 
@@ -454,5 +533,40 @@ describe("recentCandidatesForMeal is ordered by frecency (#165)", () => {
     const candidates = recentCandidatesForMeal(events, "breakfast");
     expect(candidates[0].target).toBe("fdc:oats");
     expect(candidates[0].unit).toBe(parseLoggedQuantity("60g").unit);
+  });
+});
+
+describe("Recipe Instantiations are not Recent candidates", () => {
+  it("offers the foods of a meal but not the recipes cooked in it", () => {
+    const events = [
+      ate("fdc:oats", "breakfast"),
+      cooked("recipe:dinner_combo", "breakfast"),
+      ate("gtin:milk", "breakfast", "200ml"),
+    ];
+    expect(targets(recentCandidatesForMeal(events, "breakfast"))).toEqual([
+      "gtin:milk",
+      "fdc:oats",
+    ]);
+  });
+
+  it("keeps a recipe out however much of it was weighed", () => {
+    // The exclusion used to ride on every instantiation writing the literal
+    // "1 serving", which sent the catalogue rule down its whole-serving arm. A
+    // weighed instantiation takes the measured arm, so the rule has to be about
+    // what a recipe is rather than about how its quantity was spelled.
+    const events = [cooked("recipe:dinner_combo", "lunch")];
+    expect(recentCandidatesForMeal(events, "lunch")).toEqual([]);
+  });
+
+  it("does not let a recipe's frecency order the foods around it", () => {
+    // The exclusion sits ahead of the frecency walk, so a recipe cooked forty
+    // times at a meal is not evidence about what gets eaten there.
+    const events = [
+      ...Array.from({ length: 40 }, () => cooked("recipe:combo", "dinner")),
+      ate("fdc:rice", "dinner"),
+    ];
+    expect(targets(recentCandidatesForMeal(events, "dinner"))).toEqual([
+      "fdc:rice",
+    ]);
   });
 });

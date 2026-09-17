@@ -16,12 +16,18 @@
   let {
     options,
     value = $bindable(),
+    onValueChange,
     label,
     required = false,
     testid,
   }: {
     options: { value: T; label: string }[];
     value: T | null;
+    /** Fires with the new value on every change, for a caller that acts on a
+     *  choice rather than only reading it back. The sibling ToggleGroup has
+     *  carried this since it was minted; a caller reaching for an `$effect` over
+     *  the bound value instead would be writing one on every settle. */
+    onValueChange?: (value: T) => void;
     /** Visible heading rendered above the row and used as the group's a11y name. */
     label: string;
     /** Marks the group aria-required — for a picker that starts empty (e.g. sex). */
@@ -36,11 +42,14 @@
 </script>
 
 <div class="segmented-field">
-  <span class="segmented-label" id={labelId}>{label}</span>
+  <span class="field-caption segmented-label" id={labelId}>{label}</span>
   <RadioGroup.Root
     class="seg-row"
     value={value ?? ""}
-    onValueChange={(v) => (value = v as T)}
+    onValueChange={(v) => {
+      value = v as T;
+      onValueChange?.(v as T);
+    }}
     orientation="horizontal"
     {required}
     aria-labelledby={labelId}
@@ -67,13 +76,12 @@
     width: 100%;
     container-type: inline-size;
   }
+  /* The look is `.field-caption` in `src/app.css`, shared with `ui/FieldCaption`
+     and with `ReportsPage`'s date range — the three captions in the app that
+     name a *group* rather than a control, and so cannot be a `<label for>`
+     (#383, ADR-0100 §4). The gap under it is placement and stays here. */
   .segmented-label {
-    display: block;
     margin-bottom: var(--space-2xs);
-    font-size: var(--step-n1);
-    font-weight: 800;
-    text-transform: uppercase;
-    color: var(--ink);
   }
 
   /* bits-ui renders these elements itself, so target them with :global.

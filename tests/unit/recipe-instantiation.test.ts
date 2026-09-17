@@ -30,7 +30,7 @@ const NAMES: Record<string, string> = {
   "fdc:oats": "Oats",
   "food:custom_milk": "Milk",
 };
-const resolve = (ref: string): NutritionInfo | undefined => PANELS[ref];
+const resolve = (ref: string) => ({ panel: PANELS[ref] });
 const resolveName = (ref: string): string | undefined => NAMES[ref];
 
 const INGREDIENTS: ReferenceIngredient[] = [
@@ -125,6 +125,46 @@ describe("buildInstantiation", () => {
     expect(rowSum).toBe(headline.calories * 2);
   });
 
+  it("records what the occasion was a fraction of (ADR-0106 §5)", () => {
+    const snapshot = buildInstantiation(
+      "recipe:oatmeal",
+      INGREDIENTS,
+      1,
+      resolve,
+      resolveName,
+      480
+    );
+    // 160 g of a 480 g pot, and forever. Without the denominator the snapshot
+    // carries a numerator whose divisor is gone, and a correction reopening the
+    // editor to say "actually I ate 200 g" would have nothing to divide against.
+    expect(snapshot.batch_weight).toBe(480);
+  });
+
+  it("carries no batch weight for an occasion nobody weighed (§7)", () => {
+    const snapshot = buildInstantiation(
+      "recipe:oatmeal",
+      INGREDIENTS,
+      1,
+      resolve,
+      resolveName
+    );
+    // Absent, never zero: the serving count is the honest answer here, and a
+    // zero denominator would read as a weight the cook never took.
+    expect("batch_weight" in snapshot).toBe(false);
+  });
+
+  it("refuses a batch weight no scale could have shown", () => {
+    const snapshot = buildInstantiation(
+      "recipe:oatmeal",
+      INGREDIENTS,
+      1,
+      resolve,
+      resolveName,
+      0
+    );
+    expect("batch_weight" in snapshot).toBe(false);
+  });
+
   it("falls back to the ref when a name cannot be resolved (soft ref)", () => {
     const snapshot = buildInstantiation(
       "recipe:oatmeal",
@@ -160,13 +200,15 @@ describe("buildInstantiation", () => {
       [{ ref: "fdc:oats", amount: 50, unit: "g" }],
       1,
       () => ({
-        serving_size: "100 g",
-        calories: 380,
-        protein_content: 13,
-        fat_content: 7,
-        carbohydrate_content: 67,
-        fiber_content: 10,
-        sodium_content: 0.006,
+        panel: {
+          serving_size: "100 g",
+          calories: 380,
+          protein_content: 13,
+          fat_content: 7,
+          carbohydrate_content: 67,
+          fiber_content: 10,
+          sodium_content: 0.006,
+        },
       }),
       () => "Oats"
     );

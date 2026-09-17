@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   deriveIngredientMacros,
   deriveRecipeNutrition,
+  type IngredientSource,
   type ReferenceIngredient,
 } from "../../src/lib/food/recipe-nutrition";
 import type { NutritionInfo } from "../../src/lib/food/nutrition";
@@ -31,7 +32,7 @@ const PANELS: Record<string, NutritionInfo> = {
     carbohydrate_content: 10.6,
   },
 };
-const resolve = (ref: string): NutritionInfo | undefined => PANELS[ref];
+const resolve = (ref: string): IngredientSource => ({ panel: PANELS[ref] });
 
 describe("deriveIngredientMacros", () => {
   it("scales a gram ingredient against its panel's serving_size", () => {
@@ -173,7 +174,7 @@ describe("deriveRecipeNutrition — full breakdown", () => {
       calcium: 0.12,
     },
   };
-  const resolveFull = (ref: string) => PANELS_FULL[ref];
+  const resolveFull = (ref: string) => ({ panel: PANELS_FULL[ref] });
 
   it("totals each extra only across the ingredients that report it (round-then-sum ÷ yield)", () => {
     const ings: ReferenceIngredient[] = [
@@ -215,9 +216,57 @@ describe("deriveRecipeNutrition — full breakdown", () => {
     const derived = deriveRecipeNutrition(
       [{ ref: "fdc:x", amount: 100, unit: "g" }],
       1,
-      (r) => macroOnly[r]
+      (r) => ({ panel: macroOnly[r] })
     );
     expect(derived).toEqual({ calories: 100, protein: 2, fat: 1, carbs: 20 });
     expect("fiber_content" in derived).toBe(false);
+  });
+});
+
+describe("a gram ingredient against a volume panel (ADR-0108 §5)", () => {
+  // An oil Open Food Facts publishes per 100 ml, at 824 kcal per 100 ml.
+  const OIL: IngredientSource = {
+    panel: {
+      serving_size: "100 ml",
+      calories: 824,
+      protein_content: 0,
+      fat_content: 91.6,
+      carbohydrate_content: 0,
+    },
+    density: { class: "oil" },
+  };
+
+  it("divides by the millilitres those grams are, not by the grams", () => {
+    // 92 g of it is 100 ml of it, so it is one whole basis unit: 824 kcal.
+    // Dividing the 92 unconverted reads 758, which is the 8% error the class
+    // exists to remove.
+    expect(
+      deriveIngredientMacros(
+        { ref: "gtin:oil", amount: 92, unit: "g" },
+        () => OIL
+      ).calories
+    ).toBe(824);
+  });
+
+  it("leaves a millilitre row on the same panel exactly where it was", () => {
+    expect(
+      deriveIngredientMacros(
+        { ref: "gtin:oil", amount: 100, unit: "ml" },
+        () => OIL
+      ).calories
+    ).toBe(824);
+  });
+
+  it("does not convert a gram row on a food carrying no density", () => {
+    // Nothing licenses one (ADR-0060 §2), and the row is the ordinary case: a
+    // gram amount against a gram panel.
+    expect(
+      deriveIngredientMacros(
+        { ref: "food:oats", amount: 50, unit: "g" },
+        () => ({
+          panel: PANELS["food:oats"],
+        })
+      ).calories
+    ).toBe(189.5);
   });
 });

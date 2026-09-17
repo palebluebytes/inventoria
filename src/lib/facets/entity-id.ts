@@ -1,8 +1,4 @@
-// TYPE ONLY, and it has to stay that way. A value import from the registry
-// pulls both Facets' precache manifests into the bundle of everything
-// downstream of `mintEntity` — `isDeclaredEntity` used to do exactly that, and
-// its move to `registry.ts` records what it cost.
-import type { EntityPrefix } from "./registry";
+import { ENTITY_PREFIXES, type EntityPrefix } from "./domains";
 
 /**
  * The one place an entity id is constructed (ADR-0086 §7).
@@ -28,4 +24,13 @@ export function mintEntity(
   suffix: string | number
 ): string {
   return `${prefix}${suffix}`;
+}
+
+/**
+ * Whether a string is an entity id the registry accounts for. Used by the ledger
+ * import path and by tests; deliberately not used by {@link mintEntity}, whose
+ * prefix argument is already a compile-time union.
+ */
+export function isDeclaredEntity(entity: string): boolean {
+  return ENTITY_PREFIXES.some((p) => entity.startsWith(p));
 }

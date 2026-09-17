@@ -1,5 +1,6 @@
 <script lang="ts">
-  import type { Snippet } from "svelte";
+  import { tick, type Snippet } from "svelte";
+  import { revealScroll, type Span } from "../../food/reveal-logged";
   import {
     consumptionStore,
     consumptionForDay,
@@ -41,6 +42,7 @@
   import BottomSheet from "../../ui/BottomSheet.svelte";
   import Skeleton from "../../ui/Skeleton.svelte";
   import Button from "../../ui/Button.svelte";
+  import Disclosure from "../../ui/Disclosure.svelte";
   import FoodItemRow from "./FoodItemRow.svelte";
   import MacroMeters from "./MacroMeters.svelte";
   import WeekStrip from "./WeekStrip.svelte";
@@ -69,6 +71,7 @@
     scalePreview,
     scaleNotes,
     selectionBar,
+    justLogged = [],
   }: {
     dbReady: boolean;
     selectedDate: Date;
@@ -108,6 +111,25 @@
     /** A word for a food the live preview cannot touch, keyed the same way —
      *  said in place and before the fact, never reported afterwards (§7). */
     scaleNotes?: Map<string, string>;
+    /**
+     * The Consumption Events a way in has **just written** onto this day (#440),
+     * so the day can put them on screen.
+     *
+     * A fresh array per act, and that identity is the signal: two logs of the
+     * same food are two arrays, and a re-render that changes nothing hands the
+     * same one back. Empty between acts.
+     *
+     * The host passes only ids it actually wrote — a partial past-meal copy
+     * reports what it copied and not what it lost — because the day waits for
+     * **all** of them to arrive before it moves, and an id that never lands
+     * would hold the reveal open forever.
+     *
+     * What is deliberately NOT in here: an amount edit, which retracts and
+     * replaces and therefore mints a fresh id for a row you were already looking
+     * at, and a meal that arrives from a paired device, which is not something
+     * this person just did.
+     */
+    justLogged?: string[];
   } = $props();
 
   // Long-press a logged item to start selecting; while a selection is active,
@@ -132,6 +154,206 @@
     if (!selectionActive && wayInBarMeasured > 0)
       wayInBarReserve = wayInBarMeasured;
   });
+
+  // ── Putting a new row on screen (#440) ───────────────────────────────────
+  //
+  // The three rules are `food/reveal-logged.ts`, which is arithmetic over three
+  // boxes and knows nothing about this screen. What lives here is the measuring:
+  // which row, which meal, and what the free band actually is.
+  let dayEl = $state<HTMLElement | null>(null);
+
+  /**
+   * The ids this day has already acted on, by array identity.
+   *
+   * A plain `let` and not `$state`, deliberately: the effect below both reads
+   * and writes it, and a reactive value there is a loop. Identity is enough —
+   * `justLogged` is a fresh array per act (see the prop), so a re-render cannot
+   * look like a second one.
+   */
+  let revealed: string[] | null = null;
+
+  /**
+   * Whether a finger or a mouse button is currently down anywhere.
+   *
+   * **A courtesy scroll may not move the page under a gesture that is already
+   * happening.** `actions/longpress.ts` cancels on `pointerleave`, so a row that
+   * slides out from under a held finger cancels the press — you log a food, put
+   * your thumb on a row to select it, and the selection silently does not start.
+   * CI found it as four flaky specs and one failure in the long-press flows
+   * after the bar grew #452's clearance: 15px of band is enough to turn rule 1
+   * into rule 3 for a row near the foot, which is a scroll where there was none.
+   *
+   * A plain `let`, like `revealed` above, because the effect reads it and the
+   * listeners write it, and a reactive value there is a loop.
+   */
+  let pointerHeld = false;
+
+  $effect(() => {
+    const down = () => {
+      pointerHeld = true;
+      // And a gesture that starts mid-scroll wins too: re-issuing the current
+      // offset with no behaviour cancels a smooth scroll already in flight.
+      const port = dayEl?.closest<HTMLElement>(".main");
+      port?.scrollTo({ top: port.scrollTop });
+    };
+    const up = () => (pointerHeld = false);
+    window.addEventListener("pointerdown", down, { capture: true });
+    window.addEventListener("pointerup", up, { capture: true });
+    window.addEventListener("pointercancel", up, { capture: true });
+    return () => {
+      window.removeEventListener("pointerdown", down, { capture: true });
+      window.removeEventListener("pointerup", up, { capture: true });
+      window.removeEventListener("pointercancel", up, { capture: true });
+    };
+  });
+
+  $effect(() => {
+    const ids = justLogged;
+    if (ids.length === 0 || ids === revealed) return;
+    // **Wait for every id, not the first.** A copied past meal appends one event
+    // per food, so the projection lands them over several updates; acting on the
+    // first would scroll to the top of a group that is still growing downwards.
+    if (!ids.every((id) => dayItems.some((item) => item.id === id))) return;
+    revealed = ids;
+    // The rows exist in the projection now; `tick` is what puts them in the DOM,
+    // and `whenStill` is what waits for them to stop moving in it.
+    tick().then(() => whenStill(() => revealLogged(ids)));
+  });
+
+  /**
+   * Run `act` once the day has stopped moving under it.
+   *
+   * **The row arrives before the day has finished changing, and measuring it
+   * then aims at where it used to be.** Found by building: consolidating a
+   * Selection into a recipe computed a 408px scroll and moved the row 113px,
+   * because that one act writes TWO appends — the recipe, then a retraction per
+   * ingredient it replaced — and each lands as its own projection update, while
+   * the Way-in bar is separately unfolding out of the Selection over
+   * `--fold` (0.22s) and the day's foot reserve is changing with it.
+   *
+   * So the wait is for stillness rather than for any of those in particular: two
+   * consecutive frames in which nothing this function can see has moved. That
+   * covers the second append, the fold, the reserve, and whatever the next act
+   * to do two things at once turns out to be — none of which this module would
+   * otherwise have any reason to know about.
+   *
+   * The deadline is what makes it safe on a page that never settles (a
+   * marquee, a spinner, a long transition somebody adds later): at 40 frames,
+   * roughly two thirds of a second, it acts on what it has. A reveal slightly
+   * off is better than a reveal that never comes.
+   */
+  function whenStill(act: () => void) {
+    let done = false;
+    const run = () => {
+      if (done) return;
+      done = true;
+      act();
+    };
+
+    let previous = Number.NaN;
+    let still = 0;
+    let frames = 0;
+    const look = () => {
+      if (done) return;
+      // The page's own geometry rather than any one element: the rows are being
+      // added to and removed from underneath this, so an element measured on one
+      // frame may not be in the tree on the next.
+      const now =
+        (dayEl?.getBoundingClientRect().height ?? 0) +
+        (dayEl?.closest<HTMLElement>(".main")?.scrollHeight ?? 0);
+      still = now === previous ? still + 1 : 0;
+      previous = now;
+      if (still >= 2 || ++frames > 40) run();
+      else requestAnimationFrame(look);
+    };
+    requestAnimationFrame(look);
+
+    // **The backstop, and it is not belt-and-braces.** A tab that is not
+    // painting is handed no frames at all — measured here at zero in 600ms — so
+    // a wait built on `requestAnimationFrame` alone does not time out, it simply
+    // never ends, and the reveal is lost rather than late. A timer runs in a
+    // background tab, so this is the arm that guarantees the act happens; the
+    // frames above are the arm that makes it happen at the right moment. The
+    // number is past both the fold (0.22s) and the frame deadline.
+    setTimeout(run, 700);
+  }
+
+  /**
+   * The free band: the scrollport, minus whatever is standing in front of the
+   * rows inside it.
+   *
+   * **Measured off the bar's own rect rather than derived from the breakpoint
+   * that put it there.** The Way-in bar is pinned over the foot below 768, stuck
+   * to the head between 768 and 1440, and beside the meals in a flank above that
+   * — three geometries, and a band written as a sum of tokens would be a fourth
+   * copy of them (the mistake ADR-0101 §3 refused once already, over the same
+   * box).
+   *
+   * The horizontal test is what makes the flank case right: up there the bar is
+   * *beside* the rows rather than in front of them, so it takes nothing off the
+   * band. A surface only obstructs a row it actually covers.
+   */
+  function freeBand(port: HTMLElement, row: HTMLElement): Span {
+    const box = port.getBoundingClientRect();
+    const band: Span = { top: box.top, bottom: box.bottom };
+    const bar = dayEl?.querySelector<HTMLElement>(".way-in-bar");
+    if (!bar) return band;
+    const over = bar.getBoundingClientRect();
+    const line = row.getBoundingClientRect();
+    if (over.right <= line.left || over.left >= line.right) return band;
+    if (over.bottom >= band.bottom && over.top < band.bottom)
+      band.bottom = over.top;
+    if (over.top <= band.top && over.bottom > band.top) band.top = over.bottom;
+    return band;
+  }
+
+  /** The lowest of the rows just written, which is where a group ends. */
+  function lastOnScreen(ids: string[]): HTMLElement | null {
+    const rows = ids
+      .map((id) =>
+        dayEl?.querySelector<HTMLElement>(`[data-event-id="${CSS.escape(id)}"]`)
+      )
+      .filter((el): el is HTMLElement => el !== null && el !== undefined);
+    // By where they landed rather than by the order they were written: the day
+    // groups by meal, so the last id appended is not the last row down the page.
+    return rows.reduce<HTMLElement | null>(
+      (lowest, el) =>
+        lowest === null ||
+        el.getBoundingClientRect().bottom >
+          lowest.getBoundingClientRect().bottom
+          ? el
+          : lowest,
+      null
+    );
+  }
+
+  function revealLogged(ids: string[]) {
+    const row = lastOnScreen(ids);
+    const meal = row?.closest<HTMLElement>(".meal-section");
+    // The scroll container is the shell's `.main`, which is the one box in the
+    // app with `overflow-y: auto` on it (`src/app.css` says so, and says why it
+    // is there rather than in either shell).
+    const port = dayEl?.closest<HTMLElement>(".main");
+    if (!row || !meal || !port) return;
+
+    // The user's own gesture outranks the courtesy: see `pointerHeld`.
+    if (pointerHeld) return;
+
+    const delta = revealScroll(
+      row.getBoundingClientRect(),
+      meal.getBoundingClientRect(),
+      freeBand(port, row)
+    );
+    // `null` is rule 1 and is not a scroll of zero: a row already on screen must
+    // not start a gesture that travels nowhere.
+    if (delta === null) return;
+    port.scrollBy({
+      top: delta,
+      behavior: window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
+        ? "auto"
+        : "smooth",
+    });
+  }
 
   // A long-press is followed by a synthetic click on release; without this the
   // click would immediately toggle the item we just selected back off.
@@ -333,7 +555,7 @@
      The overlays below stay outside it. They are pinned boxes rather than
      regions of a screen, and a grid should never have to know that one of its
      children took itself out of flow. -->
-<div class="day">
+<div class="day" bind:this={dayEl}>
   <!-- Week Strip date selector. In a box of its own because a grid places its
        children, and this child is another component's root: the box is this
        screen's handle on where the strip goes, rather than this screen reaching
@@ -366,26 +588,13 @@
        added" state rather than nothing. -->
   <section class="aggregates">
     <div class="aggregates-head">
-      <button
-        type="button"
+      <Disclosure
         class="aggregates-toggle"
-        aria-expanded={$nutritionPanelOpen}
-        aria-controls={metersId}
-        onclick={() => setNutritionPanelOpen(!$nutritionPanelOpen)}
-      >
-        <!-- One shape rotated rather than two glyphs swapped, so the word beside
-             it cannot shift sideways when the open mark is a different width from
-             the closed one. -->
-        <svg
-          class="aggregates-caret"
-          class:is-open={$nutritionPanelOpen}
-          viewBox="0 0 24 24"
-          aria-hidden="true"
-        >
-          <path d="M7 6 L17 12 L7 18 Z" fill="currentColor"></path>
-        </svg>
-        <span class="aggregates-title">Nutrition</span>
-      </button>
+        title="Nutrition"
+        open={$nutritionPanelOpen}
+        controls={metersId}
+        onToggle={() => setNutritionPanelOpen(!$nutritionPanelOpen)}
+      />
       <Button
         variant="secondary"
         size="sm"
@@ -431,156 +640,174 @@
            screen is in. -->
       {@render selectionBar()}
     </div>
-    {#each meal_types as meal_type}
-      <div class="meal-section">
-        <div class="meal-section-header">
-          <!-- The meal's name is the way into its own nutrition panel, and the
-               one that always works: an empty meal has no subtotal line at all
-               (ADR-0074 §1). A button INSIDE the heading rather than a heading
-               that is a button, so the row is still the meal's h3 to anything
-               reading the page's outline and only the words are the control.
+    <!-- The meals themselves, in a box of their own so the ways in can stand
+         beside them (ADR-0101's Amendment). Below the widest breakpoint this
+         wrapper is invisible: it is a flex column with the gap the timeline
+         used to carry, and the slot above it is the timeline's other child, so
+         the page is laid out exactly as it was. Above it the timeline turns on
+         its side, the slot becomes the left flank, and this is what fills the
+         rest of the line.
 
-               It is not a sixth way in. ADR-0059's header is untouched: this
-               control was already on the screen as inert text. -->
-          <h3 class="meal-title">
+         It exists because the flank has to be able to STICK, and sticking needs
+         a containing block taller than the thing that sticks. A grid item's is
+         its own grid area, which is why the slot cannot be one cell of a grid
+         over the meals; a flex item's is the flex container, and the container
+         is as tall as this box. -->
+    <div class="meals">
+      {#each meal_types as meal_type}
+        <div class="meal-section" data-meal={meal_type}>
+          <div class="meal-section-header">
+            <!-- The meal's name is the way into its own nutrition panel, and the
+                 one that always works: an empty meal has no subtotal line at all
+                 (ADR-0074 §1). A button INSIDE the heading rather than a heading
+                 that is a button, so the row is still the meal's h3 to anything
+                 reading the page's outline and only the words are the control.
+
+                 It is not a sixth way in. ADR-0059's header is untouched: this
+                 control was already on the screen as inert text. -->
+            <h3 class="meal-title">
+              <button
+                type="button"
+                class="meal-title-btn"
+                aria-haspopup="dialog"
+                onclick={() => (mealPanel = meal_type)}
+                >{meal_type.toUpperCase()}</button
+              >
+            </h3>
+            <!-- No way in here. They left for the day's one Way-in bar above
+                 (ADR-0101 §1), which is the whole of what that record amends in
+                 ADR-0059: five floored controls plus their gaps is 276px, and the
+                 header could not hold that beside the meal's name on any phone
+                 under ~414px. The header keeps its name, its nutrition-panel
+                 control and its subtotal. -->
+          </div>
+
+          {#if copyNote && copyNote.meal_type === meal_type}
+            <!-- ADR-0058 §11: a clean copy says nothing, so this exists only when
+                 something went wrong. -->
+            <p class="meal-note" role="status">{copyNote.text}</p>
+          {/if}
+
+          {#if !dayKnown}
+            <!-- Not "no breakfast" — we have not read the day yet. One row's worth of
+                 placeholder, which is also the height an empty meal's message takes,
+                 so neither outcome moves the meals below it. -->
+            <div class="meal-skeleton" aria-busy="true">
+              <Skeleton height="var(--step-n2)" width="60%" />
+            </div>
+          {:else if groupedMeals[meal_type].length === 0}
+            <div class="empty-meal">
+              <p>No {meal_type} logged yet.</p>
+            </div>
+          {:else}
+            {@const mealPills = buildNutrientPills(
+              totalNutrition(groupedMeals[meal_type]),
+              macroNutrients($visibleNutrients),
+              $calorieDisplayDecimals,
+              true
+            )}
+            <div class="meal-items-list">
+              {#each groupedMeals[meal_type] as item}
+                {@const isSelected = selectedIds.has(item.id)}
+                {@const qty = parseLoggedQuantity(item.quantity)}
+                <!-- While a selection is active the check takes the remove ✕'s
+                     corner: the whole card is the tap target then, so the ✕ has no
+                     role, and the check reads where the eye already looks. -->
+                {#snippet selectCheck()}
+                  <span
+                    class="select-check"
+                    class:on={isSelected}
+                    aria-hidden="true">{isSelected ? "✓" : ""}</span
+                  >
+                {/snippet}
+                <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
+                <div
+                  class="meal-item-card"
+                  data-event-id={item.id}
+                  class:selectable={selectionActive}
+                  class:selected={isSelected}
+                  use:longpress={{
+                    onlongpress: () => onCardLongPress(item.id),
+                  }}
+                  onpointerdown={onCardPointerDown}
+                  onclick={() => onCardClick(item)}
+                  onkeydown={(e) =>
+                    selectionActive &&
+                    (e.key === "Enter" || e.key === " ") &&
+                    onTapItem(item.id)}
+                  role={selectionActive ? "button" : undefined}
+                  tabindex={selectionActive ? 0 : undefined}
+                >
+                  <FoodItemRow
+                    logged
+                    name={item.foodName || "Unknown Food"}
+                    amount={qty.amount}
+                    unit={qty.unit}
+                    calories={Number(item.calories) || 0}
+                    selected={isSelected}
+                    preview={scalePreview?.get(item.id)}
+                    note={scaleNotes?.get(item.id) ?? ""}
+                    onRemove={() => onRemoveItem(item.id)}
+                    corner={selectionActive ? selectCheck : undefined}
+                  >
+                    {#snippet lead()}
+                      {#if item.photoBase64}
+                        <button
+                          type="button"
+                          class="meal-item-thumb-btn"
+                          aria-label="View {item.foodName} photo"
+                          onpointerdown={(e) => e.stopPropagation()}
+                          onclick={(e) => {
+                            e.stopPropagation();
+                            if (suppressNextClick) {
+                              suppressNextClick = false;
+                              return;
+                            }
+                            if (selectionActive) onTapItem(item.id);
+                            else previewPhoto = item.photoBase64;
+                          }}
+                        >
+                          <img
+                            src={item.photoBase64}
+                            alt={item.foodName}
+                            class="meal-item-thumb"
+                          />
+                        </button>
+                      {/if}
+                    {/snippet}
+                  </FoodItemRow>
+                </div>
+              {/each}
+            </div>
+            <!-- Subtle one-line subtotal for the section: Calories + just the macros
+                 the user tracks (micronutrients belong on the full-day RDA surface,
+                 not a running tally), summed over only this meal's items. Empty
+                 macros are dropped (hideEmpty) — a "0 g" or absent "–" adds no
+                 information, and a calories-only meal reads as just its kcal. -->
+            <!-- The other way into the meal's own figures (ADR-0074 §1): the line
+                 of figures a meal already ends in, which did nothing. It is the
+                 convenience rather than the door — a meal with no rows never
+                 renders it, which is why the name is the one that always works. -->
             <button
               type="button"
-              class="meal-title-btn"
+              class="meal-total meal-total-btn"
+              data-testid="meal-total-{meal_type}"
               aria-haspopup="dialog"
+              aria-label="{meal_type} nutrition"
               onclick={() => (mealPanel = meal_type)}
-              >{meal_type.toUpperCase()}</button
             >
-          </h3>
-          <!-- No way in here. They left for the day's one Way-in bar above
-               (ADR-0101 §1), which is the whole of what that record amends in
-               ADR-0059: five floored controls plus their gaps is 276px, and the
-               header could not hold that beside the meal's name on any phone
-               under ~414px. The header keeps its name, its nutrition-panel
-               control and its subtotal. -->
+              {#each mealPills as pill (pill.key)}
+                <span class="meal-total-item nutrient-{pill.key}">
+                  {#if pill.key !== "calories"}<span
+                      >{nutrientShortLabel(pill.key)}</span
+                    >{/if}<span class="meal-total-value">{pill.value}</span>
+                </span>
+              {/each}
+            </button>
+          {/if}
         </div>
-
-        {#if copyNote && copyNote.meal_type === meal_type}
-          <!-- ADR-0058 §11: a clean copy says nothing, so this exists only when
-               something went wrong. -->
-          <p class="meal-note" role="status">{copyNote.text}</p>
-        {/if}
-
-        {#if !dayKnown}
-          <!-- Not "no breakfast" — we have not read the day yet. One row's worth of
-               placeholder, which is also the height an empty meal's message takes,
-               so neither outcome moves the meals below it. -->
-          <div class="meal-skeleton" aria-busy="true">
-            <Skeleton height="var(--step-n2)" width="60%" />
-          </div>
-        {:else if groupedMeals[meal_type].length === 0}
-          <div class="empty-meal">
-            <p>No {meal_type} logged yet.</p>
-          </div>
-        {:else}
-          {@const mealPills = buildNutrientPills(
-            totalNutrition(groupedMeals[meal_type]),
-            macroNutrients($visibleNutrients),
-            $calorieDisplayDecimals,
-            true
-          )}
-          <div class="meal-items-list">
-            {#each groupedMeals[meal_type] as item}
-              {@const isSelected = selectedIds.has(item.id)}
-              {@const qty = parseLoggedQuantity(item.quantity)}
-              <!-- While a selection is active the check takes the remove ✕'s
-                   corner: the whole card is the tap target then, so the ✕ has no
-                   role, and the check reads where the eye already looks. -->
-              {#snippet selectCheck()}
-                <span
-                  class="select-check"
-                  class:on={isSelected}
-                  aria-hidden="true">{isSelected ? "✓" : ""}</span
-                >
-              {/snippet}
-              <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
-              <div
-                class="meal-item-card"
-                class:selectable={selectionActive}
-                class:selected={isSelected}
-                use:longpress={{ onlongpress: () => onCardLongPress(item.id) }}
-                onpointerdown={onCardPointerDown}
-                onclick={() => onCardClick(item)}
-                onkeydown={(e) =>
-                  selectionActive &&
-                  (e.key === "Enter" || e.key === " ") &&
-                  onTapItem(item.id)}
-                role={selectionActive ? "button" : undefined}
-                tabindex={selectionActive ? 0 : undefined}
-              >
-                <FoodItemRow
-                  logged
-                  name={item.foodName || "Unknown Food"}
-                  amount={qty.amount}
-                  unit={qty.unit}
-                  calories={Number(item.calories) || 0}
-                  selected={isSelected}
-                  preview={scalePreview?.get(item.id)}
-                  note={scaleNotes?.get(item.id) ?? ""}
-                  onRemove={() => onRemoveItem(item.id)}
-                  corner={selectionActive ? selectCheck : undefined}
-                >
-                  {#snippet lead()}
-                    {#if item.photoBase64}
-                      <button
-                        type="button"
-                        class="meal-item-thumb-btn"
-                        aria-label="View {item.foodName} photo"
-                        onpointerdown={(e) => e.stopPropagation()}
-                        onclick={(e) => {
-                          e.stopPropagation();
-                          if (suppressNextClick) {
-                            suppressNextClick = false;
-                            return;
-                          }
-                          if (selectionActive) onTapItem(item.id);
-                          else previewPhoto = item.photoBase64;
-                        }}
-                      >
-                        <img
-                          src={item.photoBase64}
-                          alt={item.foodName}
-                          class="meal-item-thumb"
-                        />
-                      </button>
-                    {/if}
-                  {/snippet}
-                </FoodItemRow>
-              </div>
-            {/each}
-          </div>
-          <!-- Subtle one-line subtotal for the section: Calories + just the macros
-               the user tracks (micronutrients belong on the full-day RDA surface,
-               not a running tally), summed over only this meal's items. Empty
-               macros are dropped (hideEmpty) — a "0 g" or absent "–" adds no
-               information, and a calories-only meal reads as just its kcal. -->
-          <!-- The other way into the meal's own figures (ADR-0074 §1): the line
-               of figures a meal already ends in, which did nothing. It is the
-               convenience rather than the door — a meal with no rows never
-               renders it, which is why the name is the one that always works. -->
-          <button
-            type="button"
-            class="meal-total meal-total-btn"
-            data-testid="meal-total-{meal_type}"
-            aria-haspopup="dialog"
-            aria-label="{meal_type} nutrition"
-            onclick={() => (mealPanel = meal_type)}
-          >
-            {#each mealPills as pill (pill.key)}
-              <span class="meal-total-item nutrient-{pill.key}">
-                {#if pill.key !== "calories"}<span
-                    >{nutrientShortLabel(pill.key)}</span
-                  >{/if}<span class="meal-total-value">{pill.value}</span>
-              </span>
-            {/each}
-          </button>
-        {/if}
-      </div>
-    {/each}
+      {/each}
+    </div>
   </div>
 </div>
 
@@ -788,80 +1015,19 @@
     padding-bottom: var(--space-3xs);
   }
   /* The disclosure is the whole title, so the target is the words and not just
-     the caret. Bare: the frame belongs to the Button beside it. */
-  .aggregates-toggle {
-    min-height: var(--tap-min);
-    display: inline-flex;
-    align-items: center;
-    gap: var(--space-2xs);
-    padding: 0;
-    border: none;
-    background: none;
-    font: inherit;
-    color: inherit;
-    cursor: pointer;
-  }
-  /* The same hard offset ring the Button and the pressable Card carry
-     (ADR-0039), since this one draws its own chrome. */
-  .aggregates-toggle:focus-visible {
-    outline: 2px solid var(--ink);
-    outline-offset: 2px;
-  }
-  /* A drawn mark rather than a glyph. `▸` and `▾` (U+25B8/U+25BE) fall outside
-     every unicode-range Epilogue is served in, so neither was ever OUR mark:
-     both were drawn by whatever fallback the platform happened to have, at that
-     font's size, width and height above the baseline. That is what sat the
-     closed triangle about 3px below the centre of the word beside it, and it
-     sits somewhere else again on every other device. A square box of our own
-     geometry, blockified as a flex item, centres against the title exactly.
-     Sized in `em` off the title's own step so the mark tracks the type ramp. */
-  .aggregates-caret {
-    width: 1em;
-    height: 1em;
-    flex-shrink: 0;
+     the caret. Bare: the frame belongs to the Button beside it, and the floor,
+     the focus ring and the mark's alignment belong to `ui/Disclosure`. What is
+     left here is the voice — which the primitive deliberately does not declare,
+     because this title is an all-caps section header and the one on an ending
+     line is a small underlined aside. `font: inherit` on the button hands it
+     down to the label. Reached with `:global` because a class handed to a
+     component carries no scoping hash. */
+  .aggregates-head :global(.aggregates-toggle) {
     font-size: var(--step-n1);
-    color: var(--text-secondary);
-    /* The shared turn (app.css), which is `none` under prefers-reduced-motion.
-       Turning is only possible because the mark is drawn: two swapped glyphs
-       have nothing to interpolate between. */
-    transition: var(--turn-mark);
-  }
-  /* The ink is symmetric about the centre of the box, so a quarter turn is the
-     open mark, the row's geometry does not change with it, and the rotation has
-     no apparent centre to drift from. */
-  .aggregates-caret.is-open {
-    transform: rotate(90deg);
-  }
-  /* Tight to the em, as the panel header's title is (#304). That sets the row's
-     height; it does NOT centre the letters, because leading is added
-     symmetrically above and below and so never moves ink relative to its own
-     box. What moves the ink is the font: measured off the bundled
-     `epilogue-latin-wght-normal.woff2`, Epilogue's ascent is 0.79em against a
-     0.7375em cap height and a 0.235em descent, so the caps of an all-caps
-     string sit 0.091em ABOVE the centre of their box at every line-height. Flex
-     centring aligns boxes, so the mark beside them landed ~1.5px low at this
-     step. Fallback for engines without text-box-trim: nudge the text down by
-     that measured offset, the same repair as ui/Checkbox.svelte's label. */
-  .aggregates-title {
-    position: relative;
-    top: 0.09em;
-    font-size: var(--step-n1);
-    line-height: 1;
     font-weight: 700;
     letter-spacing: 0.05em;
     text-transform: uppercase;
     color: var(--text-primary);
-  }
-  /* Preferred: trim the box to the cap-height/baseline block so the box IS the
-     letters. Flex centring then centres what the eye sees, at every step, with
-     no magic number. Chromium and Safari honour this; anywhere else the nudge
-     above stands in. */
-  @supports (text-box-trim: trim-both) {
-    .aggregates-title {
-      text-box-trim: trim-both;
-      text-box-edge: cap alphabetic;
-      top: 0;
-    }
   }
   /* `hidden` collapses the body; the attribute is what the toggle's
      aria-expanded describes, so the bars leave the accessibility tree with it. */
@@ -1008,6 +1174,15 @@
     .timeline {
       padding-bottom: var(--space-2xl);
     }
+  }
+  /* The meals, holding the rhythm the timeline used to hold directly. The gap
+     is the one `.timeline` carried when the sections were its own children, and
+     the timeline keeps its gap for the one thing left beside this box: the slot
+     above it, or the flank beside it. */
+  .meals {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-m);
   }
   .meal-section {
     display: flex;
@@ -1329,6 +1504,59 @@
     :global(.rations) .day > .aggregates {
       grid-area: numbers;
       margin-top: 0;
+    }
+  }
+  /* ── The widest shape: a timeline between two flanks ─────────────────────
+     The ways into the day leave the head of the timeline for a column of their
+     own on the left (ADR-0101's Amendment). The day then reads left to right as
+     the question, the answer and the account: what you can add, what you have
+     added, and what the day came to.
+
+     **Only where there is room for all three, which is what `wide` is.** Below
+     it the bar stays where ADR-0101 put it — sticky at the head of the timeline
+     between 768 and here, pinned to the visible band's bottom edge below that —
+     and nothing on this screen changes shape. `src/app.css` widens Rations'
+     column at the same width and for the same reason; split, one of the two
+     would be a flank with no room or a measure with nothing in it.
+
+     **The timeline turns on its side and nothing else moves.** The slot keeps
+     every rule it took at 768: it is still the one-cell grid the Way-in bar and
+     the Selection bar stack in, still clipped so the Selection arrives rather
+     than appears, and still sticky against the shell's own top padding. What
+     changes is which axis it is laid out on and how wide it is allowed to be.
+
+     `:global(.rations)` is the Facet, for `.day`'s own reason above: the root
+     renders this same day behind a navigation sidebar, and a third column there
+     would be a fourth beside that sidebar. */
+  @media (min-width: 1440px) {
+    :global(.rations) .timeline {
+      flex-direction: row;
+      /* The flank is as tall as its contents and the meals are as tall as the
+         day; without this they would stretch to each other and the bar would
+         have a column of empty white under it. It is also what gives the sticky
+         its travel: an item that has been stretched to the height of its
+         container has nowhere to go. */
+      align-items: flex-start;
+      /* The gap between the two flanks and the timeline is one distance, and
+         the day's grid declares it as `column-gap` on the other side. */
+      gap: var(--space-l);
+    }
+    :global(.rations) .timeline > .way-in-slot {
+      /* Fixed, like the rail opposite it, because what it holds is sized by
+         what it says: five ways in at the tap floor and four meal names. The
+         meals take the slack. */
+      flex: 0 0 var(--way);
+      /* The gap above is the flex `gap` now, and the bar is beside the meals
+         rather than over them, so the room it bought under itself is room
+         nothing needs. */
+      margin-bottom: 0;
+    }
+    :global(.rations) .timeline > .meals {
+      flex: 1;
+      /* `minmax(0, 1fr)`'s flexbox spelling, and there for the same reason the
+         day's grid gives it: a long food name must shrink this box rather than
+         push the flank off the screen. */
+      min-width: 0;
     }
   }
 </style>

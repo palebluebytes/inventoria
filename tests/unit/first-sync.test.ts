@@ -27,6 +27,7 @@ import {
   type LedgerRow,
 } from "../../src/lib/db/db.core";
 import { runJarWipe } from "../../src/lib/jar-wipe";
+import { carriedDeletionRow } from "../../src/lib/db/carried-deletion";
 import { createHlc, type Hlc, type HlcMark } from "../../src/lib/db/hlc";
 import { derivePairingChains } from "../../src/lib/p2p/pairing-chain";
 import {
@@ -34,6 +35,8 @@ import {
   type FirstSyncLedger,
   type FirstSyncProgress,
 } from "../../src/lib/p2p/first-sync";
+import { scopeOfFacet, type LaneScope } from "../../src/lib/p2p/lane-scope";
+import { type FacetId } from "../../src/lib/facets/registry";
 import { PairingRefusedError } from "../../src/lib/p2p/pairing-act";
 import { enterRoom, RoomFailedError } from "../../src/lib/p2p/relay-room";
 import { mintRoomCode, type RoomCode } from "../../src/lib/p2p/room-code";
@@ -47,6 +50,8 @@ interface Device {
   db: LedgerDb;
   clock: Hlc;
   ledger: FirstSyncLedger;
+  /** The domains the Facet this device pairs from holds (ADR-0105 §1). */
+  scope: LaneScope;
   /** Every stamp a chunk advanced this device's clock to, in order. */
   advanced: HlcMark[];
   /** Every progress report this side made. */
@@ -59,7 +64,7 @@ beforeEach(async () => {
   sqlite3 = await (sqlite3InitModule as any)();
 });
 
-function device(device_id: string): Device {
+function device(device_id: string, facetId: FacetId = "root"): Device {
   const db: LedgerDb = new sqlite3.oo1.DB();
   createLedgerSchema(db);
   const clock = createHlc(device_id, { wallClock: () => 1_000 });
@@ -69,11 +74,17 @@ function device(device_id: string): Device {
     clock,
     advanced,
     progress: [],
+    scope: scopeOfFacet(facetId),
     ledger: {
       device_id,
       vector: async () => readLedgerVersionVector(db),
-      page: async (after, budgetBytes, above) =>
-        readLedgerPage(db, after, budgetBytes, { above }),
+      // `sync-ledger.ts`' own two narrowings, against a real ledger rather
+      // than through the worker: what the peer lacks, inside what the lane
+      // carries (ADR-0105 §1 and §6). The scope goes in whole, because the
+      // prefixes it derives describe every row but one — a Carried deletion,
+      // which crosses only where its frozen list is a subset of this lane's.
+      page: async (after, budgetBytes, above, scope) =>
+        readLedgerPage(db, after, budgetBytes, { above, laneScope: scope }),
       write: async (rows) => {
         // What `db.worker.ts` does on every `ledger_import` batch, and what
         // ADR-0075 §8 reuses unchanged: a stamp issued elsewhere moves this
@@ -137,10 +148,12 @@ async function converge(
   try {
     const both = await Promise.all([
       runFirstSync(roomA, code, shown, a.ledger, {
+        domains: a.scope,
         chunkBudgetBytes: options.chunkBudgetBytes,
         onProgress: (p) => a.progress.push(p),
       }),
       runFirstSync(roomB, code, read, b.ledger, {
+        domains: b.scope,
         chunkBudgetBytes: options.chunkBudgetBytes,
         onProgress: (p) => b.progress.push(p),
       }),
@@ -264,7 +277,7 @@ describe("two devices converge, and what crosses is what the peer lacks", () => 
     await converge(a, b);
 
     expect(readLedgerVersionVector(b.db)).toEqual({
-      device_a: { hlc_ms: 4_242, hlc_ctr: 9 },
+      device_a: { habits: { hlc_ms: 4_242, hlc_ctr: 9 } },
     });
   });
 });
@@ -321,7 +334,7 @@ describe("the closing exchange", () => {
 
     // B was empty when it opened. A's record must say B now holds A's row.
     expect(ended.a.peer_vector).toEqual({
-      device_a: { hlc_ms: 7_000, hlc_ctr: 0 },
+      device_a: { habits: { hlc_ms: 7_000, hlc_ctr: 0 } },
     });
     expect(ended.a.peer_vector).toEqual(readLedgerVersionVector(b.db));
     expect(ended.b.peer_vector).toEqual(readLedgerVersionVector(a.db));
@@ -452,10 +465,12 @@ describe("an attempt that does not finish", () => {
     // party leaving ends no room, so A sits out the five minutes (#391). The
     // test does not wait them out, it leaves the room the way the screen does.
     const abandoned = runFirstSync(roomA, code, shown, a.ledger, {
+      domains: a.scope,
       chunkBudgetBytes: 420,
     });
     abandoned.catch(() => {});
     const interrupted = runFirstSync(roomB, code, read, b.ledger, {
+      domains: b.scope,
       chunkBudgetBytes: 420,
       onProgress: (p) => {
         if (p.rows_received === 1) pulled.abort();
@@ -499,8 +514,12 @@ describe("an attempt that does not finish", () => {
 
     const roomA = await enterRoom(code.room, { dial: relay.dial });
     const roomB = await enterRoom(code.room, { dial: relay.dial });
-    const failing = runFirstSync(roomA, code, shown, broken);
-    const waiting = runFirstSync(roomB, code, read, b.ledger);
+    const failing = runFirstSync(roomA, code, shown, broken, {
+      domains: a.scope,
+    });
+    const waiting = runFirstSync(roomB, code, read, b.ledger, {
+      domains: b.scope,
+    });
     waiting.catch(() => {});
 
     await expect(failing).rejects.toThrow("the ledger would not open");
@@ -515,27 +534,190 @@ describe("an attempt that does not finish", () => {
     const relay = localRelay();
     // A peer whose opening frame is a shape this version does not understand,
     // under a seal that opens: the room is right and the protocol is not.
-    const mangling: typeof relay.dial = async (roomId, handlers) => {
-      const link = await relay.dial(roomId, handlers);
-      let first = true;
-      return {
-        ...link,
-        send: async (frame) => {
-          if (!first) return link.send(frame);
-          first = false;
-          const { sealFrame } = await import("../../src/lib/p2p/sealed-frame");
-          link.send(
-            await sealFrame(code, new TextEncoder().encode("{}"), {
-              label: "inventoria/v1/sync/a2b/open",
-            })
-          );
-        },
+    //
+    // **Only the first link's opening is replaced.** The label names a lane, so
+    // mangling both would send the `a2b` label down `b2a` as well, and the
+    // device reading that frame refuses the *seal* rather than the shape —
+    // a different ending, arriving in a race with this one. One side mangled
+    // makes the failure the one this test is about, every time.
+    let mangling: typeof relay.dial;
+    {
+      let links = 0;
+      mangling = async (roomId, handlers) => {
+        const link = await relay.dial(roomId, handlers);
+        const mangles = links++ === 0;
+        let first = true;
+        return {
+          ...link,
+          send: async (frame) => {
+            if (!mangles || !first) return link.send(frame);
+            first = false;
+            const { sealFrame } =
+              await import("../../src/lib/p2p/sealed-frame");
+            link.send(
+              await sealFrame(code, new TextEncoder().encode("{}"), {
+                label: "inventoria/v1/sync/a2b/open",
+              })
+            );
+          },
+        };
       };
-    };
+    }
     const code = mintRoomCode();
 
     await expect(
       converge(a, b, { code, dial: mangling })
     ).rejects.toBeInstanceOf(PairingRefusedError);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// The lane's scope (ADR-0105 §1–§4)
+// ---------------------------------------------------------------------------
+
+/**
+ * One row from each of three Tracked Domains, so a scope's edge is a fact about
+ * `datoms` rather than about a payload builder: whatever the lane carried, what
+ * the other ledger holds afterwards is what the claim is made against.
+ */
+const ACROSS_DOMAINS = [
+  row({ entity: "event:consume_1", attribute: "event/target" }),
+  row({ entity: "recipe:1", attribute: "recipe/name", hlc_ms: 1_100 }),
+  row({ entity: "tmdb:movie:1", attribute: "media/title", hlc_ms: 1_200 }),
+  row({ entity: "habit:1", attribute: "habit/name", hlc_ms: 1_300 }),
+];
+
+const FOOD_ROWS = ["event:consume_1", "recipe:1"];
+
+/** Which entities a ledger holds, which is what a scope is a claim about. */
+const entitiesOf = (held: Device) =>
+  [
+    ...new Set(readLedgerPage(held.db, null, 1024 * 1024).map((r) => r.entity)),
+  ].sort();
+
+describe("a pairing carries its Facet's domains and nothing else (ADR-0105 §1)", () => {
+  it("lands food and no other domain on a device that paired from Rations", async () => {
+    const a = device("device_a");
+    const b = device("dev_b", "food");
+    hold(a, ACROSS_DOMAINS);
+
+    const ended = await converge(a, b);
+
+    expect(entitiesOf(b)).toEqual(FOOD_ROWS);
+    expect(ended.a.scope).toEqual(["food"]);
+    expect(ended.b.scope).toEqual(["food"]);
+  });
+
+  it("withholds the other domains when Rations is the end that is sending", async () => {
+    // The same lane read from the other side, and it is not the same claim: one
+    // end filtering and the other trusting would pass the test above. Rations
+    // shares one Jar with the root (#286), so a food-only install can be
+    // sitting on Media rows — and a food lane may not ship them.
+    const a = device("device_a", "food");
+    const b = device("dev_b");
+    hold(a, ACROSS_DOMAINS);
+
+    await converge(a, b);
+
+    expect(entitiesOf(b)).toEqual(FOOD_ROWS);
+  });
+
+  it("carries a Carried deletion, which belongs to a domain no Facet holds", async () => {
+    // The Jar domain sits in no Facet's `domains` (ADR-0096 §13), so a scope
+    // that were merely the Facet's own list would silently stop a wipe ever
+    // reaching a peer. §1's *the root Facet's scope is the whole Jar* is what
+    // keeps `deletion:` on a jar-wide lane.
+    const a = device("device_a");
+    const b = device("dev_b");
+    hold(a, [
+      carriedDeletionRow({ hlc_ms: 1_400, hlc_ctr: 0, device_id: "device_a" }, [
+        "fdc:",
+      ]),
+    ]);
+
+    await converge(a, b);
+
+    expect(entitiesOf(b)).toHaveLength(1);
+    expect(entitiesOf(b)[0]).toMatch(/^deletion:/);
+  });
+
+  it("leaves a root-to-root lane carrying the whole Jar", async () => {
+    const a = device("device_a");
+    const b = device("dev_b");
+    hold(a, ACROSS_DOMAINS);
+
+    const ended = await converge(a, b);
+
+    expect(entitiesOf(b)).toEqual(entitiesOf(a));
+    expect(ended.a.scope).toContain("jar");
+  });
+});
+
+describe("the two sides agree the scope by intersection (ADR-0105 §3)", () => {
+  // All four pairings, agreed on the wire rather than in a pure function: each
+  // side states its own Facet's domains in the opening frame, and both ends
+  // have to come out of the act holding one scope.
+  const PAIRINGS: [FacetId, FacetId, string[]][] = [
+    ["root", "root", [...scopeOfFacet("root")]],
+    ["food", "food", ["food"]],
+    ["food", "root", ["food"]],
+    ["root", "food", ["food"]],
+  ];
+
+  for (const [ours, theirs, agreed] of PAIRINGS) {
+    it(`makes ${ours} to ${theirs} a lane over ${agreed.join(", ")}`, async () => {
+      const a = device("device_a", ours);
+      const b = device("dev_b", theirs);
+      hold(a, ACROSS_DOMAINS);
+
+      const ended = await converge(a, b);
+
+      expect(ended.a.scope).toEqual(agreed);
+      expect(ended.b.scope).toEqual(agreed);
+    });
+  }
+});
+
+describe("pairing again re-scopes the lane, both ways (ADR-0105 §4)", () => {
+  it("treats a widened lane's new domains as a first sync of them", async () => {
+    const a = device("device_a");
+    const b = device("dev_b", "food");
+    hold(a, ACROSS_DOMAINS);
+
+    await converge(a, b);
+    expect(entitiesOf(b)).toEqual(FOOD_ROWS);
+    // The marks the narrow lane never raised: absent, which is the empty-vector
+    // case and is exactly why a widening needs no path of its own (ADR-0105 §5).
+    expect(readLedgerVersionVector(b.db).device_a.media).toBeUndefined();
+
+    // The user installs the root on that phone and pairs again.
+    b.scope = scopeOfFacet("root");
+    await converge(a, b);
+
+    expect(entitiesOf(b)).toEqual(entitiesOf(a));
+  });
+
+  it("leaves the dropped domains' marks standing when a lane is narrowed", async () => {
+    const a = device("device_a");
+    const b = device("dev_b");
+    hold(a, ACROSS_DOMAINS);
+    await converge(a, b);
+    expect(entitiesOf(b)).toEqual(entitiesOf(a));
+    const held = readLedgerVersionVector(b.db).device_a.media;
+
+    // Both domains grow, and the pair re-pairs from Rations.
+    hold(a, [
+      row({ entity: "recipe:2", attribute: "recipe/name", hlc_ms: 2_000 }),
+      row({ entity: "tmdb:movie:2", attribute: "media/title", hlc_ms: 2_100 }),
+    ]);
+    b.scope = scopeOfFacet("food");
+    await converge(a, b);
+
+    expect(entitiesOf(b)).toContain("recipe:2");
+    expect(entitiesOf(b)).not.toContain("tmdb:movie:2");
+    // Standing, rather than raised past a row that never crossed: the lane no
+    // longer carries Media and nothing advances it, so a later wide lane still
+    // knows this device is behind.
+    expect(readLedgerVersionVector(b.db).device_a.media).toEqual(held);
   });
 });

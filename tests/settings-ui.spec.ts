@@ -65,11 +65,14 @@ test.describe("Media settings — API key reveal toggle", () => {
     const input = page.locator("#tmdb-api-key");
     await input.fill("x".repeat(120));
 
-    // `.secret-field` is the caller's box — the one holding the field *and* the
-    // toggle positioned against it. Named directly rather than by walking to
-    // the nearest `.input-wrapper` ancestor, which since #375 is `ui/Input`'s
-    // own wrapper: an inner box that no longer contains the toggle, so the
-    // xpath still resolved and quietly measured something else.
+    // `.secret-field` is the box holding the field *and* the toggle positioned
+    // against it. Since #384 it is `ui/SecretField`'s own, not the caller's;
+    // the name did not move with it, because this line selecting it is reach 4
+    // in ADR-0097's terms and renaming would have broken the assertion for no
+    // gain. Named directly rather than by walking to the nearest
+    // `.input-wrapper` ancestor, which since #375 is `ui/Input`'s own wrapper:
+    // an inner box that no longer contains the toggle, so the xpath still
+    // resolved and quietly measured something else.
     //
     // Anchored under the open sheet, because Rations settings carries a
     // `.secret-field` of its own for the OFF password; unanchored, this is a

@@ -298,7 +298,7 @@
         onclick={toggleTracking}
         aria-pressed={tracking}
       >
-        <div class="checkbox" class:checked={tracking}>
+        <div class="toggle-tick" class:checked={tracking}>
           {#if tracking}✓{/if}
         </div>
         <div class="toggle-text">
@@ -465,7 +465,7 @@
     width: 100%;
   }
 
-  .checkbox {
+  .toggle-tick {
     width: 24px;
     height: 24px;
     min-width: 24px;
@@ -479,7 +479,7 @@
     flex-shrink: 0;
     margin-top: var(--space-3xs);
   }
-  .checkbox.checked {
+  .toggle-tick.checked {
     background: var(--ink);
     color: var(--paper);
   }

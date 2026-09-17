@@ -184,3 +184,40 @@ the date library. `registry.ts`'s declared `precacheBytes` must move with it.
 
 **Deferred behind a seam**: a pinned rail (§4, triggered by a real rail element),
 and a phone form for a report (§7, triggered by someone wanting one).
+
+## Amendment (2026-09-15): the box that scrolls and the column that is capped are two boxes
+
+§2 makes `.main` one box doing two jobs: it is the `overflow-y: auto` scroll
+container and it carries `max-width` with `margin-inline: auto`. Those are
+separable, and keeping them together had a visible cost nobody priced. A scroll
+container draws its scrollbar at its own right edge, so on any window wider than
+the cap the bar stood in open space with grey either side of it, a full-height
+rule down the middle of the screen. It reads as a pane inside the app rather than
+as the page's own scrollbar, which is what it is.
+
+So the cap and the centring move onto `.shell-column`, the one child either shell
+puts inside `.main`, and the scroll stays where it was. The gutter stays on
+`.main` too, so the column is inset exactly as far as it was and no screen in
+either Facet changes width at any breakpoint. What moves is the scrollbar, to the
+edge of the window.
+
+**Everything §2 claims is intact.** It is still one rule for two shells, written
+once in `src/app.css`, and it is still one scroll box: the wrapper does not
+scroll, and a second `overflow` anywhere in the shell would be the nested scroll
+`shell.test.ts` already refuses. The wrapper is deliberately inert — no
+`transform`, no `filter`, no `contain` — because every sheet and every pinned bar
+in this app is `position: fixed` and any of those would make this box their
+containing block and drag them off the viewport.
+
+**The third cap is Rations' alone**, which is where this parts company with the
+"one rule with both caps" argument above. `--measure-wide` (88rem) exists to hold
+a third region that only the day screen has (ADR-0101's Amendment). The root
+renders that same day behind a navigation sidebar and keeps the two-region grid,
+so widening the root here would buy its six single-column screens nothing and
+stretch their measure past the point a line is comfortable to read. `.rations` is
+named in `app.css` for the first time, the same way `DailyDashboard` names it, and
+`shell.test.ts` holds the class name and the selector together.
+
+**What this owes.** No baseline moves: the column is the same width in the same
+place at every captured viewport, and a scrollbar is chrome rather than page
+content. If a desktop capture does shift, the overlay is the thing to read first.

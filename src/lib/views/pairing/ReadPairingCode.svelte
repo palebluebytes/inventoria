@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import Button from "../../ui/Button.svelte";
+  import FieldCaption from "../../ui/FieldCaption.svelte";
   import Input from "../../ui/Input.svelte";
   import { codeDetector, type CodeDetector } from "../../p2p/code-camera";
   import { readPairingScan, type PairingCode } from "../../p2p/pairing-code";
@@ -118,14 +119,15 @@
     <p class="say">Point this at the code on your other device.</p>
   {/if}
 
-  <label class="field">
-    <span class="label">Or paste the code</span>
+  <div class="field">
+    <FieldCaption for="pair-code-typed">Or paste the code</FieldCaption>
     <Input
+      id="pair-code-typed"
       bind:value={typed}
       placeholder="inventoria-pair …"
       oninput={() => (refused = "")}
     />
-  </label>
+  </div>
   <Button variant="secondary" onclick={readTyped} disabled={!typed.trim()}>
     Use this code
   </Button>
@@ -161,13 +163,6 @@
     display: flex;
     flex-direction: column;
     gap: var(--space-3xs);
-  }
-  .label {
-    font-size: var(--step-n2);
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    color: var(--text-secondary);
   }
   .refused {
     margin: 0;

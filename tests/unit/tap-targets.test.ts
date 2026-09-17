@@ -138,7 +138,7 @@ describe("the floor itself", () => {
 
 describe("the six nav items", () => {
   const item = ruleOf(SIDEBAR, ".nav-item");
-  const icon = ruleOf(SIDEBAR, ".nav-item .icon");
+  const icon = ruleOf(SIDEBAR, ".nav-item .nav-icon");
 
   it("is six, each drawn from the one `.nav-item` box", () => {
     // What lets one measurement stand for all six: the nav is a loop over one

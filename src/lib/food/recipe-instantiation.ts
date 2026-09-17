@@ -1,12 +1,10 @@
 import {
   deriveIngredientMacros,
+  type IngredientSource,
   type ReferenceIngredient,
 } from "./recipe-nutrition";
-import type {
-  AmountUnit,
-  NutritionBreakdown,
-  NutritionInfo,
-} from "./nutrition";
+import type { AmountUnit, NutritionBreakdown } from "./nutrition";
+import { sanitizeWeight } from "./batch-weight";
 
 /**
  * One ingredient of a logged Recipe Instantiation, frozen (ADR-0022). It keeps
@@ -40,6 +38,19 @@ export interface Instantiation {
   based_on: string;
   yield: number;
   ingredients: InstantiationRow[];
+  /**
+   * What the finished batch weighed, in grams, when the cook weighed one
+   * (ADR-0106 §5). The rows are a fraction of it, so freezing it is what makes
+   * this snapshot a self-contained historical reading: a logged occasion says
+   * 160 g of a 480 g pot, and a correction reopening the editor to say
+   * "actually I ate 200 g" has something to divide against. Without it the
+   * snapshot would carry a numerator whose denominator is gone.
+   *
+   * Absent on every occasion nobody weighed, which is ordinary: the serving
+   * count is the honest answer there (§7), and a zero would read as a
+   * measurement the cook never took.
+   */
+  batch_weight?: number;
 }
 
 /**
@@ -49,16 +60,24 @@ export interface Instantiation {
  * display and the headline `deriveRecipeNutrition` use, so the frozen rows sum
  * exactly to the batch total the headline is `÷ yield` of. `resolve` yields each
  * referenced twin's nutrition panel; `resolveName` its display name, denormalized
- * onto the row (falling back to the raw `ref` if the twin cannot be resolved).
+ * onto the row (falling back to the raw `ref` if the twin cannot be resolved);
+ * it yields the twin's panel and density together, because a row's amount may be
+ * stated in a unit that panel's basis is not (ADR-0108 §7).
  * Yield is only carried here, not applied to the rows: the rows are the batch as
  * cooked, and dividing by yield happens once, in the headline.
+ *
+ * `batch_weight` is what the caller's surface said the finished dish weighed,
+ * carried onto the snapshot beside the rows it sized (ADR-0106 §5). It is
+ * carried and never derived: a pot does not weigh what went into it, so the row
+ * sum is a different quantity and could not stand in for it.
  */
 export function buildInstantiation(
   based_on: string,
   ingredients: ReferenceIngredient[],
   recipeYield: number,
-  resolve: (ref: string) => NutritionInfo | undefined,
-  resolveName: (ref: string) => string | undefined
+  resolve: (ref: string) => IngredientSource | undefined,
+  resolveName: (ref: string) => string | undefined,
+  batch_weight?: number
 ): Instantiation {
   const rows: InstantiationRow[] = ingredients.map((ing) => ({
     ref: ing.ref,
@@ -67,9 +86,14 @@ export function buildInstantiation(
     unit: ing.unit,
     ...deriveIngredientMacros(ing, resolve),
   }));
+  const weighed = sanitizeWeight(batch_weight);
   return {
     based_on,
     yield: recipeYield > 0 ? recipeYield : 1,
     ingredients: rows,
+    // Spread rather than assigned, so an unweighed occasion carries no key at
+    // all. `batch_weight: undefined` would survive into the stored JSON shape
+    // as a denominator that is present and unusable.
+    ...(weighed !== undefined ? { batch_weight: weighed } : {}),
   };
 }

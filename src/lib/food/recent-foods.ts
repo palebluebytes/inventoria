@@ -1,7 +1,12 @@
 import type { ConsumptionEvent } from "./consumption-state";
 import { byFrecency, frecencyOf } from "./frecency";
 import { parseLoggedQuantity } from "./recipe-ingredient";
-import type { AmountUnit, MeasuredUnit } from "./nutrition";
+import {
+  isMeasuredUnit,
+  type AmountUnit,
+  type MeasuredUnit,
+} from "./nutrition";
+import type { ReferenceIngredient } from "./recipe-nutrition";
 import type { MealType } from "./meal-type";
 
 /**
@@ -76,7 +81,23 @@ export function recentCandidatesForMeal(
   const candidates: RecentCandidate[] = [];
 
   // Copied before sorting: the caller passes the consumption store's own array.
-  const atThisMeal = events.filter((event) => event.meal_type === meal_type);
+  // Recent offers FOODS. A Recipe Instantiation targets a Recipe Twin, which
+  // carries no `nutrition/info` panel for the amount control to open against and
+  // has its own way in, so it is neither a candidate nor evidence of what gets
+  // eaten at this meal — which is why it is dropped here, ahead of the frecency
+  // walk, rather than inside the loop below.
+  //
+  // This was enforced by accident until #424. Every instantiation wrote the
+  // literal quantity "1 serving", so the catalogue rule downstream
+  // (`isCatalogueFood`, ADR-0035 §6) took its whole-serving arm, looked for a
+  // reusable `food/manual_entry` on the recipe twin, found none, and dropped it.
+  // The moment an instantiation started recording what it actually weighed, that
+  // arm stopped being taken and every recipe appeared in the row — so the rule is
+  // stated here, where it is about what a recipe IS rather than about how one
+  // happened to be spelled.
+  const atThisMeal = events.filter(
+    (event) => event.meal_type === meal_type && !event.instantiation
+  );
 
   // The unit still comes off the NEWEST log of each food, whatever the ordering
   // below does. It is the amount control's seed — what this food was last logged
@@ -112,6 +133,13 @@ export function recentCandidatesForMeal(
  * only honest answer — the alternative is a field pre-filled with a number
  * measured against something else.
  *
+ * This still refuses rather than converting, even on a food that now carries a
+ * density: what unit to open in is {@link rememberedUnit}'s question, and a
+ * caller asks this one only once that is settled. The two are siblings by
+ * design — a reader that both chose the unit and reported the amount would be
+ * answering two questions with one return value, which is what makes a mismatch
+ * unreportable.
+ *
  * Unscoped by meal, unlike {@link recentCandidatesForMeal} above. That walk is
  * scoped because a meal's *offer* is about what belongs at breakfast; this is
  * about how much of one food a person eats, which the clock does not change.
@@ -132,6 +160,48 @@ export function rememberedAmount(
   target: string,
   unit: MeasuredUnit
 ): number | null {
+  const logged = newestLog(events, target);
+  if (!logged) return null;
+  return logged.unit === unit ? logged.amount : null;
+}
+
+/**
+ * Which unit this food was last **logged** in, or null where it has never been
+ * logged as a measurement.
+ *
+ * The sibling {@link rememberedAmount} needs, and the memory half of ADR-0108
+ * §7's opening-unit rule: context sets the default and what this food was last
+ * entered in **here** overrides it. Reporting the unit is a different question
+ * from seeding the amount, which is why it is a second reader rather than a
+ * widened return: that one refuses a mismatch and must keep refusing, and a
+ * single function answering both would have no way to say "330, and it was
+ * millilitres, and your field takes grams".
+ *
+ * Scoped to the LOG. What the same food was last measured into a recipe at is
+ * `rememberedIngredientUnit`'s answer and seeds a different screen: a can of
+ * Coke drunk in millilitres for months is still a thing measured *into*
+ * something the first time it reaches an ingredient list, and a memory read per
+ * food rather than per context would never let the context rule run.
+ *
+ * A whole-serving log ("1 serving") names no measured unit and comes back null,
+ * so the context's own default decides — the same answer a food with no history
+ * gets, which is what it is.
+ */
+export function rememberedUnit(
+  events: readonly ConsumptionEvent[],
+  target: string
+): MeasuredUnit | null {
+  return newestLog(events, target)?.unit ?? null;
+}
+
+/**
+ * The newest measured log of one food, parsed. Shared by the two readers above
+ * so they can never disagree about which event "the last time" was.
+ */
+function newestLog(
+  events: readonly ConsumptionEvent[],
+  target: string
+): { amount: number; unit: MeasuredUnit } | null {
   let newest: ConsumptionEvent | null = null;
   for (const event of events) {
     if (event.target !== target) continue;
@@ -140,7 +210,37 @@ export function rememberedAmount(
   if (newest === null) return null;
 
   const logged = parseLoggedQuantity(newest.quantity);
-  return logged.unit === unit ? logged.amount : null;
+  return isMeasuredUnit(logged.unit)
+    ? { amount: logged.amount, unit: logged.unit }
+    : null;
+}
+
+/**
+ * Which unit this food was last measured **into a recipe** in, over every recipe
+ * on this device, or null where it is in none of them.
+ *
+ * The recipe half of the same rule, and a separate walk because it reads a
+ * separate history: an ingredient list's memory is on the recipe twins
+ * (`recipe/ingredients`), not in the consumption log. `lists` arrives newest
+ * first, so the first list holding this food is the last one it was put into.
+ *
+ * It answers a unit and not an amount, deliberately. How much of a food a recipe
+ * uses is a property of that recipe — 30 g of oil in one dish says nothing about
+ * the next — where which unit you measure it in is a property of how you cook.
+ * {@link rememberedAmount} has the same shape for the log because the opposite is
+ * true there: how much of a food a person eats does not change between days.
+ */
+export function rememberedIngredientUnit(
+  lists: readonly (readonly ReferenceIngredient[])[],
+  target: string
+): MeasuredUnit | null {
+  for (const list of lists) {
+    for (const row of list) {
+      if (row.ref !== target) continue;
+      if (isMeasuredUnit(row.unit)) return row.unit;
+    }
+  }
+  return null;
 }
 
 /**

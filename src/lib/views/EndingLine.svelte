@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { EndingWords } from "../p2p/ending-words";
+  import Disclosure from "../ui/Disclosure.svelte";
 
   // How an act in a room ended, whichever end of it you are (ADR-0074 §6).
   //
@@ -26,6 +27,11 @@
   } = $props();
 
   let showCause = $state(false);
+
+  // The region's id. `ui/Disclosure` requires one, which is exactly the defect
+  // this file had: it shipped `aria-expanded` with no `aria-controls` at all,
+  // so the button announced itself as expanded while pointing at nothing.
+  const causeId = `ending-cause-${crypto.randomUUID().slice(0, 8)}`;
 </script>
 
 <div class="outcome" class:ok>
@@ -33,17 +39,20 @@
 </div>
 <p class="fine">{words.detail}</p>
 {#if words.cause}
-  <button
-    type="button"
-    class="plain"
-    aria-expanded={showCause}
-    onclick={() => (showCause = !showCause)}
-  >
-    {showCause ? "Hide" : "Show"} why
-  </button>
-  {#if showCause}
-    <p class="cause">{words.cause}</p>
-  {/if}
+  <!-- The wrapper is this file's scoped ancestor, and exists for that: a class
+       handed to a component carries no scoping hash, so the rule dressing the
+       trigger has to reach it through `:global` under a box written here. -->
+  <div class="why-block">
+    <Disclosure
+      class="why"
+      mark={null}
+      title={showCause ? "Hide why" : "Show why"}
+      open={showCause}
+      controls={causeId}
+      onToggle={() => (showCause = !showCause)}
+    />
+    <p id={causeId} class="cause" hidden={!showCause}>{words.cause}</p>
+  </div>
 {/if}
 
 <style>
@@ -66,17 +75,22 @@
     font-size: var(--step-n2);
     color: var(--text-secondary);
   }
-  .plain {
-    min-height: var(--tap-min);
+  /* Placement and voice, not the control: `ui/Disclosure` carries the floor,
+     the bare frame, the focus ring and the label's alignment. The mark is
+     switched off here because the label *is* the mark — the words flip between
+     Show and Hide, and a caret beside them would say the same thing twice. */
+  .why-block :global(.why) {
     margin-top: var(--space-2xs);
-    background: none;
-    border: 0;
-    padding: 0;
-    font: inherit;
     font-size: var(--step-n2);
     color: var(--text-secondary);
     text-decoration: underline;
-    cursor: pointer;
+  }
+  /* `hidden` collapses the cause; the attribute is what the trigger's
+     `aria-expanded` describes, so it leaves the accessibility tree with it.
+     Before #316 this region was an `{#if}` and the trigger had no
+     `aria-controls` to name it with. */
+  .cause[hidden] {
+    display: none;
   }
   .cause {
     margin: var(--space-3xs) 0 0;

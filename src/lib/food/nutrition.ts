@@ -10,6 +10,8 @@
  * schema.org export. Every macro field is optional — an adapter populates only
  * the subset its source actually provides.
  */
+import { isBareMagnitude } from "./serving-size";
+
 export interface NutritionInfo {
   /** schema.org servingSize — the basis of these values, e.g. "100 g". */
   serving_size: string;
@@ -254,6 +256,26 @@ export function portionMeasure(
   return null;
 }
 
+/**
+ * A magnitude and its unit as the exactly-one-of pair a {@link Portion} stores —
+ * the **one writer** of that pair, and the mirror of {@link portionMeasure},
+ * which is its one reader. A caller spreads the result into the portion it is
+ * building, so no source has to decide for itself which of the two field names
+ * a millilitre goes in.
+ *
+ * An absent or unusable magnitude writes **neither** field, which is what makes
+ * it safe for a form: absent is not zero (#28, ADR-0030), and a portion carrying
+ * a real `0` reads back through `portionMeasure` as a genuine magnitude of
+ * nothing — a chip the picker offers and that fills nothing when tapped.
+ */
+export function portionMagnitude(
+  amount: number | undefined,
+  unit: MeasuredUnit
+): Pick<Portion, "grams" | "millilitres"> {
+  if (amount === undefined || !Number.isFinite(amount)) return {};
+  return unit === "ml" ? { millilitres: amount } : { grams: amount };
+}
+
 /** The EAVT attribute that holds a food twin's ordered household portions. */
 export const FOOD_PORTIONS_ATTR = "food/portions";
 
@@ -274,33 +296,46 @@ export function formatPortionLabel(amount: number, unit: string): string {
  * amount picker (ticket #27) calls to turn a picked portion into the number its
  * field takes.
  *
- * `unit` is the unit the field is entered in, and a portion stated in the other
- * one **does not match** (ADR-0060 §2): handing back a 100 g serving for a
- * millilitre field would be the density conversion this app refuses, performed
- * silently at ratio 1. Matching on both label and unit is also why this scans
- * rather than taking the first label hit — a source may publish two servings of
- * one name, and the one to resolve is the one the field can hold.
+ * `unit` is the unit the field is entered in. A portion stated in the OTHER one
+ * used to be no match at all, because handing back a 100 g serving for a
+ * millilitre field would be a density conversion performed silently at ratio 1
+ * (ADR-0060 §2/§6). On a food carrying a Density Class it is neither silent nor
+ * at ratio 1, so `gPerMl` — the figure that class resolves to — lets such a
+ * portion match after all (ADR-0108 §8). Without one §6 stands exactly as
+ * written and the portion is refused.
+ *
+ * **An exact-unit match always wins.** A source may publish two servings of one
+ * name, and the one to fill in is the one stated in the unit the field holds,
+ * measured rather than converted. Only when no exact match exists does a
+ * converted one answer, which is also why this scans the whole list twice rather
+ * than returning the first label hit.
  *
  * Returns `undefined` — never a bogus number — when the list is missing or
- * empty, no portion matches both `label` and `unit`, or the matched portion
- * carries no usable magnitude ({@link portionMeasure}), so the caller can fall
- * back to a raw entry. Result is rounded to the stored food precision to shed
- * float noise.
+ * empty, no portion matches `label`, the matched portion carries no usable
+ * magnitude ({@link portionMeasure}), or it is stated in the other unit on a
+ * food with nothing to convert by. Result is rounded to the stored food
+ * precision to shed float noise.
  */
 export function resolvePortionAmount(
   portions: Portion[] | undefined,
   label: string,
   unit: MeasuredUnit,
-  quantity: number = 1
+  quantity: number = 1,
+  gPerMl?: number
 ): number | undefined {
   if (!portions?.length) return undefined;
   if (!Number.isFinite(quantity)) return undefined;
+  let converted: number | undefined;
   for (const portion of portions) {
     if (portion?.label !== label) continue;
     const measure = portionMeasure(portion);
-    if (measure?.unit === unit) return roundFood(quantity * measure.amount);
+    if (!measure) continue;
+    if (measure.unit === unit) return roundFood(quantity * measure.amount);
+    if (converted !== undefined) continue;
+    const across = convertMeasured(measure.amount, measure.unit, unit, gPerMl);
+    if (across !== undefined) converted = roundFood(quantity * across);
   }
-  return undefined;
+  return converted;
 }
 
 /**
@@ -323,23 +358,32 @@ export interface PortionPreset {
 }
 
 /**
- * True when a portion label carries no household meaning beyond a bare weight —
- * "30 g", "30g", "30 grams", or just "30". A household portion is meant to name
- * a unit ("1 slice", "1 biscuit"); a label that only restates the grams column
- * is uninformative — {@link formatPortionPreset} collapses its chip from
- * "30 g — 30 g" to "30 g", and the capture form flags the row so the user can
- * give it a real name. Blank labels are not flagged (they're simply incomplete).
+ * True when a portion label carries no household meaning beyond a bare amount —
+ * "30 g", "30g", "30 grams", "330 ml", "1 litre", or just "30". A household
+ * portion is meant to name a unit ("1 slice", "1 biscuit"); a label that only
+ * restates the amount column is uninformative — {@link formatPortionPreset}
+ * collapses its chip from "30 g — 30 g" to "30 g", and the capture form flags
+ * the row so the user can give it a real name. Blank labels are not flagged
+ * (they're simply incomplete).
  *
- * Weights only, deliberately: this is asked of the capture form's typed rows,
- * and those are a label and a grams box (`PortionRow`). It is a different
- * question from {@link formatPortionPreset}'s collapse — that one asks whether a
- * label equals the amount a portion actually resolves to, in whichever unit, and
- * so has to know about millilitres where this one has no row that could hold one.
+ * It was weights-only until #460, on a stated ground: it is asked of the capture
+ * form's typed rows, and those were "a label and a grams box". That row carries
+ * a unit now, so the ground is spent and the narrowing with it — a rule
+ * outliving its reason is how the next reader gets misled.
+ *
+ * The unit vocabulary is `serving-size.ts`'s own rather than a list written
+ * here: it is the one this app already reads OFF's servings with, in every
+ * language OFF spells them, and a second copy would be a narrower duplicate of
+ * the thing #139/#141 built.
+ *
+ * The check is deliberately unit-AGNOSTIC rather than asked against the row's
+ * own unit: "330 ml" is no more a portion name in a gram row than in a
+ * millilitre one, and pairing the two would only add a way to miss it. It is
+ * still a different question from {@link formatPortionPreset}'s collapse — that
+ * one asks whether a label equals the amount a portion actually RESOLVES to.
  */
-export function portionLabelIsBareWeight(label: string): boolean {
-  const t = label.trim().toLowerCase();
-  if (t === "") return false;
-  return /^\d+(?:\.\d+)?\s*(?:g|gram|grams)?$/.test(t);
+export function portionLabelIsBareAmount(label: string): boolean {
+  return isBareMagnitude(label);
 }
 
 /**
@@ -352,34 +396,54 @@ export function portionLabelIsBareWeight(label: string): boolean {
  * of "30 g" or "330 ml" ({@link offPortions}) — the ` — N g` suffix would just
  * repeat it ("30 g — 30 g"), so it's dropped and the chip reads plainly.
  *
+ * `shown` is what the chip will actually FILL, which differs from the source's
+ * own magnitude only on a portion crossing the two units (ADR-0108 §8): a
+ * 330 ml can read into a gram field is "1 can — ≈304 g". The `≈` is the whole
+ * of the signal and it is doing real work — it says estimate without reopening
+ * an argument already settled (§9) — and it is what keeps the chip from claiming
+ * the source measured a weight it never stated. A chip filling the unit its
+ * source stated carries no `≈`, because nothing about it is approximate.
+ *
  * A portion carrying no usable magnitude reads as its bare label: there is
  * nothing true left to suffix it with. {@link portionPresets} drops such a
  * portion from the picker, so this is the defensive branch rather than a chip
  * anyone sees.
  */
-export function formatPortionPreset(portion: Portion): string {
-  const measure = portionMeasure(portion);
+export function formatPortionPreset(
+  portion: Portion,
+  shown?: PortionMeasure
+): string {
+  const measure = shown ?? portionMeasure(portion);
   if (!measure) return portion.label.trim();
+  const source = portionMeasure(portion);
+  const estimated = source !== null && source.unit !== measure.unit;
   const amount = roundFoodDisplay(measure.amount);
   // Normalise "30g" / "30 g" / " 30 G " to compare against the resolved amount.
   const bare = portion.label.trim().toLowerCase().replace(/\s+/g, "");
-  if (bare === `${amount}${measure.unit}`) return portion.label.trim();
-  return `${portion.label} — ${amount} ${measure.unit}`;
+  if (!estimated && bare === `${amount}${measure.unit}`)
+    return portion.label.trim();
+  return `${portion.label} — ${estimated ? "≈" : ""}${amount} ${measure.unit}`;
 }
 
 /**
- * Maps a twin's `food/portions` to the presets the amount picker renders
- * alongside its numeric + slider control (ticket #27). The single place that
- * decides which portions surface as chips and how each reads.
+ * Maps a twin's `food/portions` to the presets the amount picker renders below
+ * its numeric control (ticket #27). The single place that decides which portions
+ * surface as chips and how each reads.
  *
  * Two reasons a portion is dropped, and they are different reasons. One carries
  * no usable magnitude ({@link portionMeasure}) and so could not fill a valid
- * amount at all. The other is stated in a unit the field does not take, and
- * that is the one this ticket's sibling field makes visible: a chip that filled
- * a 100 g serving into a millilitre field would be a density conversion done
- * silently at ratio 1, which ADR-0060 §2 refuses. Neither case is hypothetical —
- * Open Food Facts publishes a drink powder's serving as the prepared 100 ml
- * against a per-100 g panel, and a millilitre carton's as 100 g.
+ * amount at all. The other is stated in a unit the field does not take, and that
+ * one is now **conditional**: filling it in would be a density conversion done
+ * silently at ratio 1 (ADR-0060 §2/§6) only where there is no density, and on a
+ * food carrying a Density Class it is neither silent nor at ratio 1 (ADR-0108
+ * §8). `gPerMl` is that class's figure; without one §6 stands exactly as
+ * written. Neither case is hypothetical — Open Food Facts publishes a drink
+ * powder's serving as the prepared 100 ml against a per-100 g panel, and a
+ * millilitre carton's as 100 g.
+ *
+ * A crossed portion's chip says what it fills and marks it `≈`
+ * ({@link formatPortionPreset}), because the source stated a volume and the
+ * weight beside it is this app's reading of it.
  *
  * The kept ones carry their amount rounded to stored precision so a tapped chip
  * and {@link resolvePortionAmount} agree exactly. Returns an empty list for a
@@ -387,17 +451,24 @@ export function formatPortionPreset(portion: Portion): string {
  */
 export function portionPresets(
   portions: Portion[] | undefined,
-  unit: MeasuredUnit
+  unit: MeasuredUnit,
+  gPerMl?: number
 ): PortionPreset[] {
   if (!portions?.length) return [];
   return portions.flatMap((portion) => {
     const measure = portionMeasure(portion);
-    if (measure?.unit !== unit) return [];
+    if (!measure) return [];
+    const amount =
+      measure.unit === unit
+        ? measure.amount
+        : convertMeasured(measure.amount, measure.unit, unit, gPerMl);
+    if (amount === undefined) return [];
+    const shown = { amount, unit };
     return [
       {
         label: portion.label,
-        amount: roundFood(measure.amount),
-        display: formatPortionPreset(portion),
+        amount: roundFood(amount),
+        display: formatPortionPreset(portion, shown),
       },
     ];
   });
@@ -541,6 +612,58 @@ export function measuredUnitFrom(token: string): MeasuredUnit {
 }
 
 /**
+ * The measured unit an amount was ENTERED in, for a caller holding a logged or
+ * persisted {@link AmountUnit} and the panel it was measured against.
+ *
+ * A measured amount answers with its own unit, which on a food carrying a
+ * Density Class is the one the user chose and not the one the panel implies
+ * (ADR-0108 §7). A whole-serving entry names no measured unit at all
+ * ({@link isMeasuredUnit}), and the panel's own is the honest fallback: a
+ * caller re-opening one is rebuilding an amount out of the panel anyway, so the
+ * unit it comes back in is the panel's by construction.
+ *
+ * One expression of the rule, because three screens ask it — the amount editor,
+ * the log sheet's edit seed and the recipe row editor — and a fallback spelled
+ * three times is three chances to spell it differently.
+ */
+export function enteredUnit(
+  unit: AmountUnit,
+  serving_size: string | undefined
+): MeasuredUnit {
+  return isMeasuredUnit(unit) ? unit : basisUnit(serving_size);
+}
+
+/**
+ * An amount in `from`, expressed in `to`, at `gPerMl` grams per millilitre.
+ *
+ * The arithmetic of a volume becoming a weight, and nothing else: it knows
+ * nothing about where the figure came from or what licenses using it. That is
+ * `density.ts`'s `convertAmount`, which resolves a Density Class the user
+ * asserted and then calls this — the one door, with this as the one sum behind
+ * it (ADR-0108 §1).
+ *
+ * The split is here rather than there because this module owns {@link
+ * MeasuredUnit} and `density.ts` already imports it; putting the sum the other
+ * way round would make the two files import each other.
+ *
+ * `undefined` for a figure that cannot convert anything — absent, zero or
+ * negative — never a silent ratio of 1 (ADR-0060 §2). Rounded to the stored
+ * food precision, so an amount survives a round trip through the field it was
+ * typed into.
+ */
+export function convertMeasured(
+  amount: number,
+  from: MeasuredUnit,
+  to: MeasuredUnit,
+  gPerMl: number | undefined
+): number | undefined {
+  if (from === to) return amount;
+  if (gPerMl === undefined || !Number.isFinite(gPerMl) || gPerMl <= 0)
+    return undefined;
+  return roundFood(to === "g" ? amount * gPerMl : amount / gPerMl);
+}
+
+/**
  * A measured unit spelled out, for a control that names what it takes ("Amount
  * (millilitres)") rather than suffixing a value with it. The long-form sibling
  * of `unitLabel`, which gives the short `g` / `ml` that rides beside a number.
@@ -589,8 +712,15 @@ export function amountDefaults(unit: MeasuredUnit): AmountDefaults {
  * {@link parseBasisQuantity} and {@link basisUnit}: a basis naming a zero
  * quantity would take the former's 100 fallback and caption a number the source
  * never gave, which is the one thing this function exists not to do.
+ *
+ * `gPerMl` — the figure a food's Density Class resolves to — adds what that
+ * basis weighs: `Per 100 ml (≈103 g)` (ADR-0108 §9). Absent on every food
+ * nobody has classified, which captions exactly as it always did.
  */
-export function basisCaption(serving_size: string | undefined): string | null {
+export function basisCaption(
+  serving_size: string | undefined,
+  gPerMl?: number
+): string | null {
   const basis = (serving_size ?? "").trim();
   if (basis === "") return null;
   const match = BASIS_QUANTITY.exec(basis);
@@ -598,9 +728,23 @@ export function basisCaption(serving_size: string | undefined): string | null {
   const quantity = Number(match[1]);
   if (quantity <= 0) return "Per serving";
   const unit = measuredUnitFrom(match[2]);
-  return quantity === 100
-    ? `Per ${quantity} ${unit}`
-    : `Per serving (${quantity} ${unit})`;
+  const head =
+    quantity === 100
+      ? `Per ${quantity} ${unit}`
+      : `Per serving (${quantity} ${unit})`;
+  // What that basis weighs, on a food the user has said what kind of liquid it
+  // is (ADR-0108 §9): `Per 100 ml (≈103 g)`. The `≈` is the whole of the surface
+  // signal, and it is doing real work — it says estimate without reopening an
+  // argument already settled. A badge, tag or tint is deliberately not added:
+  // ADR-0041's 2026-08-06 amendment removed exactly such a marker from inferred
+  // NOVA values, and this follows that call rather than relitigating it.
+  //
+  // Only ever on a volume basis. The weight of a gram basis is the gram basis,
+  // and restating it would be a conversion announcing itself for no reason.
+  const weighed = convertMeasured(quantity, unit, "g", gPerMl);
+  return unit === "ml" && weighed !== undefined
+    ? `${head} (≈${roundFoodDisplay(weighed)} g)`
+    : head;
 }
 
 /** The four macros the food dashboard and recipe builder display and sum. */

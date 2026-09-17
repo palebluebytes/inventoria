@@ -6,9 +6,12 @@ import {
   PER_100ML,
   FOOD_PORTIONS_ATTR,
   type NutritionInfo,
+  type MeasuredUnit,
   type Portion,
+  portionMagnitude,
 } from "./nutrition";
 import { buildRawProvenance, type RawProvenance } from "./provenance";
+import { namesMoreThanOneMagnitude, soleMagnitudeUnit } from "./serving-size";
 import { getSecret } from "../stores/secrets";
 
 // Mapper version, bumped when the OFF -> nutrition/info normalisation changes.
@@ -38,7 +41,21 @@ import { getSecret } from "../stores/secrets";
 //     offers the "1 can" chip v8 had to give up. Forward-only: a drink already
 //     in the ledger keeps its portion-less payload until it is looked up again,
 //     which is the same thing it shows today.
-const ADAPTER_VERSION = "9";
+// v10: a serving whose `serving_size` names more than one distinct magnitude
+//     emits no portion, because OFF's quantity and its unit are parsed from that
+//     one string by two regexes that pick different tokens out of it
+//     (ADR-0052 §2's Amendment, #433). Forward-only: a product already in the
+//     ledger keeps the portion it was given until it is looked up again.
+// v11: a serving OFF states no `serving_quantity_unit` for takes its unit from
+//     the one magnitude `serving_size` names, and emits no portion where the
+//     label names none either — rather than falling through to the grams it was
+//     never known to be (ADR-0052 §2's Amendment, #433). Forward-only like v10.
+// v12: the multi-magnitude rule reads OFF's whole units taxonomy rather than the
+//     twelve entries a portion can be stored in, so a household measure or an
+//     energy is a second magnitude rather than an invisible one; and a stated
+//     `serving_quantity_unit` that is neither g nor ml emits no portion rather
+//     than a weight (ADR-0052 §2's Amendment, #459). Forward-only like v10.
+const ADAPTER_VERSION = "12";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -172,6 +189,16 @@ export interface OFFProduct {
     // is omitted from the payload rather than emitted as empty/null.
     brands?: string;
     categories?: string;
+    /**
+     * OFF's own classification of the product in its language-neutral taxonomy
+     * (`["en:beverages", "en:fruit-juices"]`) — the sibling of the free-text
+     * {@link categories}, and what the Density Class pre-fill reads
+     * ({@link offCategoryTagsFromTwin}, ADR-0108). Declared so a reader is not
+     * casting its way into the raw blob; ADR-0108's 2026-09-15 amendment ruled
+     * that this field carries none of the hazard `product_quantity_unit` does,
+     * which is why that one stays undeclared and this one may join.
+     */
+    categories_tags?: string[];
     ingredients_text?: string;
     nova_group?: number;
     // OFF's NOVA evidence (adapter v6, ADR-0041 §7). `nova_group_debug` is the
@@ -294,6 +321,32 @@ export function offPackQuantityFromTwin(
 }
 
 /**
+ * OFF's own category tags for a SAVED twin — `["en:beverages",
+ * "en:fruit-juices"]` — the third sibling of {@link offPackUnitFromTwin} and
+ * {@link offPackQuantityFromTwin}, and what the Density Class pre-fill is
+ * proposed from (ADR-0108's pre-fill amendment).
+ *
+ * This works on every `gtin:` twin ever scanned, with no migration and no
+ * re-fetch: `lookupBarcode` passes no `fields` parameter and the mapper stores
+ * the whole response as `provenance/raw`, so the tags have always been there.
+ * ADR-0076 §4 forbids *scoping* by `provenance/`, which reading a value out of
+ * it is not — the two readers above are the precedent.
+ *
+ * Empty for a non-OFF twin and for a product OFF has not categorised, which
+ * `densityClassFromCategoryTags` reads as "no pre-fill" either way: 24.24% of
+ * millilitre products carry no usable tags, and they are ordinary ones —
+ * Orangina, Red Bull, Bière 33cl.
+ */
+export function offCategoryTagsFromTwin(
+  attributes: Record<string, unknown> | undefined
+): string[] {
+  const tags = offProductFromTwin(attributes)?.categories_tags;
+  return Array.isArray(tags)
+    ? tags.filter((tag): tag is string => typeof tag === "string")
+    : [];
+}
+
+/**
  * The unit a typed pack size names — "50 ml" ⇒ `ml`, "43.1 gram" ⇒ `g`, an
  * unrecognised or unitless string ⇒ undefined. This is our reading of what OFF
  * will parse out of the same text; it exists so a contribution can be judged
@@ -385,6 +438,45 @@ function isMillilitres(unit: string | undefined): boolean {
 }
 
 /**
+ * The documentation's "either g or ml" is not what the field holds. OFF writes
+ * whatever `standard_unit:en` the token it matched carries, and its units
+ * taxonomy carries eighteen entries that are neither — an energy, a percentage,
+ * a water hardness. Of 11,521 real rows carrying a `serving_size`, six stated a
+ * `serving_quantity_unit` of `kj`, `mmol/l` or `%` (#459).
+ */
+function isGrams(unit: string | undefined): boolean {
+  return unit?.trim().toLowerCase() === "g";
+}
+
+/**
+ * The unit a serving's magnitude is in: what OFF states, and where it states
+ * nothing, what the label's one magnitude is in ({@link soleMagnitudeUnit}).
+ * `undefined` where neither says — which is a refusal, not a grams default,
+ * because an absent measure is not a zero and is not a gram either
+ * (ADR-0048 §3, ADR-0052 §2's Amendment).
+ *
+ * A measure in a unit a portion cannot be stored in is the same refusal through
+ * a third door. `mmol/l` is not millilitres, so the old `isMillilitres`-else-grams
+ * pair called it grams and stored a 240 ml serving as 240 g — ADR-0060 §2's
+ * invariant broken by a foreign unit rather than a missing one (#459).
+ *
+ * Deriving from the label is sound here and was rejected for the multi-magnitude
+ * case in the same breath, because the two are different questions: this one is
+ * asked only after {@link namesMoreThanOneMagnitude} has established there is a single
+ * token, so the quantity and the unit cannot have come from different ones.
+ */
+function servingUnit(
+  serving_quantity_unit: string | undefined,
+  serving_size: string | undefined
+): MeasuredUnit | undefined {
+  if (serving_quantity_unit?.trim()) {
+    if (isMillilitres(serving_quantity_unit)) return "ml";
+    return isGrams(serving_quantity_unit) ? "g" : undefined;
+  }
+  return soleMagnitudeUnit(serving_size);
+}
+
+/**
  * Builds a food's `food/portions` list from OFF's serving fields (ADR-0030 §5).
  * OFF offers exactly one serving, so the list is 0 or 1 long: a single portion
  * standing at `serving_quantity`, labelled by `serving_size` (falling back to a
@@ -403,6 +495,19 @@ function isMillilitres(unit: string | undefined): boolean {
  * volume masquerading as one. That cost 57 of 100 sampled beverages their
  * one-tap serving. The sibling field (ADR-0060 §6) is what buys it back, and the
  * unit is now carried rather than assumed either way.
+ *
+ * What it still cannot decide is a serving whose `serving_size` names more than
+ * one magnitude. OFF parses the quantity and the unit out of that one string
+ * with two regexes that prefer opposite ends of it, so `15g + 250mL` yields the
+ * milk's 250 under the powder's `g` — and #433 measured that the number names
+ * the wrong substance more often than the unit is merely mislabelled, which is
+ * why such a serving is dropped rather than re-read
+ * ({@link namesMoreThanOneMagnitude}, ADR-0052 §2's Amendment).
+ *
+ * Nor can it decide a serving OFF states no unit for at all, which used to fall
+ * through to grams and store a volume as a weight. {@link servingUnit} is the
+ * answer to both halves: what OFF says, else what the label's sole magnitude
+ * says, else nothing — and nothing means no portion.
  */
 function offPortions(
   serving_quantity: number | string | undefined,
@@ -415,11 +520,13 @@ function offPortions(
       : serving_quantity;
   if (quantity == null || !Number.isFinite(quantity) || quantity <= 0)
     return [];
+  if (namesMoreThanOneMagnitude(serving_size)) return [];
+  const unit = servingUnit(serving_quantity_unit, serving_size);
+  if (unit === undefined) return [];
   const label = serving_size?.trim() || "1 serving";
-  const magnitude = isMillilitres(serving_quantity_unit)
-    ? { millilitres: quantity }
-    : { grams: quantity };
-  return [{ label, amount: 1, unit: "serving", ...magnitude }];
+  return [
+    { label, amount: 1, unit: "serving", ...portionMagnitude(quantity, unit) },
+  ];
 }
 
 /**
@@ -522,8 +629,9 @@ export function mapOffProductToPayload(product: OFFProduct): OffPayload {
   // Household portion (ADR-0030 §2/§5). OFF's single product response already
   // carries the serving, so no second network call: map serving_quantity to one
   // food/portions entry, labelled by serving_size when present. Omitted entirely
-  // when the product reports no usable serving weight — including a serving OFF
-  // measured in millilitres (ADR-0052 §2).
+  // when the product reports no usable serving magnitude, when the string it was
+  // parsed from names more than one, and when nothing names the unit it is in
+  // (ADR-0052 §2's Amendment, #433).
   const portions = offPortions(
     p.serving_quantity,
     p.serving_quantity_unit,

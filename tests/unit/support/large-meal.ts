@@ -124,7 +124,7 @@ export async function synthesiseLargeMeal(): Promise<SynthesisedMeal> {
     return staged.entity;
   };
 
-  const resolve = (ref: string) => panels.get(ref);
+  const resolve = (ref: string) => ({ panel: panels.get(ref) });
   const resolveName = (ref: string) => names.get(ref);
 
   const logEntry = (

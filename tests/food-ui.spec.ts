@@ -214,12 +214,23 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     page: import("@playwright/test").Page,
     locator: import("@playwright/test").Locator
   ) {
-    // page.mouse uses viewport coords and does not auto-scroll, so bring the
-    // element into view first.
-    await locator.scrollIntoViewIfNeeded();
-    const box = await locator.boundingBox();
-    if (!box) throw new Error("element not visible for long-press");
-    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    // `hover()` and not `scrollIntoViewIfNeeded()` + `boundingBox()` + a raw
+    // `mouse.move`. Both put the cursor on the element; only this one runs
+    // Playwright's actionability checks first, and the one that matters here is
+    // **stability** — it waits for the element to stop moving.
+    //
+    // The old form read a box and then pressed at those coordinates, which is a
+    // race against any page motion, and #440 gave the day some: a logged row is
+    // revealed with a smooth scroll, and these helpers log a food immediately
+    // before pressing one. It surfaced when #452's clearance made the bar 15px
+    // taller — enough band to turn "the row is already visible" into "scroll to
+    // it" — as four flaky specs and one failure, all of them here.
+    //
+    // The app half of that is fixed too and is the real one: a gesture already
+    // in progress now outranks the reveal, because a row sliding out from under
+    // a held finger cancels the press (`actions/longpress.ts` clears on
+    // `pointerleave`). This half is only about not measuring a moving page.
+    await locator.hover();
     await page.mouse.down();
     await page.waitForTimeout(600);
     await page.mouse.up();
@@ -1741,10 +1752,273 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     // about what a contribution can carry.
     await page.locator("#custom-name").fill("Olive Oil");
     await page.locator("#custom-cal").fill("810");
+
+    // Declaring `ml` is the SECOND door to a volume basis, and this form asks
+    // the class outright: no Open Food Facts tags exist to pre-fill from, and
+    // the person filling this in is holding the bottle (ADR-0108 §1). It is
+    // optional — a food saved without one simply stays in millilitres (§6).
+    const classes = page.locator('[data-testid="cf-density-classes"]');
+    await expect(classes).toBeVisible();
+    await classes.locator('[data-value="oil"]').click();
+
+    await page.locator("#log-food-btn").click();
+    const lunch = page.locator(".meal-section", { hasText: "LUNCH" });
+    await expect(lunch).toContainText("Olive Oil");
+
+    // And the class is on the twin, so re-opening the food offers grams with no
+    // question left to answer: 100 ml of it weighs 92 g.
+    await lunch.locator(".meal-item-card", { hasText: "Olive Oil" }).click();
+    const sheet = page.locator(".amount-sheet");
+    await sheet
+      .locator('[data-testid="amount-units"] [data-value="g"]')
+      .click();
+    await expect(page.locator('[data-testid="density-picker"]')).toHaveCount(0);
+    await expect(sheet.getByLabel("Amount in grams")).toHaveValue("92");
+  });
+
+  test("asks no class on a capture the user declares per 100 g", async ({
+    page,
+  }) => {
+    // §6 asks the class the first time grams are reached for, and on a per-100 g
+    // food grams are what the field already takes. The question never fires.
+    const SOLID = "0000000000073";
+    await page.route(`**/api/v3/product/${SOLID}.json`, async (route) => {
+      await route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify({
+          code: SOLID,
+          status: "success",
+          product: {
+            product_name: "Peanut Butter",
+            completeness: 0.375,
+            nutriments: { "energy-kcal_100g": 600, fat_100g: 50 },
+          },
+        }),
+      });
+    });
+
+    await page.goto("/?mem=1");
+    await waitForDbReady(page);
+    await openWayIn(page, "lunch", "scan");
+    await page.locator("#barcode-input").fill(SOLID);
+    await page.locator("#barcode-input").press("Enter");
+    await page.locator('[data-testid="poor-nudge-improve"]').click();
+
+    await expect(page.locator('[data-testid="cf-density"]')).toHaveCount(0);
+  });
+
+  // ── The Density Class question, and the toggle that is its only door ──────
+  //
+  // ADR-0108 §1. Everything the control renders at first paint is pinned in
+  // `tests/unit/amount-field.test.ts` against SSR; what lands here is the half
+  // SSR cannot reach — a tap on `g` opening the picker, and a picked class
+  // switching the field under it.
+
+  /** Stages one OFF product sold by volume, carrying whatever tags it is given. */
+  async function scanVolumeProduct(
+    page: import("@playwright/test").Page,
+    code: string,
+    name: string,
+    categories_tags: string[]
+  ) {
+    await page.route(`**/api/v3/product/${code}.json`, async (route) => {
+      await route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify({
+          code,
+          status: "success",
+          product: {
+            product_name: name,
+            completeness: 0.9,
+            quantity: "500 ml",
+            product_quantity: 500,
+            product_quantity_unit: "ml",
+            categories_tags,
+            nutriments: {
+              "energy-kcal_100g": 824,
+              proteins_100g: 0,
+              fat_100g: 91.6,
+              carbohydrates_100g: 0,
+            },
+          },
+        }),
+      });
+    });
+
+    await page.goto("/?mem=1");
+    await waitForDbReady(page);
+    await openWayIn(page, "lunch", "scan");
+    await page.locator("#barcode-input").fill(code);
+    await page.locator("#barcode-input").press("Enter");
+    await expect(page.locator(".staged h3")).toHaveText(name);
+  }
+
+  test("tapping `g` on an unclassified bottle is what asks what kind of liquid it is", async ({
+    page,
+  }) => {
+    await scanVolumeProduct(page, "0000000000071", "Olive Oil", [
+      "en:olive-oils",
+    ]);
+
+    // A volume food opens in millilitres and stays fully loggable there (§6).
+    // The toggle is the whole of the surface: there is no separate prompt
+    // asking whether you would like to weigh this instead.
+    const units = page.locator('[data-testid="amount-units"]');
+    await expect(units.locator('[data-value="ml"]')).toHaveAttribute(
+      "data-state",
+      "checked"
+    );
+    await expect(page.locator('[data-testid="density-picker"]')).toHaveCount(0);
+
+    // The tap on `g` IS the question.
+    await units.locator('[data-value="g"]').click();
+    const picker = page.locator('[data-testid="density-picker"]');
+    await expect(picker).toBeVisible();
+
+    // Open Food Facts named exactly one class for this product, so the picker
+    // opens on it — a proposal the user confirms, never a class written behind
+    // them. The option names the bottle, not the figure.
+    const oil = picker.locator('[data-value="oil"]');
+    await expect(oil).toHaveAttribute("data-state", "checked");
+    await expect(oil).toContainText("olive", { ignoreCase: true });
+    await expect(picker).not.toContainText("0.92");
+
+    // Confirming it closes the question and switches the field. The confirm is a
+    // button and not the cell: a RadioGroup fires nothing when you tap the cell
+    // already checked, so on exactly the products the pre-fill exists for,
+    // tapping the highlighted option would do nothing at all.
+    await picker.locator('[data-testid="density-confirm"]').click();
+    await expect(picker).toHaveCount(0);
+    await expect(units.locator('[data-value="g"]')).toHaveAttribute(
+      "data-state",
+      "checked"
+    );
+    await expect(page.getByLabel("Amount in grams")).toHaveValue("230");
+
+    // The figures say what will be logged at the weight on screen, so the panel
+    // is being divided by the millilitres those grams are, not by the grams
+    // (ADR-0108 §5): 250 ml at 824 kcal/100 ml is 2,060 kcal, and dividing the
+    // 230 unconverted would have read 1,895. Read off the breakdown rather than
+    // the commit button, which says "Log" and nothing else on every flow in this
+    // sheet (ADR-0035 §UI) and never carried a figure to assert.
+    await expect(
+      page.locator(".staged .preview .nutrient-calories strong")
+    ).toContainText("2060");
+
+    // And it goes back. Both units stay available on a classified food.
+    await units.locator('[data-value="ml"]').click();
+    await expect(page.getByLabel("Amount in millilitres")).toHaveValue("250");
+  });
+
+  test("a classified can keeps its portion chip in grams, and the caption says what it weighs", async ({
+    page,
+  }) => {
+    // #431's main visible job. Until §8 landed, toggling a 330 ml can to grams
+    // made its "1 can" chip vanish: ADR-0060 §6 drops a portion stated in the
+    // unit the field does not take, correctly, because filling it in would have
+    // been a density conversion done silently at ratio 1.
+    const CAN = "0000000000074";
+    await page.route(`**/api/v3/product/${CAN}.json`, async (route) => {
+      await route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify({
+          code: CAN,
+          status: "success",
+          product: {
+            product_name: "Orange Juice",
+            completeness: 0.9,
+            quantity: "330 ml",
+            product_quantity: 330,
+            product_quantity_unit: "ml",
+            serving_quantity: 330,
+            serving_quantity_unit: "ml",
+            serving_size: "1 can (330 ml)",
+            categories_tags: ["en:orange-juices"],
+            nutriments: {
+              "energy-kcal_100g": 45,
+              proteins_100g: 0.7,
+              fat_100g: 0.2,
+              carbohydrates_100g: 10.4,
+            },
+          },
+        }),
+      });
+    });
+
+    await page.goto("/?mem=1");
+    await waitForDbReady(page);
+    await openWayIn(page, "lunch", "scan");
+    await page.locator("#barcode-input").fill(CAN);
+    await page.locator("#barcode-input").press("Enter");
+    await expect(page.locator(".staged h3")).toHaveText("Orange Juice");
+
+    // In millilitres the chip reads as the source stated it, and the caption
+    // says only what the figures are per.
+    const chips = page.locator('[data-testid="portion-presets"]');
+    await expect(chips).toContainText("330 ml");
+    await expect(page.locator(".basis")).toHaveText("Per 100 ml");
+
+    // Say it is a juice, and the field takes grams.
+    const units = page.locator('[data-testid="amount-units"]');
+    await units.locator('[data-value="g"]').click();
+    await page
+      .locator('[data-testid="density-picker"] [data-testid="density-confirm"]')
+      .click();
+
+    // §8: the chip is still there, in the unit the field now takes, marked `≈`
+    // because the source stated a volume and the weight beside it is this app's
+    // reading of what the user said. 330 ml of juice at 1.04 is 343.2 g.
+    await expect(chips).toContainText("≈343.2 g");
+    await chips.getByRole("button", { name: /1 can/ }).click();
+    await expect(page.getByLabel("Amount in grams")).toHaveValue("343.2");
+
+    // §9: the caption says what the basis weighs, and the `≈` is the whole of
+    // the surface signal — no badge, tag or tint joins it.
+    await expect(page.locator(".basis")).toHaveText("Per 100 ml (≈104 g)");
+
+    // The rest is one tap deeper, in the source explainer.
+    await page.locator('[data-testid="source-tag"]').click();
+    const note = page.locator('[data-testid="density-note"]');
+    await expect(note).toContainText("juice");
+    await expect(note).toContainText("1.04");
+    await expect(note).toContainText("USDA");
+  });
+
+  test("a bottle the source cannot tell apart opens the picker empty", async ({
+    page,
+  }) => {
+    // Squash carries `en:fruit-juices` beside `en:cordials` — 18.6% of
+    // millilitre cordials do — and a juice rule would put 1.04 on a concentrate
+    // nearer 1.20. A wrong pre-fill converts a question into a nod.
+    await scanVolumeProduct(page, "0000000000072", "Orange Squash", [
+      "en:beverages",
+      "en:fruit-juices",
+      "en:cordials",
+    ]);
+
+    await page.locator('[data-testid="amount-units"] [data-value="g"]').click();
+    const picker = page.locator('[data-testid="density-picker"]');
+    await expect(picker).toBeVisible();
+    await expect(picker.locator('[data-state="checked"]')).toHaveCount(0);
+
+    // Nothing to confirm until something is chosen.
+    const confirm = picker.locator('[data-testid="density-confirm"]');
+    await expect(confirm).toBeDisabled();
+
+    // And it is not a dead end: the exit takes a figure the user asserts.
+    await picker.locator('[data-value="other"]').click();
+    await expect(confirm).toBeDisabled();
+    await page.locator('[data-testid="density-figure"]').fill("1.2");
+    await confirm.click();
+    await expect(picker).toHaveCount(0);
+    await expect(page.getByLabel("Amount in grams")).toHaveValue("300");
+
+    // Logged as the grams that went on the scale, not as the millilitres the
+    // label is per: `event/quantity` records what was entered (ADR-0060 §4).
     await page.locator("#log-food-btn").click();
     await expect(
       page.locator(".meal-section", { hasText: "LUNCH" })
-    ).toContainText("Olive Oil");
+    ).toContainText("300g");
   });
 
   // Select two logged foods and start building a recipe from them.
@@ -2223,7 +2497,9 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
 
     // Recipe builder open, seeded with oats 50 g + banana 150 g = 323 kcal.
     await selectTwoAndBuild(page);
-    await expect(page.locator(".ing-head .fl")).toHaveText("Ingredients (2)");
+    await expect(page.locator(".ing-head .section-head")).toHaveText(
+      "Ingredients (2)"
+    );
     await expect(
       page.locator('[data-testid="recipe-figures"] .nutrient-calories strong')
     ).toContainText("323 kcal");
@@ -2241,7 +2517,9 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     // The sheet closes and the add sticks: still one Oats row (no duplicate),
     // its amount folded 50 g + 50 g → 100 g, and the total reflects the merge.
     await expect(addSheet).toBeHidden();
-    await expect(page.locator(".ing-head .fl")).toHaveText("Ingredients (2)");
+    await expect(page.locator(".ing-head .section-head")).toHaveText(
+      "Ingredients (2)"
+    );
     const oatsRow = page.locator(".recipe-ingredient", {
       hasText: "Mock Oats",
     });
@@ -2311,6 +2589,138 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     await expect(page.locator(".macro-item.calories .macro-now")).toHaveText(
       "835.5 kcal"
     );
+  });
+
+  test("says how many servings the occasion was, fractions included", async ({
+    page,
+  }) => {
+    await page.goto("/?mem=1");
+    await waitForDbReady(page);
+    await setupApiKeys(page);
+
+    await buildDinnerCombo(page);
+
+    await openWayIn(page, "breakfast", "recipe");
+    await page.locator(".recipe-pick", { hasText: "Dinner Combo" }).click();
+
+    // The editor opens at one serving: oats 50 g + banana 150 g, 323 kcal.
+    const servings = page.locator("#recipe-servings");
+    const figures = page.locator(
+      '[data-testid="recipe-figures"] .nutrient-calories strong'
+    );
+    await expect(servings).toHaveValue("1");
+    await expect(figures).toContainText("323 kcal");
+
+    // Half a portion, which the field refused to hold while it stepped in whole
+    // servings from a floor of 1 (ADR-0106 §6).
+    await servings.fill("0.5");
+    await expect(figures).toContainText("161.5 kcal");
+    await expect(
+      page.locator(".recipe-ingredient", { hasText: "Mock Oats" })
+    ).toContainText("25g");
+
+    // And back up to two, which is what gets logged.
+    await servings.fill("2");
+    await expect(figures).toContainText("646 kcal");
+
+    // The day says what was eaten. It read "1 serving" for every instantiation
+    // however many the cook had asked for, because the quantity was a literal
+    // rather than a measurement (ADR-0106 §8).
+    await page.locator("#log-recipe-btn").click();
+    const breakfastSection = page.locator(
+      '.meal-section:has(.meal-title-btn:text-is("BREAKFAST"))'
+    );
+    await expect(breakfastSection).toContainText("2 servings");
+    await expect(breakfastSection).toContainText("646 kcal");
+  });
+
+  test("sizes an occasion by what the batch weighed, and freezes what it was a fraction of", async ({
+    page,
+  }) => {
+    await page.goto("/?mem=1");
+    await waitForDbReady(page);
+    await setupApiKeys(page);
+
+    // Build the recipe and say what the finished dish came to. 400 g is not the
+    // 200 g that went into it, and nothing offers to make it so: a pot does not
+    // weigh what went in (ADR-0106 §7).
+    const dinnerSection = await selectTwoAndBuild(page);
+    await page.locator("#recipe-name").fill("Dinner Combo");
+    await page.locator("#recipe-batch-weight").fill("400");
+    await page.locator("#save-recipe-btn").click();
+    await expect(dinnerSection).toContainText("Dinner Combo");
+
+    await openWayIn(page, "breakfast", "recipe");
+    await page.locator(".recipe-pick", { hasText: "Dinner Combo" }).click();
+
+    // The occasion opens on the remembered weight and one serving of it, and
+    // the count is a read-out rather than a field (ADR-0106 §6).
+    const figures = page.locator(
+      '[data-testid="recipe-figures"] .nutrient-calories strong'
+    );
+    await expect(page.locator("#recipe-batch-weight")).toHaveValue("400");
+    await expect(page.locator("#recipe-portion-weight")).toHaveValue("400");
+    await expect(page.locator('[data-testid="occasion-servings"]')).toHaveText(
+      "1 serving"
+    );
+    await expect(page.locator("#recipe-servings")).toHaveCount(0);
+    await expect(figures).toContainText("323 kcal");
+
+    // Half the pot on the plate: the fraction scales the rows (§5).
+    await page.locator("#recipe-portion-weight").fill("200");
+    await expect(figures).toContainText("161.5 kcal");
+    await expect(
+      page.locator(".recipe-ingredient", { hasText: "Mock Oats" })
+    ).toContainText("25g");
+    await expect(page.locator('[data-testid="occasion-servings"]')).toHaveText(
+      "0.5 servings"
+    );
+
+    // The day says what was eaten, as a weight rather than a count (§8).
+    await page.locator("#log-recipe-btn").click();
+    const breakfastSection = page.locator(
+      '.meal-section:has(.meal-title-btn:text-is("BREAKFAST"))'
+    );
+    await expect(breakfastSection).toContainText("200g");
+    await expect(breakfastSection).toContainText("161.5 kcal");
+
+    // Reopening it to correct: the denominator came back off the snapshot, so
+    // "actually I ate 300 g" has something to divide against.
+    await breakfastSection
+      .locator(".meal-item-card", { hasText: "Dinner Combo" })
+      .locator(".fi-name")
+      .click();
+    await expect(page.locator('[data-testid="instantiation-name"]')).toHaveText(
+      "Dinner Combo"
+    );
+    await expect(page.locator("#recipe-batch-weight")).toHaveValue("400");
+    await expect(page.locator("#recipe-portion-weight")).toHaveValue("200");
+  });
+
+  test("never writes an occasion's batch weight back onto the template (ADR-0106 §3)", async ({
+    page,
+  }) => {
+    await page.goto("/?mem=1");
+    await waitForDbReady(page);
+    await setupApiKeys(page);
+
+    const dinnerSection = await selectTwoAndBuild(page);
+    await page.locator("#recipe-name").fill("Dinner Combo");
+    await page.locator("#recipe-batch-weight").fill("400");
+    await page.locator("#save-recipe-btn").click();
+    await expect(dinnerSection).toContainText("Dinner Combo");
+
+    // This batch came out heavier. That is a fact about the occasion, not about
+    // the recipe: instance edits are instance-only (ADR-0022 §3).
+    await openWayIn(page, "breakfast", "recipe");
+    await page.locator(".recipe-pick", { hasText: "Dinner Combo" }).click();
+    await page.locator("#recipe-batch-weight").fill("600");
+    await page.locator("#log-recipe-btn").click();
+
+    // The template still remembers what it always did.
+    await openWayIn(page, "lunch", "recipe");
+    await page.locator(".recipe-pick", { hasText: "Dinner Combo" }).click();
+    await expect(page.locator("#recipe-batch-weight")).toHaveValue("400");
   });
 
   test("corrects a past instantiation by supersession (retract-and-replace)", async ({
@@ -2691,14 +3101,14 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
       1
     );
 
-    // The five are on the bar, in the panel belonging to the meal the tab says.
-    // Scoped to the panel that is NOT hidden, because bits keeps all four
-    // mounted and hides three (ADR-0101 §1): unscoped this counts twenty, and a
-    // sixth way in would be invisible in that number.
+    // The five are on the bar, for whichever meal the chip is on. No scoping is
+    // needed any more and that is the point of the selector changing: the bar
+    // used to be a tab list that mounted four panels and hid three, so this
+    // count had to be taken inside the one on screen or it read twenty. One
+    // rail is rendered now (ADR-0101, amended 2026-09-15), so the bare count is
+    // the roster, and a sixth way in would show up in it.
     await selectMeal(page, "breakfast");
-    await expect(
-      page.locator('[role="tabpanel"]:not([hidden]) .rail > button')
-    ).toHaveCount(5);
+    await expect(page.locator(".way-in-bar .rail > button")).toHaveCount(5);
   });
 
   test("the meal's panel shows what the meal carries, and no reading of a day", async ({

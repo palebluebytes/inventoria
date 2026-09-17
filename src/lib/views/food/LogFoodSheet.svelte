@@ -15,27 +15,33 @@
     saveManualFood,
     changeLoggedFoodAmount,
     retractConsumptionEvent,
-    seedRowsFromTemplate,
-    recipeTwinsStore,
     consumptionStore,
     type ConsumptionEvent,
   } from "../../stores/calorie.store";
   import {
+    recipeTwinsStore,
+    seedRowsFromTemplate,
+  } from "../../stores/recipe.store";
+  import {
     parseLoggedQuantity,
     quantityLabel,
     toReferenceIngredient,
-    panelFromIngredients,
+    sourceFromIngredients,
   } from "../../food/recipe-ingredient";
   import {
     recentCandidatesForMeal,
     emptyMealDefaultHint,
     rememberedAmount,
+    rememberedUnit,
   } from "../../food/recent-foods";
   import type { MealType } from "../../food/meal-type";
   import { wayInTitle, type WayIn } from "../../food/ways-in";
+  import { amountAgainstBasis, readFoodDensity } from "../../food/density";
   import {
     basisUnit,
+    enteredUnit,
     isMeasuredUnit,
+    NUTRITION_INFO_ATTR,
     isPer100Basis,
     parseBasisQuantity,
     scaleNutrition,
@@ -84,6 +90,7 @@
     meal_type,
     selectedDate,
     onClose,
+    onLogged,
     edit = null,
     editLabel = false,
     initialMethod = undefined,
@@ -94,6 +101,16 @@
     meal_type: MealType;
     selectedDate: Date;
     onClose: () => void;
+    /**
+     * The Consumption Events this sheet has just WRITTEN, so the day can put
+     * them on screen (#440).
+     *
+     * Fired only on an add. Every commit path here can also be an edit — `edit`
+     * is set, the sheet logs a replacement and retracts the original — and a
+     * replacement is a fresh id for a row the user is already looking at, which
+     * is the one case the three rules must not act on.
+     */
+    onLogged?: (ids: string[]) => void;
     /**
      * Method to open on, for a host that has one but no `wayIn` (the
      * Recipe browser reopening itself). A header-opened sheet passes only
@@ -193,16 +210,26 @@
   });
 
   // What a staged food's amount control opens at: the amount this food was last
-  // logged at, in the unit the stager is about to enter. Passed as a reader
-  // rather than as a table because the stager asks about ONE food, at the moment
-  // it is staged — a map would be the whole history precomputed against the
-  // chance that one entry of it gets used.
+  // logged at, and the unit it was logged in. Two readers, because they answer
+  // two questions — the unit settles which field this is, and the amount is
+  // refused rather than converted when it was measured against the other one.
+  // Passed as readers rather than as a table because the stager asks about ONE
+  // food, at the moment it is staged.
+  //
+  // This is the LOG's memory, and it seeds a log sheet alone. What the same food
+  // was last measured into a recipe at is a different fact and seeds a different
+  // screen (ADR-0108 §7, as amended): a can of Coke drunk in millilitres for
+  // months is still a thing measured INTO something the first time it reaches an
+  // ingredient list, and a memory read per food rather than per context would
+  // retire that rule almost entirely.
   //
   // Not `$derived`, and it does not need to be: it reads the store at call time,
   // inside a tap handler, so it always answers from the current history rather
   // than from whatever a derived last settled on.
   const lastAmountFor = (entity: string, unit: MeasuredUnit) =>
     rememberedAmount($consumptionStore, entity, unit);
+  const lastUnitFor = (entity: string) =>
+    rememberedUnit($consumptionStore, entity);
 
   // Edit mode hides Recent entirely (it locks onto one food's amount), so it
   // gets no line either — an empty list there is the point, not a shortfall.
@@ -354,6 +381,17 @@
           kind: "food",
           food: mapPayloadToFoodResult(twin),
           amount,
+          // The unit this event was logged in, which on a food carrying a
+          // Density Class is what the user chose rather than what the panel
+          // implies.
+          unit: enteredUnit(
+            unit,
+            (
+              twin.attributes?.[NUTRITION_INFO_ATTR] as
+                | NutritionInfo
+                | undefined
+            )?.serving_size
+          ),
         };
       });
     }
@@ -380,7 +418,18 @@
         // divided by the basis, so the two disagreed on any panel not measured
         // per 100 — and this is the one that freezes into `event/metrics`, which
         // history never recomputes.
-        const factor = choice.amount / parseBasisQuantity(panel?.serving_size);
+        //
+        // The amount is put into the panel's unit before it is divided: a gram
+        // entry against a per-100 ml panel is a real amount stated in the other
+        // unit, and dividing it unconverted would freeze an 8% error into
+        // history. The panel itself is untouched (ADR-0108 §5).
+        const factor =
+          amountAgainstBasis(
+            choice.amount,
+            choice.unit,
+            panel?.serving_size,
+            readFoodDensity(f.payload.attributes)
+          ) / parseBasisQuantity(panel?.serving_size);
         const breakdown = scaleNutrition(panel, factor);
         const newId = await logFoodConsumption(
           f.entity,
@@ -388,12 +437,14 @@
           // changeLoggedFoodAmount agreed with `quantityLabel` only by
           // coincidence, and a second spelling is how the two drift.
           //
-          // The unit is the panel's own (§1): the same `serving_size` the
-          // divisor above is read from, so a drink the user entered on a
-          // millilitre screen is recorded as "330ml" rather than as a weight it
-          // was never measured in. Forward-only, and a receipt already in the
-          // ledger keeps the string it was written with (§9).
-          quantityLabel(choice.amount, basisUnit(panel?.serving_size)),
+          // The unit is the one the amount was ENTERED in, which the choice
+          // carries. It was re-read off the panel here, which was the same
+          // answer while a unit could not be chosen (ADR-0060 §1) and is the
+          // wrong one now: a bottle of oil weighed into a recipe is recorded as
+          // the grams that went on the scale, not as the millilitres the label
+          // is per. Forward-only, and a receipt already in the ledger keeps the
+          // string it was written with (§9).
+          quantityLabel(choice.amount, choice.unit),
           meal_type,
           breakdown.calories,
           breakdown.protein,
@@ -404,6 +455,7 @@
           breakdown
         );
         if (edit) await retractConsumptionEvent(edit.id, newId);
+        else onLogged?.([newId]);
       } else {
         // Three custom writer paths, chosen by what the choice carries:
         //   • a `manualEntry` envelope → saveManualFood (ADR-0035): a calories-only
@@ -441,6 +493,7 @@
             ingredientsText: choice.ingredientsText,
             nutrition: choice.nutrition as NutritionInfo,
             portions: choice.portions,
+            density: choice.density,
             labelPhotos:
               choice.labelPhotos ??
               (choice.photo_base64 ? [choice.photo_base64] : []),
@@ -499,7 +552,8 @@
         if (edit && logged != null && isMeasuredUnit(logged.unit)) {
           await changeLoggedFoodAmount(
             { ...edit, target: twinId },
-            logged.amount
+            logged.amount,
+            logged.unit
           );
         } else {
           const newId = await logFoodConsumption(
@@ -513,6 +567,7 @@
             selectedDate
           );
           if (edit) await retractConsumptionEvent(edit.id, newId);
+          else onLogged?.([newId]);
         }
       }
       onClose();
@@ -520,6 +575,19 @@
     } catch (e: any) {
       return { ok: false, message: e.message ?? String(e) };
     }
+  }
+
+  /**
+   * What both recipe editors do when they finish: report whatever they logged,
+   * then close.
+   *
+   * They report **none** for the two things that are not an arrival — a
+   * correction by supersession, and a template-only save — so the sheet does not
+   * have to know which mode either of them was in.
+   */
+  function commitRecipe(logged?: string[]) {
+    if (logged?.length) onLogged?.(logged);
+    onClose();
   }
 
   // One label for every terminal commit in this sheet: "Log" (ADR-0035 §UI — the
@@ -555,6 +623,7 @@
     recent={showsMealDefault ? recent : []}
     {recentEmptyHint}
     {lastAmountFor}
+    {lastUnitFor}
     primaryDisabled={!dbReady}
     ids={{
       search: "food-search-input",
@@ -580,7 +649,7 @@
             {selectedDate}
             {template}
             onEdit={() => editRecipe(template.entity)}
-            onCommitted={onClose}
+            onCommitted={commitRecipe}
             bind:requestSave={recipeRequestSave}
             bind:saveReady={recipeSaveReady}
           />
@@ -590,7 +659,7 @@
             {selectedDate}
             mode={recipeView.mode}
             template={recipeView.template}
-            onCommitted={onClose}
+            onCommitted={commitRecipe}
             bind:requestSave={recipeRequestSave}
             bind:saveReady={recipeSaveReady}
             bind:saveLabel={recipeSaveLabel}

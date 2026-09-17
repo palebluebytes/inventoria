@@ -1,6 +1,7 @@
 <script lang="ts">
   import { updateAcquisitionMetadata } from "../../stores/acquisition.store";
   import Button from "../../ui/Button.svelte";
+  import FieldCaption from "../../ui/FieldCaption.svelte";
   import Input from "../../ui/Input.svelte";
   import Textarea from "../../ui/Textarea.svelte";
   import Alert from "../../ui/Alert.svelte";
@@ -76,7 +77,7 @@
       </div>
 
       <div class="form-group">
-        <label for="edit-tags">Tags (comma-separated)</label>
+        <FieldCaption for="edit-tags">Tags (comma-separated)</FieldCaption>
         <Input
           id="edit-tags"
           type="text"
@@ -86,7 +87,7 @@
       </div>
 
       <div class="form-group">
-        <label for="edit-note">Note</label>
+        <FieldCaption for="edit-note">Note</FieldCaption>
         <Textarea
           id="edit-note"
           bind:value={editNote}
@@ -116,7 +117,9 @@
     flex-direction: column;
     gap: var(--space-3xs);
   }
-  .form-group label,
+  /* Not a caption, and the markup says why: there is no control under it to
+     label. It is the heading over a read-only value, so it stays the caller's
+     and keeps the type it always had (#383). */
   .field-name {
     font-size: var(--step-n2);
     font-weight: 600;

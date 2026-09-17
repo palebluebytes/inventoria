@@ -12,6 +12,7 @@ import {
 } from "../../src/lib/db/db.core";
 import { createHlc, type Hlc } from "../../src/lib/db/hlc";
 import {
+  FACETS,
   TRACKED_DOMAINS,
   entityPrefixesOf,
   storagePrefixesOf,
@@ -445,5 +446,88 @@ describe("one run of the wipe", () => {
       })
     );
     expect(reclaims).toBe(0);
+  });
+});
+
+describe("the pairing record stays the Jar's (ADR-0105 §8)", () => {
+  /** One completed pairing, as the jar holds it. */
+  const PAIRINGS = "inventoria_paired_devices";
+  const A_PAIRING = JSON.stringify([
+    {
+      device_id: "dev_b0c1d2e3f4",
+      name: null,
+      deposit: {
+        direction: "a2b",
+        state: "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+        index: 0,
+      },
+      collect: {
+        direction: "b2a",
+        state: "AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE=",
+        index: 0,
+      },
+      peer_vector: {},
+      scope: ["food"],
+    },
+  ]);
+
+  it("is claimed by no Facet's storage predicate, so no Facet-scoped wipe names it", () => {
+    // Derived over the roster rather than asserted of food, because §8 is a
+    // rule about the record and not about today's only Facet with a wipe: the
+    // record is about **devices**, which is the same reason the `jar` domain
+    // sits outside every Facet's prefix set.
+    stubLocalStorage({ seed: { ...FOOD_KEYS, [PAIRINGS]: A_PAIRING } });
+    for (const facet of FACETS) {
+      expect(
+        storagePrefixesOf(facet.id).some((p) => PAIRINGS.startsWith(p))
+      ).toBe(false);
+      expect(facetStorageKeys(facet.id)).not.toContain(PAIRINGS);
+    }
+  });
+
+  it("survives the wipe's storage half, with food's own keys gone", async () => {
+    const jar = stubLocalStorage({
+      seed: { ...FOOD_KEYS, [PAIRINGS]: A_PAIRING },
+    });
+    await import("../../src/lib/logs/channels");
+
+    const removed = wipeFacetStorage("food");
+
+    expect(removed).toBe(Object.keys(FOOD_KEYS).length);
+    expect(jar.store.get(PAIRINGS)).toBe(A_PAIRING);
+  });
+
+  it("leaves the device still paired, read back through the store's own guard", async () => {
+    stubLocalStorage({ seed: { ...FOOD_KEYS, [PAIRINGS]: A_PAIRING } });
+    const { readPairedDevices } = await freshModule(
+      () => import("../../src/lib/stores/paired-devices")
+    );
+    await import("../../src/lib/logs/channels");
+
+    wipeFacetStorage("food");
+
+    // Severing in the same act would guarantee the Carried deletion never
+    // reaches the peer (ADR-0096 §12), leave the far device holding the
+    // pre-wipe rows forever, and make *wipe, then re-pair* re-supply everything
+    // the wipe took — a fresh pairing's first sync is the empty-vector case.
+    const held = readPairedDevices();
+    expect(held).toHaveLength(1);
+    expect(held[0].device_id).toBe("dev_b0c1d2e3f4");
+    expect(held[0].revoked).toBe(false);
+  });
+
+  it("runs whole without the run reaching the list either", async () => {
+    const jar = stubLocalStorage({
+      seed: { ...FOOD_KEYS, [PAIRINGS]: A_PAIRING },
+    });
+    await import("../../src/lib/logs/channels");
+
+    const outcome = await runFacetWipe("food", entityPrefixesOf("food"), {
+      deleteDatoms: async () => 12,
+      reclaimSpace: async () => {},
+    });
+
+    expect(outcome.kind).toBe("wiped");
+    expect(jar.store.get(PAIRINGS)).toBe(A_PAIRING);
   });
 });

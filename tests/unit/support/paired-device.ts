@@ -2,7 +2,7 @@
  * One Paired Device record as a completed pairing leaves it (ADR-0096 §9).
  *
  * Three suites were building this literal — `wake.test.ts`, `wake-roster.
- * test.ts` and `wake-household.test.ts` — and the record has ten fields whose
+ * test.ts` and `wake-household.test.ts` — and the record has eleven fields whose
  * starting values are each an argument: both indices at zero because **the
  * index advances on collections**, `deposit_standing` at `null` because
  * nothing has been written at index zero yet, `peer_roster` at `null` because
@@ -25,6 +25,7 @@ import type {
   PairedDevice,
   StoredLane,
 } from "../../../src/lib/stores/paired-devices";
+import { WHOLE_JAR } from "../../../src/lib/p2p/lane-scope";
 
 export const base64 = (bytes: Uint8Array): string =>
   btoa(String.fromCharCode(...bytes));
@@ -59,6 +60,7 @@ export const pairedWith = (
   name: null,
   deposit: laneAt(chains.deposit),
   collect: laneAt(chains.collect),
+  scope: WHOLE_JAR,
   peer_vector: {},
   deposit_standing: null,
   peer_roster: null,

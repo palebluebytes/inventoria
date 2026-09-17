@@ -1,19 +1,15 @@
 <script lang="ts">
-  import { Tabs } from "bits-ui";
-  import {
-    asMealType,
-    mealNearest,
-    MEAL_TYPES,
-    type MealType,
-  } from "../../food/meal-type";
+  import { mealNearest, type MealType } from "../../food/meal-type";
   import type { WayIn } from "../../food/ways-in";
+  import MealPicker from "./MealPicker.svelte";
   import WayInRail from "./WayInRail.svelte";
 
   // The **Way-in bar** (ADR-0101, and *Way-in bar* in `CONTEXT.md`): one bar for
-  // the whole day, in two positions.
+  // the whole day, in three positions.
   //
-  //   below 768   pinned to the foot of the visible band, under the thumb
-  //   768 and up  sticky at the head of the day's timeline column
+  //   below 768     pinned to the foot of the visible band, under the thumb
+  //   768 and up    sticky at the head of the day's timeline column
+  //   1440 and up   the day's left flank, beside the meals rather than over them
   //
   // **The number is `BREAKPOINTS.sheet`, and it is not a new one.** Its own
   // docblock already carries this argument for the overlay shape: below it a
@@ -23,40 +19,39 @@
   // bar is that question asked about a different surface, so it takes the same
   // answer and `lib/ui/breakpoints.ts` gains nothing.
   //
-  // **The meal is chosen and never inferred** (§2). The tabs are the only thing
+  // **The meal is chosen and never inferred** (§2). The chip is the only thing
   // that moves the target; the clock picks the FIRST one, which is a starting
   // value rather than a change. Scroll-position inference was built and refused:
   // a target that moves while you read is a target you have to re-check before
   // every tap, and the cost of it being wrong is paid silently, one meal at a
   // time, in a ledger whose whole design is that nothing is edited afterwards.
   //
-  // ── Why bits-ui Tabs is honest here and not a costume ──────────────────────
+  // ── One line, and what that cost (ADR-0101, amended 2026-09-15) ───────────
   //
-  // A `role="tab"` with no `role="tabpanel"` behind it is the usual way this
-  // component gets misused, and it is not what this is: **the rail IS the
-  // panel.** Each meal's `Tabs.Content` holds the five ways into THAT meal, so
-  // the tab list selects a meal and the panel below it is that meal's doors —
-  // the tab pattern's actual contract rather than a borrowed look. The ARIA
-  // wiring, the roving tabindex and the arrow keys come with it.
+  // This bar was a tab list over a rail of captioned cells and measured 154.1px
+  // on a phone — 96px of control under ~58px of chrome, which is a fifth of the
+  // band spent on padding, a groove, a gap and five drop shadows. The floor is
+  // not negotiable (ADR-0093/0098), so the only two numbers on the table were
+  // how many 48px rows the bar has and how much chrome sits between them. It is
+  // now **one row of 50px**: the meal is one control rather than four, the ways
+  // in are marks without captions, and every rule in the plate is a gap over an
+  // ink ground rather than a border on each tile.
   //
-  // That is ADR-0068 §1's test satisfied rather than bypassed — reach for bits
-  // only where the platform supplies less, not more. There is no native tab
-  // control, so this is the side of the line bits is for.
+  // **What that gives up is the tab pattern, and it is a real loss.** A tab list
+  // claims that the panel below belongs to the tab you picked, and this bar could
+  // honestly claim it: the rail's contents change with the meal, since the
+  // past-meal control appears only for a meal with history (ADR-0059 §4). A
+  // picker claims less — "one of four values" — and the five buttons beside it
+  // are then simply buttons that read it. The claim was worth 48px of band and no
+  // more, and the ARIA the tab list brought (a roving tabindex, arrow keys)
+  // arrives here as the platform's own picker instead, which is the trade
+  // ADR-0095 §2 already made for every other one-of-N in the app.
   //
-  // The sibling it is NOT: `ui/Segmented` (RadioGroup) is this app's one-of-N
-  // whose selection must persist, and it would fit. It lost on what the control
-  // CLAIMS. A radiogroup says "pick one of four values"; a tab list says "this
-  // panel belongs to the one you picked", and the second is the true sentence
-  // here, because the rail's contents change with the meal — the past-meal
-  // control appears only for a meal with history (ADR-0059 §4).
-  //
-  // The GROOVE stays here rather than becoming `ui/Tabs`, on ADR-0100's own
-  // test: it is one copy, and the brake settles it — a member with one consumer
-  // removes no surface. The bits wiring is a third copy rather than a second
-  // (`FoodStager`'s `.method`, `ReportsPage`'s `.period`), which is the count
-  // ADR-0101's Consequences got wrong and its Amendment corrects; what those two
-  // share with this one is an import line, and what they do not share is every
-  // rule that draws them.
+  // The chip was `ui/Select` for one release and is `MealPicker` now (#453): the
+  // platform's list is drawn by the platform, and on a device that meant an
+  // Android Material dialog inside a brutalist app. See that component for what
+  // refusing the native list cost, and ADR-0095's 2026-09-15 amendment for why
+  // the refusal is allowed at this one site and nowhere else.
   let {
     folded,
     dbReady,
@@ -69,8 +64,8 @@
      *
      * The two surfaces share one slot and the Selection takes it. On a phone
      * the Selection also wins the paint — it is at `z-index: 900` and this is
-     * at 90 — but winning the paint is not the same as leaving: the tab row
-     * still stood proud of the Selection's upper edge, which read as two bars
+     * at 90 — but winning the paint is not the same as leaving: the bar still
+     * stood proud of the Selection's upper edge, which read as two bars
      * fighting over the foot of the screen.
      *
      * **Both layouts, not just the phone.** Above 768 the two stack in one grid
@@ -89,12 +84,18 @@
      * writing it does not resize anything).
      *
      * Below 768 the bar is pinned over the day's last rows, so the day has to
-     * buy that height back or the Snack section ends underneath it. The height
-     * is genuinely unknown: the rail drops a cell for a meal with no past
-     * (ADR-0059 §4), the captions sit on a fluid scale, and the safe-area
-     * reserve is the device's. So it is MEASURED rather than restated — a
-     * spacer written as a sum of tokens is a second copy of this box's
-     * geometry, and the kind that is wrong on one of the four meals.
+     * buy that height back or the Snack section ends underneath it. **And #440
+     * reads the same box from the other side**: the free band a newly logged row
+     * has to land inside is the scrollport minus whatever this bar covers, taken
+     * off the bar's own rect rather than derived from the breakpoint that put it
+     * there.
+     *
+     * Still genuinely unknown, one line or not: the rail drops a cell for a meal
+     * with no past (ADR-0059 §4), the plate restacks in a container narrower than
+     * its contents, and the safe-area reserve is the device's. So it is MEASURED
+     * rather than restated — a spacer written as a sum of tokens is a second copy
+     * of this box's geometry, and the kind that is wrong on one of the four
+     * meals.
      *
      * Above 768 the bar is in flow and owes the day nothing, so the consumer
      * drops this. `bind:offsetHeight` rather than `clientHeight` because the
@@ -106,46 +107,38 @@
 
   // The meal nearest the clock, read ONCE at mount. A starting value, never a
   // later change, which is the whole of §2: nothing moves under you once the
-  // screen is up, and only a tab moves the target afterwards. Which meal an hour
-  // belongs to is `food/meal-type.ts`'s to say, not this bar's.
+  // screen is up, and only the chip moves the target afterwards. Which meal an
+  // hour belongs to is `food/meal-type.ts`'s to say, not this bar's.
   let target = $state<MealType>(mealNearest(new Date()));
 </script>
 
 <div class="way-in-bar" class:folded bind:offsetHeight={height}>
-  <!-- `inert`, not merely zero height: a folded bar still holds nine controls,
+  <!-- `inert`, not merely zero height: a folded bar still holds six controls,
        and a tab stop inside a box nobody can see is worse than a visible one. -->
   <div class="folder" inert={folded}>
     <div class="folder-window">
       <div class="folder-slide">
-        <Tabs.Root
-          class="wib-root"
-          value={target}
-          onValueChange={(v) => (target = asMealType(v, target))}
-        >
-          <!-- The groove: the track recedes and the selected cell fills with ink
-               inside it, so the control reads as a switch rather than as four
-               more of the buttons below it. -->
-          <Tabs.List class="wib-list" aria-label="Which meal these land in">
-            {#each MEAL_TYPES as meal_type (meal_type)}
-              <Tabs.Trigger value={meal_type} class="wib-tab"
-                >{meal_type.toUpperCase()}</Tabs.Trigger
-              >
-            {/each}
-          </Tabs.List>
-          {#each MEAL_TYPES as meal_type (meal_type)}
-            <!-- No class: the panel is a box the rail fills, and ADR-0097
-                 deletes a name no rule reaches. A spec that wants it asks for
-                 `[role="tabpanel"]`, which is the thing being claimed. -->
-            <Tabs.Content value={meal_type}>
-              <WayInRail
-                {meal_type}
-                {dbReady}
-                hasPast={mealHasPast[meal_type]}
-                {onEnterMeal}
-              />
-            </Tabs.Content>
-          {/each}
-        </Tabs.Root>
+        <!-- The plate. One ink rectangle with paper tiles laid on it, so every
+             rule the bar has — its outer edge, the seam beside the chip, each
+             seam between two marks — is the same `--edge-width` of the same ink
+             drawn once. That is why the rules are GAPS rather than borders: two
+             adjacent 2px borders make a 4px seam beside a 2px edge, and no
+             amount of `border-right: 0` bookkeeping keeps that honest across a
+             row whose cell count changes with the meal. -->
+        <div class="plate">
+          <MealPicker {target} onTarget={(m) => (target = m)} />
+          <!-- The rail in a box of its own, because the bar owns where things
+               go and the rail owns what is in them. It is also the flex item
+               whose minimum size decides the wrap above. -->
+          <div class="doors">
+            <WayInRail
+              meal_type={target}
+              {dbReady}
+              hasPast={mealHasPast[target]}
+              {onEnterMeal}
+            />
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -185,26 +178,96 @@
        which is right — a Selection has its own verbs and adding is not one of
        them (ADR-0088 §3). */
     z-index: 90;
-    padding: var(--space-2xs);
-    padding-bottom: calc(env(safe-area-inset-bottom, 0px) + var(--space-2xs));
-    background: var(--paper);
-    border-top: var(--edge);
+    /* **No padding of its own**, which is the whole of what the one line buys
+       beyond its missing row. The old bar spent `--space-2xs` a side making
+       itself read as a surface standing over the day; the plate's ink does that
+       now. It is ink below the cells too, so the reserve reads as the plate
+       running under the system's own furniture rather than as a white shelf
+       beneath it.
+
+       **The reserve is the device's inset OR a floor, whichever is larger, and
+       the floor is the half a phone taught us.** `env(safe-area-inset-bottom)`
+       is the platform saying how much room its own furniture needs, and on an
+       iPhone with a home indicator it says 34pt — Apple's own answer, since the
+       HIG puts a control at the foot "aligned with the bottom of the safe
+       area". **On Android with three-button navigation it says 0, and it is
+       right to**: the nav bar is not an overlay there, the viewport genuinely
+       ends above it, and nothing is hidden. What an inset cannot express is
+       PROXIMITY — a 48px mark whose bottom edge is the last row of pixels sits
+       directly against the recents button, and a thumb that overshoots leaves
+       the app. Reported from a device, 2026-09-15.
+
+       Material's own accessibility rule is the floor's size: touch targets of
+       48dp "separated by 8dp of space or more". The system's buttons are touch
+       targets like any other, so the app owes them that gap at the one edge it
+       shares with them. `--space-xs` is the smallest token on this fluid scale
+       that clears 8dp at every root size (13.5px at a 16px root, 15.5px at the
+       18.32px this app actually renders). `max()` rather than `+` because the
+       inset is already a clearance: adding to 34pt would reserve 48 against a
+       hazard the platform has already handled. The three sheet docks DO add
+       `--space-s` to their inset, and that is not a precedent — a dock's token
+       is its own interior padding, which it would need with no inset at all. */
+    padding: 0;
+    padding-bottom: max(env(safe-area-inset-bottom, 0px), var(--space-xs));
+    background: var(--ink);
     /* The shell caps its column and centres it; a full-bleed fixed bar has to
        repeat that or it runs the width of a desktop window. */
     max-width: var(--measure-solo);
     margin-inline: auto;
     transition:
       padding var(--fold),
-      margin var(--fold),
-      border-top-width var(--fold),
-      border-bottom-width var(--fold);
+      margin var(--fold);
   }
+
+  /* The ink ground and the seams. `--edge-width` is `--edge`'s weight as a bare
+     length: a gap cannot reach into a border shorthand, which is why the token
+     exists at all (see `app.css`, beside `--hairline`). */
+  .plate {
+    /* **A wrapping flex row, and the wrap is the narrow fallback.** The one line
+       does not fit everywhere this bar stands: a 320px phone cannot hold a chip
+       plus five floored marks, and neither can the 22rem flank it moves into
+       above `BREAKPOINTS.wide` — one a window and one a column that has nothing
+       to do with the size of the window.
+
+       A number was written first and thrown away. `@container (max-width: …)`
+       is what `lib/ui/breakpoints.ts` recommends for a box that should answer
+       its own width, and `ui/Segmented` already uses it — but a threshold in
+       `rem` is wrong twice over here. **This app's root font size is not 16px
+       and is not even fixed**: it is a clamp against the viewport, measured at
+       18.32px on this screen, so `22.25rem` resolved to 407px and stacked a
+       390px phone that had room to spare. And the sum it would have to encode
+       moves anyway, because the chip's own width rides that same fluid scale and
+       because ADR-0059 §4 drops a cell for a meal with no past — 354px with five
+       marks, 304px with four.
+
+       Flex wrap needs none of it. The rail's automatic minimum size IS five
+       floored cells and their seams, so the line breaks exactly when they stop
+       fitting beside the chip, at whatever those two boxes happen to measure on
+       this device, at this root size, for this meal. */
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--edge-width);
+    padding-top: var(--edge-width);
+    background: var(--ink);
+  }
+  /* The growth ratio is what makes one line and two lines both come out right.
+     Sharing a line, the rail takes essentially all of the slack and the chip
+     stays at the width of its widest option; wrapped onto a line of its own, the
+     chip has all the slack to itself and fills it, so the ink never shows
+     through beside a half-width tile. */
+  .doors {
+    flex: 999 1 auto;
+  }
+
+  /* The chip and its panel are `MealPicker`'s own — it is this bar's child and
+     not a primitive, so its skin lives with it rather than being re-skinned from
+     out here. What stays this file's is the row it sits in. */
 
   /* The fold (ADR-0101 §6). `grid-template-rows: 1fr -> 0fr` because it is the
      only way to animate to and from a height nobody has measured — and this
      bar's height is genuinely unknown, since `WayInRail` drops a cell for a meal
-     with no past (ADR-0059 §4). A `max-height` would need a magic number that is
-     wrong for one of the four meals.
+     with no past (ADR-0059 §4) and the plate wraps where it must. A
+     `max-height` would need a magic number that is wrong for one of those.
 
      **This is the app's first animated region, and that is a departure.**
      `app.css` states the opposite position: "The region below a disclosure
@@ -245,17 +308,13 @@
 
      **No opacity.** The bar shrinks in place and its rules travel up with it —
      that is the gesture, and a fade would hide the only part of it you can
-     follow. The rules go by WIDTH rather than by colour for the same reason:
-     thinning 2px to 0 is imperceptible beside a hundred pixels of travel, where
-     a fade is the one thing the eye would read instead of the movement. */
+     follow. */
   .folder-slide {
     transition: transform var(--fold);
   }
   .way-in-bar.folded {
     padding-block: 0;
     margin-bottom: 0;
-    border-top-width: 0;
-    border-bottom-width: 0;
   }
   .way-in-bar.folded .folder {
     grid-template-rows: 0fr;
@@ -271,51 +330,6 @@
     }
   }
 
-  /* A class handed to a child component carries no scoping hash, so every rule
-     below is `:global` — the same shape `ui/Segmented` uses for `.seg-row`. The
-     names are this file's and nothing else in the app wears them. */
-  :global(.wib-root) {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-3xs);
-  }
-
-  /* The groove. No inset shadow: the recessed ground and the hard edge are the
-     whole of it, and a shadow would be a third voice saying the same thing. */
-  :global(.wib-list) {
-    display: grid;
-    grid-auto-flow: column;
-    grid-auto-columns: 1fr;
-    gap: var(--space-3xs);
-    padding: var(--space-3xs);
-    background: var(--bg-input);
-    border: var(--edge);
-    border-radius: var(--radius);
-  }
-  /* A tab is a control, so it carries the floor (ADR-0098 §1). Unselected it is
-     a word and nothing else; only the selected one is ever drawn. */
-  :global(.wib-tab) {
-    min-height: var(--tap-min);
-    padding-inline: var(--space-3xs);
-    background: none;
-    border: 0;
-    border-radius: var(--radius);
-    font: inherit;
-    font-size: var(--step-n3);
-    font-weight: 700;
-    letter-spacing: 0.02em;
-    color: var(--text-secondary);
-    cursor: pointer;
-  }
-  :global(.wib-tab[data-state="active"]) {
-    background: var(--ink);
-    color: var(--paper);
-  }
-  :global(.wib-tab:focus-visible) {
-    outline: 2px solid var(--ink);
-    outline-offset: -2px;
-  }
-
   /* ── 768 and up: the same bar, at the other end of the screen ───────────── */
   @media (min-width: 768px) {
     .way-in-bar {
@@ -323,21 +337,19 @@
          this rides inside it — see the note there for why a two-item stack
          cannot stick to itself. */
       position: static;
-      /* **No inset at the top or the sides** (ADR-0101 §5). The groove's own
+      /* **No inset at the top or the sides** (ADR-0101 §5). The plate's own
          corner is then the bar's corner, which is the point the Selection bar's
          corner lands on when it takes the slot — the two share an origin
-         because they share the slot, and a 9px inset here would be 9px of drift
-         visible every time the mode changed. The phone keeps its inset: down
-         there the bar is a surface standing over the day, and the padding is
-         what makes it read as one. */
+         because they share the slot, and an inset here would be drift visible
+         every time the mode changed. The phone keeps its safe-area reserve:
+         down there the bar stands on the band's edge, and the reserve is the
+         device's. */
       padding: 0 0 var(--space-2xs);
-      border-top: 0;
-      border-bottom: var(--edge);
-      /* The page's own ground, not `--paper`. On a phone the bar is in front of
-         something — the band's edge below it, a hard rule above — and white says
-         so. Stuck at the head of the column it is in front of nothing: the day
-         slides under it and reappears the colour it went in, and a white plate
-         up here would be a panel the screen does not otherwise have. */
+      /* The page's own ground, not the plate's ink. On a phone the bar is in
+         front of something — the band's edge below it — and the ink says so.
+         Stuck at the head of the column it is in front of nothing: the day
+         slides under the plate and reappears the colour it went in, so what is
+         behind the plate should be the page. */
       background: var(--bg-base);
       /* Both, and both matter. `.timeline` is a flex column, and an AUTO inline
          margin on a flex item overrides `stretch`: the box shrinks to its
@@ -346,6 +358,11 @@
          is inside `.timeline`, which is already capped. */
       max-width: none;
       margin-inline: 0;
+    }
+    /* In the column the plate has four edges of its own to draw, so the ink
+       ground pads on every side instead of only the top. */
+    .plate {
+      padding: var(--edge-width);
     }
   }
 </style>

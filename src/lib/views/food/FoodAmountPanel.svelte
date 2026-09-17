@@ -4,9 +4,16 @@
     basisUnit,
     parseBasisQuantity,
     scaleNutrition,
+    type MeasuredUnit,
     type NutritionInfo,
     type Portion,
   } from "../../food/nutrition";
+  import {
+    amountAgainstBasis,
+    densityGramsPerMl,
+    type FoodDensity,
+  } from "../../food/density";
+  import type { DensityClassId } from "../../food/density-class";
   import AmountField from "./AmountField.svelte";
   import NutrientPreview from "./NutrientPreview.svelte";
 
@@ -30,10 +37,21 @@
   // per-100 panel (ADR-0060 §3). Both are read off the same `serving_size`, so a
   // drink published per 100 ml is entered in millilitres under a caption that
   // says so, and nothing converts between a volume and a weight.
+  //
+  // The density travels with the panel rather than being re-read here, because
+  // the twin it is a fact about is the caller's (FoodCard reads both off the
+  // same payload). On a food carrying one the amount's unit and the panel's
+  // basis can differ, and the factor below is the only place that matters: the
+  // amount is put into the panel's unit and the panel is left alone (ADR-0108
+  // §5 — a density sits beside a panel and never rescales one).
   let {
     panel = undefined,
     portions = [],
     amount = $bindable(),
+    unit = $bindable(),
+    density = undefined,
+    prefill = undefined,
+    onAssertDensity = undefined,
   }: {
     /** The food's `nutrition/info` panel, per its serving basis. Omit for a
      *  panel-less food — then only the amount control renders. */
@@ -41,15 +59,37 @@
     /** Household portions surfaced as picker chips (ADR-0030). */
     portions?: Portion[];
     amount: number;
+    /** The unit `amount` is in. The host seeds it (its context and this food's
+     *  memory there decide the opening unit) and the control writes back to it
+     *  when the user switches. */
+    unit: MeasuredUnit;
+    /** What this food's twin asserts about its density (ADR-0108 §4). */
+    density?: FoodDensity | undefined;
+    /** The class this food's own source names, where it names exactly one. */
+    prefill?: DensityClassId | undefined;
+    /** The user has said what kind of liquid this is; the host writes it. */
+    onAssertDensity?: (density: FoodDensity) => void;
   } = $props();
 
-  // The unit the amount is entered in, and what the panel's figures are per.
-  let unit = $derived(basisUnit(panel?.serving_size));
-  let caption = $derived(basisCaption(panel?.serving_size));
+  // What the panel's figures are per, and the unit they are stated in. The
+  // unit, not the **Panel basis** itself, which is the `serving_size` string.
+  let panelUnit = $derived(basisUnit(panel?.serving_size));
+  // The caption says what the figures are per AND, on a classified food, what
+  // that basis weighs: `Per 100 ml (≈103 g)` (ADR-0108 §9). The `≈` is the whole
+  // of the surface signal; the source explainer carries the rest.
+  let caption = $derived(
+    basisCaption(panel?.serving_size, densityGramsPerMl(density))
+  );
 
-  // The amount total: the full panel scaled from its own basis to the typed amount.
+  // The amount total: the full panel scaled from its own basis to the typed
+  // amount, with that amount put into the panel's own unit first. The panel
+  // itself is never rewritten (ADR-0108 §5); what moves is the number divided
+  // by it, and on every food carrying no density that move is the identity.
   let factor = $derived(
-    panel ? amount / parseBasisQuantity(panel.serving_size) : 0
+    panel
+      ? amountAgainstBasis(amount, unit, panel.serving_size, density) /
+          parseBasisQuantity(panel.serving_size)
+      : 0
   );
   let breakdown = $derived(scaleNutrition(panel, factor));
 </script>
@@ -58,7 +98,16 @@
      cannot say, since it names the unit being typed and not the divisor — is
      handed to the control rather than drawn above it: it rides the control's
      head row, sharing it with the − + × ÷ sum keys. -->
-<AmountField bind:amount {unit} {portions} {caption} />
+<AmountField
+  bind:amount
+  bind:unit
+  {panelUnit}
+  {portions}
+  {caption}
+  {density}
+  {prefill}
+  {onAssertDensity}
+/>
 
 {#if panel}
   <!-- The shared preview (#97 prototype): the tracked figures as a 2-column grid,

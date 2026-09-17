@@ -627,12 +627,14 @@ const movedLeads = (key) => {
  * arrived because `usda-corpus.ts` mints entity ids, `entity-id.ts` imported
  * `ENTITY_PREFIXES` as a value, and `FACETS` then survived tree-shaking because
  * its `precache` spreads a shared list and esbuild cannot prove an iterator
- * pure. `isDeclaredEntity` moved to `registry.ts` to break that edge, and the
- * import left behind is type-only.
+ * pure. The edge is broken by the registry's own split: `domains.ts` holds the
+ * domain half — the prefixes and nothing that spreads a manifest — and
+ * `entity-id.ts` reaches `ENTITY_PREFIXES` there, so `FACETS` is no longer on
+ * any path out of this bundle.
  *
- * **So keep it type-only.** The visible cost of losing that is a document about
- * food search changing bytes whenever somebody re-declares an install weight,
- * which is how this was found.
+ * **So keep that import pointed at `domains.ts`.** The visible cost of losing
+ * it is a document about food search changing bytes whenever somebody
+ * re-declares an install weight, which is how this was found.
  */
 const BUNDLE_EXPORTS = [
   "bestOfNames",

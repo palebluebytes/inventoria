@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import {
-  panelFromIngredients,
+  sourceFromIngredients,
   nameFromIngredients,
   ingredientFromTwin,
   ingredientFromFood,
@@ -43,22 +43,39 @@ const BANANA: RecipeIngredient = {
   },
 };
 
-describe("panelFromIngredients / nameFromIngredients", () => {
+describe("sourceFromIngredients / nameFromIngredients", () => {
   it("resolves a builder ingredient's panel and name by ref", () => {
-    expect(panelFromIngredients([OATS], "fdc:oats")).toBe(OATS_PANEL);
+    expect(sourceFromIngredients([OATS], "fdc:oats")?.panel).toBe(OATS_PANEL);
     expect(nameFromIngredients([OATS], "fdc:oats")).toBe("Oats");
   });
 
   it("returns undefined for an unknown ref", () => {
-    expect(panelFromIngredients([OATS], "fdc:ghost")).toBeUndefined();
+    expect(sourceFromIngredients([OATS], "fdc:ghost")).toBeUndefined();
     expect(nameFromIngredients([OATS], "fdc:ghost")).toBeUndefined();
   });
 
-  it("returns the same resolvers deriveRecipeNutrition can consume", () => {
-    // The resolvers are exactly what the live editor and the log-time snapshot
-    // read from — a builder ingredient carries the twin's real panel inline.
-    const panel = panelFromIngredients([OATS], "fdc:oats");
-    expect(panel?.calories).toBe(379);
+  it("resolves the twin's density beside its panel", () => {
+    // Both, together, because the derivation needs both: an ingredient's amount
+    // may be stated in a unit the panel's basis is not (ADR-0108 §7), and the
+    // density is what converts it. Absent on a food nobody has classified,
+    // which is the standing case.
+    const oil: RecipeIngredient = {
+      entity: "gtin:oil",
+      name: "Olive oil",
+      amount: 30,
+      unit: "g",
+      payload: {
+        entity: "gtin:oil",
+        attributes: {
+          "nutrition/info": OATS_PANEL,
+          "food/density": { class: "oil" },
+        },
+      },
+    };
+    expect(sourceFromIngredients([oil], "gtin:oil")?.density).toEqual({
+      class: "oil",
+    });
+    expect(sourceFromIngredients([OATS], "fdc:oats")?.density).toBeUndefined();
   });
 });
 
@@ -115,30 +132,27 @@ describe("ingredientFromFood", () => {
     };
   }
 
-  it("references a food published per 100 ml in millilitres", () => {
-    expect(ingredientFromFood(stagedFood("100 ml"), 330)).toMatchObject({
+  it("references a food in the unit it was entered in", () => {
+    expect(ingredientFromFood(stagedFood("100 ml"), 330, "ml")).toMatchObject({
       amount: 330,
       unit: "ml",
     });
-  });
-
-  it("references a weighed food in grams, exactly as before", () => {
-    expect(ingredientFromFood(stagedFood("100 g"), 50)).toMatchObject({
+    expect(ingredientFromFood(stagedFood("100 g"), 50, "g")).toMatchObject({
       amount: 50,
       unit: "g",
     });
-    // A label-captured food divides by its own "30 g" serving, and is still
-    // typed and stored in grams.
-    expect(ingredientFromFood(stagedFood("30 g"), 30).unit).toBe("g");
   });
 
-  it("keeps grams for a basis that names no measured unit", () => {
-    // A weightless "1 serving" names no unit, and is entered in grams
-    // (ADR-0060 §1) — the same fallback `basisUnit` keeps where
-    // `parseBasisQuantity` falls back to 100, so the divisor and the unit agree
-    // about the same string. A panel-less food never reaches this: its row
-    // carries the per-100 g basis by construction.
-    expect(ingredientFromFood(stagedFood("1 serving"), 1).unit).toBe("g");
+  it("takes a unit that differs from the panel's own basis", () => {
+    // The whole of what #430 changed here. The unit was read off the food's
+    // basis, which was the same answer while a unit could not be chosen
+    // (ADR-0060 §1) and is the wrong one now: a bottle of oil weighed into a
+    // recipe is a gram row against a per-100 ml panel, and re-deriving the unit
+    // would silently relabel it as millilitres.
+    expect(ingredientFromFood(stagedFood("100 ml"), 30, "g")).toMatchObject({
+      amount: 30,
+      unit: "g",
+    });
   });
 });
 
@@ -285,6 +299,19 @@ describe("parseLoggedQuantity", () => {
   });
 
   it("treats anything naming no measured unit as one whole serving", () => {
+    expect(parseLoggedQuantity("2 servings")).toEqual({
+      amount: 2,
+      unit: "serving",
+    });
+    expect(parseLoggedQuantity("0.5 servings")).toEqual({
+      amount: 0.5,
+      unit: "serving",
+    });
+    // Anything that names no readable amount is still one serving.
+    expect(parseLoggedQuantity("a bowlful")).toEqual({
+      amount: 1,
+      unit: "serving",
+    });
     expect(parseLoggedQuantity("1 serving")).toEqual({
       amount: 1,
       unit: "serving",
@@ -320,6 +347,12 @@ describe("quantityLabel", () => {
       [150, "g"],
       [330, "ml"],
       [1, "serving"],
+      // A count other than one, which is where this stopped holding: the serving
+      // arm read every "N servings" back as one, so the invariant above was true
+      // only of the single case that survives being flattened (#432).
+      [2, "serving"],
+      [0.5, "serving"],
+      [3.25, "serving"],
     ] as const) {
       expect(parseLoggedQuantity(quantityLabel(amount, unit))).toEqual({
         amount,

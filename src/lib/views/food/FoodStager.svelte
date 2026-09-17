@@ -34,10 +34,18 @@
   import { offContributeDefault } from "../../stores/device-settings";
   import { secretsStore } from "../../stores/secrets";
   import {
+    amountAgainstBasis,
+    openingUnit,
+    readFoodDensity,
+    FOOD_DENSITY_ATTR,
+    type AmountContext,
+    type FoodDensity,
+  } from "../../food/density";
+  import {
     amountDefaults,
     basisUnit,
     parseBasisQuantity,
-    portionLabelIsBareWeight,
+    portionLabelIsBareAmount,
     reportsNoEnergy,
     FOOD_PORTIONS_ATTR,
     NUTRITION_INFO_ATTR,
@@ -53,7 +61,10 @@
     buildLabelPanel,
     invertServingSize,
     resolveServingSize,
-    splitPortionRows,
+    buildPortions,
+    portionRowIsBlank,
+    portionRowIsEditable,
+    portionRows,
     toDisplay,
     type FieldDef,
     type Basis,
@@ -111,11 +122,13 @@
   import Alert from "../../ui/Alert.svelte";
   import Button from "../../ui/Button.svelte";
   import Checkbox from "../../ui/Checkbox.svelte";
+  import FieldCaption from "../../ui/FieldCaption.svelte";
   import Input from "../../ui/Input.svelte";
   import Textarea from "../../ui/Textarea.svelte";
   import Segmented from "../../ui/Segmented.svelte";
   import LabelPhotoReader from "./LabelPhotoReader.svelte";
   import CategoryPicker from "./CategoryPicker.svelte";
+  import DensityQuestion from "./DensityQuestion.svelte";
   import FoodCard from "./FoodCard.svelte";
   import ManualEntryFlow from "./ManualEntryFlow.svelte";
   import CommitButton from "./CommitButton.svelte";
@@ -189,16 +202,28 @@
      *  concept at all. */
     recentEmptyHint = "",
     /**
-     * The amount this food was last logged at, in `unit`, or null where there is
-     * none to reuse. Host-supplied for the same reason `recent` is: the history
-     * belongs to the host's surface, and this stager holds no store of its own.
+     * The amount this food was last entered at in `unit` **on this host's
+     * surface**, or null where there is none to reuse. Host-supplied for the
+     * same reason `recent` is: the history belongs to the host's surface, and
+     * this stager holds no store of its own.
      *
      * The default answers null for every food, which is a host with no history
-     * to read rather than a food with nothing behind it — `AddIngredientSheet`
-     * builds a recipe, where an amount is a proportion of a dish and not a
-     * record of what somebody ate. Both cases fall back to `amountDefaults`.
+     * to read rather than a food with nothing behind it. Both cases fall back to
+     * `amountDefaults`.
      */
     lastAmountFor = () => null,
+    /**
+     * Which unit this food was last entered in **on this host's surface**, or
+     * null where it has no history here. The memory half of ADR-0108 §7's
+     * opening-unit rule, and a separate reader from the amount because the two
+     * answer separate questions: that one refuses a unit mismatch, which a
+     * reader also choosing the unit could not report.
+     *
+     * A food with no history in the context it is reached in takes that
+     * context's default, which is exactly what null means here.
+     */
+    lastUnitFor = () => null,
+    amountContext = "log",
     /** DOM ids for each host's e2e selectors. */
     ids,
     /** The staged food, exposed so the host header's back button can clear it
@@ -253,6 +278,8 @@
     recent?: FoodResult[];
     recentEmptyHint?: string;
     lastAmountFor?: (entity: string, unit: MeasuredUnit) => number | null;
+    lastUnitFor?: (entity: string) => MeasuredUnit | null;
+    amountContext?: AmountContext;
     ids: StagerIds;
     staged?: FoodResult | null;
     canGoBack?: boolean;
@@ -305,6 +332,12 @@
   // for a weighed food, millilitres for a drink published per 100 ml, and
   // nothing converts between the two (ADR-0060 §1/§2).
   let amount = $state(100);
+  // The unit `amount` is in. It is the panel's own on every food carrying no
+  // Density Class, and on one that does it is a choice — seeded by the context
+  // and this food's memory in it, then owned by the toggle (ADR-0108 §7). It
+  // travels with the amount to whatever commits it, because a reader that
+  // re-derived it off the panel would contradict what the user typed.
+  let amountUnit = $state<MeasuredUnit>("g");
 
   // Where the control opens for a freshly staged food: the amount this food was
   // last logged at, and only failing that the unit's generic default — 100 g
@@ -324,12 +357,57 @@
   // the order a derived happens to settle in relative to the assignment beside
   // it. The edit path never comes through here: it opens on the logged amount
   // its seed carries, which is that event's own figure and not a memory of one.
-  function openingAmount(payload: EntityPayload): number {
+  function openingEntry(payload: EntityPayload): {
+    amount: number;
+    unit: MeasuredUnit;
+  } {
     const info = payload.attributes[NUTRITION_INFO_ATTR] as
       | NutritionInfo
       | undefined;
-    const unit = basisUnit(info?.serving_size);
-    return lastAmountFor(payload.entity, unit) ?? amountDefaults(unit).amount;
+    const basis = basisUnit(info?.serving_size);
+    const density = readFoodDensity(payload.attributes);
+    // The unit is settled first, and only then is the amount asked for: a
+    // remembered amount measured against the other unit is refused rather than
+    // converted (ADR-0060 §1/§2), and takes the unit's generic default.
+    const unit = openingUnit(
+      amountContext,
+      basis,
+      density,
+      lastUnitFor(payload.entity)
+    );
+    return {
+      amount:
+        lastAmountFor(payload.entity, unit) ?? amountDefaults(unit).amount,
+      unit,
+    };
+  }
+
+  /** Seeds both halves of the control from one reading, so the number and the
+   *  unit it is in can never come from two different rules. */
+  function openAt(payload: EntityPayload) {
+    const opening = openingEntry(payload);
+    amount = opening.amount;
+    amountUnit = opening.unit;
+  }
+
+  // The user has said what kind of liquid the staged food is. It lands on the
+  // staged payload rather than in the ledger, because that payload IS what the
+  // host ingests on commit — a searched or scanned twin is not in the ledger yet
+  // and writing one from a staging screen would mint a food nobody has chosen.
+  // The assertion travels with the food it is about, and a staging the user
+  // backs out of writes nothing, which is the same rule the amount follows.
+  function assertStagedDensity(density: FoodDensity) {
+    if (!staged) return;
+    staged = {
+      ...staged,
+      payload: {
+        ...staged.payload,
+        attributes: {
+          ...staged.payload.attributes,
+          [FOOD_DENSITY_ATTR]: density,
+        },
+      },
+    };
   }
 
   // The staged food's full nutrition panel (per its serving basis). Handed to
@@ -344,7 +422,14 @@
   // same divisor FoodAmountPanel's preview directly above it uses (#148). A
   // hardcoded /100 here disagreed with that preview on every panel not measured
   // per 100 — a label-corrected `gtin:` twin restaged from a re-scan, say.
-  let factor = $derived(amount / parseBasisQuantity(stagedInfo?.serving_size));
+  let factor = $derived(
+    amountAgainstBasis(
+      amount,
+      amountUnit,
+      stagedInfo?.serving_size,
+      readFoodDensity(staged?.payload.attributes)
+    ) / parseBasisQuantity(stagedInfo?.serving_size)
+  );
 
   // The staged food's household portions (ADR-0030), surfaced as picker presets.
   // A searched food carries them on its bundled row (ADR-0047 §6); empty (and
@@ -392,7 +477,7 @@
     // the Recent list closes nothing — no session was ever open.
     endSearchSession();
     staged = item;
-    amount = openingAmount(item.payload);
+    openAt(item.payload);
     if (!searched) return;
     completingEntity = item.entity;
     unreachablePanel = null;
@@ -473,12 +558,12 @@
   let customPackQuantity = $state("");
   // Per-field typed strings keyed by NutritionInfo field; "" ⇒ absent (not 0).
   let customValues = $state<Record<string, string>>({});
+  // Every one of the twin's portions, each carrying the unit of its own
+  // magnitude. There is no second list held aside any more: a portion the form
+  // cannot TYPE is still a portion it shows (#460), read-only, rather than data
+  // the app holds and renders nowhere. `portionRows`/`buildPortions` carry the
+  // argument and the byte-exact round trip.
   let customPortions = $state<PortionRow[]>([]);
-  // Portions the form has no row for, held aside so a re-save carries them
-  // through untouched instead of dropping them. A millilitre portion is the one
-  // that occurs (ADR-0060 §6): the portion rows type a gram weight, and a volume
-  // serving is still not something this form can express.
-  let carriedPortions = $state<Portion[]>([]);
   // Rows ticked "∅ not on label" — read-along ergonomics; the built panel omits
   // empty rows regardless, this only dims + locks them and drives bulk-skip.
   let skipped = $state<Set<string>>(new Set());
@@ -556,6 +641,15 @@
   let effectiveUnit = $derived<"g" | "ml">(
     customBasis === "per_100ml" ? "ml" : "g"
   );
+  // What kind of liquid a hand-captured food is (ADR-0108 §1). This form is the
+  // SECOND door to a millilitre basis — the user ticks `ml` themselves rather
+  // than a source declaring it — so no Open Food Facts tags exist to pre-fill
+  // from, and it is asked outright. It costs nothing extra: the form is already
+  // a page of questions about this food.
+  //
+  // Never asked of a gram capture. §6 asks the class the first time grams are
+  // reached for, and on a per-100 g food grams are what the field already takes.
+  let customDensity = $state<FoodDensity | null>(null);
   // The pack size as OFF's own writable `quantity` field wants it: magnitude and
   // unit rejoined. Absent when no magnitude was given, so an untouched field
   // never overwrites a size OFF already holds.
@@ -732,7 +826,6 @@
     customIngredients = "";
     customPackQuantity = "";
     customPortions = [];
-    carriedPortions = [];
     skipped = new Set();
     labelPhotos = [];
     offRefPhotos = [];
@@ -1010,6 +1103,7 @@
     if (seed.kind === "food") {
       staged = seed.food;
       amount = seed.amount;
+      amountUnit = seed.unit;
     } else if (seed.kind === "edit_twin") {
       // Same screen the staged card's pencil opens, seeded from the same twin.
       openEditForm(seed.entity, seed.attributes);
@@ -1674,7 +1768,7 @@
       // runs the found-but-poor predicate below (§1).
       if (local) {
         staged = mapPayloadToFoodResult(local);
-        amount = openingAmount(local);
+        openAt(local);
         status = "idle";
         return;
       }
@@ -1703,7 +1797,7 @@
       // resurrect it.
       if (scanSession) scanSession = scanAnswered(scanSession, "found");
       staged = mapPayloadToFoodResult(off);
-      amount = openingAmount(off);
+      openAt(off);
       status = "idle";
       const info = off.attributes[NUTRITION_INFO_ATTR] as
         | NutritionInfo
@@ -1837,36 +1931,34 @@
       (method === "scan" && !staged && !!barcode.trim())
   );
 
-  // Seed the form's two portion slots from a twin's saved `food/portions`. The
-  // split itself is `splitPortionRows` in the form's own domain module; this
-  // only lands its two halves in component state.
-  function seedPortionRows(portions: Portion[] | undefined) {
-    const split = splitPortionRows(portions);
-    customPortions = split.rows;
-    carriedPortions = split.carried;
-  }
+  // A row nobody has typed into carries the panel's unit, following it across a
+  // basis flip. The flip converts nothing and clears nothing (ADR-0060 §6's
+  // 2026-09-16 amendment) — and an EMPTY row has nothing to convert, so this
+  // contradicts none of that. Without it a row minted in ml and left blank while
+  // the pack turns out to be grams would take the user's first keystroke and
+  // store it as millilitres.
+  $effect(() => {
+    const unit = effectiveUnit;
+    for (const row of customPortions) {
+      if (portionRowIsBlank(row) && row.unit !== unit) row.unit = unit;
+    }
+  });
 
-  // Build the household portions the user typed into `Portion` shape, dropping
-  // wholly-blank rows, then the ones this form has no row for (`seedPortionRows`)
-  // exactly as they were read. A hand-typed portion carries its own label as the
-  // unit, and is always a weight: nothing here can type a volume.
-  function buildCustomPortions(): Portion[] {
-    const typed = customPortions
-      .filter((p) => p.label.trim() !== "" || p.grams.trim() !== "")
-      .map((p) => ({
-        label: p.label.trim(),
-        amount: 1,
-        unit: p.label.trim() || "serving",
-        grams: Number(p.grams.trim()) || 0,
-      }));
-    return [...typed, ...carriedPortions];
+  // Seed the portion rows from a twin's saved `food/portions`. The reading is
+  // `portionRows` in the form's own domain module; this only lands it in state.
+  // Both callers set `customBasis` first, so `effectiveUnit` is already the
+  // basis this twin was stored with — which is the unit a portion carrying no
+  // magnitude of its own gets its (repairable, blank) row in.
+  function seedPortionRows(portions: Portion[] | undefined) {
+    customPortions = portionRows(portions, effectiveUnit);
   }
 
   function primaryAction() {
     if (staged) {
-      // The amount travels in the staged panel's own unit; every host reads that
-      // unit back off the panel rather than off the carrier (ADR-0060 §1).
-      return commit({ kind: "food", food: staged, amount });
+      // The amount travels WITH its unit: on a food carrying a density the two
+      // can differ from the panel's basis, and a host re-deriving the unit off
+      // the panel would contradict the toggle the user just used (ADR-0108 §7).
+      return commit({ kind: "food", food: staged, amount, unit: amountUnit });
     }
     if (method === "custom") {
       if (!customName.trim() || runningKcal === "") return;
@@ -1874,7 +1966,7 @@
       // envelope; the host commits it through saveLabelFood (#56). Reuses the
       // shared `builtPanel` derivation the contribution path also reads.
       const { nutrition, filledKeys } = builtPanel;
-      const portions = buildCustomPortions();
+      const portions = buildPortions(customPortions);
       const photos = allowPhoto ? labelPhotos : [];
       // Audit hint (§7): the coarse categories the user actually supplied.
       const fields = [
@@ -1917,6 +2009,11 @@
         // An origin-badge edit (§7) pins the twin's own id so the host enriches
         // it in place; the barcode alone would mint a duplicate for a custom twin.
         editEntityId: editEntityId ?? undefined,
+        // Only from the millilitre arm: a gram panel is already weighed, and a
+        // class left over from a basis the user switched away from would be a
+        // fact about a food this form is no longer describing.
+        density:
+          effectiveUnit === "ml" ? (customDensity ?? undefined) : undefined,
         // The found-but-poor door's OFF record, so the host preserves its
         // provenance beside the correction (§6/§7 dual-origin). Absent otherwise.
         offPayload: captureOffPayload ?? undefined,
@@ -2093,6 +2190,8 @@
                     panel={stagedInfo}
                     portions={stagedPortions}
                     bind:amount
+                    bind:unit={amountUnit}
+                    onAssertDensity={assertStagedDensity}
                     onEdit={editStaged}
                     onExplainSource={(kind) => (sourceExplain = kind)}
                     onExplainNova={explainNova}
@@ -2408,16 +2507,18 @@
                     <div class="cf-reason" data-testid="capture-reason">
                       <p>{CAPTURE_COPY[captureReason]}</p>
                       {#if captureReason === "unreadable"}
-                        <label class="cf-reason-code">
-                          <span>Barcode digits (optional)</span>
+                        <div class="cf-reason-code">
+                          <FieldCaption for="cf-barcode-digits">
+                            Barcode digits (optional)
+                          </FieldCaption>
                           <input
+                            id="cf-barcode-digits"
                             type="text"
                             inputmode="numeric"
                             placeholder="e.g. 8901222932167"
-                            aria-label="Barcode digits"
                             bind:value={barcode}
                           />
-                        </label>
+                        </div>
                       {/if}
                     </div>
                   {/if}
@@ -2539,8 +2640,8 @@
                   </div>
 
                   <div class="cf-basis">
-                    <label class="cf-pack">
-                      <span>Pack size</span>
+                    <div class="cf-pack">
+                      <FieldCaption for="cf-pack-size">Pack size</FieldCaption>
                       <input
                         id="cf-pack-size"
                         type="text"
@@ -2563,12 +2664,27 @@
                           testid="cf-basis"
                         />
                       </span>
-                    </label>
+                    </div>
                     <!-- What the figures below therefore mean. Stated rather
                     than asked a second time. -->
                     <p class="cf-basis-derived" data-testid="cf-basis-derived">
                       Values per {resolveServingSize(customBasis)}.
                     </p>
+                    {#if effectiveUnit === "ml"}
+                      <!-- The class question's second door (ADR-0108 §1). It is
+                      asked here and not deferred to the amount screen because
+                      this form already knows the answer is needed: a panel
+                      declared per 100 ml is a panel nothing can weigh, and the
+                      person filling this in is holding the bottle. Optional, and
+                      a food saved without one simply stays in millilitres (§6). -->
+                      <div class="cf-density" data-testid="cf-density">
+                        <DensityQuestion
+                          label="What kind of liquid is this? (optional)"
+                          testid="cf-density-classes"
+                          onAnswer={(next) => (customDensity = next)}
+                        />
+                      </div>
+                    {/if}
                     {#if contributionLosesNumbers}
                       <!-- Not a validation error: the panel is saved either way,
                       and this is only about what a contribution can say. OFF has
@@ -2604,10 +2720,12 @@
                           class:skip={skipped.has(f.key)}
                           class:unverified={prefilled.has(f.key)}
                         >
-                          <label
+                          <FieldCaption
                             class="cf-lbl"
-                            for={idFor[f.key] ?? `cf-${f.key}`}>{f.label}</label
+                            for={idFor[f.key] ?? `cf-${f.key}`}
                           >
+                            {f.label}
+                          </FieldCaption>
                           <div class="cf-ctl">
                             <input
                               id={idFor[f.key] ?? `cf-${f.key}`}
@@ -2642,22 +2760,39 @@
                       </div>
                     </div>
                     {#each customPortions as p, i (i)}
-                      {@const weird = portionLabelIsBareWeight(p.label)}
+                      {@const weird = portionLabelIsBareAmount(p.label)}
+                      <!-- A row is typed in ITS OWN unit, and it is editable only
+                           while that unit is the one the panel is in (#460). A
+                           drink's "1 can — 330 ml" on a per-100 g panel — and a
+                           row stranded by the user flipping the basis under it —
+                           reads read-only rather than vanishing: the app used to
+                           hold such a portion and render it in no place at all,
+                           here or in the picker. `readonly`, not `disabled`, so
+                           the one surface that finally shows it stays reachable
+                           by keyboard; the ✕ stays for the same reason, since a
+                           row you can neither edit nor remove is a worse trap
+                           than the invisibility this replaced. -->
+                      {@const locked = !portionRowIsEditable(p, effectiveUnit)}
                       <div class="cf-prow">
                         <input
                           class:cf-in-warn={weird}
                           placeholder="e.g. 1 slice"
                           aria-label="Portion label"
                           aria-invalid={weird}
+                          readonly={locked}
                           bind:value={p.label}
                         />
-                        <input
-                          type="text"
-                          inputmode="decimal"
-                          placeholder="grams"
-                          aria-label="Portion grams"
-                          bind:value={p.grams}
-                        />
+                        <div class="cf-ctl">
+                          <input
+                            type="text"
+                            inputmode="decimal"
+                            placeholder={p.unit}
+                            aria-label={`Portion amount in ${p.unit}`}
+                            readonly={locked}
+                            bind:value={p.amount}
+                          />
+                          <span class="cf-unit">{p.unit}</span>
+                        </div>
                         <button
                           type="button"
                           class="cf-skip"
@@ -2665,16 +2800,17 @@
                           aria-label="Remove portion">✕</button
                         >
                       </div>
-                      {#if weird}
-                        <!-- The label is just a weight, so it only restates the grams
-                     column — nudge a real household unit (mirrors the chip
-                     collapse in formatPortionPreset). Non-blocking. -->
+                      {#if weird && !locked}
+                        <!-- The label is just an amount, so it only restates the
+                     column beside it — nudge a real household unit (mirrors the
+                     chip collapse in formatPortionPreset). Non-blocking, and not
+                     shown on a locked row: it asks for an edit that row refuses. -->
                         <p
                           class="cf-prow-warn"
-                          data-testid="portion-weight-warning"
+                          data-testid="portion-amount-warning"
                         >
-                          That's a weight, not a portion name — try a household
-                          unit like “1 slice” or “1 biscuit”.
+                          That's an amount, not a portion name — try a household
+                          unit like “1 slice” or “1 can”.
                         </p>
                       {/if}
                     {/each}
@@ -2684,7 +2820,12 @@
                       onclick={() =>
                         (customPortions = [
                           ...customPortions,
-                          { label: "", grams: "" },
+                          // Minted in the form's one unit — the same `effectiveUnit`
+                          // the pack and the panel already read. The row carries a
+                          // unit but offers no control to change it: the form
+                          // answers g-versus-ml once, above, and an earlier build
+                          // that asked it twice found the two could disagree.
+                          { label: "", amount: "", unit: effectiveUnit },
                         ])}>＋ add a portion</button
                     >
                   </section>
@@ -2972,6 +3113,7 @@
   <SourceExplainerSheet
     kind={sourceExplain}
     standIn={curatedStandInFor(staged?.entity)}
+    density={readFoodDensity(staged?.payload.attributes)}
     onEdit={staged ? editStaged : undefined}
     onClose={() => (sourceExplain = null)}
   />
@@ -3183,27 +3325,21 @@
     font-size: 0.85rem;
     color: var(--text-primary);
   }
+  /* A `<div>` since #383, not a `<label>`: its caption is `ui/FieldCaption`
+     now, which is a real `<label for>` and cannot be nested inside another.
+     What is left here is the column and its gap, which is placement. */
   .cf-reason-code {
     display: flex;
     flex-direction: column;
     gap: var(--space-3xs);
     margin-top: var(--space-xs);
-    font-size: 0.75rem;
-    font-weight: 700;
-    color: var(--text-secondary);
-    text-transform: uppercase;
-    letter-spacing: 0.03em;
   }
   .cf-reason-code input {
-    font: inherit;
     background: var(--paper);
     border: 1px solid var(--border);
     border-radius: var(--radius);
     padding: 0.5rem 0.6rem;
     color: var(--text-primary);
-    text-transform: none;
-    letter-spacing: normal;
-    font-weight: 400;
   }
 
   /* OFF reference-photo strip (§8) — a read-only aid, visually distinct from the
@@ -3350,6 +3486,18 @@
   }
   /* The basis picker (now a shared Segmented) stacked above its optional
      serving-grams field. */
+  /* The class question under the basis control, set off from the pack row above
+     it the way every other block on this form is. */
+  .cf-density {
+    margin-top: var(--space-s);
+    /* The column it sits in is `align-items: flex-start`, so a child is sized to
+       fit its content — and this one's content is a `Segmented` whose grid
+       tracks are `minmax(0, 1fr)`, which can fit into nothing at all. Without
+       this the class question rendered at zero width: present in the DOM,
+       reachable by a test's locator, and invisible to the person the question is
+       for. */
+    align-self: stretch;
+  }
   .cf-basis {
     display: flex;
     flex-direction: column;
@@ -3362,13 +3510,11 @@
     align-items: center;
     gap: 0.35rem;
   }
-  /* Reads as one of the transcription rows below it, because that is what it is:
-     a value off the packet. It matched the muted hint text instead, which sized
-     it out of the form it belongs to. */
-  .cf-pack > span {
-    font-size: 0.92rem;
-    font-weight: 700;
-  }
+  /* Reads as one of the transcription rows below it, because that is what it
+     is: a value off the packet. It matched the muted hint text instead, which
+     sized it out of the form it belongs to. It is `ui/FieldCaption` since #383,
+     which is what those rows are too, so the two now agree by reference rather
+     than by two hand-set sizes that happened to match. */
   .cf-pack input {
     width: 5rem;
     text-align: right;
@@ -3450,8 +3596,9 @@
     border-bottom: 1px solid var(--border);
     border-radius: var(--radius);
   }
-  .cf-lbl {
-    font-size: 0.92rem;
+  /* The caption is `ui/FieldCaption`; this is the one line a grid cell needs
+     so a long nutrient name can shrink rather than widen its column. */
+  .cf-row :global(.cf-lbl) {
     min-width: 0;
   }
   .cf-ctl {
@@ -3497,11 +3644,25 @@
   }
   .cf-prow {
     display: grid;
-    grid-template-columns: 1fr 6rem 40px;
+    /* `auto` rather than the old 6rem: the amount box now shares its track with
+       the `.cf-unit` suffix the nutrient rows use, so the track is sized by the
+       pair instead of by a literal that knew only about a lone input. */
+    grid-template-columns: 1fr auto 40px;
     gap: var(--space-xs);
     align-items: center;
     min-height: var(--tap-min);
     padding: 0 0.4rem;
+  }
+  /* A row the panel's basis cannot type (#460) — a millilitre portion on a
+     per-100 g capture, or one stranded by flipping the basis. It reads locked
+     through the field's own fill, NOT through the `opacity: 0.5` the skipped
+     nutrient rows wear: those are empty by definition, where this row holds the
+     only display of a portion the app otherwise shows nowhere, and dimming the
+     one surface that finally reveals it would undo the point. */
+  .cf-prow input:read-only {
+    background: var(--bg-input);
+    color: var(--text-secondary);
+    cursor: default;
   }
   .cf-add {
     margin-top: var(--space-2xs);

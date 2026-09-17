@@ -1,10 +1,12 @@
 <script lang="ts">
+  import { untrack } from "svelte";
   import {
     toReferenceIngredient,
-    panelFromIngredients,
+    sourceFromIngredients,
     nameFromIngredients,
     addOrMergeIngredient,
     coerceAmount,
+    quantityLabel,
     type RecipeIngredient,
     type IngredientAddOutcome,
   } from "../../food/recipe-ingredient";
@@ -12,12 +14,25 @@
     deriveRecipeNutrition,
     deriveIngredientMacros,
   } from "../../food/recipe-nutrition";
-  import { isMeasuredUnit, type Portion } from "../../food/nutrition";
+  import {
+    enteredUnit,
+    isMeasuredUnit,
+    NUTRITION_INFO_ATTR,
+    type MeasuredUnit,
+    type NutritionInfo,
+    type Portion,
+  } from "../../food/nutrition";
+  import { FOOD_DENSITY_ATTR } from "../../food/density";
+  import {
+    occasionFraction,
+    servingsOfOccasion,
+  } from "../../food/batch-weight";
   import { scaleAmount } from "../../food/scale-amount";
   import AddIngredientSheet from "./AddIngredientSheet.svelte";
   import IngredientAmountSheet from "./IngredientAmountSheet.svelte";
   import FoodItemRow from "./FoodItemRow.svelte";
   import NutrientPreview from "./NutrientPreview.svelte";
+  import FieldCaption from "../../ui/FieldCaption.svelte";
 
   // The shared ingredient-list surface behind both the recipe builder
   // (Consolidate/Define) and the instantiation editor (Instantiate/Correct):
@@ -31,12 +46,66 @@
   let {
     ingredients = $bindable(),
     recipeYield = $bindable(),
+    batchWeight = $bindable(""),
+    portionWeight = $bindable(""),
+    templateYield,
+    sizedByWeight = false,
+    servings = $bindable(1),
     servingsMode = "makes",
   }: {
     ingredients: RecipeIngredient[];
     /** schema.org recipeYield; held loosely so the field can be cleared while
      *  typing, sanitised to a positive number for the live derivation. */
     recipeYield: number | string;
+    /**
+     * What the finished batch weighs, in grams. On `makes` it is the default the
+     * Recipe Twin remembers; on `portions` it is what THIS pot weighed, opened
+     * on that remembered default and freely overridable for the occasion
+     * (ADR-0106 §3) — an override that never reaches back to the template, which
+     * is ADR-0022 §3's decoupling and not this field's to break.
+     *
+     * Held loosely like the yield beside it, and empty is the standing answer: a
+     * recipe nobody weighed is ordinary, and `sanitizeWeight` reads this back.
+     */
+    batchWeight?: number | string;
+    /**
+     * `portions` mode only: how much of that batch was eaten, in grams. Over
+     * {@link batchWeight} it is the fraction of the recipe this occasion was,
+     * and that fraction is what scales the rows (ADR-0106 §1, §5).
+     */
+    portionWeight?: number | string;
+    /**
+     * `portions` mode only: what the Recipe Twin says the batch makes, used to
+     * read the serving count out of the weight (ADR-0106 §6) and for nothing
+     * else — it is not a divisor here, and the occasion's own `recipeYield` is
+     * held at 1 by the surface above.
+     *
+     * Absent where the count cannot honestly be read out. Correcting a past
+     * occasion is that case: its snapshot froze a yield of 1 over rows that are
+     * already the portion, so how many servings the original batch made is not
+     * in it. The two weights still work there, which is the whole of what §5
+     * freezes the batch weight for.
+     */
+    templateYield?: number;
+    /**
+     * `portions` mode only: whether this occasion is sized by the scale rather
+     * than by the count (ADR-0106 §1 against §7). The host settles it when it
+     * seeds the weights, and it is a prop rather than a reading taken here so
+     * that one fact has one expression: the surface that asks and the save that
+     * answers cannot end up disagreeing about which question was put.
+     *
+     * Fixed for this surface's life either way. The rows have already been
+     * scaled against whichever question was asked, so swapping mid-type — when
+     * a field is briefly empty — would move the ground under them.
+     */
+    sizedByWeight?: boolean;
+    /**
+     * `portions` mode only: how many servings this occasion is. Bound out so the
+     * saving surface can say it on the log (ADR-0106 §8). It is not a divisor by
+     * the time it leaves here — the rows have already been scaled by it — only
+     * the word for how big the occasion was.
+     */
+    servings?: number | string;
     /**
      * What the servings control means on this surface — the two verbs ask
      * genuinely different questions of the same number:
@@ -53,12 +122,23 @@
     servingsMode?: "makes" | "portions";
   } = $props();
 
-  // `portions` mode only: how many servings this occasion is, against which the
-  // seeded amounts are one. Held as text so the field can be cleared mid-type.
-  let servings = $state<number | string>(1);
-  // The last APPLIED count — the basis each change scales from, so the amounts
-  // move by the ratio between the two rather than accumulating from 1.
+  // The basis each change scales from, so the amounts move by the ratio between
+  // the new answer and the applied one rather than accumulating from 1. One per
+  // question: the count, and the fraction of the batch.
   let appliedServings = 1;
+  // Seeded from the weights the host opened with, which is what lets a
+  // correction reopen on its frozen rows and still divide against the pot
+  // (ADR-0106 §5): those rows are already a fraction of it, and this is which.
+  let appliedFraction = untrack(
+    () => occasionFraction(portionWeight, batchWeight) ?? 1
+  );
+
+  function rescaleRows(factor: number) {
+    ingredients = ingredients.map((ing) => ({
+      ...ing,
+      amount: scaleAmount(coerceAmount(ing.amount), factor, "multiply"),
+    }));
+  }
 
   /**
    * Rescale every ingredient to `next` servings. A no-op for anything that is
@@ -72,11 +152,44 @@
       return;
     const factor = count / appliedServings;
     appliedServings = count;
-    ingredients = ingredients.map((ing) => ({
-      ...ing,
-      amount: scaleAmount(coerceAmount(ing.amount), factor, "multiply"),
-    }));
+    rescaleRows(factor);
   }
+
+  /**
+   * Rescale every ingredient to the fraction of the batch these two weights
+   * name (ADR-0106 §1). Both fields run through here, because both move the
+   * fraction: eating 200 g instead of 160 g raises it, and learning the pot was
+   * 600 g rather than 480 g lowers it by exactly as much as it should.
+   *
+   * A no-op until both numbers are usable, which is the same refusal the count
+   * makes of an empty field — and the same reason. Nothing is derived from the
+   * rows here, so a recipe mixing grams and millilitres is sized exactly like
+   * one that does not.
+   */
+  function changeOccasion(
+    nextBatch: number | string,
+    nextEaten: number | string
+  ) {
+    batchWeight = nextBatch;
+    portionWeight = nextEaten;
+    const fraction = occasionFraction(nextEaten, nextBatch);
+    if (fraction === undefined || fraction === appliedFraction) return;
+    const factor = fraction / appliedFraction;
+    appliedFraction = fraction;
+    rescaleRows(factor);
+  }
+
+  // How many servings this occasion is, read OUT of the weight rather than typed
+  // into (ADR-0106 §6). 250 g of a 400 g serving reads 0.625 of one, which no
+  // whole-number field could have displayed.
+  // Spelled through `quantityLabel`, the app's one quantity phrase, so a count
+  // read out here and the same count written to the ledger by the surface above
+  // cannot say the same thing two ways (ADR-0060 §4).
+  let servingsReadout = $derived.by(() => {
+    if (templateYield === undefined) return undefined;
+    const count = servingsOfOccasion(portionWeight, batchWeight, templateYield);
+    return count === undefined ? undefined : quantityLabel(count, "serving");
+  });
 
   // What the figures ARE: the whole recipe as listed while defining it, and the
   // portion being logged while instantiating one (where the rows have already
@@ -94,7 +207,8 @@
   let referenceIngredients = $derived(ingredients.map(toReferenceIngredient));
   // Each ingredient's real nutrition panel / display name, read in memory from
   // its inlined twin payload — never mutating the food twin.
-  const resolvePanel = (ref: string) => panelFromIngredients(ingredients, ref);
+  const resolveSource = (ref: string) =>
+    sourceFromIngredients(ingredients, ref);
   const resolveName = (ref: string) => nameFromIngredients(ingredients, ref);
 
   // The figures describe the ingredients ON SCREEN: Σ(panel × amount ÷
@@ -105,7 +219,7 @@
   // serving" suffix. What the yield divides is what gets LOGGED, which is the
   // saving surface's business, not this list's.
   let visibleTotal = $derived(
-    deriveRecipeNutrition(referenceIngredients, 1, resolvePanel)
+    deriveRecipeNutrition(referenceIngredients, 1, resolveSource)
   );
   // A row's derived display: the clean {ref, amount, unit} (its `amount` coerced
   // once at this boundary, since the inline editor's numeric input is briefly
@@ -114,8 +228,18 @@
     const ref = toReferenceIngredient(ing);
     return {
       amount: ref.amount,
-      macros: deriveIngredientMacros(ref, resolvePanel),
+      macros: deriveIngredientMacros(ref, resolveSource),
     };
+  }
+
+  // The unit an editable row opens on: the one it was entered in, falling back
+  // to the panel's for a whole-serving row that names none.
+  function editUnit(ing: RecipeIngredient): MeasuredUnit {
+    return enteredUnit(
+      ing.unit,
+      (ing.payload.attributes[NUTRITION_INFO_ATTR] as NutritionInfo | undefined)
+        ?.serving_size
+    );
   }
 
   function removeIngredient(entity: string) {
@@ -144,7 +268,7 @@
      repeating a kcal/protein headline here only invited the eye to check one
      against the other. -->
 <div class="ing-head">
-  <span class="fl">Ingredients ({ingredients.length})</span>
+  <span class="section-head">Ingredients ({ingredients.length})</span>
 </div>
 <ul class="ings">
   {#each ingredients as ing, i (ing.entity)}
@@ -186,9 +310,9 @@
      which is why the list no longer offers a ×/÷ on individual amounts: the
      serving count is the thing a cook actually knows, and rescaling every
      ingredient by hand was only ever a way of saying it. -->
-<div class="yield-row">
-  {#if servingsMode === "makes"}
-    <label class="fl" for="recipe-yield">Makes (servings)</label>
+{#if servingsMode === "makes"}
+  <div class="yield-row">
+    <FieldCaption for="recipe-yield">Makes (servings)</FieldCaption>
     <input
       id="recipe-yield"
       class="tin yield-in"
@@ -197,19 +321,105 @@
       min="1"
       bind:value={recipeYield}
     />
-  {:else}
-    <label class="fl" for="recipe-servings">Servings</label>
+  </div>
+  <!-- What the pot weighs when this recipe is cooked (ADR-0106 §2, §4). It sits
+       beside the count rather than replacing it: the two answer different
+       questions and neither derives the other, and `recipe/yield` is still
+       schema.org's `recipeYield` and the divisor behind every per-serving
+       figure.
+
+       It is NOT derived from the list above, and no default is offered from it.
+       A pot does not weigh what went into it — a stew simmers off water, rice
+       absorbs it — so Σ of the raw amounts is a different quantity, and seeding
+       this field with it would plant a number wrong in a direction nobody can
+       predict (ADR-0106 §7). Grams, with no unit beside it, because a scale is
+       the only place this number can have come from (§2). -->
+  <div class="yield-row">
+    <FieldCaption for="recipe-batch-weight">Batch weight (g)</FieldCaption>
+    <input
+      id="recipe-batch-weight"
+      class="tin yield-in weight-in"
+      type="number"
+      inputmode="decimal"
+      min="0"
+      step="any"
+      placeholder="—"
+      bind:value={batchWeight}
+    />
+  </div>
+{:else if sizedByWeight}
+  <!-- The occasion's two questions (ADR-0106 §1): what the finished dish
+       weighed, and how much of it was eaten. The second over the first is the
+       fraction of the recipe this occasion was, and that fraction is what
+       scales the rows above.
+
+       Nothing is converted on the way, because nothing is derived: the
+       ingredients' own units stop bearing on the question entirely, so a recipe
+       mixing 100 g of flour with 330 ml of milk is sized exactly like one that
+       does not. The batch weight opens on the template's remembered default and
+       may be overridden here for this occasion alone; the override never
+       reaches the template (§3). -->
+  <div class="yield-row">
+    <FieldCaption for="recipe-batch-weight">Batch weight (g)</FieldCaption>
+    <input
+      id="recipe-batch-weight"
+      class="tin yield-in weight-in"
+      type="number"
+      inputmode="decimal"
+      min="0"
+      step="any"
+      value={batchWeight}
+      oninput={(e) => changeOccasion(e.currentTarget.value, portionWeight)}
+    />
+  </div>
+  <div class="yield-row">
+    <FieldCaption for="recipe-portion-weight">You ate (g)</FieldCaption>
+    <input
+      id="recipe-portion-weight"
+      class="tin yield-in weight-in"
+      type="number"
+      inputmode="decimal"
+      min="0"
+      step="any"
+      value={portionWeight}
+      oninput={(e) => changeOccasion(batchWeight, e.currentTarget.value)}
+    />
+  </div>
+  {#if servingsReadout !== undefined}
+    <!-- The count still appears and still means "how many servings this occasion
+         is", but it is read out of the weight rather than typed into (§6). It
+         names no control, so it takes the section caption rather than
+         `FieldCaption`, which requires something to be `for` (ADR-0100 §5). -->
+    <div class="yield-row">
+      <span class="section-head">Servings</span>
+      <output class="servings-out" data-testid="occasion-servings"
+        >{servingsReadout}</output
+      >
+    </div>
+  {/if}
+{:else}
+  <!-- A recipe nobody weighed offers the count and nothing else (§7). "I didn't
+       weigh this" has an honest answer already, and it is this one. -->
+  <div class="yield-row">
+    <FieldCaption for="recipe-servings">Servings</FieldCaption>
+    <!-- A fraction of a serving is a thing people eat, and while this field
+         stepped in whole ones from a floor of 1 it was not sayable: the spinner
+         could not reach half a portion, and the keypad `inputmode="numeric"`
+         produces has no decimal point to type one with (ADR-0106 §6). A
+         non-positive count is still refused, by `changeServings` rather than by
+         the widget, which is where the refusal can say what it means. -->
     <input
       id="recipe-servings"
       class="tin yield-in"
       type="number"
-      inputmode="numeric"
-      min="1"
+      inputmode="decimal"
+      min="0"
+      step="any"
       value={servings}
       oninput={(e) => changeServings(e.currentTarget.value)}
     />
-  {/if}
-</div>
+  </div>
+{/if}
 
 <!-- The derived figures, shown through the SAME preview a food's card uses
      (NutrientPreview): the tracked nutrients as a grid, the rest of the panel
@@ -217,7 +427,7 @@
      than read off a source panel, but there is no reason to read them
      differently — the old three-macro pill row showed strictly less. -->
 <div class="recipe-figures" data-testid="recipe-figures">
-  <span class="fl">{figuresLabel}</span>
+  <span class="section-head">{figuresLabel}</span>
   <NutrientPreview
     breakdown={visibleTotal}
     testid="recipe-nutrient-breakdown"
@@ -236,27 +446,41 @@
     portions={ingredients[editingIndex].payload.attributes["food/portions"] as
       | Portion[]
       | undefined}
-    panel={resolvePanel(ingredients[editingIndex].entity)}
-    onCommit={(amount) => {
-      if (editingIndex !== null) ingredients[editingIndex].amount = amount;
+    unit={editUnit(ingredients[editingIndex])}
+    panel={resolveSource(ingredients[editingIndex].entity)?.panel}
+    onAssertDensity={(density) => {
+      // The row's payload, not the ledger: an ingredient's twin is ingested when
+      // the recipe is saved (`RecipeBuilder`), so the assertion travels with the
+      // food the same way a staged one does, and a recipe the user abandons
+      // writes nothing.
+      if (editingIndex === null) return;
+      const row = ingredients[editingIndex];
+      row.payload = {
+        ...row.payload,
+        attributes: { ...row.payload.attributes, [FOOD_DENSITY_ATTR]: density },
+      };
+    }}
+    onCommit={(amount, unit) => {
+      if (editingIndex === null) return;
+      ingredients[editingIndex].amount = amount;
+      ingredients[editingIndex].unit = unit;
     }}
     onClose={() => (editingIndex = null)}
   />
 {/if}
 
 <style>
-  .fl {
+  /* Not a caption and out of #383's reach set: these two name a *section* —
+     the ingredient list, and the figures under it — rather than a control, so
+     there is nothing for a `for` to point at. They keep the type they had. */
+  .section-head {
     display: block;
     font-size: var(--step-n2);
     font-weight: 700;
     text-transform: uppercase;
-    margin: var(--space-s) 0 var(--space-3xs);
   }
   .ing-head {
     margin-top: var(--space-m);
-  }
-  .ing-head .fl {
-    margin: 0;
   }
   .ings {
     list-style: none;
@@ -298,7 +522,7 @@
     gap: var(--space-s);
     margin-top: var(--space-m);
   }
-  .yield-row .fl {
+  .yield-row :global(.field-caption) {
     margin: 0;
   }
   /* Sized for what it holds — a serving count is one or two digits, so the field
@@ -313,10 +537,20 @@
     text-align: center;
     font-weight: 700;
   }
+  /* A weight in grams runs to four digits where a serving count runs to one. */
+  .weight-in {
+    width: 5rem;
+  }
+  /* A read-out, not a control: it takes the field's weight and none of its
+     frame, so nothing about it invites a tap (ADR-0106 §6). */
+  .servings-out {
+    font-weight: 700;
+    font-size: var(--step-0);
+  }
   .recipe-figures {
     margin-top: var(--space-s);
   }
-  .recipe-figures .fl {
+  .recipe-figures .section-head {
     margin: 0 0 var(--space-2xs);
   }
 </style>

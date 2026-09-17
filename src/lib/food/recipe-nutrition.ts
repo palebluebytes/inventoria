@@ -1,3 +1,4 @@
+import { amountAgainstBasis, type FoodDensity } from "./density";
 import {
   isMeasuredUnit,
   parseBasisQuantity,
@@ -25,6 +26,30 @@ export interface ReferenceIngredient {
   /** A measured unit (`g`, `ml`) scales against the panel's own basis;
    *  `serving` against one serving ({@link AmountUnit}). */
   unit: AmountUnit;
+}
+
+/**
+ * What a scaler needs from a referenced twin: the panel it divides, and what
+ * that twin says about its density.
+ *
+ * The density is here rather than looked up separately because an amount can now
+ * be stated in a unit the panel's basis is not (ADR-0108 §7): a gram entry
+ * against a per-100 ml panel has to be converted before it can be divided, and a
+ * resolver that handed back only the panel would leave every caller either doing
+ * that itself or silently not doing it. It is absent on every food nobody has
+ * classified, which is the standing case and the identity.
+ */
+export interface IngredientSource {
+  /**
+   * Required, though it may be undefined. A panel-less ingredient is ordinary
+   * and this stays the honest shape for it, but spelling the key `panel?:` would
+   * make every field optional and so make a bare {@link NutritionInfo}
+   * structurally assignable here: every resolver in the app used to hand one
+   * back, so the compiler would have accepted all of them unchanged and the
+   * density would have been silently absent everywhere.
+   */
+  panel: NutritionInfo | undefined;
+  density?: FoodDensity;
 }
 
 /**
@@ -73,17 +98,27 @@ export function sanitizeYield(recipeYield: number | string): number {
 export function deriveRecipeNutrition(
   ingredients: ReferenceIngredient[],
   recipeYield: number,
-  resolve: (ref: string) => NutritionInfo | undefined
+  resolve: (ref: string) => IngredientSource | undefined
 ): NutritionBreakdown {
   const total: Macros = { calories: 0, protein: 0, fat: 0, carbs: 0 };
   const extras: Record<string, number> = {};
   for (const ing of ingredients) {
-    const panel = resolve(ing.ref);
+    const source = resolve(ing.ref);
+    const panel = source?.panel;
     // The one site ADR-0060 §5 singles out: ask whether the amount is a
     // MEASUREMENT, not whether it is grams. Spelled `=== "g"`, a millilitre
     // ingredient would take the serving arm and 330 ml would mean 330 servings.
+    //
+    // A measured amount is put into the panel's own unit before it is divided
+    // (ADR-0108 §5): 92 g of an oil published per 100 ml is 100 ml of it, and
+    // dividing the 92 would have been an 8% error wearing the right unit.
     const factor = isMeasuredUnit(ing.unit)
-      ? ing.amount / parseBasisQuantity(panel?.serving_size)
+      ? amountAgainstBasis(
+          ing.amount,
+          ing.unit,
+          panel?.serving_size,
+          source?.density
+        ) / parseBasisQuantity(panel?.serving_size)
       : ing.amount;
     const scaled = scaleNutrition(panel, factor);
     total.calories += scaled.calories;
@@ -121,7 +156,7 @@ export function deriveRecipeNutrition(
  */
 export function deriveIngredientMacros(
   ingredient: ReferenceIngredient,
-  resolve: (ref: string) => NutritionInfo | undefined
+  resolve: (ref: string) => IngredientSource | undefined
 ): NutritionBreakdown {
   return deriveRecipeNutrition([ingredient], 1, resolve);
 }

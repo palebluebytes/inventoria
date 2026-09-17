@@ -1,35 +1,32 @@
 import { dbClient } from "../db/db.client";
 import { mintEntity } from "../facets/entity-id";
 import { ingestEntity } from "../ingestion/ingest";
-import { HLC_ORDER_ASC, HLC_ORDER_DESC } from "../db/hlc";
-import { createProjectionStore, createQueryStore } from "./datoms.store";
+import {
+  readFoodDensity,
+  FOOD_DENSITY_ATTR,
+  type FoodDensity,
+} from "../food/density";
+import { HLC_ORDER_ASC } from "../db/hlc";
+import { createProjectionStore } from "./datoms.store";
 import type { ConsumptionEvent } from "../food/consumption-state";
 import {
-  basisUnit,
   nutritionFromMacros,
   roundFood,
   PER_SERVING,
   EXTRA_NUTRIENT_KEYS,
   type AmountUnit,
+  type MeasuredUnit,
   type NutritionInfo,
   type NutritionBreakdown,
   type Portion,
 } from "../food/nutrition";
 import type { LabelCapture, ManualEntry } from "../food/provenance";
 import {
-  deriveRecipeNutrition,
   deriveIngredientMacros,
-  type ReferenceIngredient,
+  type IngredientSource,
 } from "../food/recipe-nutrition";
-import {
-  buildInstantiation,
-  type Instantiation,
-} from "../food/recipe-instantiation";
-import {
-  ingredientFromTwin,
-  quantityLabel,
-  type RecipeIngredient,
-} from "../food/recipe-ingredient";
+import type { Instantiation } from "../food/recipe-instantiation";
+import { quantityLabel } from "../food/recipe-ingredient";
 import { appError } from "../logs/app-log";
 
 export type { ConsumptionEvent };
@@ -50,20 +47,6 @@ export const consumptionStore = createProjectionStore<ConsumptionEvent[]>(
   "CONSUMPTION",
   {},
   []
-);
-
-/** One saved Recipe Twin, surfaced for the Instantiate browser (ADR-0022). */
-export interface RecipeTwinRow {
-  entity: string;
-  value: string;
-}
-
-// Live list of saved Recipe Twins (by `recipe/name`), newest first — the browse
-// list behind the Instantiate verb. Rows are `{ entity, value }` where `value` is
-// the JSON-encoded name; callers dedupe by entity (a future template rename would
-// append a second name datom, ADR-0022 §Deferred).
-export const recipeTwinsStore = createQueryStore<RecipeTwinRow>(
-  `SELECT entity, value FROM datoms WHERE attribute = 'recipe/name' ORDER BY ${HLC_ORDER_DESC}`
 );
 
 /** Filters a consumption list to the events that fall on a given local day. */
@@ -194,8 +177,11 @@ export interface ScaleChange {
   /** The scaled amount, in `unit`. */
   amount: number;
   unit: AmountUnit;
-  /** The target twin's panel, read when the Scale tier opened. */
-  panel: NutritionInfo;
+  /** The target twin's panel and density, read when the Scale tier opened. A
+   *  scaled amount keeps the unit it was logged in, so the density is needed for
+   *  the same reason the panel is: a gram amount against a per-100 ml panel has
+   *  to be converted before it can be divided (ADR-0108 §5). */
+  source: IngredientSource;
   /** The food twin the replacement points at. */
   ref: string;
 }
@@ -224,7 +210,7 @@ export async function scaleLoggedFoods(
   for (const change of changes) {
     const breakdown = deriveIngredientMacros(
       { ref: change.ref, amount: change.amount, unit: change.unit },
-      () => change.panel
+      () => change.source
     );
     const replacement = consumptionDatoms(
       change.ref,
@@ -276,6 +262,11 @@ export async function scaleLoggedFoods(
  * `partitionCopyable` has already removed what cannot be reproduced, so `lost`
  * here counts only appends that actually threw.
  *
+ * The ids it returns are the events it actually wrote, in the order it wrote
+ * them, and never the ones it lost — #440 waits for every id it is handed to
+ * appear in the day, so an id for an append that threw would hold that wait open
+ * forever.
+ *
  * `mintEventId` is the receive path's one seam into this operation (ADR-0073 §5,
  * amending ADR-0058). Accepting a sent meal **is** this copy with a wire in
  * front of it — the same re-log of frozen fields into the recipient's own meal
@@ -288,12 +279,12 @@ export async function copyPastMeal(
   meal_type: string,
   selectedDate: Date,
   mintEventId?: (item: ConsumptionEvent) => string
-): Promise<{ copied: number; lost: number }> {
-  let copied = 0;
+): Promise<{ copied: number; lost: number; ids: string[] }> {
   let lost = 0;
+  const ids: string[] = [];
   for (const item of items) {
     try {
-      await logFoodConsumption(
+      const id = await logFoodConsumption(
         item.target as string,
         item.quantity as string,
         meal_type,
@@ -306,13 +297,16 @@ export async function copyPastMeal(
         item.metrics,
         mintEventId?.(item)
       );
-      copied += 1;
+      ids.push(id);
     } catch (e) {
       appError("copying a logged food failed", e);
       lost += 1;
     }
   }
-  return { copied, lost };
+  // `copied` is `ids.length` and stays in the shape callers already destructure:
+  // the tally reads a number and #440 reads the ids, and deriving one from the
+  // other at each call site is how the two would come to disagree.
+  return { copied: ids.length, lost, ids };
 }
 
 /**
@@ -387,6 +381,12 @@ export interface LabelFoodInput {
   /** Household portions transcribed from the label, when any. */
   portions?: Portion[];
   /**
+   * What kind of liquid this food is, on a panel the user declared per 100 ml
+   * (ADR-0108 §1). Written as given; absent on every gram capture, which has
+   * nothing to ask.
+   */
+  density?: FoodDensity;
+  /**
    * The captured label photos (base64), first = display. Empty for a photo-less
    * manual entry — then neither `food/label_photos` nor the `food/photo_base64`
    * mirror is written (absent `food/label_photos` ⇒ no photo, ADR-0034 §5).
@@ -443,6 +443,7 @@ export async function saveLabelFood(input: LabelFoodInput): Promise<string> {
   if (input.ingredientsText?.trim())
     attributes["food/ingredients_text"] = input.ingredientsText.trim();
   if (input.portions?.length) attributes["food/portions"] = input.portions;
+  if (input.density) attributes[FOOD_DENSITY_ATTR] = input.density;
   if (input.labelPhotos.length > 0) {
     attributes["food/label_photos"] = input.labelPhotos;
     // Mirror the first photo into the singular attribute every current display
@@ -452,6 +453,33 @@ export async function saveLabelFood(input: LabelFoodInput): Promise<string> {
 
   await dbClient.append(ingestEntity({ entity: entityId, attributes }));
   return entityId;
+}
+
+/**
+ * Records what kind of liquid a food is, on a twin already in the ledger
+ * (ADR-0108 §1/§4).
+ *
+ * One datom on one attribute, and latest-wins settles a user who changes their
+ * mind — which is the whole reason `food/density` is one key whose VALUE names
+ * which kind of answer it holds rather than two keys that could disagree about
+ * one food with nothing to arbitrate them.
+ *
+ * The figure is never written beside the class: 0.92 is our reading of "this is
+ * an oil", and a reading belongs derived, so improving a class figure improves
+ * every food filed under it without a migration (§4).
+ *
+ * This is the path for a food the user reaches through an already-logged row or
+ * an already-added ingredient. A food still being STAGED has no twin in the
+ * ledger yet, and its assertion rides its payload to whatever commits it, so it
+ * does not come through here.
+ */
+export async function setFoodDensity(
+  entity: string,
+  density: FoodDensity
+): Promise<void> {
+  await dbClient.append(
+    ingestEntity({ entity, attributes: { [FOOD_DENSITY_ATTR]: density } })
+  );
 }
 
 /** A manual-entry food from one of the Custom chooser's intents (ADR-0035). */
@@ -513,154 +541,6 @@ export async function saveManualFood(input: ManualFoodInput): Promise<string> {
 
   await dbClient.append(ingestEntity({ entity: entityId, attributes }));
   return entityId;
-}
-
-export interface RecipeInput {
-  /** schema.org name. */
-  name: string;
-  /** Pure `{ ref, amount, unit }` references to the ingredient food twins. */
-  ingredients: ReferenceIngredient[];
-  /** schema.org description (the "Notes" field in the UI). */
-  description?: string;
-  /** schema.org url / isBasedOn (the "Source" field in the UI). */
-  url?: string;
-  /** schema.org image. */
-  image?: string;
-  /** schema.org recipeInstructions — ordered HowToStep text. */
-  instructions?: string[];
-  /** schema.org recipeYield; defaults to 1 (single-serving) this ticket. */
-  yield?: number;
-}
-
-/**
- * Saves a schema.org/Recipe twin (ADR-0021). A recipe stores **no** macros of
- * its own — `recipe/ingredients` holds pure `{ ref, amount, unit }` references,
- * and per-serving nutrition is derived from the referenced ingredient twins.
- * That derived aggregate is frozen into the Consumption Event's `event/metrics`
- * snapshot at log time, so later recipe edits never rewrite logged history.
- *
- * Called two ways (ADR-0022 #13):
- *   • **Define / Consolidate** (no `entity`): mints a fresh `recipe:<id>`. Empty
- *     optional fields are skipped, keeping the ledger clean.
- *   • **Edit** (`entity` given): appends newer `recipe/*` datoms to that SAME
- *     twin. Latest-wins re-seeds only **future** instantiations; past ones,
- *     being snapshots, never move. Optional fields are written *unconditionally*
- *     here — append-only has no delete, so an omitted attribute would keep its
- *     old value; writing an empty value is how an edit clears a field.
- */
-export async function saveRecipe(
-  input: RecipeInput,
-  entity?: string
-): Promise<string> {
-  const isEdit = entity !== undefined;
-  const entityId =
-    entity ??
-    mintEntity(
-      "recipe:",
-      `${Math.random().toString(36).substring(2, 9)}_${Date.now()}`
-    );
-
-  const attributes: Record<string, any> = {
-    "recipe/name": input.name,
-    // Store direct JSON arrays/objects; ingestEntity/worker stringifies them.
-    "recipe/ingredients": input.ingredients,
-    "recipe/yield": input.yield ?? 1,
-  };
-  // Optional schema.org fields. One rule for all four: write the present value,
-  // or — on edit only — its `empty` sentinel to clear the field (append-only has
-  // no delete). `value` falsy on a Define simply skips the attribute.
-  const optionals: [key: string, value: unknown, empty: unknown][] = [
-    ["recipe/description", input.description?.trim(), ""],
-    ["recipe/url", input.url?.trim(), ""],
-    [
-      "recipe/instructions",
-      input.instructions?.length ? input.instructions : undefined,
-      [],
-    ],
-    ["recipe/image", input.image, ""],
-  ];
-  for (const [key, value, empty] of optionals) {
-    if (isEdit || value) attributes[key] = value ?? empty;
-  }
-
-  await dbClient.append(ingestEntity({ entity: entityId, attributes }));
-  return entityId;
-}
-
-/**
- * Logs a recipe as a Recipe Instantiation — a Consumption Event carrying a frozen
- * `event/instantiation` snapshot beside its `event/metrics` headline (ADR-0022).
- * Both are derived from the referenced ingredient twins' real `nutrition/info`
- * panels ÷ `recipeYield`: the headline via `deriveRecipeNutrition`, the snapshot's
- * per-row macros via the same `deriveIngredientMacros` those sum from, so the rows
- * add up to the headline forever. This is the single store path that computes them,
- * so a logged recipe's numbers are the true derivation, not hand-supplied.
- * `resolve` yields each referenced twin's panel and `resolveName` its display name
- * (both from the in-memory builder, or a test double) — read, never mutated.
- */
-export async function logRecipeConsumption(
-  recipeId: string,
-  ingredients: ReferenceIngredient[],
-  recipeYield: number,
-  resolve: (ref: string) => NutritionInfo | undefined,
-  resolveName: (ref: string) => string | undefined,
-  meal_type: string,
-  selectedDate: Date
-): Promise<string> {
-  const snapshot = deriveRecipeNutrition(ingredients, recipeYield, resolve);
-  const instantiation = buildInstantiation(
-    recipeId,
-    ingredients,
-    recipeYield,
-    resolve,
-    resolveName
-  );
-  return logFoodConsumption(
-    recipeId,
-    "1 serving",
-    meal_type,
-    snapshot.calories,
-    snapshot.protein,
-    snapshot.fat,
-    snapshot.carbs,
-    selectedDate,
-    instantiation,
-    snapshot
-  );
-}
-
-/**
- * Corrects a past Recipe Instantiation by supersession (ADR-0008 / ADR-0022): it
- * logs a **new** instantiation with a freshly-derived snapshot, then retracts the
- * old event with `event/replaced_by` pointing at the replacement. A read never
- * silently drifts — the correction re-derives from the *current* ingredient twins
- * (via `resolve` / `resolveName`, exactly like editing a logged food), so a stale
- * frozen row is only ever replaced by a deliberate edit, never rewritten in place.
- * `based_on` is the template the occasion was seeded from (carried through from
- * the original instantiation's `based_on`, equal to its `event/target`). Returns
- * the new event's id.
- */
-export async function correctInstantiation(
-  editId: string,
-  based_on: string,
-  ingredients: ReferenceIngredient[],
-  recipeYield: number,
-  resolve: (ref: string) => NutritionInfo | undefined,
-  resolveName: (ref: string) => string | undefined,
-  meal_type: string,
-  selectedDate: Date
-): Promise<string> {
-  const newId = await logRecipeConsumption(
-    based_on,
-    ingredients,
-    recipeYield,
-    resolve,
-    resolveName,
-    meal_type,
-    selectedDate
-  );
-  await retractConsumptionEvent(editId, newId);
-  return newId;
 }
 
 /**
@@ -749,13 +629,13 @@ export async function moveLoggedFoodsToMeal(
  * against a panel; recipe instantiations are corrected on their own editor and
  * whole-serving foods are locked (future work).
  *
- * `amount` is in the panel's OWN unit and nothing converts (ADR-0060 §1/§2): the
- * twin is already resolved here, so the unit is read straight off its
- * `serving_size` — millilitres for a drink published per 100 ml, grams for
- * everything else — and both the scaling factor and the logged quantity string
- * follow from it. Without that a drink would be re-logged as a gram weight it
- * was never measured in, and would go uneditable the moment the amount screen
- * starts naming its unit.
+ * `amount` travels with the `unit` it was entered in rather than having one read
+ * back off the panel, which is what it did until #430. The two coincide on every
+ * food carrying no Density Class, and on one that does they may not: the screen
+ * above this offers both units, so a unit re-derived here would silently
+ * contradict what the user just typed. The logged quantity string is spelled in
+ * the unit that reaches it, and the scaling factor puts that amount into the
+ * panel's own unit first (ADR-0108 §5) rather than rewriting the panel.
  *
  * Returns the id of the Consumption Event that replaced the old one, or `null`
  * when there was nothing to scale from (no target, or a twin carrying no
@@ -765,7 +645,8 @@ export async function moveLoggedFoodsToMeal(
  */
 export async function changeLoggedFoodAmount(
   event: ConsumptionEvent,
-  amount: number
+  amount: number,
+  unit: MeasuredUnit
 ): Promise<string | null> {
   if (!event.target) return null;
   const twin = await getLocalFoodTwin(event.target);
@@ -773,10 +654,9 @@ export async function changeLoggedFoodAmount(
     | NutritionInfo
     | undefined;
   if (!panel) return null;
-  const unit = basisUnit(panel.serving_size);
   const breakdown = deriveIngredientMacros(
     { ref: event.target, amount, unit },
-    () => panel
+    () => ({ panel, density: readFoodDensity(twin?.attributes) })
   );
   const newId = await logFoodConsumption(
     event.target,
@@ -820,68 +700,4 @@ export async function getLocalFoodTwin(entityId: string): Promise<any | null> {
     entity: entityId,
     attributes,
   };
-}
-
-/** A frozen instantiation row's display name + macros, for the seed fallback. */
-export interface FrozenRow {
-  name: string;
-  calories: number;
-  protein: number;
-  fat: number;
-  carbs: number;
-}
-
-/**
- * Resolves a stored `{ ref, amount, unit }` to a builder ingredient off its
- * **current** twin — the shared seed step behind editing a Recipe Twin template
- * (#13) and instantiating/correcting one (ADR-0022). Reading the live twin is
- * what lets an edit re-derive from current ingredient data. When the twin is
- * gone (a soft/dangling ref) it falls back to a self-contained per-serving twin:
- * equal to the `frozen` snapshot row when given (a correction — the row still
- * derives to what was logged rather than vanishing), or a zero-macro placeholder
- * keyed by the ref (a template edit, where no historical reading exists).
- */
-export async function seedRowFromRef(
-  ref: string,
-  amount: number,
-  unit: AmountUnit,
-  frozen?: FrozenRow
-): Promise<RecipeIngredient> {
-  const twin = await getLocalFoodTwin(ref);
-  const ing = ingredientFromTwin(twin, amount, unit);
-  if (ing) return ing;
-  const name = frozen?.name ?? ref;
-  const nutrition = nutritionFromMacros(
-    {
-      calories: frozen?.calories ?? 0,
-      protein: frozen?.protein ?? 0,
-      fat: frozen?.fat ?? 0,
-      carbs: frozen?.carbs ?? 0,
-    },
-    PER_SERVING
-  );
-  return {
-    entity: ref,
-    name,
-    amount: frozen ? 1 : amount,
-    unit: frozen ? "serving" : unit,
-    payload: {
-      entity: ref,
-      attributes: { "food/name": name, "nutrition/info": nutrition },
-    },
-  };
-}
-
-/**
- * Seeds a builder ingredient list from a Recipe Twin's `recipe/ingredients`,
- * resolving each stored `{ ref, amount, unit }` off its current twin — the shared
- * step behind editing a template (#13) and instantiating one (ADR-0022). Rows
- * resolve concurrently.
- */
-export function seedRowsFromTemplate(
-  attributes: Record<string, any>
-): Promise<RecipeIngredient[]> {
-  const refs = (attributes["recipe/ingredients"] ??
-    []) as ReferenceIngredient[];
-  return Promise.all(refs.map((r) => seedRowFromRef(r.ref, r.amount, r.unit)));
 }

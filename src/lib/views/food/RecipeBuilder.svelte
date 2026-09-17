@@ -2,21 +2,26 @@
   import { untrack } from "svelte";
   import { dbClient } from "../../db/db.client";
   import { ingestEntity } from "../../ingestion/ingest";
+  import { retractConsumptionEvent } from "../../stores/calorie.store";
   import {
     saveRecipe,
     logRecipeConsumption,
-    retractConsumptionEvent,
     seedRowsFromTemplate,
-  } from "../../stores/calorie.store";
+  } from "../../stores/recipe.store";
   import {
     toReferenceIngredient,
-    panelFromIngredients,
+    sourceFromIngredients,
     nameFromIngredients,
     type RecipeIngredient,
   } from "../../food/recipe-ingredient";
   import { sanitizeYield } from "../../food/recipe-nutrition";
+  import {
+    RECIPE_BATCH_WEIGHT_ATTR,
+    sanitizeWeight,
+  } from "../../food/batch-weight";
   import { Accordion } from "bits-ui";
   import Alert from "../../ui/Alert.svelte";
+  import FieldCaption from "../../ui/FieldCaption.svelte";
   import Textarea from "../../ui/Textarea.svelte";
   import IngredientListEditor from "./IngredientListEditor.svelte";
 
@@ -54,7 +59,9 @@
     /** Foods selected on the dashboard, seeded as ingredients (carry event_ids). */
     initialIngredients?: RecipeIngredient[];
     /** Called once the recipe is saved (and logged for consolidate/define). */
-    onCommitted: () => void;
+    /** Committed: the ids it LOGGED, so the day can put the new row on screen
+     *  (#440). Empty on `create`, which is template-only and logs nothing. */
+    onCommitted: (logged?: string[]) => void;
     /** The host's dock fires this to commit; readiness/label drive its button. */
     requestSave?: () => void;
     saveReady?: boolean;
@@ -70,6 +77,11 @@
   // to a positive number for both the live derivation and the persisted value.
   let recipeYield = $state<number | string>(1);
   let yieldNum = $derived(sanitizeYield(recipeYield));
+  // What the finished batch weighs, remembered on the template so the
+  // instantiation surface opens on it instead of asking every time (ADR-0106
+  // §3). Empty is ordinary — a recipe nobody weighed offers the serving count
+  // alone when it is instantiated (§7).
+  let batchWeight = $state<number | string>("");
 
   // Editing seeds asynchronously (each template ref resolves to its CURRENT
   // twin), so the editor is held behind `ready`. Other modes are ready at once.
@@ -118,6 +130,7 @@
       const a = t.attributes;
       recipeName = a["recipe/name"] ?? "";
       recipeYield = a["recipe/yield"] || 1;
+      batchWeight = sanitizeWeight(a[RECIPE_BATCH_WEIGHT_ATTR]) ?? "";
       source = a["recipe/url"] ?? "";
       notes = a["recipe/description"] ?? "";
       image = a["recipe/image"] || null;
@@ -147,7 +160,8 @@
   let referenceIngredients = $derived(ingredients.map(toReferenceIngredient));
   // Each ingredient's real nutrition panel / display name, resolved in memory
   // from its inlined twin payload — never mutating the food twin.
-  const resolvePanel = (ref: string) => panelFromIngredients(ingredients, ref);
+  const resolveSource = (ref: string) =>
+    sourceFromIngredients(ingredients, ref);
   const resolveName = (ref: string) => nameFromIngredients(ingredients, ref);
 
   function addStep() {
@@ -202,9 +216,13 @@
           instructions: steps.map((s) => s.text.trim()).filter(Boolean),
           image: image ?? undefined,
           yield: yieldNum,
+          batch_weight: sanitizeWeight(batchWeight),
         },
         mode === "edit" ? template?.entity : undefined
       );
+      // The row this save put on the day, if it put one there: #440 reveals it,
+      // and the two template-only modes below leave it empty on purpose.
+      let logged: string | null = null;
       // 3. Consolidate and Define both LOG the recipe onto the current day — a
       //    recipe you just built should appear on the day you built it (ADR-0022,
       //    amended). Edit stays template-only: it re-seeds only FUTURE
@@ -218,11 +236,11 @@
         // live display above and the projection's derivation, so the frozen
         // snapshot equals what the builder showed at the moment it was logged.
         // Panels are read in memory, so real food twins are never mutated.
-        await logRecipeConsumption(
+        logged = await logRecipeConsumption(
           recipeId,
           referenceIngredients,
           yieldNum,
-          resolvePanel,
+          resolveSource,
           resolveName,
           meal_type,
           selectedDate
@@ -241,7 +259,7 @@
           }
         }
       }
-      onCommitted();
+      onCommitted(logged ? [logged] : []);
     } catch (e: any) {
       status = "error";
       error = e.message ?? String(e);
@@ -291,15 +309,17 @@
 {#if !ready}
   <p class="loading">Loading recipe…</p>
 {:else}
-  <label class="fl" for="recipe-name">Name</label>
-  <input
-    id="recipe-name"
-    class="tin big"
-    placeholder="e.g. Overnight oats"
-    bind:value={recipeName}
-  />
+  <div class="name-field">
+    <FieldCaption for="recipe-name">Name</FieldCaption>
+    <input
+      id="recipe-name"
+      class="tin big"
+      placeholder="e.g. Overnight oats"
+      bind:value={recipeName}
+    />
+  </div>
 
-  <IngredientListEditor bind:ingredients bind:recipeYield />
+  <IngredientListEditor bind:ingredients bind:recipeYield bind:batchWeight />
 
   <!-- Optional schema.org sections as a real accordion (#66): bits-ui supplies
        the role=heading trigger, aria-expanded, roving arrow-key focus between
@@ -417,11 +437,12 @@
     padding: var(--space-l) 0;
     text-align: center;
   }
-  .fl {
-    display: block;
-    font-size: var(--step-n2);
-    font-weight: 700;
-    text-transform: uppercase;
+  /* The caption's distance from what is above it and from its own field —
+     placement, so it stays here while the look comes from `ui/FieldCaption`
+     (#383). The wrapper exists to be the scoped ancestor: a class handed to a
+     component carries no scoping hash, so a rule reaching one has to go
+     through `:global` under a box this file does own. */
+  .name-field :global(.field-caption) {
     margin: var(--space-s) 0 var(--space-3xs);
   }
   .tin {

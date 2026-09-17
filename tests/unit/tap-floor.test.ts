@@ -901,6 +901,42 @@ describe("the floor, swept", () => {
    * `SHORT_BY_ARGUMENT`'s length by construction, so a seventh entry moves this
    * assertion as well as that list — two diffs for one exemption, deliberately.
    *
+   * **This branch adds two, and 129 → 131 is the pair.** Both were first
+   * written against a base the branch no longer sits on — they read 134 → 135
+   * and 135 → 136 — because main reached 129 while the arc was in flight, under
+   * changes of its own. Merging main in restated the arithmetic and moved
+   * neither box: what each ticket added is what it added, and only the number it
+   * is added to changed. The two are measured, not asserted: the sweep's keys
+   * diffed against `origin/main` name exactly `DensityQuestion.svelte
+   * input.typed-num` and `IngredientListEditor.svelte
+   * input.tin.yield-in.weight-in`, with nothing leaving.
+   *
+   * The first is #430's, by ONE box rather than the three that ticket
+   * touched. `AmountField` gained a volume food's `g`/`ml` toggle and the class
+   * question behind it (ADR-0108 §1), and both are `ui/Segmented` — a member
+   * already in this sweep, counted once at the primitive and never per call
+   * site. What arrived is the typed override's `input.typed-num`, the one box
+   * `DensityQuestion` draws itself. That file was untracked while the count
+   * still read 134, and an untracked `.svelte` is invisible to
+   * `trackedSvelteFiles` — the same way `ui/Select` evaded every sweep at #378.
+   *
+   * The amount box did not move either, and that is a fact about where the
+   * toggle went rather than luck. Drawn inside the box it would have cost the
+   * row its `<label>` — a label may hold only the one labelable element it names
+   * — splitting one amount box into two boxes wearing two rules, which this
+   * sweep keys by the element that takes the tap and would have read as one.
+   *
+   * The second is #432's, by ONE box for the **three** fields a batch
+   * weight added (ADR-0106): the template's remembered weight on the recipe
+   * editor, and the two the instantiation surface asks, what the dish weighed
+   * and how much was eaten. All three are `input.tin.yield-in.weight-in` in one
+   * file, and this sweep keys a group by the file and the element's own name —
+   * one box wearing one rule, said once. `.weight-in` is a width and nothing
+   * else; the floor comes from `.yield-in` beside it, which is why the box
+   * arrives `declared` rather than `drawn`. The serving count's own box did not
+   * move: on an occasion sized by the scale the count becomes an `<output>`,
+   * which is a read-out and takes no tap at all.
+   *
    * It rose 133 → 134 at #416, and by **one** box rather than the two the
    * ticket projected. The day's five way-in controls left the meal header for a
    * bar of their own (ADR-0101 §1), so `WayInRail`'s cell and `DailyDashboard`'s
@@ -910,6 +946,37 @@ describe("the floor, swept", () => {
    * sweep reads directly, `declared` on `min-height: var(--tap-min)` like every
    * other library-rendered cell in the list. The ticket's second box was the
    * prototype's own variant switcher, which does not ship.
+   *
+   * It fell 134 → 133 at #384, and the direction is the point. Two
+   * `.reveal-toggle` rules — one in `FoodSettingsSheet`, one in
+   * `MediaSettingsSheet`, byte-identical down to the comment explaining the
+   * floor — became `ui/SecretField`'s one. Both were already `declared` on the
+   * same token, so nothing about the floor itself moved; what moved is how many
+   * boxes have to be kept level. That is ADR-0093's Consequences read forwards
+   * rather than backwards: a count falling here is a copy that can no longer
+   * miss a fix.
+   *
+   * Then 133 → 131 at #316, and the arithmetic is worth writing down because
+   * "five triggers became one component" would predict −4. Five disclosures
+   * moved onto `ui/Disclosure`, which adds one box here, and three keys left:
+   * `DailyDashboard`'s `.aggregates-toggle`, `AllergenSafetyBlock`'s
+   * `.info-btn` and `EndingLine`'s `.plain`. The other two left no key at all.
+   * `FoodView`'s `.header-icon-btn` is worn by three buttons and keyed once, so
+   * the two that stayed plain keep it; `NutritionTargetEditor`'s `.info-btn` is
+   * worn by the section-help ⓘ *and* by the rationale ⓘ beside it, which is a
+   * plain `<button>` opening a sheet rather than a disclosure, so that key
+   * stays too. A key here is a distinct box, not a call site — which is the
+   * same reason #416 moved this figure by one when it looked like two.
+   *
+   * Then 131 → 129 at #390, and this one is a plain subtraction: `.card-reset`
+   * and `.nudge-reset` are `ui/Button` now, and a `ui/Button` is counted once,
+   * at the primitive. What is worth noticing is that the primitive it moved to
+   * grew a `min-width` in the same change. `ui/Button` declared the floor on
+   * one axis only, which is the half a button holding a single mark needs, and
+   * nothing here could say so: `narrowness()` convicts a *declared* width under
+   * the floor and a box declaring none reads as unbounded. So these two boxes
+   * leaving the count is the smaller half of #390; the larger half is 69 call
+   * sites gaining a floor this file was never able to check.
    */
   it("carries most of them on a declared floor, not on arithmetic", () => {
     const how = { declared: 0, drawn: 0, sanctioned: 0 };
@@ -920,7 +987,18 @@ describe("the floor, swept", () => {
       else if (b.kind === "drawn") how.drawn++;
     }
 
-    expect(how).toEqual({ declared: 134, drawn: 26, sanctioned: 6 });
+    // 133 and not 129, under two causes that landed independently and were
+    // added up by a merge rather than by either of them. #453 moved it to 131:
+    // the meal chip and its four panel tiles are the app's own picker now,
+    // where a native `<select>` was one box carrying `ui/Select`'s floor, and
+    // two rules declare the five. #428's arc moved it to 133, one box each —
+    // `DensityQuestion`'s `input.typed-num`, the measured override the class
+    // picker exits into when none of the five fit (#430), and
+    // `IngredientListEditor`'s `input.tin.yield-in.weight-in`, the batch weight
+    // standing beside "Makes" (#432). Both sides wrote 131 for reasons that do
+    // not overlap, so the text merged clean at a figure neither of them meant;
+    // the two added boxes were read off the sweep rather than arithmetic.
+    expect(how).toEqual({ declared: 133, drawn: 26, sanctioned: 6 });
     // Every box lands in exactly one column. Without this the two figures above
     // could both be right while a box fell out of the sweep between them.
     expect(how.declared + how.drawn + how.sanctioned).toBe(SWEEP.groups.size);

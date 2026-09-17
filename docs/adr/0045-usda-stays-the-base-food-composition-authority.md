@@ -5,6 +5,7 @@
 **Date:** 2026-08-18  
 **Amended by:** ADR-0046 §1 (§1 gains an exception for a base food no reference table carries)  
 **Amended by:** ADR-0047 (the Consequences' open offline/bundling question is resolved: USDA's archives are bundled and the API retired)  
+**Amended by:** [ADR-0108](0108-a-volume-food-is-weighed-by-the-class-you-say-it-is.md) §10 (§5's reach is ruled on, answering #242: a property of the substance may cross to an OFF product, a composition value may not)  
 **Amended by:** ADR-0048 §2 and §4 (§3's present-under-any-id rule gains a constraint: an id is never added without checking what the twin merge would stop filling; §2's merge is closed to pairing on anything but `ndbNumber`)  
 **Amended by:** ADR-0049 §1 (§1 gains a second source of _words_ for search to reach a record by; it remains the only source of _values_)  
 **Amended by:** ADR-0050 §1 (§2's merge keeps the base record's identity, and now carries the name it discarded as a search alias)  

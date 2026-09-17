@@ -157,6 +157,17 @@ An attribute key begins with a namespace naming the family of facts it belongs t
 The attributes listed below are representative, not exhaustive; the source under
 `src/` is the complete list.
 
+An attribute whose value names another **entity** is marked with a bold `(reference)`
+after its name, and that mark is the one thing on this page you must add rather than
+may. Every marked attribute is either read by `referencesOf`
+(`src/lib/p2p/meal-payload.ts`) or named in `tests/unit/meal-payload.test.ts` as one
+whose reference stays inside the Tracked Domain of the row holding it, and an attribute
+in neither fails `pnpm test:unit`. The check runs that way only: it holds the marked set
+to the code and cannot see a reference nobody marked, so marking one is the author's
+obligation and accounting for it is the gate's. A Facet-scoped sync lane rests on the
+marked set being complete on every wake, where the Facet-scoped wipe rested on it once
+([ADR-0105](adr/0105-a-pairing-is-scoped-to-the-facet-its-act-ran-in.md) §7).
+
 ### `food/`
 
 Food Digital Twins.
@@ -180,6 +191,21 @@ aubergine`, because several independent readers show a food's name and only one 
   `millilitres` are siblings and exactly one of them is present, so a reader that knows
   only `grams` sees no portion for a drink rather than a weight it never was. Nothing
   converts between the two, at any point.
+- `density`: what kind of liquid the user says this food is, on a food published by
+  volume. One atomic value naming which kind of answer it holds, so a class reads as
+  `{ class: "oil" }` and a figure the user asserts reads as `{ g_per_ml: 1.2 }`
+  ([ADR-0108](adr/0108-a-volume-food-is-weighed-by-the-class-you-say-it-is.md) §4, as
+  amended). The figure is never stored beside the class: 0.92 is our reading of "this
+  is an oil", and it resolves from the pinned table in `src/lib/food/density.ts` on
+  every read, so a class figure that improves improves every food filed under it with
+  no migration. One attribute rather than two, because latest-datom-wins is per
+  attribute: a food moving from a typed figure to a class would take two datoms in the
+  right order, and a wrong order leaves it carrying both with nothing to arbitrate
+  them. It is a fact about the substance and never configuration, which is why it is a
+  datom and not a setting
+  ([ADR-0085](adr/0085-a-setting-is-never-a-datom-and-a-consent-is-not-a-setting.md)
+  draws that line). Absent on every food nobody has classified, which is the standing
+  case: such a food stays in millilitres and remains fully loggable.
 - `assessment`: one atomic Open Food Facts blob of consumer signals with no schema.org
   counterpart (`nova_group`, `nutri_score`, `eco_score`, `nutrient_levels`, `allergens`,
   `additives`, `labels`; ADR-0030). Read back by
@@ -238,8 +264,17 @@ Recipe twins (schema.org/Recipe).
 
 - `name`, `description`, `url`, `image`, `yield`.
 - `instructions`: ordered HowToStep text.
-- `ingredients`: pure `{ ref, amount, unit }` references. Nutrition is derived, never
-  stored.
+- `ingredients` **(reference)**: pure `{ ref, amount, unit }` references. Nutrition is
+  derived, never stored.
+- `batch_weight`: what the finished batch weighs, **always in grams** and never a
+  `g | ml` union, because a batch weight has no Panel to read an Amount Unit off and
+  exactly one honest source, a scale
+  ([ADR-0106](adr/0106-a-recipe-occasion-is-sized-by-the-weight-you-put-on-the-scale.md) §2).
+  It is a remembered default the instantiation surface opens on, never a governor: an
+  occasion may override it, and the override never reaches back here (§3). It sits beside
+  `yield` rather than deriving it or being derived from it (§4), and it is not the sum of
+  the ingredient rows, since a pot does not weigh what went into it. Absent on every
+  recipe nobody weighed, which is the standing case; an edit clears it by writing `0`.
 
 ### `media/`
 
@@ -284,7 +319,8 @@ because it names the ingestion machinery rather than a domain, and nothing may s
 Habit Blueprints.
 
 - `name`, `category`, `instrument`, `schedule_rules`, `status`.
-- `replaces`: the **Habit Lineage** link.
+- `replaces` **(reference)**: the **Habit Lineage** link, one `habit:` naming the
+  `habit:` it supersedes.
 
 ### `cal_event/`
 
@@ -299,9 +335,12 @@ Every logged Event.
 - `type`: the event verb, a closed set of six. `ConsumeAction` (food),
   `WatchAction` and `ReadAction` (media), `ExerciseAction` (habits),
   `OccurrenceAction` (calendar), `AcquisitionAction` (physical items).
-- `target`: polymorphic. It references **any** twin, across all four food prefixes
-  (`gtin:`, `fdc:`, `food:custom_`, `recipe:`) as well as media and physical-item
-  twins. Also `target_id`.
+- `target` **(reference)**: polymorphic. It references **any** twin, across all four
+  food prefixes (`gtin:`, `fdc:`, `food:custom_`, `recipe:`) as well as media and
+  physical-item twins, and a Habit Blueprint.
+- `target_id`: which target inside a `daily_multiple` Habit Blueprint's
+  `schedule_rules` an Execution Event was for. A rule's own id and never an entity,
+  which is why it carries no marker while its neighbour above does.
 - `status`: the meaning depends on `type`. For media Engagement Events it is the
   shared four-value enum `saved`, `started`, `progress`, `completed`. For Acquisition
   Events it is `wanted` or `owned`. For Execution Events it is `completed`, `exempt`,
@@ -312,22 +351,36 @@ Every logged Event.
   ([ADR-0060](adr/0060-an-amount-is-entered-in-its-panels-unit.md)). Forward-only:
   a receipt keeps the string it was written with, so a drink logged before that
   record still reads `"330g"` and is never re-rendered from its twin's current
-  panel.
+  panel. A **Recipe Instantiation** has no panel either, and is sized by what the
+  cook weighed rather than by its rows: the quantity is the portion's weight when
+  the batch was weighed and the serving count when it was not
+  ([ADR-0106](adr/0106-a-recipe-occasion-is-sized-by-the-weight-you-put-on-the-scale.md)).
+  It was the literal `"1 serving"` on every instantiation until #424, which is
+  what those events still read.
 - `rating`: an optional 1 to 5 scale.
 - `season`, `episode`, `review`, `pages_read`, `instrument_used`, `slot_id`,
   `metadata`.
 - `meal_type`: the **Meal Type**.
-- `replaced_by`: the correction link written when a logged event is superseded
+- `replaced_by` **(reference)**: the correction link written when a logged event is
+  superseded, one `event:consume_` naming the `event:consume_` that corrected it
   ([ADR-0022](adr/0022-recipe-instantiations-as-editable-snapshots.md)).
 - `metrics`: the frozen breakdown scaled to the amount logged. The
   `{ calories, protein, fat, carbs }` headline plus every extra nutrient the food
   carried, each under its `nutrition/info` panel name such as `fiber_content` or
   `sodium_content`, and the micronutrients. A nutrient the food never reported is
   absent, never `0` (ADR-0030).
-- `instantiation`: a logged recipe's frozen **Recipe Instantiation** snapshot.
-  Holds `based_on`, `yield`, and per-row
+- `instantiation` **(reference)**: a logged recipe's frozen **Recipe Instantiation**
+  snapshot. Holds `based_on`, `yield`, `batch_weight`, and per-row
   `{ ref, name, amount, unit, calories, protein, fat, carbs, ... }` carrying the same
-  full breakdown.
+  full breakdown. `batch_weight` is what the finished dish weighed, in grams, on the
+  one occasion this snapshot records, so a logged meal says 160 g of a 480 g pot and
+  keeps saying it
+  ([ADR-0106](adr/0106-a-recipe-occasion-is-sized-by-the-weight-you-put-on-the-scale.md) §5).
+  The rows are a fraction of it, and without the denominator the snapshot would carry a
+  numerator whose divisor is gone: a correction reopening the editor to say "actually I
+  ate 200 g" would have nothing to divide against. Absent on every occasion nobody
+  weighed, and on every one logged before that record, which are sized by their serving
+  count instead.
 
 Note that there is **no `acquisition/` namespace**. A physical item's wanted-to-owned
 state is not an attribute on the twin: it is folded from `event:acquire_` events

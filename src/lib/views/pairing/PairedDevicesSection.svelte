@@ -36,6 +36,8 @@
     UNPAIRING_WORDS,
   } from "../../p2p/unpair";
   import { isStopped } from "../../p2p/wake-counter";
+  import { domainsOfScope, scopeOfFacet } from "../../p2p/lane-scope";
+  import type { FacetId } from "../../facets/registry";
   import { writeDate } from "../../p2p/send-date";
 
   // **Paired devices**, and the act that makes one (ADR-0096 §8, ADR-0084 §6).
@@ -61,6 +63,18 @@
   // the moment you switch tabs, and *a silent forty-second transfer that
   // vanishes when you look away is not silent, it is broken*. Steady state will
   // show nothing at all; this is the one case that does.
+
+  // **Which Facet this surface is**, named by the caller as a literal and never
+  // worked out from the URL (ADR-0076 §6). It is the whole of what ADR-0105 §1
+  // needs from the surface: a pairing act carries the domains of the Facet it
+  // ran in, so the section that draws the act is where that Facet is known.
+  // There are two callers, one per Facet and one card per document: the root's
+  // `SettingsView`, and Rations' settings sheet at #423 (ADR-0105 §10). That
+  // sheet draws this card only under Rations' own shell, because an act
+  // performed in the root's Food tab ran in the root — so no document ever
+  // holds two of these, and the two ways in below keep the unqualified ids
+  // every selector already written names.
+  let { facetId }: { facetId: FacetId } = $props();
 
   /** Which face is up: nothing, the code being shown, or the reader. */
   let act = $state<"none" | "showing" | "reading">("none");
@@ -132,6 +146,11 @@
       reach = "sync";
       syncing = { rows_sent: 0, rows_received: 0 };
       const converged = await runFirstSync(room, acting, chains, ledger, {
+        // **The lane is scoped to the Facet this act ran in** (ADR-0105 §1),
+        // and the Facet is the surface's rather than something worked out at
+        // runtime — the same rule `LogSettingsSection` follows, and ADR-0076
+        // §6's reason for it.
+        domains: scopeOfFacet(facetId),
         onProgress: (progress) => (syncing = progress),
       });
 
@@ -150,6 +169,7 @@
         device_id: converged.device_id,
         chains,
         peer_vector: converged.peer_vector,
+        scope: converged.scope,
       });
       ended = DEVICES_PAIRED;
     } catch (failure) {
@@ -214,6 +234,41 @@
       );
     }
     return `Also paired with ${listOf(named)}.`;
+  }
+
+  /**
+   * **What this pairing's lane carries**, in the Tracked Domains' own
+   * user-facing names (ADR-0105 §10).
+   *
+   * **It is the only place the app can explain an absence** the user would
+   * otherwise read as a sync failure: three devices, a jar-wide lane to the
+   * laptop and a food lane to the phone, and no films on the phone.
+   *
+   * **It reads the lane's scope and never the drawing Facet's.** §10's own
+   * follow-on sentence — *in Rations every row says the same thing* — is false,
+   * and the amendment at that record's foot says why: the Paired Device list is
+   * one jar-wide record (§8), so a pairing the root made shows here too, naming
+   * all seven. Computing the line from `scopeOfFacet(facetId)` instead would
+   * tell a Rations user that such a lane carries only food, which is the absence
+   * this line exists to explain, printed backwards.
+   *
+   * **The words are the registry's**, so this is the same vocabulary
+   * `FoodDataSection`'s *what stays* line prints rather than a second way of
+   * saying what a domain is. Which domains a scope names is `lane-scope.ts`'s
+   * own `domainsOfScope`, so the walk that drops a domain only the peer knows
+   * is written once: nothing here decides what a scope means, only how to say
+   * it.
+   *
+   * **An empty scope is a claim and not an absence** (`readLaneScope`): the two
+   * ends agreed on nothing, so the lane carries nothing, and the sentence says
+   * that rather than trailing off. An *absent* scope never reaches here — the
+   * store reads it as the whole Jar before this sees it.
+   */
+  function carriesLine(device: PairedDevice): string {
+    const named = domainsOfScope(device.scope).map((domain) => domain.name);
+    return named.length === 0
+      ? "Carries nothing."
+      : `Carries ${listOf(named)}.`;
   }
 
   /**
@@ -398,19 +453,27 @@
                     </div>
                   </div>
                 {/if}
+                <!-- What this lane carries, before anything about the peer:
+                     it is a fact about rows rather than about the far device
+                     (ADR-0105 §2), and the one line that explains an absence
+                     the user would otherwise read as a sync failure. A severed
+                     pairing gets none, because both its lanes are already shut
+                     and a claim about what one carries would be a claim about a
+                     lane that is closed. -->
+                <p class="row-note">{carriesLine(device)}</p>
                 <!-- Two devices' rosters disagreeing is legitimate under pairwise
                      pairing, so this is what *that* device said and is never
                      merged with the list it sits in (§6). -->
                 {@const stated = rosterLine(device, $pairedDevices)}
                 {#if stated}
-                  <p class="roster">{stated}</p>
+                  <p class="row-note">{stated}</p>
                 {/if}
                 <!-- §11's two lines, and the whole of what this design says
                      about staleness. The date is on every row; the one-sided
                      state is on the rows that ran out. -->
                 {@const met = lastMetLine(device)}
                 {#if met}
-                  <p class="roster">{met}</p>
+                  <p class="row-note">{met}</p>
                 {/if}
                 {#if isStopped(device)}
                   <p class="one-sided">{ONE_SIDED}</p>
@@ -421,7 +484,7 @@
         {/each}
       </ul>
     {/if}
-    <div class="actions">
+    <div class="pair-actions">
       <Button id="pair-show-btn" onclick={() => begin("showing")}>
         Show a code
       </Button>
@@ -435,7 +498,7 @@
     </div>
   {:else if ended}
     <EndingLine words={ended} ok={ended.ending === "paired"} />
-    <div class="actions">
+    <div class="pair-actions">
       {#if ended.retry}
         <Button variant="secondary" onclick={retry}>Try again</Button>
       {/if}
@@ -496,7 +559,7 @@
     font-family: var(--font-mono);
     font-style: italic;
   }
-  .actions {
+  .pair-actions {
     display: flex;
     flex-wrap: wrap;
     gap: var(--space-xs);
@@ -537,13 +600,17 @@
     display: flex;
     gap: var(--space-2xs);
   }
-  .roster {
+  /* The shared body line under a row's heading. Three different kinds of fact
+     sit on it — what the lane carries, what the peer says it is paired with,
+     and when the two last met — so it is named after the place rather than
+     after any one of them. */
+  .row-note {
     margin: var(--space-3xs) 0 0;
     padding-inline: var(--space-xs);
     color: var(--text-secondary);
     font-size: var(--step-n1);
   }
-  /* Louder than the roster beside it and quieter than an error, because it is
+  /* Louder than the body line beside it and quieter than an error, because it is
      news rather than a failure: nothing was lost and nothing is broken. */
   .one-sided {
     margin: var(--space-3xs) 0 0;

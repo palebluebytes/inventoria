@@ -8,15 +8,19 @@ import { wayInLabel, type WayIn } from "../../src/lib/food/ways-in";
  *
  * The labels have not changed — every control still names its meal, which is
  * why `wayInLabel` is imported rather than restated — but **only one meal's
- * five are reachable at a time**. The bar is a tab list whose panel is the
- * selected meal's rail, so a spec that wants lunch's scanner has to put the bar
- * on lunch first.
+ * five are on the screen at a time**. The bar chooses a meal with a picker and
+ * the rail is rendered for that meal, so a spec that wants lunch's scanner has
+ * to put the bar on lunch first.
  *
- * Reachable rather than present: bits keeps all four panels mounted and marks
- * three `hidden`, so the other fifteen controls are in the DOM and out of the
- * accessible tree. `getByRole` skips a hidden subtree, so a spec that forgets
- * the tab does not click the wrong meal — it times out on a screen that looks
- * perfectly correct. Which is the better failure, and still a failure.
+ * Absent rather than hidden, which is what the 2026-09-15 amendment changed
+ * here: the bar used to be a tab list that mounted all four panels and marked
+ * three `hidden`, so the other fifteen controls were in the DOM and out of the
+ * accessible tree. Now they are not rendered at all. Either way a spec that
+ * forgets the meal times out on a screen that looks perfectly correct rather
+ * than clicking into the wrong one, which is the better failure and still a
+ * failure.
+ *
+ * The chip itself is no longer a `<select>` either (#453) — see `selectMeal`.
  *
  * Written once here for the reason #348 gives for `support/rations.ts`: this is
  * the same two lines in thirty-odd places, and the second time one of them
@@ -27,7 +31,7 @@ import { wayInLabel, type WayIn } from "../../src/lib/food/ways-in";
  * Put the bar on `meal_type`, and assert that it moved.
  *
  * The assertion is not a wait dressed up — Playwright already auto-waits for the
- * control the caller asks for next. It is there to name the failure. A tab click
+ * control the caller asks for next. It is there to name the failure. A choice
  * that silently does nothing is a real state (the bar is `inert` while a
  * Selection is live, ADR-0101 §4), and without this the spec fails thirty lines
  * later on a missing way in, which reads as the rail being broken rather than as
@@ -37,17 +41,31 @@ export async function selectMeal(
   page: Page,
   meal_type: MealType
 ): Promise<void> {
-  // `toUpperCase`, because the tab's text is upper-cased in the markup rather
-  // than by `text-transform` — so the accessible name really is "BREAKFAST", and
-  // Playwright's `exact` is case-sensitive as well as whole-string. The pair is
-  // deliberate: without `exact` a four-letter meal could match a longer name,
-  // and without the case this matches nothing at all.
-  const tab = page.getByRole("tab", {
-    name: meal_type.toUpperCase(),
-    exact: true,
+  // Two clicks, not `selectOption`: the chip stopped being a native `<select>`
+  // at #453 and is now a `popover="auto"` panel of four tiles, because the
+  // platform's own list is drawn by the platform and looked nothing like this
+  // app on a device.
+  //
+  // The chip keeps its accessible name, and the tiles keep the upper-cased
+  // spelling the options had — so this helper reads the way it always did and
+  // `exact` still has to be case-sensitive.
+  const chip = page.getByRole("button", {
+    name: "Which meal these land in",
   });
-  await tab.click();
-  await expect(tab).toHaveAttribute("data-state", "active");
+  await chip.click();
+  // Scoped to the panel the chip controls, because the day's own meal HEADINGS
+  // are also buttons carrying these four words (they open a meal's nutrition
+  // panel, ADR-0074 §1). Unscoped, "BREAKFAST" is ambiguous and Playwright is
+  // right to refuse it.
+  const panel = page.locator(`#${await chip.getAttribute("aria-controls")}`);
+  await panel
+    .getByRole("button", { name: meal_type.toUpperCase(), exact: true })
+    .click();
+  // The panel closes on a pick and the chip's label follows, which is the pair
+  // worth asserting: a click that lands on nothing leaves both unchanged, and
+  // the spec then fails thirty lines later on a missing way in.
+  await expect(chip).toContainText(meal_type.toUpperCase());
+  await expect(chip).toHaveAttribute("aria-expanded", "false");
 }
 
 /**

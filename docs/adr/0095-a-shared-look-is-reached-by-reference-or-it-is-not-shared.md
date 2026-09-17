@@ -2,6 +2,7 @@
 
 **Status:** Accepted  
 **Date:** 2026-09-06  
+**Amended by:** its own Amendments of 2026-09-06 and 2026-09-15 ([#453](https://github.com/palebluebytes/inventoria/issues/453) — a platform control may be refused where its rendered surface is the thing being judged; §2 and §3 otherwise stand)  
 **Implemented:** #374 `09b31a4`, #375 `16f0970`, #378 `28267d9`, #379 `5502c92`, #380 `f1aebce`, #381 (the censuses in `tests/unit/ui-primitives.test.ts`)
 
 ## Context
@@ -108,3 +109,74 @@ Re-run at this record's own base `a168a437`: the reader as it stood gives 111/16
 **The decision is untouched and §3's argument is strengthened.** The clause turns on `<button>` having no single legitimate answer — a nav item, a calendar day and a toggle cell are correctly not `Button`s — and not on how large the number is. The allowlist §3 refuses is a 116-entry one. Read both prose repetitions of 111, in §3 and in Consequences, as 116.
 
 **What this does change is a claim this record makes about its own provenance.** §3 says the table was read "with `tests/unit/support/markup.ts`'s markup reader over `trackedSvelteFiles()` at the arc's base (`a168a437`)". `trackedSvelteFiles()` did not exist at `a168a437` — it arrives two commits later — and the reader that produced the table could not see a whole class of tag. The paragraph immediately below the table makes precisely this argument against a raw text grep, and then quotes a figure carrying a defect of the same kind. A count is worth what the reader that took it is worth, and naming the reader is not the same as having checked it.
+
+## Amendment (2026-09-15, #453): §2's refusal holds, except where the platform's list is the look
+
+§2 refused bits-ui for `ui/Select` because the platform supplies **more**: a
+native `<select>` opens the OS picker — full-width rows far above `--tap-min`,
+correct with every assistive technology, on every platform, for zero code. That
+argument is intact and this amendment does not weaken it. What it did not price
+is that **the OS also supplies the look, and the look is not negotiable.**
+
+Reported from a device: the Way-in bar's meal chip opened Android's Material
+dialog — rounded corners, blue radio buttons, system font — inside an app that is
+otherwise square corners, hard rules and ink. On an iPhone the same control opens
+Safari's own menu. A native select's list is drawn by the OS and nothing but the
+`option` colours can be styled, so this was never reachable as CSS. It is also
+not a small blemish: it is the one alien surface in the app, worn by the control
+that decides where every tap lands.
+
+**The rule this adds, and it is narrow.** A platform control may be refused at a
+call site where its _rendered surface_ is the thing being judged, and only there.
+The test is not "we would prefer our own" — it is that the platform draws
+something this app cannot reach and cannot live with. Everywhere else §2 stands:
+`ui/Select` keeps the seven call sites it has, `ui/Checkbox` stays the platform's
+own control (ADR-0068 §1), and §3's census still holds the `<select>` population
+at exactly one, because the primitive is still the only file that writes one.
+
+**What the refusal cost, stated rather than absorbed.** The app now owns the
+keyboard, the focus and the dismissal for this one control:
+
+- **Arrow keys, Home and End** are hand-written, where the select gave them free.
+- **Focus** moves to the tile the panel is on when it opens, so the keyboard
+  starts where the eye is; the platform's popover returns focus to the invoker on
+  close.
+- **Dismissal** is `popover="auto"`'s light dismiss — an outside tap or Escape —
+  which is the platform's, not ours.
+- **A screen reader** now hears a button with `aria-expanded` and
+  `aria-controls` and then four pressed/unpressed buttons, where before it heard
+  a combobox with a value. That is a worse sentence about the same act, and it is
+  the real price.
+
+### bits-ui was prototyped and refused, and the measurement is why
+
+The prototype that settled the shape used `bits-ui`'s `Popover`. The fold-in does
+not, on [ADR-0068](0068-a-checkbox-is-the-platforms-own-control.md) §1's own
+test applied to a control that did not exist when §2 was written.
+
+**`popover="auto"` is Baseline 2024** (Safari 17.4, Chrome 114, Firefox 125 — so
+both of this app's platforms) and supplies the two hard parts outright: the **top
+layer**, so the panel is above everything without a portal and without a z-index
+argument against a Selection bar at 900, and **light dismiss with focus
+restoration**. Against that, bits adds a collision-aware positioning engine:
+`bits-ui/dist/bits/utilities/floating-layer`, `popper-layer` and
+`internal/floating-svelte`, ~32KB of source the app does not ship today — its
+`Dialog`, which `ui/Modal` already uses, pulls the dismissible, escape,
+focus-scope and scroll-lock layers and **no floating layer**. This would have
+been the first thing in the app to want one.
+
+**And a bits portal renders nothing in the server tier**, which is where
+`tests/unit/` asserts markup ([#235](https://github.com/palebluebytes/inventoria/issues/235)).
+Choosing bits would have cost this panel its cheapest test layer for the whole of
+its markup, permanently.
+
+**What the engine would have bought is one flip, and the first attempt got that
+wrong.** The hand-rolled `place()` opened upward and its comment claimed no
+collision logic was needed, because the bar is anchored to the foot of the band.
+True of the phone, false of the other two positions: in the 22rem flank the
+chip's top was 133px down a 989px viewport against a 202px panel, so the browser
+clamped the panel to `top: 0` and it covered the day's header. The fix is twelve
+lines — flip below when there is no room above, pull back from the right edge —
+and the number that matters is that those two cases are the only two the bar has,
+because the bar itself only stands in three places. A general engine priced
+against two known cases is the same trade §2 made and reached the other way.

@@ -53,6 +53,7 @@ import {
   type FakeLocalStorage,
 } from "./support/local-storage";
 import { fakeBucket, routeOver } from "./support/store-bucket";
+import { oldestAbove } from "./support/wake-ledger";
 import { base64, pairedWith } from "./support/paired-device";
 
 const ORIGIN = "https://app.example";
@@ -113,8 +114,7 @@ function device(device_id: string): Device {
     db,
     rows: [],
     ledger: {
-      oldestAbove: async (after, budgetBytes, above) =>
-        readLedgerPage(db, after, budgetBytes, { above, order: "stamp" }),
+      oldestAbove: oldestAbove(db),
       // The converging write path, which is the one `db.worker.ts` takes for a
       // batch that *arrived*: every carried deletion this ledger holds is
       // applied to it (ADR-0096 §12).
@@ -165,11 +165,11 @@ async function atDevice<T>(who: Device, act: () => Promise<T>): Promise<T> {
 
 /** One open of the app: a round over every pairing this device holds. */
 const open = (who: Device) =>
-  atDevice(who, () => convergeWithPeers(store, who.ledger));
+  atDevice(who, () => convergeWithPeers("root", store, who.ledger));
 
 /** The delta growing: a deposit on every lane, collecting from none (§3). */
 const growth = (who: Device) =>
-  atDevice(who, () => depositToPeers(store, who.ledger));
+  atDevice(who, () => depositToPeers("root", store, who.ledger));
 
 /** The user severing one pairing on this device, both phases (§11). */
 const unpair = (who: Device, peer: Device) =>
@@ -234,7 +234,7 @@ async function household(): Promise<[Device, Device, Device]> {
 describe("a device with N−1 peers deposits N−1 times per wake", () => {
   it("touches one lane per pair, and no lane twice", async () => {
     const [phone, tablet, laptop] = await household();
-    hold(phone, [row("event:breakfast", "dev_phone", 1_000)]);
+    hold(phone, [row("event:consume_breakfast", "dev_phone", 1_000)]);
 
     await open(phone);
 
@@ -289,7 +289,7 @@ describe("each pair has its own chain, its own indices and its own seal keys", (
 
   it("cannot open one pair's deposit with another pair's key", async () => {
     const [phone, tablet, laptop] = await household();
-    hold(phone, [row("event:breakfast", "dev_phone", 1_000)]);
+    hold(phone, [row("event:consume_breakfast", "dev_phone", 1_000)]);
     await open(phone);
 
     const toTablet = held.get(await depositAddress(phone, tablet))!;
@@ -305,7 +305,7 @@ describe("each pair has its own chain, its own indices and its own seal keys", (
 
   it("advances one pairing's index while the other's stands still", async () => {
     const [phone, tablet, laptop] = await household();
-    hold(phone, [row("event:breakfast", "dev_phone", 1_000)]);
+    hold(phone, [row("event:consume_breakfast", "dev_phone", 1_000)]);
 
     // The tablet collects and says the word for it; the laptop sleeps through.
     await open(phone);
@@ -320,23 +320,23 @@ describe("each pair has its own chain, its own indices and its own seal keys", (
 describe("a three-device household converges", () => {
   it("reaches both peers, including the one that slept through", async () => {
     const [phone, tablet, laptop] = await household();
-    hold(phone, [row("event:breakfast", "dev_phone", 1_000)]);
+    hold(phone, [row("event:consume_breakfast", "dev_phone", 1_000)]);
 
     // The phone is opened and shut. The tablet is opened the same evening.
     await open(phone);
     await open(tablet);
-    expect(entitiesOf(tablet)).toEqual(["event:breakfast"]);
+    expect(entitiesOf(tablet)).toEqual(["event:consume_breakfast"]);
 
     // The laptop is opened a week later, with both others shut.
     await open(laptop);
-    expect(entitiesOf(laptop)).toEqual(["event:breakfast"]);
+    expect(entitiesOf(laptop)).toEqual(["event:consume_breakfast"]);
   });
 
   it("carries a row logged on any of the three to both others", async () => {
     const [phone, tablet, laptop] = await household();
-    hold(phone, [row("event:breakfast", "dev_phone", 1_000)]);
-    hold(tablet, [row("event:lunch", "dev_tablet", 2_000)]);
-    hold(laptop, [row("event:dinner", "dev_laptop", 3_000)]);
+    hold(phone, [row("event:consume_breakfast", "dev_phone", 1_000)]);
+    hold(tablet, [row("event:consume_lunch", "dev_tablet", 2_000)]);
+    hold(laptop, [row("event:consume_dinner", "dev_laptop", 3_000)]);
 
     // Three opens each: every lane has to carry in both directions, and a
     // deposit is built against what its last acknowledgement established.
@@ -344,7 +344,11 @@ describe("a three-device household converges", () => {
       for (const who of [phone, tablet, laptop]) await open(who);
     }
 
-    const all = ["event:breakfast", "event:dinner", "event:lunch"];
+    const all = [
+      "event:consume_breakfast",
+      "event:consume_dinner",
+      "event:consume_lunch",
+    ];
     expect(entitiesOf(phone)).toEqual(all);
     expect(entitiesOf(tablet)).toEqual(all);
     expect(entitiesOf(laptop)).toEqual(all);
@@ -360,13 +364,13 @@ describe("relay is a bonus, never the plan", () => {
     const laptop = device("dev_laptop");
     await pairUp(phone, tablet, 1);
     await pairUp(tablet, laptop, 2);
-    hold(phone, [row("event:breakfast", "dev_phone", 1_000)]);
+    hold(phone, [row("event:consume_breakfast", "dev_phone", 1_000)]);
 
     await open(phone);
     await open(tablet);
     await open(laptop);
 
-    expect(entitiesOf(laptop)).toEqual(["event:breakfast"]);
+    expect(entitiesOf(laptop)).toEqual(["event:consume_breakfast"]);
   });
 
   it("stops carrying the moment the only route is severed", async () => {
@@ -380,18 +384,21 @@ describe("relay is a bonus, never the plan", () => {
     const laptop = device("dev_laptop");
     await pairUp(phone, tablet, 1);
     await pairUp(tablet, laptop, 2);
-    hold(phone, [row("event:breakfast", "dev_phone", 1_000)]);
+    hold(phone, [row("event:consume_breakfast", "dev_phone", 1_000)]);
     for (const who of [phone, tablet, laptop]) await open(who);
-    expect(entitiesOf(laptop)).toEqual(["event:breakfast"]);
+    expect(entitiesOf(laptop)).toEqual(["event:consume_breakfast"]);
 
     await unpair(tablet, laptop);
-    hold(phone, [row("event:lunch", "dev_phone", 2_000)]);
+    hold(phone, [row("event:consume_lunch", "dev_phone", 2_000)]);
     for (const who of [phone, tablet, laptop]) await open(who);
 
     // The tablet has lunch and the laptop never will: the relay it arrived by
     // was a pairing, and the pairing is gone.
-    expect(entitiesOf(tablet)).toEqual(["event:breakfast", "event:lunch"]);
-    expect(entitiesOf(laptop)).toEqual(["event:breakfast"]);
+    expect(entitiesOf(tablet)).toEqual([
+      "event:consume_breakfast",
+      "event:consume_lunch",
+    ]);
+    expect(entitiesOf(laptop)).toEqual(["event:consume_breakfast"]);
   });
 });
 
@@ -425,13 +432,13 @@ describe("an unpair is scoped to that pairing and pending on the others", () => 
 
     // The laptop is still paired with the tablet, and a row logged on the
     // laptop still reaches it — and reaches the phone through it.
-    hold(laptop, [row("event:dinner", "dev_laptop", 3_000)]);
+    hold(laptop, [row("event:consume_dinner", "dev_laptop", 3_000)]);
     await open(laptop);
     await open(tablet);
     await open(phone);
 
-    expect(entitiesOf(tablet)).toEqual(["event:dinner"]);
-    expect(entitiesOf(phone)).toEqual(["event:dinner"]);
+    expect(entitiesOf(tablet)).toEqual(["event:consume_dinner"]);
+    expect(entitiesOf(phone)).toEqual(["event:consume_dinner"]);
   });
 
   it("stops naming the severed pairing to the peers that still stand", async () => {
@@ -470,7 +477,7 @@ describe("the fan-out is superlinear, and it is measured", () => {
   it("leaves N(N−1) live objects with one row in (N−1)² of them", async () => {
     const three = await household();
     const [phone, tablet, laptop] = three;
-    hold(phone, [row("event:breakfast", "dev_phone", 1_000)]);
+    hold(phone, [row("event:consume_breakfast", "dev_phone", 1_000)]);
 
     // The phone logs breakfast and is shut. Its deposit goes to both peers.
     await growth(phone);
@@ -482,16 +489,16 @@ describe("the fan-out is superlinear, and it is measured", () => {
     // Everybody logs something over the day, and no acknowledgement has made
     // it home yet, so every deposit re-asserts breakfast to a peer its
     // depositor still believes lacks it.
-    hold(phone, [row("event:elevenses", "dev_phone", 4_000)]);
+    hold(phone, [row("event:consume_elevenses", "dev_phone", 4_000)]);
     for (const who of [phone, tablet, laptop]) await growth(who);
 
     // Six lanes, six live objects: N(N−1) at N = 3.
     expect(held.size).toBe(6);
-    expect(await copiesOf("event:breakfast", three)).toBe(4);
+    expect(await copiesOf("event:consume_breakfast", three)).toBe(4);
     // And a row minted after both peers had collected sits in N−1 of them,
     // which is what the difference between the two counts is: the two relay
     // copies the phone never made and did not have to.
-    expect(await copiesOf("event:elevenses", three)).toBe(2);
+    expect(await copiesOf("event:consume_elevenses", three)).toBe(2);
   });
 });
 

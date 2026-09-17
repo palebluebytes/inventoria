@@ -1,0 +1,938 @@
+// ---------------------------------------------------------------------------
+// What a source's serving-size string actually names (ADR-0052 §2 Amendment)
+// ---------------------------------------------------------------------------
+//
+// Open Food Facts derives `serving_quantity` and `serving_quantity_unit` from
+// the same `serving_size` string with two different regexes, and they disagree
+// about which token wins. `normalize_serving_size` anchors on a greedy prefix —
+// `/^(.*[ \(])?(?<quantity>…)( )?(?<unit>…)\b/i` — so the LAST number+unit in the
+// string wins; `extract_standard_unit` runs `parse_quantity_unit` unanchored, so
+// the FIRST does (openfoodfacts-server#7768, open; `lib/ProductOpener/Units.pm`,
+// read 2026-09-15). Where the string names one magnitude that disagreement is
+// invisible, because both tokens say the same thing. Where it names two —
+// `15g + 250mL`, a powder and the milk you prepare it with — the number and the
+// unit can come from different tokens, and the number is usually the liquid.
+//
+// Nothing here repairs such a string. Two questions are asked of it, and both
+// are read-only: whether it names more than one magnitude, and — when OFF states
+// no unit at all — what unit the one magnitude it does name is in.
+//
+// This is deliberately NOT `nutrition.ts`'s `BASIS_QUANTITY` / `basisUnit` pair,
+// which is anchored `^…$` over a whole string and knows only `g` and `ml`. That
+// pair reads a panel basis THIS app wrote (`"100 ml"`); this reads a foreign
+// label token by token, in ounces and litres the app never writes and never
+// stores. Two questions, and the narrow one stays narrow.
+// ---------------------------------------------------------------------------
+
+import type { MeasuredUnit } from "./nutrition";
+
+/**
+ * What OFF resolves a unit token to. `g` and `ml` are the two a portion can be
+ * stored in; the rest this app can see and compare but never store, which is
+ * the whole of what it needs them for (#459).
+ */
+type StandardUnit =
+  | MeasuredUnit
+  | "kj"
+  | "mmol/l"
+  | "mol/l"
+  | "%"
+  | "% dv"
+  | "% vol"
+  | "% vol (alcohol)"
+  | "pH"
+  | "iu";
+
+/**
+ * A number a label names, in the standard unit OFF resolves its token to. Two
+ * magnitudes in one standard unit are directly comparable however they were
+ * spelled, and two in different ones never are.
+ */
+interface Magnitude {
+  amount: number;
+  unit: StandardUnit;
+}
+
+/**
+ * Every unit a serving-size string may name, with what one of it amounts to in
+ * that unit's standard unit.
+ *
+ * It is Open Food Facts' own vocabulary, derived from `taxonomies/units.txt`
+ * (read 2026-09-15): every entry, with that entry's `standard_unit:en` and
+ * `conversion_factor:en`, and every one of its synonyms in any language that is
+ * written in unaccented Latin letters. 507 spellings over 31 units.
+ *
+ * The scope is the taxonomy and not a subset of it, because the scope of OFF's
+ * own matcher is the taxonomy: `init_units_names` builds `$units_regexp` over
+ * `get_all_taxonomy_entries("units")` with no filter, so an energy, a percentage
+ * or a water hardness is a token `normalize_serving_size` will read a
+ * `serving_quantity` off exactly as readily as a gram. `83 kcal (30 g)` is
+ * stored as 30 with the unit `kj`.
+ *
+ * The source matters twice over. `serving_quantity` exists at all only where
+ * `normalize_serving_size` matched a unit from this vocabulary, and the value it
+ * holds has already been converted to the standard unit by `unit_to_g($q, $u)` —
+ * so reading the sole token's standard unit is reading the unit the quantity
+ * beside it is actually in.
+ *
+ * The breadth is load-bearing rather than thorough for its own sake, and #459
+ * measured what narrowing it costs: a token this table cannot spell is
+ * invisible, and an invisible token cannot be the second magnitude that refuses
+ * `15 gr + 250mL`. It cuts the other way too — `30 gramos` is grams to OFF and a
+ * `g`-and-`ml` reader would refuse it, losing a portion that was never wrong.
+ *
+ * Accented spellings are left out, and that is measured rather than assumed: of
+ * 11,521 real rows carrying a `serving_size`, none named a unit in a spelling
+ * that needs an accent to write.
+ */
+interface UnitSpellings {
+  amount: number;
+  unit: StandardUnit;
+  /**
+   * How the unit is written. Where one spelling separates words with spaces or
+   * dots, it is the most-separated form OFF lists: {@link MAGNITUDE_TOKEN} makes
+   * every separator optional, so `fl. oz.` also matches `fl oz`, `fl.oz` and
+   * `floz`, and {@link normaliseUnit} folds all four back to one key.
+   */
+  spellings: readonly string[];
+}
+
+const UNITS: readonly UnitSpellings[] = [
+  // microgram — one is 0.000001 g
+  {
+    amount: 0.000001,
+    unit: "g",
+    spellings: [
+      "mcg",
+      "mcgs",
+      "micogram",
+      "microgam",
+      "microgram",
+      "micrograma",
+      "microgramas",
+      "micrograme",
+      "microgramme",
+      "microgrammes",
+      "microgrammi",
+      "microgrammo",
+      "microgramo",
+      "microgramos",
+      "micrograms",
+      "mikrogram",
+      "mikrograma",
+      "mikrogramai",
+      "mikrogramas",
+      "mikrogrami",
+      "mikrogramm",
+      "mikrogramma",
+      "mikrogrammaa",
+      "mikrogrammi",
+      "mikrogramov",
+      "mikrogramu",
+      "mikrogramy",
+    ],
+  },
+  // milligram — one is 0.001 g
+  {
+    amount: 0.001,
+    unit: "g",
+    spellings: [
+      "mg",
+      "mgs",
+      "miligam",
+      "miligram",
+      "miligrama",
+      "miligramai",
+      "miligramas",
+      "miligrame",
+      "miligrami",
+      "miligramo",
+      "miligramos",
+      "miligramov",
+      "miligramu",
+      "miligramy",
+      "milligram",
+      "milligramm",
+      "milligramma",
+      "milligrammaa",
+      "milligramme",
+      "milligrammes",
+      "milligrammi",
+      "milligrammo",
+      "milligrams",
+    ],
+  },
+  // gram — one is 1 g
+  {
+    amount: 1,
+    unit: "g",
+    spellings: [
+      "g",
+      "gam",
+      "gm",
+      "gr",
+      "gram",
+      "grama",
+      "gramai",
+      "gramas",
+      "grame",
+      "grami",
+      "gramm",
+      "gramma",
+      "grammaa",
+      "gramme",
+      "grammes",
+      "grammi",
+      "grammo",
+      "gramo",
+      "gramos",
+      "gramov",
+      "grams",
+      "gramu",
+      "gramy",
+      "grm",
+      "grs",
+    ],
+  },
+  // oz — one is 28.349523125 g
+  {
+    amount: 28.349523125,
+    unit: "g",
+    spellings: [
+      "mga ounce",
+      "once",
+      "onces",
+      "oncia",
+      "ons",
+      "onz",
+      "onza",
+      "onzas",
+      "ounce",
+      "ounces",
+      "owns",
+      "ownsi",
+      "ownsiau",
+      "oz",
+      "ozs",
+      "unca",
+      "unce",
+      "unces",
+      "uncia",
+      "uncie",
+      "uncijos",
+      "uncja",
+      "uncje",
+      "uns",
+      "unsar",
+      "unssi",
+      "unssia",
+      "unts",
+      "untsid",
+      "unze",
+      "unzen",
+    ],
+  },
+  // pound — one is 453.59237 g
+  {
+    amount: 453.59237,
+    unit: "g",
+    spellings: [
+      "font",
+      "fontok",
+      "funt",
+      "funte",
+      "funti",
+      "funty",
+      "lb",
+      "lbs",
+      "libbra",
+      "libbre",
+      "liber",
+      "libra",
+      "libras",
+      "libry",
+      "lire",
+      "livre",
+      "livres",
+      "mga pound",
+      "nael",
+      "naela",
+      "paun",
+      "paunat",
+      "pauni",
+      "pfund",
+      "ponden",
+      "pound",
+      "pounds",
+      "pund",
+      "punt",
+      "punti",
+      "pwysau",
+      "svarai",
+      "svaras",
+    ],
+  },
+  // metric pound — one is 500 g
+  {
+    amount: 500,
+    unit: "g",
+    spellings: ["metric pound", "metric pounds", "metric-pound"],
+  },
+  // kilogram — one is 1000 g
+  {
+    amount: 1000,
+    unit: "g",
+    spellings: [
+      "chilogrammi",
+      "chilogrammo",
+      "kg",
+      "kgr",
+      "kgs",
+      "kilo",
+      "kilogram",
+      "kilograma",
+      "kilogramai",
+      "kilogramas",
+      "kilograme",
+      "kilogrami",
+      "kilogramm",
+      "kilogramma",
+      "kilogrammaa",
+      "kilogramme",
+      "kilogrammes",
+      "kilogrammi",
+      "kilogramo",
+      "kilogramos",
+      "kilogramov",
+      "kilograms",
+      "kilogramu",
+      "kilogramy",
+      "kilos",
+      "quilograma",
+      "quilogramas",
+      "quilograms",
+    ],
+  },
+  // milliliter — one is 1 ml
+  {
+    amount: 1,
+    unit: "ml",
+    spellings: [
+      "mililitr",
+      "mililitra",
+      "mililitre",
+      "mililitreler",
+      "mililitri",
+      "mililitrs",
+      "mililitru",
+      "mililitry",
+      "milliliiter",
+      "milliliitrit",
+      "millilit",
+      "millilita",
+      "milliliter",
+      "milliliters",
+      "millilitra",
+      "millilitraa",
+      "millilitrai",
+      "millilitras",
+      "millilitrau",
+      "millilitre",
+      "millilitres",
+      "millilitri",
+      "millilitro",
+      "millilitros",
+      "ml",
+      "mls",
+    ],
+  },
+  // pinch — one is 1 ml
+  {
+    amount: 1,
+    unit: "ml",
+    spellings: ["drys", "krm", "pinch", "pinches"],
+  },
+  // metric teaspoon — one is 5 ml
+  {
+    amount: 5,
+    unit: "ml",
+    spellings: ["cucchiaino metrico", "metric teaspoon"],
+  },
+  // centiliter — one is 10 ml
+  {
+    amount: 10,
+    unit: "ml",
+    spellings: [
+      "centilit",
+      "centiliter",
+      "centiliters",
+      "centilitr",
+      "centilitra",
+      "centilitrai",
+      "centilitras",
+      "centilitrau",
+      "centilitre",
+      "centilitres",
+      "centilitri",
+      "centilitro",
+      "centilitros",
+      "centilitrs",
+      "centilitru",
+      "centilitry",
+      "centylitr",
+      "cl",
+      "cls",
+      "santilitre",
+      "santilitreler",
+      "sentilita",
+      "senttilitra",
+      "senttilitraa",
+      "tsentiliiter",
+      "tsentiliitrit",
+      "zentiliter",
+    ],
+  },
+  // fluid ounce — one is 29.5735 ml
+  {
+    amount: 29.5735,
+    unit: "ml",
+    spellings: [
+      "fl oz",
+      "fl. oz",
+      "fl. oz.",
+      "fl.oz",
+      "fl.oz.",
+      "floz",
+      "fluid ounce",
+      "fluid ounces",
+      "fluid uncia",
+      "fluidunze",
+      "fluidunzen",
+      "nestetuumaa",
+      "once liquide",
+      "onces liquides",
+      "oncia liquida",
+      "owns lliw",
+      "ownsi ya maji",
+      "ownsi za maji",
+      "ownsiau lliw",
+      "oza",
+      "skystasis uncijas",
+      "uncie lichide",
+      "vedelikuunts",
+      "vedelikuuntse",
+    ],
+  },
+  // deciliter — one is 100 ml
+  {
+    amount: 100,
+    unit: "ml",
+    spellings: [
+      "deciliiter",
+      "deciliitrit",
+      "deciliter",
+      "deciliters",
+      "decilitr",
+      "decilitra",
+      "decilitrai",
+      "decilitras",
+      "decilitrau",
+      "decilitre",
+      "decilitri",
+      "decilitro",
+      "decilitros",
+      "decilitrs",
+      "decilitru",
+      "decilitry",
+      "decylitr",
+      "desiliter",
+      "desilitra",
+      "desilitraa",
+      "deziliter",
+      "dl",
+      "dls",
+    ],
+  },
+  // cup — one is 240 ml
+  {
+    amount: 240,
+    unit: "ml",
+    spellings: [
+      "cup",
+      "cups",
+      "kop",
+      "kopp",
+      "koppar",
+      "kopper",
+      "tasse",
+      "tasses",
+      "taza",
+      "tazas",
+      "tazza",
+      "tazze",
+    ],
+  },
+  // liter — one is 1000 ml
+  {
+    amount: 1000,
+    unit: "ml",
+    spellings: [
+      "l",
+      "liiter",
+      "liitrit",
+      "lita",
+      "litar",
+      "litara",
+      "liter",
+      "liters",
+      "litr",
+      "litra",
+      "litraa",
+      "litrai",
+      "litras",
+      "litre",
+      "litres",
+      "litri",
+      "litro",
+      "litros",
+      "litrov",
+      "litru",
+      "litry",
+      "ls",
+    ],
+  },
+  // gallon — one is 3785.41 ml
+  {
+    amount: 3785.41,
+    unit: "ml",
+    spellings: [
+      "gal",
+      "gallon",
+      "gallona",
+      "gallone",
+      "galloneid",
+      "gallonen",
+      "galloni",
+      "gallonia",
+      "gallonok",
+      "gallons",
+      "galon",
+      "galonai",
+      "galonas",
+      "galones",
+      "galoni",
+      "galony",
+      "gals",
+      "galwyn",
+      "mga gallon",
+    ],
+  },
+  // part per billion — one is 0.00001 mmol/l, which this app cannot store
+  {
+    amount: 0.00001,
+    unit: "mmol/l",
+    spellings: [
+      "bagian per miliar",
+      "bahagian setiap bilion",
+      "deeltjes per miljard",
+      "del per milliard",
+      "delar per miljard",
+      "dele pr. miaard",
+      "delov na milijardo",
+      "dijelovi po milijardi",
+      "osaa miljardista",
+      "osakest miljardist",
+      "partes por mil millones",
+      "parti per miliardo",
+      "parties par milliard",
+      "parts per billion",
+      "ppb",
+      "rhanau fesul biliwn",
+      "sehemu kwa bilioni",
+      "teile pro milliarde",
+    ],
+  },
+  // part per million — one is 0.01 mmol/l, which this app cannot store
+  {
+    amount: 0.01,
+    unit: "mmol/l",
+    spellings: [
+      "bagian per juta",
+      "bahagian setiap juta",
+      "delar per miljon",
+      "dele pr. million",
+      "delen per miljoen",
+      "deler per million",
+      "delov na milijon",
+      "delova na milion",
+      "dijelovi na milijun",
+      "mga bahagi kada milyon",
+      "osaa miljoonasta",
+      "osakest miljoni kohta",
+      "parti per milione",
+      "parties par million",
+      "parts per million",
+      "ppm",
+      "rhanau fesul miliwn",
+      "teile pro million",
+      "vipande kwa milioni",
+    ],
+  },
+  // grain per gallon — one is 0.171 mmol/l, which this app cannot store
+  {
+    amount: 0.171,
+    unit: "mmol/l",
+    spellings: [
+      "gpg",
+      "gram calciumcarbonaat per gallon",
+      "gram kalciumkarbonat per gallon",
+      "gram kalciumkarbonat pr. gallon",
+      "gram kalsium karbonat per galon",
+      "gram kalsium karbonat saben galon",
+      "gram kalsium karbonat setiap galon",
+      "gram kalsiumkarbonat per gallon",
+      "gram ng calcium carbonate kada galon",
+      "grama kalcijevog karbonata po galonu",
+      "gramau carbonad calchfwrdd ym mhob galwyn",
+      "grame de carbonat de calciu pe galon",
+      "gramm calciumcarbonat pro gallone",
+      "grammaa kalsiumkarbonaattia per gallona",
+      "grammes de carbonate de calcium par gallon",
+      "grammi di carbonato di calcio per gallone",
+      "grammi kaltsiumkarbonaati galloni kohta",
+      "gramov kalcijevega karbonata na galon",
+      "grams of calcium carbonate per gallon",
+      "gramu la kaboneti ya kalsiamu kwa galoni",
+    ],
+  },
+  // German degree of hardness — one is 0.1783 mmol/l, which this app cannot store
+  {
+    amount: 0.1783,
+    unit: "mmol/l",
+    spellings: ["dgh"],
+  },
+  // millival per litre — one is 0.5 mmol/l, which this app cannot store
+  {
+    amount: 0.5,
+    unit: "mmol/l",
+    spellings: [
+      "mga milivals kada litro",
+      "milival per liter",
+      "milival per miljon",
+      "milival pr. liter",
+      "milival setiap liter",
+      "milival/litre",
+      "milivale na litr",
+      "milivaleja litrassa",
+      "milivales por litro",
+      "milivali liitri kohta",
+      "milivali pe litru",
+      "milivali per litro",
+      "milivali po litri",
+      "milivali po litru",
+      "milivali uz litru",
+      "milivalov na liter",
+      "milivals kwa milioni",
+      "milivals par litre",
+      "milivals per liter",
+      "milivals saben juta",
+      "millifoltdyddiau y llif",
+      "millival pro liter",
+      "mval/l",
+    ],
+  },
+  // kilojoule — one is 1 kj, which this app cannot store
+  {
+    amount: 1,
+    unit: "kj",
+    spellings: [
+      "chilojoule",
+      "ciljoulo",
+      "ciljouls",
+      "kilojauliai",
+      "kilojaulis",
+      "kilojoula",
+      "kilojoule",
+      "kilojoulea",
+      "kilojoules",
+      "kilojouli",
+      "kilojouls",
+      "kilojouly",
+      "kilojulio",
+      "kilojulios",
+      "kj",
+      "kjs",
+      "mga kilojoule",
+    ],
+  },
+  // millimole per litre — one is 1 mmol/l, which this app cannot store
+  {
+    amount: 1,
+    unit: "mmol/l",
+    spellings: ["millimol pro liter", "millimol/liter", "mmol/l"],
+  },
+  // percent vol — one is 1 % vol, which this app cannot store
+  {
+    amount: 1,
+    unit: "% vol",
+    spellings: ["% vol", "%vol", "percent vol"],
+  },
+  // percent vol (alcohol) — one is 1 % vol (alcohol), which this app cannot store
+  {
+    amount: 1,
+    unit: "% vol (alcohol)",
+    spellings: ["% vol (alcohol)", "percent vol (alcohol)"],
+  },
+  // percent — one is 1 %, which this app cannot store
+  {
+    amount: 1,
+    unit: "%",
+    spellings: ["%", "percent"],
+  },
+  // pH — one is 1 pH, which this app cannot store
+  {
+    amount: 1,
+    unit: "pH",
+    spellings: ["ph"],
+  },
+  // percent of daily value — one is 1 % dv, which this app cannot store
+  {
+    amount: 1,
+    unit: "% dv",
+    spellings: ["% dv", "%dv", "percent dv"],
+  },
+  // international unit — one is 1 iu, which this app cannot store
+  {
+    amount: 1,
+    unit: "iu",
+    spellings: [
+      "internasjonal enhet",
+      "international enhed",
+      "international unit",
+      "internationale eenheid",
+      "internationale einheit",
+      "internationell enhet",
+      "iu",
+      "kiwango cha kimataifa",
+      "mednarodna enota",
+      "uned ryngwladol",
+      "unidad internacional",
+      "unidade internacional",
+      "unit antarabangsa",
+      "unit internasional",
+    ],
+  },
+  // kilocalorie — one is 4.184 kj, which this app cannot store
+  {
+    amount: 4.184,
+    unit: "kj",
+    spellings: [
+      "cal",
+      "calo",
+      "calori",
+      "caloria",
+      "calorias",
+      "caloriau",
+      "calorie",
+      "calories",
+      "calorii",
+      "cals",
+      "chilocaloria",
+      "chilocalorie",
+      "cilcalori",
+      "cilcaloriau",
+      "kalor",
+      "kalori",
+      "kaloria",
+      "kalorid",
+      "kalorie",
+      "kalorien",
+      "kalorier",
+      "kalorija",
+      "kalorijas",
+      "kalorije",
+      "kalorijos",
+      "kalorit",
+      "kaloriya",
+      "kcal",
+      "kcals",
+      "kilocaloria",
+      "kilocalorias",
+      "kilocalorie",
+      "kilocalories",
+      "kilocalorii",
+      "kilokalor",
+      "kilokalori",
+      "kilokaloria",
+      "kilokalorid",
+      "kilokalorie",
+      "kilokalorien",
+      "kilokalorier",
+      "kilokalorija",
+      "kilokalorijas",
+      "kilokalorije",
+      "kilokalorijos",
+      "kilokalorit",
+      "kilokaloriya",
+      "mga kaloriya",
+      "mga kilokaloriya",
+    ],
+  },
+  // mole per litre — one is 1000 mol/l, which this app cannot store
+  {
+    amount: 1000,
+    unit: "mol/l",
+    spellings: ["mol pro liter", "mol/l", "mol/liter"],
+  },
+];
+
+/** Folds a matched unit token onto its {@link UNITS} spelling. */
+function normaliseUnit(token: string): string {
+  return token.toLowerCase().replace(/[.\s]/g, "");
+}
+
+/** What one of each spelling amounts to, keyed by {@link normaliseUnit}. */
+const UNIT_MAGNITUDES = new Map<string, Magnitude>(
+  UNITS.flatMap(({ amount, unit, spellings }) =>
+    spellings.map((spelling): [string, Magnitude] => [
+      normaliseUnit(spelling),
+      { amount, unit },
+    ])
+  )
+);
+
+/**
+ * A number glued to one of {@link UNITS}' spellings. The alternation runs longest
+ * spelling first so `grammes` is not read as a bare `gr` and `lbs` not as a bare
+ * `l`, every separator inside a spelling is optional, and every token ends on a
+ * word boundary so `200 ml lait` yields millilitres while `1 lait` yields nothing.
+ *
+ * The trailing `\b` is OFF's own terminator and is kept exactly, which is why a
+ * `%` before a space or the end of the string is not a token: there is no word
+ * boundary after it, so `normalize_serving_size` cannot see one either and a
+ * reader that could would refuse strings OFF reads correctly (#459).
+ */
+const MAGNITUDE_TOKEN = new RegExp(
+  `(\\d+(?:[.,]\\d+)?)\\s*(${UNITS.flatMap(({ spellings }) => spellings)
+    .sort((a, b) => b.length - a.length)
+    .map((spelling) =>
+      spelling
+        .replace(/[(){}[\]|^$*+?\\]/g, "\\$&")
+        .replace(/[.\s]+/g, "[.\\s]*")
+    )
+    .join("|")})\\b`,
+  "gi"
+);
+
+/**
+ * How far apart two tokens may stand and still be one magnitude restated. A label
+ * rounds its conversion to a number a person reads, and rounding to the nearest
+ * nice one is worth more than a percent or two: `1 oz (28 g)` is 1.2% out but
+ * `2 oz (60 g)` is 5.5% and `250 ml (8 fl oz)` 5.4%, and all three are one
+ * magnitude said twice. Measured across the dual-unit shapes a US label mandates,
+ * the widest is 5.5%; the same-unit disagreements this rule exists to catch stand
+ * 96% apart or more (`8 ml (240 ML)`, `33.8 ml (1 L)`), and a disagreement across
+ * units is refused on the unit whatever the tolerance. So the number is set above
+ * every rounding rather than below the nearest defect.
+ */
+const RESTATEMENT_TOLERANCE = 0.1;
+
+function readMagnitudes(serving_size: string): Magnitude[] {
+  const magnitudes: Magnitude[] = [];
+  // OFF's own normaliser reads a comma as a decimal point (`2,998 Oz` is just
+  // under three ounces), so a thousands separator is not a reading available
+  // here; taking the other one would refuse the dual-unit labels §2 keeps.
+  for (const [, digits, spelling] of serving_size.matchAll(MAGNITUDE_TOKEN)) {
+    const amount = Number(digits.replace(",", "."));
+    if (!Number.isFinite(amount) || amount <= 0) continue;
+    const unit = UNIT_MAGNITUDES.get(normaliseUnit(spelling));
+    if (!unit) continue;
+    magnitudes.push({ amount: amount * unit.amount, unit: unit.unit });
+  }
+  return magnitudes;
+}
+
+/** True when `b` is `a` said again — same unit, same size to a label's rounding. */
+function restates(a: Magnitude, b: Magnitude): boolean {
+  if (a.unit !== b.unit) return false;
+  const spread = Math.abs(a.amount - b.amount);
+  return spread <= RESTATEMENT_TOLERANCE * Math.max(a.amount, b.amount);
+}
+
+/** The two units a portion can actually be stored in. */
+function isMeasured(unit: StandardUnit): unit is MeasuredUnit {
+  return unit === "g" || unit === "ml";
+}
+
+/**
+ * True when `serving_size` names two number+unit tokens that are not the same
+ * magnitude said twice — so a quantity parsed out of it cannot say which of them
+ * it came from, and neither can the unit parsed beside it.
+ *
+ * False for a string naming one magnitude however many times it restates it, and
+ * for one naming none at all, which is what a label like `"1 serving"` does and
+ * leaves a portion exactly as it was. See ADR-0052 §2's Amendment (#433, #459).
+ */
+export function namesMoreThanOneMagnitude(
+  serving_size: string | undefined
+): boolean {
+  if (!serving_size) return false;
+  const [first, ...rest] = readMagnitudes(serving_size);
+  if (first === undefined) return false;
+  return rest.some((magnitude) => !restates(first, magnitude));
+}
+
+/**
+ * The unit of the one magnitude `serving_size` names, or `undefined` where it
+ * names none — or names several, which {@link namesMoreThanOneMagnitude} is the
+ * question for and which this answers `undefined` to rather than picking.
+ *
+ * `undefined` too where that one magnitude is in a unit no portion can be stored
+ * in: an energy or a percentage is a magnitude this reader can see, and reading
+ * one is what stops it being mistaken for a second gram — but it is not a weight
+ * and not a volume, and calling it either is the defect, not the fix (#459).
+ *
+ * This is the evidence of last resort, for a serving OFF states no
+ * `serving_quantity_unit` for at all. It is sound precisely because it is asked
+ * only of a single-magnitude string: there is one token, so the quantity and the
+ * unit cannot have come from different ones. Re-reading the unit out of a string
+ * naming SEVERAL was measured and rejected (#433) — it makes a different wrong
+ * answer, not a right one.
+ */
+export function soleMagnitudeUnit(
+  serving_size: string | undefined
+): MeasuredUnit | undefined {
+  if (!serving_size) return undefined;
+  const [first, ...rest] = readMagnitudes(serving_size);
+  if (first === undefined) return undefined;
+  if (!rest.every((magnitude) => restates(first, magnitude))) return undefined;
+  return isMeasured(first.unit) ? first.unit : undefined;
+}
+
+/**
+ * True when `text` is **nothing but** one magnitude — `"30 g"`, `"330 ml"`,
+ * `"1 litre"`, or a bare `"30"` with no unit at all.
+ *
+ * It is the vocabulary question behind `portionLabelIsBareAmount`, and it lives
+ * here so there is one unit vocabulary rather than two. A hand-written list of
+ * spellings beside this file's {@link MAGNITUDE_TOKEN} would be a near-duplicate
+ * of the very thing #141/#139 built — and a narrower one, since OFF spells its
+ * units in every language it publishes in and a label typed by a person may use
+ * any of them.
+ *
+ * "Nothing but" is the whole of the difference from {@link soleMagnitudeUnit}:
+ * `"1 biscuit (12 g)"` names one magnitude, and is a perfectly good portion
+ * NAME. What this asks is whether the label has anything left once its magnitude
+ * is taken away.
+ */
+export function isBareMagnitude(text: string): boolean {
+  const trimmed = text.trim();
+  if (trimmed === "") return false;
+  if (/^\d+(?:[.,]\d+)?$/.test(trimmed)) return true;
+  // `MAGNITUDE_TOKEN` is a module-level /g regex, so its `lastIndex` persists
+  // between calls; matchAll takes its own copy and leaves the shared one alone.
+  const matches = [...trimmed.matchAll(MAGNITUDE_TOKEN)];
+  if (matches.length !== 1) return false;
+  const [match] = matches;
+  return match.index === 0 && match[0].length === trimmed.length;
+}

@@ -4,7 +4,7 @@ import {
   roundFoodDisplay,
   formatPortionLabel,
   formatPortionPreset,
-  portionLabelIsBareWeight,
+  portionLabelIsBareAmount,
   macrosFromNutrition,
   portionMeasure,
   portionPresets,
@@ -413,7 +413,7 @@ describe("formatPortionPreset", () => {
   });
 });
 
-describe("portionLabelIsBareWeight", () => {
+describe("portionLabelIsBareAmount", () => {
   it("flags labels that only restate a gram weight", () => {
     for (const label of [
       "30 g",
@@ -424,7 +424,24 @@ describe("portionLabelIsBareWeight", () => {
       "2.5 g",
       " 45 G ",
     ]) {
-      expect(portionLabelIsBareWeight(label)).toBe(true);
+      expect(portionLabelIsBareAmount(label)).toBe(true);
+    }
+  });
+
+  it("flags labels that only restate a volume, now that a row can hold one", () => {
+    // It was weights-only on a stated ground: the capture form's rows were "a
+    // label and a grams box". #460 gave the row a unit, so that ground is spent
+    // — and "330 ml" is exactly as uninformative a portion NAME as "30 g".
+    for (const label of [
+      "330 ml",
+      "330ml",
+      "330 millilitres",
+      "250 mL",
+      " 500 ML ",
+      "1.5 l",
+      "1 litre",
+    ]) {
+      expect(portionLabelIsBareAmount(label)).toBe(true);
     }
   });
 
@@ -433,10 +450,12 @@ describe("portionLabelIsBareWeight", () => {
       "1 slice",
       "1 biscuit (12 g)",
       "half a can",
+      "1 can",
+      "2 glasses",
       "",
       "  ",
     ]) {
-      expect(portionLabelIsBareWeight(label)).toBe(false);
+      expect(portionLabelIsBareAmount(label)).toBe(false);
     }
   });
 });
@@ -844,5 +863,83 @@ describe("dedupePortions", () => {
 
   it("is empty for an empty list", () => {
     expect(dedupePortions([])).toEqual([]);
+  });
+});
+
+describe("a portion may be offered in either unit (ADR-0108 §8)", () => {
+  // A 330 ml can of something the user has said is a juice, 1.04 g/ml.
+  const CAN: Portion = {
+    label: "1 can",
+    amount: 1,
+    unit: "can",
+    millilitres: 330,
+  };
+  const JUICE = 1.04;
+
+  it("drops a portion in the other unit on a food with no density", () => {
+    // ADR-0060 §6 stands exactly as written where nothing licenses a
+    // conversion: filling it in would be one done silently at ratio 1.
+    expect(portionPresets([CAN], "g")).toEqual([]);
+    expect(resolvePortionAmount([CAN], "1 can", "g")).toBeUndefined();
+  });
+
+  it("offers it across, in the field's own unit, on a food that carries one", () => {
+    const [chip] = portionPresets([CAN], "g", JUICE);
+    expect(chip.amount).toBe(343.2);
+    expect(resolvePortionAmount([CAN], "1 can", "g", 1, JUICE)).toBe(343.2);
+  });
+
+  it("marks a crossed chip `≈` and leaves an exact one unmarked", () => {
+    // The source stated a volume; the weight beside it is this app's reading of
+    // what the user said, and the `≈` is the whole of the signal (§9).
+    expect(portionPresets([CAN], "g", JUICE)[0].display).toBe(
+      "1 can — ≈343.2 g"
+    );
+    expect(portionPresets([CAN], "ml", JUICE)[0].display).toBe(
+      "1 can — 330 ml"
+    );
+  });
+
+  it("prefers a portion measured in the field's unit over one converted into it", () => {
+    // A source may publish two servings of one name. The one to fill in is the
+    // one it actually measured, not the one this app worked out.
+    const weighed: Portion = {
+      label: "1 can",
+      amount: 1,
+      unit: "can",
+      grams: 340,
+    };
+    expect(resolvePortionAmount([CAN, weighed], "1 can", "g", 1, JUICE)).toBe(
+      340
+    );
+    expect(resolvePortionAmount([weighed, CAN], "1 can", "g", 1, JUICE)).toBe(
+      340
+    );
+  });
+
+  it("scales a crossed portion by how many of it the user wants", () => {
+    expect(resolvePortionAmount([CAN], "1 can", "g", 2, JUICE)).toBe(686.4);
+  });
+});
+
+describe("the caption says what the basis weighs (ADR-0108 §9)", () => {
+  it("adds the weight on a volume basis the user has classified", () => {
+    expect(basisCaption("100 ml", 1.03)).toBe("Per 100 ml (≈103 g)");
+    expect(basisCaption("330 ml", 1.03)).toBe(
+      "Per serving (330 ml) (≈339.9 g)"
+    );
+  });
+
+  it("says nothing extra on a gram basis", () => {
+    // The weight of a gram basis is the gram basis, and restating it would be a
+    // conversion announcing itself for no reason.
+    expect(basisCaption("100 g", 1.03)).toBe("Per 100 g");
+    expect(basisCaption("30 g", 1.03)).toBe("Per serving (30 g)");
+  });
+
+  it("captions exactly as it always did on a food with no density", () => {
+    expect(basisCaption("100 ml")).toBe("Per 100 ml");
+    expect(basisCaption("1 serving")).toBe("Per serving");
+    expect(basisCaption("")).toBeNull();
   });
 });

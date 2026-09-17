@@ -209,11 +209,15 @@
   <LedgerImport {dbReady} />
 </Card>
 
-<!-- Your own devices, and the act that pairs one (ADR-0096 §8). It is the
-     root's because a pairing carries the whole jar rather than one Facet's
-     rows, and because ADR-0084 §6 puts the list here — and it expands in place
-     rather than opening the Devices screen ADR-0075 §4 used to name. -->
-<PairedDevicesSection />
+<!-- Your own devices, and the act that pairs one (ADR-0096 §8). ADR-0084 §6 puts
+     the list here, and it expands in place rather than opening the Devices
+     screen ADR-0075 §4 used to name. It is **no longer here because a pairing
+     must carry the whole jar**: ADR-0105 §1 scopes a lane to the Facet the act
+     ran in, so this one says which Facet it is and the root's answer is the
+     whole jar. Rations draws this same module on its own settings sheet under
+     `facetId="food"` (#423), which is a shared component rather than a
+     crossing — ADR-0078 §1 binds screens. -->
+<PairedDevicesSection facetId="root" />
 
 <!-- The jar-wide card: the root holds all six content domains, so it lists every
      channel and its Review and Export is jar-wide (ADR-0080 §2). Its switch is
@@ -234,7 +238,7 @@
 
   <div hidden={!testState.enabled} class="mt-4 border-top">
     <h3 class="mt-4">OPFS Survival Test</h3>
-    <div class="actions mt-2">
+    <div class="test-actions mt-2">
       <Button
         id="run-test-btn"
         onclick={handleStartTest}
@@ -387,7 +391,7 @@
   .border-top {
     border-top: var(--edge);
   }
-  .actions {
+  .test-actions {
     display: flex;
     gap: var(--space-xs);
   }

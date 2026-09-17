@@ -7,6 +7,7 @@ import {
   cursorOf,
   readLedgerPage,
   readLedgerSummary,
+  wipeFacetFromLedger,
   type Datom,
   type LedgerCursor,
   type LedgerDb,
@@ -14,6 +15,7 @@ import {
 } from "../../src/lib/db/db.core";
 import { createHlc, type Hlc } from "../../src/lib/db/hlc";
 import { entityPrefixesOf } from "../../src/lib/facets/registry";
+import { WHOLE_JAR } from "../../src/lib/p2p/lane-scope";
 
 // The paged read is what carries the ledger out of the worker one bounded
 // chunk at a time, so it is tested against the real sqlite-wasm build rather
@@ -163,12 +165,12 @@ describe("walking the ledger oldest-first", () => {
 
   /** Two rows whose key order and whose stamp order disagree. */
   function crossed(): void {
-    // `event:aaa` sorts first by primary key and is stamped later.
+    // `event:occur_aaa` sorts first by primary key and is stamped later.
     wall = 900;
-    append([datom({ entity: "event:aaa", attribute: "event/kind" })]);
+    append([datom({ entity: "event:occur_aaa", attribute: "event/kind" })]);
     wall = 100;
     clock = createHlc("device_b", { wallClock: () => wall });
-    append([datom({ entity: "event:bbb", attribute: "event/kind" })]);
+    append([datom({ entity: "event:occur_bbb", attribute: "event/kind" })]);
   }
 
   const walk = (order: "key" | "stamp") => {
@@ -185,12 +187,15 @@ describe("walking the ledger oldest-first", () => {
 
   it("walks by primary key by default, which puts the later stamp first", () => {
     crossed();
-    expect(walk("key")).toEqual(["event:aaa@900", "event:bbb@100"]);
+    expect(walk("key")).toEqual(["event:occur_aaa@900", "event:occur_bbb@100"]);
   });
 
   it("walks by stamp when asked, so every prefix is downward-closed", () => {
     crossed();
-    expect(walk("stamp")).toEqual(["event:bbb@100", "event:aaa@900"]);
+    expect(walk("stamp")).toEqual([
+      "event:occur_bbb@100",
+      "event:occur_aaa@900",
+    ]);
   });
 
   it("reaches every row either way, and the same rows", () => {
@@ -202,10 +207,10 @@ describe("walking the ledger oldest-first", () => {
 
   it("narrows by vector and orders by stamp together", () => {
     crossed();
-    const above = { device_b: { hlc_ms: 100, hlc_ctr: 0 } };
+    const above = { device_b: { calendar: { hlc_ms: 100, hlc_ctr: 0 } } };
     const page = readLedgerPage(db, null, 1024, { above, order: "stamp" });
-    // `event:bbb` is device_b's own row at exactly that mark, so it is held.
-    expect(page.map((r) => r.entity)).toEqual(["event:aaa"]);
+    // `event:occur_bbb` is device_b's own row at exactly that mark, so it is held.
+    expect(page.map((r) => r.entity)).toEqual(["event:occur_aaa"]);
   });
 });
 
@@ -251,5 +256,91 @@ describe("reading one Facet's rows a page at a time", () => {
   it("reads the whole ledger when it is given no prefixes at all", () => {
     jar();
     expect(readAll(1_024).length).toBe(4);
+  });
+});
+
+// A lane carries the rows of the Tracked Domains its two ends agreed on
+// (ADR-0105 §1), and a **Carried deletion** crosses it only where the prefix
+// list it froze is a subset of that lane's (§6). The second half is what §1's
+// predicate cannot express on its own: a deletion's entity is `deletion:`, so
+// its own prefix says nothing about what it deletes.
+describe("reading the rows one lane carries", () => {
+  const FOOD = entityPrefixesOf("food");
+
+  /** Every row a lane carries, walked the way a deposit walks it. */
+  function carried(laneScope: readonly string[]): string[] {
+    const all: LedgerRow[] = [];
+    let after: LedgerCursor | null = null;
+    for (let guard = 0; guard < 1_000; guard++) {
+      const page = readLedgerPage(db, after, 1_024, { laneScope });
+      if (page.length === 0) {
+        return all.map((row) => row.entity);
+      }
+      all.push(...page);
+      after = cursorOf(page[page.length - 1]);
+    }
+    throw new Error("paged read did not terminate");
+  }
+
+  /** One food row, one habit row, and then a wipe of the food. */
+  function wiped(prefixes: readonly string[] = FOOD): void {
+    append([
+      datom({ entity: "fdc:171705", attribute: "twin/name", value: "Oats" }),
+      datom({ entity: "habit:1", attribute: "habit/name", value: "Walk" }),
+    ]);
+    wall = 2_000;
+    wipeFacetFromLedger(db, prefixes, clock.now());
+    wall = 3_000;
+    append([
+      datom({ entity: "gtin:5000", attribute: "twin/name", value: "Beans" }),
+    ]);
+  }
+
+  const deletionIn = (entities: string[]): string[] =>
+    entities.filter((entity) => entity.startsWith("deletion:"));
+
+  it("carries its own domains' rows and no others", () => {
+    wiped();
+    expect(carried(["food"])).toContain("gtin:5000");
+    expect(carried(["food"])).not.toContain("habit:1");
+  });
+
+  it("carries a deletion of nothing but its own domains", () => {
+    wiped();
+    // The whole of #415: a food lane, and the food wipe crossing it.
+    expect(deletionIn(carried(["food"]))).toHaveLength(1);
+  });
+
+  it("leaves a deletion that reaches past it where it stands", () => {
+    // A wipe that took Media as well as food. Deleting it down a food lane
+    // would take rows the lane never promised to carry (§6).
+    wiped([...FOOD, "isbn:"]);
+    expect(deletionIn(carried(["food"]))).toEqual([]);
+    expect(deletionIn(carried(["food", "media"]))).toHaveLength(1);
+  });
+
+  it("carries every deletion down a jar-wide lane", () => {
+    wiped([...FOOD, "isbn:"]);
+    expect(deletionIn(carried(WHOLE_JAR))).toHaveLength(1);
+  });
+
+  it("carries no deletion whose frozen list will not parse, and reads on", () => {
+    wiped();
+    db.exec({
+      sql: "INSERT INTO datoms (entity, attribute, value, time, hlc_ms, hlc_ctr, device_id) VALUES (?, ?, ?, ?, ?, ?, ?);",
+      bind: ["deletion:broken", "deletion/prefixes", "not json", 4, 4, 0, "d"],
+    });
+    // A page read that threw on it would wedge every sync this device ever
+    // ran, because the row is in an append-only table forever.
+    expect(carried(["food"])).toContain("gtin:5000");
+    expect(carried(["food"])).not.toContain("deletion:broken");
+    // Down a jar-wide lane it crosses on its entity prefix like any other row
+    // of the Jar domain, which is what it did before this rule existed.
+    expect(carried(WHOLE_JAR)).toContain("deletion:broken");
+  });
+
+  it("carries nothing at all for a lane that names no domain", () => {
+    wiped();
+    expect(carried([])).toEqual([]);
   });
 });

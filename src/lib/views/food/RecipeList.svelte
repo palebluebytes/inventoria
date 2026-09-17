@@ -1,12 +1,12 @@
 <script lang="ts">
+  import { getLocalFoodTwin } from "../../stores/calorie.store";
   import {
-    getLocalFoodTwin,
-    seedRowsFromTemplate,
     recipeTwinsStore,
-  } from "../../stores/calorie.store";
+    seedRowsFromTemplate,
+  } from "../../stores/recipe.store";
   import {
     toReferenceIngredient,
-    panelFromIngredients,
+    sourceFromIngredients,
   } from "../../food/recipe-ingredient";
   import {
     deriveRecipeNutrition,
@@ -73,7 +73,7 @@
         if (twin) {
           const rows = await seedRowsFromTemplate(twin.attributes);
           const refs = rows.map(toReferenceIngredient);
-          const resolve = (ref: string) => panelFromIngredients(rows, ref);
+          const resolve = (ref: string) => sourceFromIngredients(rows, ref);
           const y = sanitizeYield(
             (twin.attributes["recipe/yield"] as number) ?? 1
           );
