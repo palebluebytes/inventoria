@@ -2339,6 +2339,64 @@ describe("copyPastMeal (ADR-0058)", () => {
     appendMock.mockResolvedValue(undefined);
   });
 
+  /**
+   * The set entire, rather than one attribute at a time like the tests below.
+   *
+   * A copy **re-logs frozen fields and never carries the source event's rows
+   * across**, which is the property ADR-0073 §5 leans on when a received meal
+   * lands through here: a payload's root reaches the fold carrying everything it
+   * had, and stops at this seam. That is why a meal carrying a reference the
+   * closure does not walk lands nothing at all (#427) — the completeness refusal
+   * has a blind spot and this is what covers it.
+   *
+   * Widening this set is an ordinary change to make for an ordinary reason, and
+   * it would reopen that hole in silence. So the set is asserted whole, and the
+   * two attributes planted on the source below are the ones a reader would most
+   * expect to travel.
+   */
+  it("writes these attributes and no others, whatever the source carried", async () => {
+    await copyPastMeal(
+      [
+        logged({
+          status: "retracted",
+          replaced_by: "event:consume_gone",
+        } as Partial<CopyableEvent>),
+      ],
+      "breakfast",
+      new Date()
+    );
+    expect(Object.keys(appendedAttributes(0)).sort()).toEqual([
+      "event/meal_type",
+      "event/metrics",
+      "event/quantity",
+      "event/target",
+      "event/type",
+    ]);
+  });
+
+  // The one conditional member, so the assertion above reads as the whole set
+  // rather than as the set on a day nothing was cooked.
+  it("adds the frozen instantiation, and still nothing else", async () => {
+    await copyPastMeal(
+      [
+        logged({
+          instantiation: { based_on: "recipe:x", yield: 1, ingredients: [] },
+          replaced_by: "event:consume_gone",
+        } as Partial<CopyableEvent>),
+      ],
+      "breakfast",
+      new Date()
+    );
+    expect(Object.keys(appendedAttributes(0)).sort()).toEqual([
+      "event/instantiation",
+      "event/meal_type",
+      "event/metrics",
+      "event/quantity",
+      "event/target",
+      "event/type",
+    ]);
+  });
+
   // §2 — a copy that silently changed how much you ate would not be a copy.
   it("carries the amount across exactly as logged", async () => {
     await copyPastMeal(
