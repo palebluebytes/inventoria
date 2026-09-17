@@ -18,6 +18,7 @@
   import {
     searchUsdaFoods,
     mapPayloadToFoodResult,
+    mapLedgerFoodToResult,
     isPoorFoodTwin,
     NoReferenceFoodError,
     NO_FOOD_FOUND,
@@ -466,6 +467,14 @@
   // the panel it was captured with, which the user may since have corrected from
   // a label (§7) — re-reading USDA over the top of that would silently throw the
   // correction away on the next log.
+  //
+  // **A "Your foods" row is a ledger twin too**, even though a query is what put
+  // it on screen, so `searched` is NOT "the query list is showing" (#485). The
+  // deepening itself is already a no-op on one — `completeStagedPanel` returns a
+  // non-`fdc:` payload untouched, and `ledgerFoodsFromEvents` admits no `fdc:`
+  // target — but the re-map below is not: it would rebuild the row from the twin
+  // alone and throw away the log the row was resolved WITH, putting the blank
+  // name and the zeros straight back onto the card.
   //
   // The food is staged first and the panel lands when the store resolves, so the
   // card, its name and its portions appear on the tap. What the wait does gate
@@ -1322,10 +1331,12 @@
     if (!v) return;
     const item = comboItems.find((f) => f.entity === v);
     comboValue = "";
-    // Which list the option came off decides whether its panel is deepened, and
-    // the query is what chose that list: the results are bundled rows, the
-    // recent list is ledger twins.
-    if (item) stageFood(item, ranked);
+    // Which list the option came off decides whether its panel is deepened. The
+    // query chooses the list — bundled rows when there is one, ledger twins in
+    // Recent when there is not — but the ranked list is not all corpus: the
+    // "Your foods" block leads it, and those rows are ledger twins that resolved
+    // through their own log and must not be rebuilt from the twin (#485).
+    if (item) stageFood(item, ranked && !yourEntities.has(item.entity));
   }
 
   // ── Camera barcode scanning ────────────────────────────────────────────────
@@ -1673,7 +1684,16 @@
   // ── Actions ────────────────────────────────────────────────────────────────
   // Twins resolved for the "Your foods" block, kept across searches so typing
   // does not refetch the same panel on every keystroke.
-  const searchTwinCache = new Map<string, FoodResult>();
+  //
+  // The PAYLOAD is what is cached, not the mapped row: the row now reads the log
+  // beside the twin (#485), and only the twin fetch is the I/O worth avoiding.
+  // Caching the row instead would pin a food to the figures its first search saw,
+  // so re-logging it at a different amount would leave the stale ones on screen.
+  const searchTwinCache = new Map<string, EntityPayload>();
+  // Which of the rows on screen came from the ledger rather than the corpus, so
+  // selecting one does not send it down the USDA-deepening path (#485). Held as
+  // entities because that is what the combobox hands back on a pick.
+  let yourEntities = new Set<string>();
   async function handleSearch() {
     clearTimeout(debounceTimer);
     if (!query.trim()) return;
@@ -1681,6 +1701,9 @@
     error = "";
     emptySearch = null;
     results = [];
+    // Emptied with the rows it describes, so a search that fails or comes back
+    // corpus-only cannot leave a previous query's ledger rows named here.
+    yourEntities = new Set();
     staged = null;
     try {
       // What this device already knows, folded from the consumption store the
@@ -1692,21 +1715,25 @@
         ledgerFoods: ledgerFoodsFromEvents(events),
         frecency: frecencyOf(events),
       });
-      // Your own foods lead, resolved through the SAME twin cache the Recent
-      // list fills (#320), so a food in both places is fetched once. One that no
-      // longer resolves — its twin retracted out from under the log — is simply
-      // dropped rather than rendered as a row with no panel.
+      // Your own foods lead, resolved through the twin cache above so a
+      // keystroke never refetches a panel this search already has (#320). One
+      // that no longer resolves — its twin retracted out from under the log —
+      // is simply dropped rather than rendered as a row with no panel.
       const yours: FoodResult[] = [];
       for (const food of search.your_foods) {
-        let twin = searchTwinCache.get(food.target);
-        if (!twin) {
-          const payload = await getLocalFoodTwin(food.target);
+        let payload = searchTwinCache.get(food.target);
+        if (!payload) {
+          payload = await getLocalFoodTwin(food.target);
           if (!payload) continue;
-          twin = mapPayloadToFoodResult(payload);
-          searchTwinCache.set(food.target, twin);
+          searchTwinCache.set(food.target, payload);
         }
-        yours.push(twin);
+        // Mapped with the LOG beside the twin, because the twin alone cannot
+        // answer for every target this block admits: a `recipe:` one carries
+        // neither `food/name` nor a nutrition panel (ADR-0021), and the payload
+        // mapper read both off it as `undefined` and zeros (#485).
+        yours.push(mapLedgerFoodToResult(food, payload));
       }
+      yourEntities = new Set(yours.map((row) => row.entity));
       // Prepended, and deliberately NOT marked as a separate block on screen.
       // ADR-0090 §6 keeps rows name-only, and its heading sits outside the
       // listbox so only options are its children — so a "Your foods" badge or a
