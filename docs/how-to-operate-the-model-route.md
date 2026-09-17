@@ -59,10 +59,12 @@ Two traps, both of which cost time once:
   **about 150 seconds** before it began answering `200`, with no change at either end.
   A `403` straight after an edit is not a wrong permission; poll before re-editing.
 
-The token lives in `.env` as `CLOUDFLARE_AI_API_TOKEN`, beside the R2 one. It is
-deliberately **not** the same token as `CLOUDFLARE_API_TOKEN`: that one is the USDA
-backup's, and widening it would hand gateway-edit rights to a script that backs up a
-public dataset.
+The token lives in `.env` as `CLOUDFLARE_AI_API_TOKEN`. It is deliberately **not** the same
+token as `CLOUDFLARE_API_TOKEN`, which is the **deploy** token that `wrangler` reads by
+that exact name — widening it would put gateway-edit rights on the credential that ships
+the site, and a bare swap of it points `pnpm deploy` somewhere unintended.
+
+Both are **account** tokens, so both are rejected by `/user/tokens/verify`.
 
 ## Provisioning it, once
 
