@@ -381,3 +381,22 @@ export async function impromptuRecipeId(
   // render to the same string by running together at the seam.
   return mintEntity("recipe:", await digestSuffix(refs.join("\n")));
 }
+
+/**
+ * Whether a resolved `recipe:` twin is an Impromptu Recipe: it carries no
+ * `recipe/name` (ADR-0110 §1).
+ *
+ * The absence of the name is the whole discriminant — no attribute records
+ * which verb minted a twin and no flag records its kind, because absence IS the
+ * value. It reads the twin rather than the event on purpose: since §3 an
+ * impromptu dish is labelled from its own frozen snapshot, so `event.foodName`
+ * carries a label indistinguishable from a typed name and cannot answer this.
+ *
+ * It lives here beside {@link impromptuRecipeId} rather than in the screen that
+ * asks it, because two surfaces ask it of one twin — the sheet that titles
+ * itself, and the builder that decides what it may edit — and a second reading
+ * of "nameless" is how those two would come to disagree.
+ */
+export function isImpromptuTwin(twin: EntityPayload | null): boolean {
+  return twin !== null && !twin.attributes["recipe/name"];
+}

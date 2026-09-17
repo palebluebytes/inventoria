@@ -228,6 +228,43 @@ export async function saveRecipe(
 }
 
 /**
+ * Promotes an Impromptu Recipe to a Recipe Twin by giving it a name (ADR-0110
+ * §5): one appended `recipe/name` datom, after which the twin is in the library
+ * and every past occasion of it is an occasion of the named recipe.
+ *
+ * **It is not a new verb.** It scores exactly as `edit` does on ADR-0022 §4's
+ * three columns — creates no twin, logs nothing, retracts nothing — and writes
+ * the same attribute on the same entity. What feels distinct about it is the
+ * change in membership, and membership is derived rather than written.
+ *
+ * It is not {@link saveRecipe}'s edit branch either, and that is why it exists.
+ * That branch writes the ingredients, the yield and all five optionals
+ * unconditionally, because an empty value is how an edit clears a field — so
+ * naming a dressing through it would spend eight datoms, clear notes and steps
+ * that a later edit may have filled in, and rewrite the ingredient list §7 calls
+ * read-only. The id is a fingerprint of those refs; rewriting them would make it
+ * a lie.
+ *
+ * The id is **not** re-minted, because ids are immutable and every existing
+ * instantiation names this one. A promoted twin therefore stays in the reuse
+ * pool, and consolidating those ingredients again becomes an instantiation of
+ * the named recipe (§4).
+ *
+ * A blank name is refused rather than written. The library is
+ * `WHERE attribute = 'recipe/name'`, so an empty one would put the dish in it
+ * while reading as a name-shaped falsy value everywhere else — the one thing
+ * {@link saveRecipe} will not write. The screen above gates on the same
+ * question; this refuses rather than trusting that it held.
+ */
+export async function nameRecipe(entity: string, name: string): Promise<void> {
+  const trimmed = name.trim();
+  if (!trimmed) throw new Error("a recipe name cannot be blank");
+  await dbClient.append(
+    ingestEntity({ entity, attributes: { "recipe/name": trimmed } })
+  );
+}
+
+/**
  * Logs a recipe as a Recipe Instantiation — a Consumption Event carrying a frozen
  * `event/instantiation` snapshot beside its `event/metrics` headline (ADR-0022).
  * Both are derived from the referenced ingredient twins' real `nutrition/info`

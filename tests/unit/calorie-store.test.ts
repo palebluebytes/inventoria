@@ -16,6 +16,7 @@ import {
 } from "../../src/lib/stores/calorie.store";
 import {
   saveRecipe,
+  nameRecipe,
   logRecipeConsumption,
   correctInstantiation,
 } from "../../src/lib/stores/recipe.store";
@@ -624,6 +625,70 @@ describe("Calorie Store Actions", () => {
           await saveRecipe({ ingredients: dressing }, "recipe:existing_123")
         ).toBe("recipe:existing_123");
       });
+    });
+  });
+
+  // Promotion (ADR-0110 §5): an Impromptu Recipe becomes a Recipe Twin when you
+  // give it a name, and that is the whole of what promotion writes. It is not a
+  // new verb — it scores exactly as `edit` does on ADR-0022 §4's three columns —
+  // but it is not `saveRecipe`'s edit branch either, which writes eight datoms
+  // because an edit clears an omitted optional by writing an empty value.
+  describe("nameRecipe", () => {
+    beforeEach(() => {
+      vi.spyOn(dbClient, "append").mockResolvedValue(undefined);
+    });
+
+    it("appends one recipe/name datom, on the twin it was given", async () => {
+      const mockAppend = vi.spyOn(dbClient, "append");
+
+      await nameRecipe("recipe:a1b2c3", "House dressing");
+
+      const datoms = mockAppend.mock.calls[0][0];
+      expect(datoms).toHaveLength(1);
+      expect(datoms[0].entity).toBe("recipe:a1b2c3");
+      expect(datoms[0].attribute).toBe("recipe/name");
+      expect(datoms[0].value).toBe("House dressing");
+    });
+
+    // §7 — an Impromptu Recipe's identity IS its ingredient set, so promoting
+    // one must not rewrite it. The id survives naming, and it is a fingerprint
+    // of those refs: a rewritten list would make it a lie.
+    it("rewrites neither the ingredients nor any optional field", async () => {
+      const mockAppend = vi.spyOn(dbClient, "append");
+
+      await nameRecipe("recipe:a1b2c3", "House dressing");
+
+      const written = mockAppend.mock.calls[0][0].map((d) => d.attribute);
+      for (const untouched of [
+        "recipe/ingredients",
+        "recipe/yield",
+        "recipe/description",
+        "recipe/url",
+        "recipe/instructions",
+        "recipe/image",
+        "recipe/batch_weight",
+      ]) {
+        expect(written).not.toContain(untouched);
+      }
+    });
+
+    it("trims, as the store that mints a name does", async () => {
+      const mockAppend = vi.spyOn(dbClient, "append");
+
+      await nameRecipe("recipe:a1b2c3", "  House dressing  ");
+
+      expect(mockAppend.mock.calls[0][0][0].value).toBe("House dressing");
+    });
+
+    // A blank name would put an impromptu dish in the library while reading as
+    // a name-shaped falsy value everywhere else — the one thing `saveRecipe`
+    // refuses to write. Refused here too, rather than trusting the gate on the
+    // screen above to have held.
+    it("refuses a name that is not one, and writes nothing", async () => {
+      const mockAppend = vi.spyOn(dbClient, "append");
+
+      await expect(nameRecipe("recipe:a1b2c3", "   ")).rejects.toThrow();
+      expect(mockAppend).not.toHaveBeenCalled();
     });
   });
 
