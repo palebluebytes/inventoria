@@ -1,0 +1,74 @@
+[
+  {
+    "label": "peanut-butter",
+    "model": "llama-4-scout",
+    "model_id": "@cf/meta/llama-4-scout-17b-16e-instruct",
+    "arm": "as-captured",
+    "edge": 800,
+    "repeat": 0,
+    "status": 200,
+    "ms": 4268,
+    "content": "{\n  \"name\": null,\n  \"brand\": null,\n  \"barcode\": \"8710411045003\",\n  \"basis\": \"per_100g\",\n  \"nutrition\": {\n    \"energy_kj\": 2625,\n    \"energy_kcal\": 634,\n    \"fat_g\": 53.0,\n    \"saturated_fat_g\": 8.0,\n    \"carbohydrate_g\": 8.5,\n    \"sugar_g\": 5.4,\n    \"fiber_g\": 7.5,\n    \"protein_g\": 27,\n    \"salt_g\": 0.6\n  }\n}",
+    "finish": "stop",
+    "usage": {
+      "prompt_tokens": 1371,
+      "completion_tokens": 136,
+      "total_tokens": 1507,
+      "prompt_tokens_details": {
+        "cached_tokens": 0
+      },
+      "neurons": 44.160911560058594
+    },
+    "error": null
+  },
+  {
+    "label": "peanut-butter",
+    "model": "mistral-small-3.1",
+    "model_id": "@cf/mistralai/mistral-small-3.1-24b-instruct",
+    "arm": "as-captured",
+    "edge": 800,
+    "repeat": 0,
+    "status": 200,
+    "ms": 3479,
+    "content": "```json\n{\n  \"name\": null,\n  \"brand\": null,\n  \"barcode\": \"8710411045003\",\n  \"basis\": \"per_100g\",\n  \"nutrition\": {\n    \"energy_kj\": 2625,\n    \"energy_kcal\": 634,\n    \"fat_g\": 53,\n    \"saturated_fat_g\": 8,\n    \"carbohydrate_g\": 8.5,\n    \"sugar_g\": 5.4,\n    \"fiber_g\": 7.5,\n    \"protein_g\": 27,\n    \"salt_g\": 0.6\n  }\n}\n```",
+    "finish": "stop",
+    "usage": {
+      "prompt_tokens": 893,
+      "completion_tokens": 156,
+      "total_tokens": 1049,
+      "prompt_tokens_details": {
+        "cached_tokens": 0
+      },
+      "neurons": 36.34139633178711
+    },
+    "error": null
+  },
+  {
+    "label": "peanut-butter",
+    "model": "moondream",
+    "model_id": "@cf/moondream/moondream3.1-9B-A2B",
+    "arm": "as-captured",
+    "edge": 800,
+    "repeat": 0,
+    "status": 400,
+    "ms": 406,
+    "content": null,
+    "finish": null,
+    "usage": null,
+    "error": "{\"errors\":[{\"message\":\"AiError: Bad input: Error: Type mismatch of '/image', 'string' not in 'array','binary' (b76ea4a5-f3f5-43bf-8a29-f294845786ed)\",\"code\":5006}],\"success\":false,\"result\":{},\"messages\":[]}"
+  },
+  {
+    "label": "peanut-butter",
+    "model": "llava",
+    "model_id": "@cf/llava-hf/llava-1.5-7b-hf",
+    "arm": "as-captured",
+    "edge": 800,
+    "repeat": 0,
+    "status": 200,
+    "ms": 1267,
+    "content": null,
+    "finish": "stop",
+    "usage": null,
+    "error": null
+  }
+]

@@ -1,0 +1,16 @@
+[
+  {
+    "label": "peanut-butter",
+    "model": "llama-3.2-vision",
+    "model_id": "@cf/meta/llama-3.2-11b-vision-instruct",
+    "arm": "as-captured",
+    "edge": 1600,
+    "repeat": 0,
+    "status": 400,
+    "ms": 1384,
+    "content": null,
+    "finish": null,
+    "usage": null,
+    "error": "{\"errors\":[{\"message\":\"AiError: AiError: Unable to add image when there are no user-supplied nor system-supplied messages. (89a8044b-fdf4-4a4b-8f24-61a9423f6a53)\",\"code\":3030}],\"success\":false,\"result\":{},\"messages\":[]}"
+  }
+]

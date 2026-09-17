@@ -1,0 +1,93 @@
+{
+  "_comment": "PROTOTYPE #482. Hand-transcribed from docs/assets/label-samples/as-captured/ at full 2250x4000 resolution, BEFORE any model was called. Values are exactly as printed: no conversion, no arithmetic, no correction of the label's own inconsistencies. `null` means THE LABEL DOES NOT PRINT THAT ROW - the absent-row instrument.",
+  "labels": {
+    "peanut-butter": {
+      "file": "peanut-butter-8710411045003-panel-and-barcode.jpg",
+      "languages": ["nl", "de"],
+      "basis": "per_100g",
+      "decimal_separator": "period",
+      "layout": "ruled table",
+      "barcode_in_frame": true,
+      "barcode": "8710411045003",
+      "name": null,
+      "brand": null,
+      "printed": {
+        "energy_kj": 2625,
+        "energy_kcal": 634,
+        "fat_g": 53.0,
+        "saturated_fat_g": 8.0,
+        "carbohydrate_g": 8.5,
+        "sugar_g": 5.4,
+        "fiber_g": 7.5,
+        "protein_g": 27,
+        "salt_g": 0.6
+      }
+    },
+    "olive-oil-panel": {
+      "file": "olive-oil-8436578483808-panel.jpg",
+      "languages": ["es", "en"],
+      "basis": "per_100ml",
+      "decimal_separator": "comma",
+      "layout": "prose, twice over",
+      "barcode_in_frame": false,
+      "barcode": null,
+      "name": "Aceite de oliva virgen extra / Extra virgin olive oil",
+      "brand": "La Chinata",
+      "printed": {
+        "energy_kj": 3701.13,
+        "energy_kcal": 884,
+        "fat_g": 100,
+        "saturated_fat_g": 13.808,
+        "carbohydrate_g": 0,
+        "sugar_g": 0,
+        "fiber_g": null,
+        "protein_g": 0,
+        "salt_g": 0
+      }
+    },
+    "olive-oil-barcode": {
+      "file": "olive-oil-8436578483808-barcode.jpg",
+      "languages": ["es", "en", "de", "fr"],
+      "basis": null,
+      "layout": "net quantity + barcode, barcode rotated 90 deg",
+      "barcode_in_frame": true,
+      "barcode": "8436578483808",
+      "net_quantity": "50ml",
+      "batch": "L-931",
+      "best_before": "01/27",
+      "name": "Natives Olivenol extra / Huile d'olive vierge extra",
+      "brand": null,
+      "printed": {}
+    },
+    "indian-paste": {
+      "file": "indian-paste-8901222932167-panel-and-barcode.jpg",
+      "languages": ["en", "es", "it", "fr", "pl", "nl"],
+      "basis": "per_100g",
+      "decimal_separator": "period",
+      "layout": "ruled table, six languages stacked per row label",
+      "barcode_in_frame": true,
+      "barcode": "8901222932167",
+      "name": null,
+      "brand": null,
+      "printed": {
+        "energy_kj": 937.21,
+        "energy_kcal": 224,
+        "fat_g": 0,
+        "saturated_fat_g": 0,
+        "carbohydrate_g": 60,
+        "sugar_g": 50,
+        "fiber_g": 0,
+        "protein_g": 0,
+        "salt_g": 0
+      }
+    }
+  },
+  "micronutrients_printed_anywhere": [],
+  "notes": [
+    "The olive oil prints SEVEN rows, not eight: there is no fibre row in either the Spanish or the English prose. docs/assets/label-samples/README.md says its prose 'carries the same eight'; it does not. So fibre is a second absent-row instrument alongside the twelve micros.",
+    "The Indian paste's panel is internally inconsistent as printed: 60 g carbohydrate alone is ~240 kcal against a declared 224 kcal, with fat 0 g and protein 0 g. A model that 'fixes' this is wrong. Transcribe what is printed.",
+    "The paste's energy header reads '(kj / kcal)' with a lowercase j, and its kJ figure uses a PERIOD (937.21) while the oil's uses a COMMA (3701,13). Both appear in the same set.",
+    "The paste's Polish fibre word is printed faint enough to read as 'Bionnik' rather than 'Blonnik'.",
+    "EU labels print SALT. The app's panel field is `sodium_content` and the form labels it 'Salt / sodium' in mg, while the OFF mapper fills it from `sodium_100g` (true sodium, salt/2.5). Ground truth records salt AS PRINTED; whether the model, the Worker or the client divides is a contract question for #483, not a thing to hide inside a prompt."
+  ]
+}

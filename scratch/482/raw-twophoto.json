@@ -1,0 +1,510 @@
+[
+  {
+    "label": "olive-oil-both",
+    "model": "llama-4-scout",
+    "model_id": "@cf/meta/llama-4-scout-17b-16e-instruct",
+    "arm": "as-captured",
+    "edge": 1600,
+    "repeat": 0,
+    "status": 200,
+    "ms": 4324,
+    "content": {
+      "barcode": "843636578483808",
+      "basis": "per_100ml",
+      "brand": "Lachinata",
+      "name": "ACEITE DE OLIVA VIRGEN EXTRA",
+      "nutrition": {
+        "carbohydrate_g": 0,
+        "energy_kcal": 884,
+        "energy_kj": 3701.13,
+        "fat_g": 100,
+        "fiber_g": null,
+        "protein_g": 0,
+        "salt_g": 0,
+        "saturated_fat_g": 13.808,
+        "sugar_g": 0
+      }
+    },
+    "usage": {
+      "prompt_tokens": 4998,
+      "completion_tokens": 138,
+      "total_tokens": 5136,
+      "prompt_tokens_details": {
+        "cached_tokens": 0
+      },
+      "neurons": 133.34182739257812
+    },
+    "finish": null,
+    "raw": null
+  },
+  {
+    "label": "olive-oil-both",
+    "model": "llama-4-scout",
+    "model_id": "@cf/meta/llama-4-scout-17b-16e-instruct",
+    "arm": "as-captured",
+    "edge": 1600,
+    "repeat": 1,
+    "status": 200,
+    "ms": 5071,
+    "content": {
+      "barcode": "843636578483808",
+      "basis": "per_100ml",
+      "brand": "Lachinata",
+      "name": "Aceite de Oliva Virgen Extra",
+      "nutrition": {
+        "carbohydrate_g": 0,
+        "energy_kcal": 884,
+        "energy_kj": 3701.13,
+        "fat_g": 100,
+        "fiber_g": null,
+        "protein_g": 0,
+        "salt_g": 0,
+        "saturated_fat_g": 13.808,
+        "sugar_g": 0
+      }
+    },
+    "usage": {
+      "prompt_tokens": 4998,
+      "completion_tokens": 137,
+      "total_tokens": 5135,
+      "prompt_tokens_details": {
+        "cached_tokens": 0
+      },
+      "neurons": 133.26454162597656
+    },
+    "finish": null,
+    "raw": null
+  },
+  {
+    "label": "olive-oil-both",
+    "model": "llama-4-scout",
+    "model_id": "@cf/meta/llama-4-scout-17b-16e-instruct",
+    "arm": "as-captured",
+    "edge": 1600,
+    "repeat": 2,
+    "status": 200,
+    "ms": 4005,
+    "content": {
+      "barcode": "843636578483808",
+      "basis": "per_100ml",
+      "brand": "Lachinata",
+      "name": "Aceite de Oliva Virgen Extra",
+      "nutrition": {
+        "carbohydrate_g": 0,
+        "energy_kcal": 884,
+        "energy_kj": 3701.13,
+        "fat_g": 100,
+        "fiber_g": null,
+        "protein_g": 0,
+        "salt_g": 0,
+        "saturated_fat_g": 13.808,
+        "sugar_g": 0
+      }
+    },
+    "usage": {
+      "prompt_tokens": 4998,
+      "completion_tokens": 137,
+      "total_tokens": 5135,
+      "prompt_tokens_details": {
+        "cached_tokens": 0
+      },
+      "neurons": 133.26454162597656
+    },
+    "finish": null,
+    "raw": null
+  },
+  {
+    "label": "olive-oil-both",
+    "model": "mistral-small-3.1",
+    "model_id": "@cf/mistralai/mistral-small-3.1-24b-instruct",
+    "arm": "as-captured",
+    "edge": 1600,
+    "repeat": 0,
+    "status": 200,
+    "ms": 4225,
+    "content": "```json\n{\n  \"name\": \"Aceite de Oliva Virgen Extra\",\n  \"brand\": null,\n  \"barcode\": \"8436578483808\",\n  \"basis\": \"per_100ml\",\n  \"nutrition\": {\n    \"energy_kj\": 3701.13,\n    \"energy_kcal\": 884,\n    \"fat_g\": 100,\n    \"saturated_fat_g\": 13.808,\n    \"carbohydrate_g\": 0,\n    \"sugar_g\": 0,\n    \"protein_g\": 0,\n    \"salt_g\": 0\n  }\n}\n```",
+    "usage": {
+      "prompt_tokens": 3891,
+      "completion_tokens": 154,
+      "total_tokens": 4045,
+      "prompt_tokens_details": {
+        "cached_tokens": 0
+      },
+      "neurons": 131.80467224121094
+    },
+    "finish": null,
+    "raw": null
+  },
+  {
+    "label": "olive-oil-both",
+    "model": "mistral-small-3.1",
+    "model_id": "@cf/mistralai/mistral-small-3.1-24b-instruct",
+    "arm": "as-captured",
+    "edge": 1600,
+    "repeat": 1,
+    "status": 200,
+    "ms": 3971,
+    "content": "```json\n{\n  \"name\": \"Aceite de Oliva Virgen Extra\",\n  \"brand\": null,\n  \"barcode\": \"8436578483808\",\n  \"basis\": \"per_100ml\",\n  \"nutrition\": {\n    \"energy_kj\": 3701.13,\n    \"energy_kcal\": 884,\n    \"fat_g\": 100,\n    \"saturated_fat_g\": 13.808,\n    \"carbohydrate_g\": 0,\n    \"sugar_g\": 0,\n    \"protein_g\": 0,\n    \"salt_g\": 0\n  }\n}\n```",
+    "usage": {
+      "prompt_tokens": 3891,
+      "completion_tokens": 154,
+      "total_tokens": 4045,
+      "prompt_tokens_details": {
+        "cached_tokens": 0
+      },
+      "neurons": 131.80467224121094
+    },
+    "finish": null,
+    "raw": null
+  },
+  {
+    "label": "olive-oil-both",
+    "model": "mistral-small-3.1",
+    "model_id": "@cf/mistralai/mistral-small-3.1-24b-instruct",
+    "arm": "as-captured",
+    "edge": 1600,
+    "repeat": 2,
+    "status": 200,
+    "ms": 4767,
+    "content": "```json\n{\n  \"name\": \"Aceite de Oliva Virgen Extra\",\n  \"brand\": null,\n  \"barcode\": \"8436578483808\",\n  \"basis\": \"per_100ml\",\n  \"nutrition\": {\n    \"energy_kj\": 3701.13,\n    \"energy_kcal\": 884,\n    \"fat_g\": 100,\n    \"saturated_fat_g\": 13.808,\n    \"carbohydrate_g\": 0,\n    \"sugar_g\": 0,\n    \"protein_g\": 0,\n    \"salt_g\": 0\n  }\n}\n```",
+    "usage": {
+      "prompt_tokens": 3891,
+      "completion_tokens": 154,
+      "total_tokens": 4045,
+      "prompt_tokens_details": {
+        "cached_tokens": 0
+      },
+      "neurons": 131.80467224121094
+    },
+    "finish": null,
+    "raw": null
+  },
+  {
+    "label": "olive-oil-both",
+    "model": "llama-3.2-vision",
+    "arm": "as-captured",
+    "edge": 1600,
+    "repeat": 0,
+    "status": "skipped",
+    "note": "shape carries exactly one image; the two-photo case is unreachable for this model"
+  },
+  {
+    "label": "olive-oil-both",
+    "model": "moondream",
+    "arm": "as-captured",
+    "edge": 1600,
+    "repeat": 0,
+    "status": "skipped",
+    "note": "shape carries exactly one image; the two-photo case is unreachable for this model"
+  },
+  {
+    "label": "olive-oil-barcode",
+    "model": "llama-4-scout",
+    "model_id": "@cf/meta/llama-4-scout-17b-16e-instruct",
+    "arm": "as-captured",
+    "edge": 1600,
+    "repeat": 0,
+    "status": 200,
+    "ms": 1535,
+    "content": {
+      "barcode": "426578483808",
+      "basis": null,
+      "brand": "Natives",
+      "name": "Natives Olivenöl Extra",
+      "nutrition": {}
+    },
+    "usage": {
+      "prompt_tokens": 2676,
+      "completion_tokens": 44,
+      "total_tokens": 2720,
+      "prompt_tokens_details": {
+        "cached_tokens": 0
+      },
+      "neurons": 69.0836410522461
+    },
+    "finish": null,
+    "raw": null
+  },
+  {
+    "label": "olive-oil-barcode",
+    "model": "llama-4-scout",
+    "model_id": "@cf/meta/llama-4-scout-17b-16e-instruct",
+    "arm": "as-captured",
+    "edge": 1600,
+    "repeat": 1,
+    "status": 200,
+    "ms": 1199,
+    "content": {
+      "barcode": "426578483808",
+      "basis": null,
+      "brand": "Natives",
+      "name": "Natives Olivenöl Extra",
+      "nutrition": {}
+    },
+    "usage": {
+      "prompt_tokens": 2676,
+      "completion_tokens": 44,
+      "total_tokens": 2720,
+      "prompt_tokens_details": {
+        "cached_tokens": 0
+      },
+      "neurons": 69.0836410522461
+    },
+    "finish": null,
+    "raw": null
+  },
+  {
+    "label": "olive-oil-barcode",
+    "model": "llama-4-scout",
+    "model_id": "@cf/meta/llama-4-scout-17b-16e-instruct",
+    "arm": "as-captured",
+    "edge": 1600,
+    "repeat": 2,
+    "status": 200,
+    "ms": 1402,
+    "content": {
+      "barcode": "426578483808",
+      "basis": null,
+      "brand": "Natives",
+      "name": "Natives Olivenöl Extra",
+      "nutrition": {}
+    },
+    "usage": {
+      "prompt_tokens": 2676,
+      "completion_tokens": 44,
+      "total_tokens": 2720,
+      "prompt_tokens_details": {
+        "cached_tokens": 0
+      },
+      "neurons": 69.0836410522461
+    },
+    "finish": null,
+    "raw": null
+  },
+  {
+    "label": "olive-oil-barcode",
+    "model": "mistral-small-3.1",
+    "model_id": "@cf/mistralai/mistral-small-3.1-24b-instruct",
+    "arm": "as-captured",
+    "edge": 1600,
+    "repeat": 0,
+    "status": 200,
+    "ms": 4798,
+    "content": "```json\n{\n  \"name\": null,\n  \"brand\": null,\n  \"barcode\": \"8436578483808\",\n  \"basis\": null,\n  \"nutrition\": {\n    \"energy_kj\": null,\n    \"energy_kcal\": null,\n    \"fat_g\": null,\n    \"saturated_fat_g\": null,\n    \"carbohydrate_g\": null,\n    \"sugar_g\": null,\n    \"fiber_g\": null,\n    \"protein_g\": null,\n    \"salt_g\": null,\n    \"vitamin_d_mg\": null,\n    \"calcium_mg\": null,\n    \"iron_mg\": null,\n    \"potassium_mg\": null,\n    \"vitamin_a_mg\": null,\n    \"vitamin_c_mg\": null,\n    \"vitamin_e_mg\": null,\n    \"vitamin_b6_mg\": null,\n    \"vitamin_b12_mg\": null,\n    \"folate_mg\": null,\n    \"magnesium_mg\": null,\n    \"zinc_mg\": null\n  }\n}\n```",
+    "usage": {
+      "prompt_tokens": 2131,
+      "completion_tokens": 242,
+      "total_tokens": 2373,
+      "prompt_tokens_details": {
+        "cached_tokens": 0
+      },
+      "neurons": 80.1458511352539
+    },
+    "finish": null,
+    "raw": null
+  },
+  {
+    "label": "olive-oil-barcode",
+    "model": "mistral-small-3.1",
+    "model_id": "@cf/mistralai/mistral-small-3.1-24b-instruct",
+    "arm": "as-captured",
+    "edge": 1600,
+    "repeat": 1,
+    "status": 200,
+    "ms": 4910,
+    "content": "```json\n{\n  \"name\": null,\n  \"brand\": null,\n  \"barcode\": \"8436578483808\",\n  \"basis\": null,\n  \"nutrition\": {\n    \"energy_kj\": null,\n    \"energy_kcal\": null,\n    \"fat_g\": null,\n    \"saturated_fat_g\": null,\n    \"carbohydrate_g\": null,\n    \"sugar_g\": null,\n    \"fiber_g\": null,\n    \"protein_g\": null,\n    \"salt_g\": null,\n    \"vitamin_d_mg\": null,\n    \"calcium_mg\": null,\n    \"iron_mg\": null,\n    \"potassium_mg\": null,\n    \"vitamin_a_mg\": null,\n    \"vitamin_c_mg\": null,\n    \"vitamin_e_mg\": null,\n    \"vitamin_b6_mg\": null,\n    \"vitamin_b12_mg\": null,\n    \"folate_mg\": null,\n    \"magnesium_mg\": null,\n    \"zinc_mg\": null\n  }\n}\n```",
+    "usage": {
+      "prompt_tokens": 2131,
+      "completion_tokens": 242,
+      "total_tokens": 2373,
+      "prompt_tokens_details": {
+        "cached_tokens": 0
+      },
+      "neurons": 80.1458511352539
+    },
+    "finish": null,
+    "raw": null
+  },
+  {
+    "label": "olive-oil-barcode",
+    "model": "mistral-small-3.1",
+    "model_id": "@cf/mistralai/mistral-small-3.1-24b-instruct",
+    "arm": "as-captured",
+    "edge": 1600,
+    "repeat": 2,
+    "status": 200,
+    "ms": 5013,
+    "content": "```json\n{\n  \"name\": null,\n  \"brand\": null,\n  \"barcode\": \"8436578483808\",\n  \"basis\": null,\n  \"nutrition\": {\n    \"energy_kj\": null,\n    \"energy_kcal\": null,\n    \"fat_g\": null,\n    \"saturated_fat_g\": null,\n    \"carbohydrate_g\": null,\n    \"sugar_g\": null,\n    \"fiber_g\": null,\n    \"protein_g\": null,\n    \"salt_g\": null,\n    \"vitamin_d_mg\": null,\n    \"calcium_mg\": null,\n    \"iron_mg\": null,\n    \"potassium_mg\": null,\n    \"vitamin_a_mg\": null,\n    \"vitamin_c_mg\": null,\n    \"vitamin_e_mg\": null,\n    \"vitamin_b6_mg\": null,\n    \"vitamin_b12_mg\": null,\n    \"folate_mg\": null,\n    \"magnesium_mg\": null,\n    \"zinc_mg\": null\n  }\n}\n```",
+    "usage": {
+      "prompt_tokens": 2131,
+      "completion_tokens": 242,
+      "total_tokens": 2373,
+      "prompt_tokens_details": {
+        "cached_tokens": 0
+      },
+      "neurons": 80.1458511352539
+    },
+    "finish": null,
+    "raw": null
+  },
+  {
+    "label": "olive-oil-barcode",
+    "model": "llama-3.2-vision",
+    "model_id": "@cf/meta/llama-3.2-11b-vision-instruct",
+    "arm": "as-captured",
+    "edge": 1600,
+    "repeat": 0,
+    "status": 200,
+    "ms": 14961,
+    "content": "The image shows a hand holding a bottle of olive oil with a label on it. The label has a black and white design with text in multiple languages, including English, Spanish, French, and German.\n\nHere is the transcribed data from the label:\n\n* Name: Natives Olivenöl Extra\n* Brand: Huile d'Olive Vierge Extra\n* Barcode: 8436578483808\n* Basis: per 100ml\n* Nutrition:\n\t+ Energy_kj: 931\n\t+ Energy_kcal: 227\n\t+ Fat_g: 0\n\t+ Saturated_fat_g: 0\n\t+ Carbohydrate_g: 0\n\t+ Sugar_g: 0\n\t+ Fiber_g: 0\n\t+ Protein_g: 0\n\t+ Salt_g: 0\n\t+ Vitamin_d_mg: 0\n\t+ Calcium_mg: 0\n\t+ Iron_mg: 0\n\t+ Potassium_mg: 0\n\t+ Vitamin_a_mg: 0\n\t+ Vitamin_c_mg: 0\n\t+ Vitamin_e_mg: 0\n\t+ Vitamin_b6_mg: 0\n\t+ Vitamin_b12_mg: 0\n\t+ Folate_mg: 0\n\t+ Magnesium_mg: 0\n\t+ Zinc_mg: 0\n\nNote that the values for fat, saturated fat, carbohydrate, sugar, fiber, protein, salt, and micronutrients are all zero, indicating that this product is likely a pure olive oil with no added ingredients or preservatives.",
+    "usage": {
+      "prompt_tokens": 6761,
+      "completion_tokens": 339,
+      "total_tokens": 7100,
+      "prompt_tokens_details": {
+        "cached_tokens": 0
+      },
+      "neurons": 50.665340267625005
+    },
+    "finish": null,
+    "raw": null
+  },
+  {
+    "label": "olive-oil-barcode",
+    "model": "llama-3.2-vision",
+    "model_id": "@cf/meta/llama-3.2-11b-vision-instruct",
+    "arm": "as-captured",
+    "edge": 1600,
+    "repeat": 1,
+    "status": 200,
+    "ms": 16034,
+    "content": {
+      "name": null,
+      "brand": null,
+      "barcode": "8436578483808",
+      "basis": "per_100ml",
+      "nutrition": {
+        "energy_kj": 0,
+        "energy_kcal": 0,
+        "fat_g": 0,
+        "saturated_fat_g": 0,
+        "carbohydrate_g": 0,
+        "sugar_g": 0,
+        "fiber_g": 0,
+        "protein_g": 0,
+        "salt_g": 0,
+        "vitamin_d_mg": 0,
+        "calcium_mg": 0,
+        "iron_mg": 0,
+        "potassium_mg": 0,
+        "vitamin_a_mg": 0,
+        "vitamin_c_mg": 0,
+        "vitamin_e_mg": 0,
+        "vitamin_b6_mg": 0,
+        "vitamin_b12_mg": 0,
+        "folate_mg": 0,
+        "magnesium_mg": 0,
+        "zinc_mg": 0
+      }
+    },
+    "usage": {
+      "prompt_tokens": 6761,
+      "completion_tokens": 251,
+      "total_tokens": 7012,
+      "prompt_tokens_details": {
+        "cached_tokens": 0
+      },
+      "neurons": 45.25394150562501
+    },
+    "finish": null,
+    "raw": null
+  },
+  {
+    "label": "olive-oil-barcode",
+    "model": "llama-3.2-vision",
+    "model_id": "@cf/meta/llama-3.2-11b-vision-instruct",
+    "arm": "as-captured",
+    "edge": 1600,
+    "repeat": 2,
+    "status": 200,
+    "ms": 15702,
+    "content": "The image shows a hand holding a bottle of olive oil with a label on it. The label has a black and white design with text in multiple languages, including English, Spanish, French, and German.\n\nHere is the transcribed data from the label:\n\n* Name: Natives Olivenöl Extra\n* Brand: Huile d'Olive Vierge Extra\n* Barcode: 8436578483808\n* Basis: per 100ml\n* Nutrition:\n\t+ Energy_kj: 931\n\t+ Energy_kcal: 227\n\t+ Fat_g: 0\n\t+ Saturated_fat_g: 0\n\t+ Carbohydrate_g: 0\n\t+ Sugar_g: 0\n\t+ Fiber_g: 0\n\t+ Protein_g: 0\n\t+ Salt_g: 0\n\t+ Vitamin_d_mg: 0\n\t+ Calcium_mg: 0\n\t+ Iron_mg: 0\n\t+ Potassium_mg: 0\n\t+ Vitamin_a_mg: 0\n\t+ Vitamin_c_mg: 0\n\t+ Vitamin_e_mg: 0\n\t+ Vitamin_b6_mg: 0\n\t+ Vitamin_b12_mg: 0\n\t+ Folate_mg: 0\n\t+ Magnesium_mg: 0\n\t+ Zinc_mg: 0\n\nNote that the values for fat, saturated fat, carbohydrate, sugar, fiber, protein, salt, and micronutrients are all zero, indicating that this product is likely a pure olive oil with no added ingredients or preservatives.",
+    "usage": {
+      "prompt_tokens": 6761,
+      "completion_tokens": 339,
+      "total_tokens": 7100,
+      "prompt_tokens_details": {
+        "cached_tokens": 0
+      },
+      "neurons": 50.665340267625005
+    },
+    "finish": null,
+    "raw": null
+  },
+  {
+    "label": "olive-oil-barcode",
+    "model": "moondream",
+    "model_id": "@cf/moondream/moondream3.1-9B-A2B",
+    "arm": "as-captured",
+    "edge": 1600,
+    "repeat": 0,
+    "status": 200,
+    "ms": 2329,
+    "content": "{\n  \"name\": \"NATIVES OLIVENOL EXTRA\",\n  \"brand\": \"N/A\",\n  \"barcode\": \"8436578483806\",\n  \"basis\": \"per_100g\",\n  \"nutrition\": {\n    \"energy\": \"13808\",\n    \"fat\": \"0\",\n    \"saturated_fat\": \"0\",\n    \"carbohydrate\": \"0\",\n    \"sugar\": \"0\",\n    \"fiber\": \"0\",\n    \"protein\": \"0\",\n    \"salt\": \"0\",\n    \"vitamin_a\": \"0\",\n    \"vitamin_c\": \"0\",\n    \"vitamin_e\": \"0\",\n    \"B6\": \"0\",\n    \"B12\": \"0\",\n    \"folate\": \"0\",\n    \"magnesium\": \"0\",\n    \"zinc\": \"0\"\n  }\n}",
+    "usage": {
+      "prompt_tokens": 1058,
+      "completion_tokens": 175,
+      "total_tokens": 1233,
+      "prompt_tokens_details": {
+        "cached_tokens": 0
+      },
+      "neurons": 44.76363754272461
+    },
+    "finish": "stop",
+    "raw": null
+  },
+  {
+    "label": "olive-oil-barcode",
+    "model": "moondream",
+    "model_id": "@cf/moondream/moondream3.1-9B-A2B",
+    "arm": "as-captured",
+    "edge": 1600,
+    "repeat": 1,
+    "status": 200,
+    "ms": 2503,
+    "content": "{\n  \"name\": \"NATIVES OLIVENOL EXTRA\",\n  \"brand\": \"N/A\",\n  \"barcode\": \"8436578483806\",\n  \"basis\": \"per_100g\",\n  \"nutrition\": {\n    \"energy\": 13.808,\n    \"fat\": 0.0,\n    \"saturated_fat\": 0.0,\n    \"carbohydrate\": 0.0,\n    \"sugar\": 0.0,\n    \"fiber\": 0.0,\n    \"protein\": 0.0,\n    \"salt\": 0.0,\n    \"calcium\": 0.0,\n    \"iron\": 0.0,\n    \"vitamin_a\": 0.0,\n    \"vitamin_c\": 0.0,\n    \"vitamin_e\": 0.0,\n    \"vitamin_b6\": 0.0,\n    \"vitamin_b12\": 0.0,\n    \"folate\": 0.0,\n    \"magnesium\": 0.0\n  }\n}",
+    "usage": {
+      "prompt_tokens": 1058,
+      "completion_tokens": 218,
+      "total_tokens": 1276,
+      "prompt_tokens_details": {
+        "cached_tokens": 0
+      },
+      "neurons": 48.6727294921875
+    },
+    "finish": "stop",
+    "raw": null
+  },
+  {
+    "label": "olive-oil-barcode",
+    "model": "moondream",
+    "model_id": "@cf/moondream/moondream3.1-9B-A2B",
+    "arm": "as-captured",
+    "edge": 1600,
+    "repeat": 2,
+    "status": 200,
+    "ms": 2705,
+    "content": "{\n  \"name\": \"NATIVES OLIVENOL EXTRA\",\n  \"brand\": \"N/A\",\n  \"barcode\": \"8436578483806\",\n  \"basis\": \"per_100g\",\n  \"nutrition\": {\n    \"energy_kj\": 13.808,\n    \"energy_kcal\": 13.808,\n    \"fat_g\": 0.0,\n    \"saturated_fat_g\": 0.0,\n    \"carbohydrate_g\": 0.0,\n    \"sugar_g\": 0.0,\n    \"fiber_g\": 0.0,\n    \"protein_g\": 0.0,\n    \"salt_g\": 0.0,\n    \"vitamin_a_mg\": 0.0,\n    \"vitamin_c_mg\": 0.0,\n    \"vitamin_e_mg\": 0.0,\n    \"vitamin_b6_mg\": 0.0,\n    \"vitamin_b12_mg\": 0.0,\n    \"folate_mg\": 0.0,\n    \"magnesium_mg\": 0.0,\n    \"zinc_mg\": 0.0\n  }\n}",
+    "usage": {
+      "prompt_tokens": 1058,
+      "completion_tokens": 245,
+      "total_tokens": 1303,
+      "prompt_tokens_details": {
+        "cached_tokens": 0
+      },
+      "neurons": 51.12727355957031
+    },
+    "finish": "stop",
+    "raw": null
+  }
+]

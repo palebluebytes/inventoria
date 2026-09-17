@@ -1,0 +1,162 @@
+[
+  {
+    "label": "peanut-butter",
+    "model": "llama-4-scout",
+    "arm": "as-captured",
+    "edge": 1600,
+    "repeat": 0,
+    "prompt": "naive",
+    "status": 200,
+    "ms": 7636,
+    "content": "Here is the JSON object with the requested information:\n\n```json\n{\n  \"name\": \"Peanut Butter\",\n  \"brand\": \"\",\n  \"basis\": \"per 100g\",\n  \"nutrition\": {\n    \"energy_kj\": 2625,\n    \"energy_kcal\": 634,\n    \"fat_g\": 53.0,\n    \"saturated_fat_g\": 8.0,\n    \"carbohydrate_g\": 8.5,\n    \"sugar_g\": 5.4,\n    \"fiber_g\": 7.5,\n    \"protein_g\": 27.0,\n    \"salt_g\": 0.6,\n    \"vitamin_d_mg\": null,\n    \"calcium_mg\": null,\n    \"iron_mg\": null,\n    \"potassium_mg\": null,\n    \"vitamin_a_mg\": null,\n    \"vitamin_c_mg\": null,\n    \"vitamin_e_mg\": null,\n    \"vitamin_b6_mg\": null,\n    \"vitamin_b12_mg\": null,\n    \"folate_mg\": null,\n    \"magnesium_mg\": null,\n    \"zinc_mg\": null\n  }\n}\n```\n\nNote that the brand name is not visible on the label, and the values for the vitamins and minerals are not provided, so they are set to `null`. Let me know if you'd like me to add anything else!",
+    "usage": {
+      "prompt_tokens": 2448,
+      "completion_tokens": 303,
+      "total_tokens": 2751,
+      "prompt_tokens_details": {
+        "cached_tokens": 0
+      },
+      "neurons": 83.50091552734375
+    }
+  },
+  {
+    "label": "peanut-butter",
+    "model": "llama-4-scout",
+    "arm": "as-captured",
+    "edge": 1600,
+    "repeat": 1,
+    "prompt": "naive",
+    "status": 200,
+    "ms": 6253,
+    "content": "Here is the JSON object with the requested information:\n\n```json\n{\n  \"name\": \"Peanut Butter\",\n  \"brand\": \"\",\n  \"basis\": \"per 100g\",\n  \"nutrition\": {\n    \"energy_kj\": 2625,\n    \"energy_kcal\": 634,\n    \"fat_g\": 53.0,\n    \"saturated_fat_g\": 8.0,\n    \"carbohydrate_g\": 8.5,\n    \"sugar_g\": 5.4,\n    \"fiber_g\": 7.5,\n    \"protein_g\": 27.0,\n    \"salt_g\": 0.6,\n    \"vitamin_d_mg\": null,\n    \"calcium_mg\": null,\n    \"iron_mg\": null,\n    \"potassium_mg\": null,\n    \"vitamin_a_mg\": null,\n    \"vitamin_c_mg\": null,\n    \"vitamin_e_mg\": null,\n    \"vitamin_b6_mg\": null,\n    \"vitamin_b12_mg\": null,\n    \"folate_mg\": null,\n    \"magnesium_mg\": null,\n    \"zinc_mg\": null\n  }\n}\n```\n\nNote that the brand name is not visible on the label, and the values for the vitamins and minerals are not provided, so they are set to `null`. Let me know if you'd like me to add anything else!",
+    "usage": {
+      "prompt_tokens": 2448,
+      "completion_tokens": 303,
+      "total_tokens": 2751,
+      "prompt_tokens_details": {
+        "cached_tokens": 0
+      },
+      "neurons": 83.50091552734375
+    }
+  },
+  {
+    "label": "olive-oil-panel",
+    "model": "llama-4-scout",
+    "arm": "as-captured",
+    "edge": 1600,
+    "repeat": 0,
+    "prompt": "naive",
+    "status": 200,
+    "ms": 5989,
+    "content": "Here is the JSON object with the requested information:\n\n```json\n{\n  \"name\": \"Extra Virgin Olive Oil\",\n  \"brand\": \"Lachinata\",\n  \"basis\": \"per 100ml\",\n  \"nutrition\": {\n    \"energy_kj\": 3701.13,\n    \"energy_kcal\": 884,\n    \"fat_g\": 100,\n    \"saturated_fat_g\": 13.8,\n    \"carbohydrate_g\": 0,\n    \"sugar_g\": 0,\n    \"fiber_g\": null,\n    \"protein_g\": 0,\n    \"salt_g\": 0,\n    \"vitamin_d_mg\": null,\n    \"calcium_mg\": null,\n    \"iron_mg\": null,\n    \"potassium_mg\": null,\n    \"vitamin_a_mg\": null,\n    \"vitamin_c_mg\": null,\n    \"vitamin_e_mg\": null,\n    \"vitamin_b6_mg\": null,\n    \"vitamin_b12_mg\": null,\n    \"folate_mg\": null,\n    \"magnesium_mg\": null,\n    \"zinc_mg\": null\n  }\n}\n```\n\nNote that some nutrition values are not provided on the label, so they are represented as `null` in the JSON object.",
+    "usage": {
+      "prompt_tokens": 2448,
+      "completion_tokens": 278,
+      "total_tokens": 2726,
+      "prompt_tokens_details": {
+        "cached_tokens": 0
+      },
+      "neurons": 81.569091796875
+    }
+  },
+  {
+    "label": "olive-oil-panel",
+    "model": "llama-4-scout",
+    "arm": "as-captured",
+    "edge": 1600,
+    "repeat": 1,
+    "prompt": "naive",
+    "status": 200,
+    "ms": 6354,
+    "content": "Here is a JSON object with the requested information:\n\n```json\n{\n  \"name\": \"Extra Virgin Olive Oil\",\n  \"brand\": \"Lachinata\",\n  \"basis\": \"per 100ml\",\n  \"nutrition\": {\n    \"energy_kj\": 3701.13,\n    \"energy_kcal\": 884,\n    \"fat_g\": 100,\n    \"saturated_fat_g\": 13.8,\n    \"carbohydrate_g\": 0,\n    \"sugar_g\": 0,\n    \"fiber_g\": null,\n    \"protein_g\": 0,\n    \"salt_g\": 0,\n    \"vitamin_d_mg\": null,\n    \"calcium_mg\": null,\n    \"iron_mg\": null,\n    \"potassium_mg\": null,\n    \"vitamin_a_mg\": null,\n    \"vitamin_c_mg\": null,\n    \"vitamin_e_mg\": null,\n    \"vitamin_b6_mg\": null,\n    \"vitamin_b12_mg\": null,\n    \"folate_mg\": null,\n    \"magnesium_mg\": null,\n    \"zinc_mg\": null\n  }\n}\n```\n\nNote that the nutrition label does not provide values for all the requested keys, so they are either set to `null` or omitted if not applicable (e.g., `fiber_g` could be omitted since it is 0 and not provided). \n\nIf you would like to add any additional information or change the format, please let me know!",
+    "usage": {
+      "prompt_tokens": 2448,
+      "completion_tokens": 322,
+      "total_tokens": 2770,
+      "prompt_tokens_details": {
+        "cached_tokens": 0
+      },
+      "neurons": 84.9690933227539
+    }
+  },
+  {
+    "label": "indian-paste",
+    "model": "llama-4-scout",
+    "arm": "as-captured",
+    "edge": 1600,
+    "repeat": 0,
+    "prompt": "naive",
+    "status": 200,
+    "ms": 5712,
+    "content": "Here is a JSON object with the nutrition information:\n\n```json\n{\n  \"name\": \"\",\n  \"brand\": \"\",\n  \"basis\": \"per 100g\",\n  \"nutrition\": {\n    \"energy_kj\": 937.21,\n    \"energy_kcal\": 224,\n    \"fat_g\": 0,\n    \"saturated_fat_g\": 0,\n    \"carbohydrate_g\": 60,\n    \"sugar_g\": 50,\n    \"fiber_g\": 0,\n    \"protein_g\": 0,\n    \"salt_g\": 0,\n    \"vitamin_d_mg\": 0,\n    \"calcium_mg\": 0,\n    \"iron_mg\": 0,\n    \"potassium_mg\": 0,\n    \"vitamin_a_mg\": 0,\n    \"vitamin_c_mg\": 0,\n    \"vitamin_e_mg\": 0,\n    \"vitamin_b6_mg\": 0,\n    \"vitamin_b12_mg\": 0,\n    \"folate_mg\": 0,\n    \"magnesium_mg\": 0,\n    \"zinc_mg\": 0\n  }\n}\n```\n\nNote that most of the nutrition values are not provided on the label, so they are listed as 0. If you provide more information or a clearer image of the label, I can try to extract more values.",
+    "usage": {
+      "prompt_tokens": 2448,
+      "completion_tokens": 297,
+      "total_tokens": 2745,
+      "prompt_tokens_details": {
+        "cached_tokens": 0
+      },
+      "neurons": 83.03727722167969
+    }
+  },
+  {
+    "label": "indian-paste",
+    "model": "llama-4-scout",
+    "arm": "as-captured",
+    "edge": 1600,
+    "repeat": 1,
+    "prompt": "naive",
+    "status": 200,
+    "ms": 8393,
+    "content": "Here is a JSON object with the nutrition information:\n\n```json\n{\n  \"name\": \"\",\n  \"brand\": \"\",\n  \"basis\": \"per 100g\",\n  \"nutrition\": {\n    \"energy_kj\": 937.21,\n    \"energy_kcal\": 224,\n    \"fat_g\": 0,\n    \"saturated_fat_g\": 0,\n    \"carbohydrate_g\": 60,\n    \"sugar_g\": 50,\n    \"fiber_g\": 0,\n    \"protein_g\": 0,\n    \"salt_g\": 0,\n    \"vitamin_d_mg\": 0,\n    \"calcium_mg\": 0,\n    \"iron_mg\": 0,\n    \"potassium_mg\": 0,\n    \"vitamin_a_mg\": 0,\n    \"vitamin_c_mg\": 0,\n    \"vitamin_e_mg\": 0,\n    \"vitamin_b6_mg\": 0,\n    \"vitamin_b12_mg\": 0,\n    \"folate_mg\": 0,\n    \"magnesium_mg\": 0,\n    \"zinc_mg\": 0\n  }\n}\n```\n\nNote that most of the nutrition values are not provided on the label, so they are listed as 0. If you provide more information or a clearer image of the label, I can try to extract more data.",
+    "usage": {
+      "prompt_tokens": 2448,
+      "completion_tokens": 297,
+      "total_tokens": 2745,
+      "prompt_tokens_details": {
+        "cached_tokens": 0
+      },
+      "neurons": 83.03727722167969
+    }
+  },
+  {
+    "label": "olive-oil-barcode",
+    "model": "llama-4-scout",
+    "arm": "as-captured",
+    "edge": 1600,
+    "repeat": 0,
+    "prompt": "naive",
+    "status": 200,
+    "ms": 7090,
+    "content": "Here is a JSON object based on the provided nutrition label image:\n\n```json\n{\n  \"name\": \"Natives Olivenöl Extra\",\n  \"brand\": \"Natives\",\n  \"basis\": \"50ml\",\n  \"nutrition\": {\n    \"energy_kj\": null,\n    \"energy_kcal\": null,\n    \"fat_g\": null,\n    \"saturated_fat_g\": null,\n    \"carbohydrate_g\": null,\n    \"sugar_g\": null,\n    \"fiber_g\": null,\n    \"protein_g\": null,\n    \"salt_g\": null,\n    \"vitamin_d_mg\": null,\n    \"calcium_mg\": null,\n    \"iron_mg\": null,\n    \"potassium_mg\": null,\n    \"vitamin_a_mg\": null,\n    \"vitamin_c_mg\": null,\n    \"vitamin_e_mg\": null,\n    \"vitamin_b6_mg\": null,\n    \"vitamin_b12_mg\": null,\n    \"folate_mg\": null,\n    \"magnesium_mg\": null,\n    \"zinc_mg\": null\n  }\n}\n```\n\nSince the provided image does not show a full nutrition label, most of the nutrition values are `null`. If you provide a complete nutrition label image, I can help you fill in the correct values.",
+    "usage": {
+      "prompt_tokens": 2448,
+      "completion_tokens": 282,
+      "total_tokens": 2730,
+      "prompt_tokens_details": {
+        "cached_tokens": 0
+      },
+      "neurons": 81.87818908691406
+    }
+  },
+  {
+    "label": "olive-oil-barcode",
+    "model": "llama-4-scout",
+    "arm": "as-captured",
+    "edge": 1600,
+    "repeat": 1,
+    "prompt": "naive",
+    "status": 200,
+    "ms": 5586,
+    "content": "Here is a JSON object based on the provided nutrition label image:\n\n```json\n{\n  \"name\": \"Natives Olivenöl Extra\",\n  \"brand\": \"Natives\",\n  \"basis\": \"per 100ml\",\n  \"nutrition\": {\n    \"energy_kj\": null,\n    \"energy_kcal\": null,\n    \"fat_g\": null,\n    \"saturated_fat_g\": null,\n    \"carbohydrate_g\": null,\n    \"sugar_g\": null,\n    \"fiber_g\": null,\n    \"protein_g\": null,\n    \"salt_g\": null,\n    \"vitamin_d_mg\": null,\n    \"calcium_mg\": null,\n    \"iron_mg\": null,\n    \"potassium_mg\": null,\n    \"vitamin_a_mg\": null,\n    \"vitamin_c_mg\": null,\n    \"vitamin_e_mg\": null,\n    \"vitamin_b6_mg\": null,\n    \"vitamin_b12_mg\": null,\n    \"folate_mg\": null,\n    \"magnesium_mg\": null,\n    \"zinc_mg\": null\n  }\n}\n```\n\nSince the provided image does not show a full nutrition label, most of the nutrition values are null. If you provide a complete nutrition label image, I can assist you in filling out the JSON object with the correct values.",
+    "usage": {
+      "prompt_tokens": 2448,
+      "completion_tokens": 288,
+      "total_tokens": 2736,
+      "prompt_tokens_details": {
+        "cached_tokens": 0
+      },
+      "neurons": 82.3418197631836
+    }
+  }
+]
