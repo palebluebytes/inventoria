@@ -2692,11 +2692,8 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     const loggedCard = breakfastSection.locator(".meal-item-card", {
       hasText: "Dinner Combo",
     });
-    await loggedCard.locator(".fi-name").click();
-    const eventId = await loggedCard.getAttribute("data-event-id");
-    await page
-      .locator(`[data-testid="occasion-fold-${eventId}"]`)
-      .getByRole("button", { name: "How much of it?" })
+    await loggedCard
+      .getByRole("button", { name: "How much of Dinner Combo did you eat?" })
       .click();
     await expect(page.locator('[data-testid="instantiation-name"]')).toHaveText(
       "Dinner Combo"
@@ -2776,8 +2773,11 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     await expect(fold).toBeVisible();
 
     // The sheet is still reachable for the one question the fold does not ask:
-    // how much of the dish was eaten (ADR-0106 §5, §8).
-    await fold.getByRole("button", { name: "How much of it?" }).click();
+    // how much of the dish was eaten (ADR-0106 §5, §8). Its control is the
+    // recipe mark on the parent row, not a row inside the fold.
+    await card
+      .getByRole("button", { name: "How much of Dinner Combo did you eat?" })
+      .click();
     await expect(page.locator('h2:text-is("Recipe")')).toBeVisible();
     await expect(page.locator('[data-testid="instantiation-name"]')).toHaveText(
       "Dinner Combo"

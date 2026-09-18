@@ -999,6 +999,15 @@ describe("the floor, swept", () => {
    * two surfaces that draw it cannot drift apart and neither can drift under the
    * floor. `drawn` falling is this file's preferred direction.
    *
+   * **Both figures then held across a third move in the same ticket, and the
+   * population under them did not.** The fold's remaining text control left the
+   * fold for the parent row, where it is the recipe mark that opens the occasion
+   * itself: `LoggedRecipeFold`'s `button.fold-act` out, `DailyDashboard`'s
+   * `button.occasion-btn` in, both `declared`, so 135 stayed 135. A total that
+   * does not move is not evidence that nothing did, which is the whole reason
+   * this file is swept rather than counted — the keys were diffed, not the
+   * number.
+   *
    * **What did NOT arrive is the point of that ticket's second pass.** The
    * fold's ingredient rows draw the day's own `FoodItemRow`, so they are counted
    * once at `ui/Row` and never per call site. The first build drew its own line

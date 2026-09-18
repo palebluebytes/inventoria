@@ -41,7 +41,11 @@
   //
   // **The parent row is untouched** — the same card, inside the wrapper that
   // carries long-press, the selection check and its own ✕ — so a logged recipe
-  // keeps everything a logged food has and gains a caret.
+  // keeps everything a logged food has and gains two marks: the caret this fold
+  // turns on, and the recipe mark that opens the occasion itself. The second is
+  // the dashboard's, not this component's, because it is about the dish rather
+  // than about anything in the fold: what the batch weighed and how much of it
+  // was eaten is the one question this surface does not ask (ADR-0106 §5, §8).
   //
   // **Tapping a line opens the app's own picker** (`IngredientAmountSheet`),
   // which is what tapping a logged food already does, and the same screen the
@@ -62,16 +66,8 @@
   // keyed on it survives every write, and so does the Selection's membership.
   let {
     item,
-    onOpenOccasion,
   }: {
     item: ConsumptionEvent;
-    /**
-     * Opens the whole occasion in `InstantiationSheet` — the one surface that
-     * asks what the batch weighed and how much of it was eaten (ADR-0106 §5).
-     * The fold corrects ingredients and carries those weights forward untouched,
-     * so this is the way to the question it does not ask.
-     */
-    onOpenOccasion: () => void;
   } = $props();
 
   /** The occasion's rows against their current twins, or `null` until read. */
@@ -203,13 +199,6 @@
          ingredient list: both surfaces are a list of ingredients with one way to
          extend it, and two spellings of that would be two affordances. -->
     <AddIngredientButton disabled={busy} onclick={() => (adding = true)} />
-
-    <!-- The one question this surface does not ask (ADR-0106 §5, §8). It stays a
-         plain text control under the box: it leaves the fold rather than acting
-         on it, so it may not read as the act beside it. -->
-    <button type="button" class="fold-act" onclick={onOpenOccasion}
-      >How much of it?</button
-    >
   {/if}
 
   <!-- One status line, silent on success: the lines visibly change, which needs
@@ -249,22 +238,18 @@
   .fold {
     display: flex;
     flex-direction: column;
-    gap: var(--space-xs);
     border-left: var(--edge);
     margin-left: var(--space-s);
     padding-left: var(--space-2xs);
   }
-  .fold-act {
-    align-self: flex-start;
-    min-height: var(--tap-min);
-    background: none;
-    border: 0;
-    padding: 0;
-    font: inherit;
-    font-size: var(--step-n2);
-    text-align: left;
-    color: var(--text-secondary);
-    cursor: pointer;
+  /* **One list, not a stack of cards.** The rows sit flush and share their
+     seams: `Row` draws `--edge-thin` all round, so two rows meeting with no gap
+     would draw the line between them twice and read as two boxes that happen to
+     touch. Pulled up by `--hairline` — that border's weight as a bare length,
+     which is what the token is for — the contents of a dish read the way a table
+     does, which is what a gap of nothing is for. */
+  .fold :global(.food-item + .food-item) {
+    margin-top: calc(var(--hairline) * -1);
   }
   .fold-note {
     padding: var(--space-2xs) 0;

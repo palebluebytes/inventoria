@@ -51,6 +51,7 @@
   import NutrientGroupHead from "./NutrientGroupHead.svelte";
   import NutritionPanel from "./NutritionPanel.svelte";
   import SendFace from "./SendFace.svelte";
+  import WayInIcon from "./WayInIcon.svelte";
   import WayOutIcon from "./WayOutIcon.svelte";
   import NutritionPanelCell from "./NutritionPanelCell.svelte";
   import { longpress } from "../../actions/longpress";
@@ -800,6 +801,35 @@
                           class:open={foldOpen}
                           aria-hidden="true">›</span
                         >
+                        <!-- The occasion itself: what the batch weighed and how
+                             much of it was eaten (ADR-0106 §5, §8), which is the
+                             one question the fold below does not ask. It stands
+                             on the parent row because it is about the dish
+                             rather than about any line in it, and it is the
+                             recipe mark verbatim — the same `WayInIcon` the way
+                             in that logged this row carries, since it opens the
+                             same screen.
+
+                             The tap is stopped exactly as the photo thumb's is:
+                             the card around it toggles the fold, and a control
+                             inside a control has to say which one was meant. -->
+                        <button
+                          type="button"
+                          class="occasion-btn"
+                          aria-label="How much of {item.foodName} did you eat?"
+                          onpointerdown={(e) => e.stopPropagation()}
+                          onclick={(e) => {
+                            e.stopPropagation();
+                            if (suppressNextClick) {
+                              suppressNextClick = false;
+                              return;
+                            }
+                            if (selectionActive) onTapItem(item.id);
+                            else onEditItem(item);
+                          }}
+                        >
+                          <WayInIcon kind="recipe" />
+                        </button>
                       {/if}
                       {#if item.photoBase64}
                         <button
@@ -833,10 +863,7 @@
                      Inside it, every tap on a line would be a tap on the row
                      that owns the fold. -->
                 {#if foldOpen && item.instantiation}
-                  <LoggedRecipeFold
-                    {item}
-                    onOpenOccasion={() => onEditItem(item)}
-                  />
+                  <LoggedRecipeFold {item} />
                 {/if}
               {/each}
             </div>
@@ -1397,6 +1424,21 @@
   }
   .fold-caret.open {
     transform: rotate(90deg);
+  }
+  /* The thumb button's shape, because it is the same kind of thing: a mark in
+     the row's lead that takes its own tap. The floor is declared rather than
+     drawn from the mark's size. */
+  .occasion-btn {
+    min-width: var(--tap-min);
+    min-height: var(--tap-min);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    border: none;
+    background: none;
+    color: var(--text-secondary);
+    cursor: pointer;
   }
   @media (prefers-reduced-motion: reduce) {
     .fold-caret {

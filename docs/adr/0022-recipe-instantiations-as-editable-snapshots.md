@@ -346,12 +346,19 @@ what opens them; the correction sheet is no longer what a tap reaches.
 **What this replaces was a sheet over the whole day.** Correcting 60 g of
 avocado to 80 g cost the entire screen: `InstantiationSheet` re-seeded every row
 against its twin, asked again what the batch weighed, and committed the lot.
-That surface still exists and is still the Instantiate path, and the fold keeps
-one door into it — the fold corrects **what is in** the dish, and the sheet is
-still the only place that asks **how much of it** was eaten (ADR-0106 §5, §8).
+That surface still exists and is still the Instantiate path, and one door into
+it remains — the fold corrects **what is in** the dish, and the sheet is still
+the only place that asks **how much of it** was eaten (ADR-0106 §5, §8).
 Neither surface derives that size: the fold carries forward what the occasion
 already said, so an occasion logged at 220 g of a 900 g batch stays 220 g when
 an ingredient changes.
+
+**That door is a mark on the parent row, not a row in the fold.** It is the
+recipe `WayInIcon` verbatim, beside the caret, because it opens the screen that
+way in logs and because it is about the dish rather than about any line in it —
+a control that leaves the fold has no business sitting inside it, where it read
+as a third act beside "add an ingredient". The fold below therefore holds
+nothing but the dish's contents and the one act that extends them.
 
 **Every act writes, and there is no Save.** The amount sheet's Done writes, the
 ✕ writes, an added ingredient writes. These lines are another view of the
