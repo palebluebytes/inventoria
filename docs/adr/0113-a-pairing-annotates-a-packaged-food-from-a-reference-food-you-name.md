@@ -996,17 +996,24 @@ saying what a finding there means, and executing the hand-off,
 [#523](https://github.com/palebluebytes/inventoria/issues/523) found two answers
 worth writing down rather than leaving in a comment.
 
-**A delisting is not a finding for a Curated pairing.** It is the worst case for a
-Curated stand-in, because the stand-in's pinned panel _is_ an Open Food Facts
-record and a delisting leaves the food search answering from a snapshot of
-something gone. A pairing only points a barcode at a USDA row: the row's claim is
-about the pack's substance, and Open Food Facts is a witness to that rather than
-the source of it. A barcode nothing lists is a row no scan will ever reach, which
-harms nobody — and several of the seed's packs were typed from their labels and
-never had a record at all, so reporting absence would fail the job every quarter
-over rows nothing had happened to. The one question that survives is **identity**:
-has this barcode come to name a different food. That is what GTIN reuse looks like
-from here, and it is reported.
+**A delisting fails nothing for a Curated pairing, and is still reported.** It is
+the worst case for a Curated stand-in, because the stand-in's pinned panel _is_ an
+Open Food Facts record and a delisting leaves the food search answering from a
+snapshot of something gone. A pairing only points a barcode at a USDA row: the
+row's claim is about the pack's substance, and Open Food Facts is a witness to
+that rather than the source of it. A barcode nothing lists is a row no scan will
+ever reach, which harms nobody — and one of the seed's packs was typed from its
+label and never had a record at all, so failing the job over it would spend a
+quarterly review on a row nothing had happened to. The one question that survives
+is **identity**: has this barcode come to name a different food, which is what
+GTIN reuse looks like from here.
+
+So the report has **three outcomes rather than two**, and this is the half worth
+writing down. A row Open Food Facts has no record of is not `ok` — nothing was
+confirmed — and it is not a failure either, so it prints under its own mark and
+asks for nothing. The distinction matters because the other unconfirmed outcome,
+a request Open Food Facts never answered, asks for the run again: `ok` over
+either would be the silence this whole job exists against.
 
 **The extension cost the job its pacing, measured.** Going from 2 barcodes to 27
 put the run past a burst limiter Open Food Facts enforces below its published

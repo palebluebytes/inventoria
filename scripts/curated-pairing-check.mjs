@@ -54,7 +54,7 @@ export function gtinFault(gtin) {
   const computed = (10 - (sum % 10)) % 10;
   return computed === stated
     ? null
-    : `check digit ${stated}, and the other ${digits.length} sum to ${computed}`;
+    : `check digit ${stated}, where the digits before it require ${computed}`;
 }
 
 /**
@@ -78,10 +78,10 @@ export function gtinFault(gtin) {
  * that claim or withdrawing it.
  *
  * @param {readonly { gtin: string, fdcId: number, set: string }[]} pairings
- * @param {{ rows: Record<string, Set<number>>, standInGtins: Set<string> }} shipped
+ * @param {{ idsBySet: Record<string, Set<number>>, standInGtins: Set<string> }} shipped
  * @returns {Array<{ gtin: string, kind: string, detail: string }>}
  */
-export function pairingFindings(pairings, { rows, standInGtins }) {
+export function pairingFindings(pairings, { idsBySet, standInGtins }) {
   const findings = [];
   /** @type {Map<string, number>} */
   const claimed = new Map();
@@ -103,14 +103,14 @@ export function pairingFindings(pairings, { rows, standInGtins }) {
           "reference table holds this food (ADR-0113 §15)"
       );
 
-    if (!Object.hasOwn(rows, row.set)) {
+    if (!Object.hasOwn(idsBySet, row.set)) {
       say("set", `names the set "${row.set}", and this app ships no such set`);
       continue;
     }
-    if (rows[row.set].has(row.fdcId)) continue;
+    if (idsBySet[row.set].has(row.fdcId)) continue;
 
-    const elsewhere = Object.keys(rows).filter((set) =>
-      rows[set].has(row.fdcId)
+    const elsewhere = Object.keys(idsBySet).filter((set) =>
+      idsBySet[set].has(row.fdcId)
     );
     say(
       "fdcId",
@@ -139,23 +139,23 @@ export function formatReport(findings) {
 }
 
 /**
- * Read both shipped sets and both curated tables, and fail the build on a row
- * that no longer resolves.
+ * The table, and what this repo ships for the rules to read it against.
+ *
+ * Exported so the test suite asks the same question `pnpm check` does rather
+ * than assembling its own copy of the wiring: an artifact path written twice is
+ * a gate that can pass against a file nothing ships.
  *
  * @param {string} root the repository root
  */
-async function main(root) {
+export async function readShipped(root) {
   const { readFileSync } = await import("node:fs");
   const { join } = await import("node:path");
   const { pathToFileURL } = await import("node:url");
 
-  const module = (...path) => pathToFileURL(join(root, ...path)).href;
-  const { CURATED_PAIRINGS } = await import(
-    module("src", "lib", "food", "curated-pairings.ts")
-  );
-  const { CURATED_STAND_INS } = await import(
-    module("src", "lib", "food", "curated-stand-ins.ts")
-  );
+  const table = (name) =>
+    pathToFileURL(join(root, "src", "lib", "food", `${name}.ts`)).href;
+  const { CURATED_PAIRINGS } = await import(table("curated-pairings"));
+  const { CURATED_STAND_INS } = await import(table("curated-stand-ins"));
 
   const idsIn = (artifact) =>
     new Set(
@@ -164,13 +164,27 @@ async function main(root) {
       ).foods.map((food) => food.fdcId)
     );
 
-  const findings = pairingFindings(CURATED_PAIRINGS, {
-    rows: {
+  return {
+    pairings: CURATED_PAIRINGS,
+    idsBySet: {
       reference: idsIn("search-index.json"),
       "pairing-target": idsIn("pairing-index.json"),
     },
-    standInGtins: new Set(CURATED_STAND_INS.map((e) => e.snapshot.code)),
-  });
+    standInGtins: new Set(
+      CURATED_STAND_INS.map((entry) => entry.snapshot.code)
+    ),
+  };
+}
+
+/**
+ * Read both shipped sets and both curated tables, and fail the build on a row
+ * that no longer resolves.
+ *
+ * @param {string} root the repository root
+ */
+async function main(root) {
+  const { pairings, ...shipped } = await readShipped(root);
+  const findings = pairingFindings(pairings, shipped);
 
   if (findings.length) {
     console.error(
@@ -184,12 +198,10 @@ async function main(root) {
     process.exit(1);
   }
 
-  const targets = CURATED_PAIRINGS.filter(
-    (row) => row.set === "pairing-target"
-  ).length;
+  const targets = pairings.filter((row) => row.set === "pairing-target").length;
   console.log(
-    `  ok  ${CURATED_PAIRINGS.length} Curated pairings resolve in the set each ` +
-      `names (${targets} of them cooked), on ${CURATED_PAIRINGS.length} ` +
+    `  ok  ${pairings.length} Curated pairings resolve in the set each ` +
+      `names (${targets} of them cooked), on ${pairings.length} ` +
       `well-formed barcodes carrying no Curated stand-in`
   );
 }

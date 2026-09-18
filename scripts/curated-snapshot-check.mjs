@@ -31,8 +31,7 @@ import {
   checkPinned,
   formatReport,
   needsReVetting,
-  sleep,
-  REQUEST_INTERVAL_MS,
+  needsAnotherRun,
   STAND_INS,
   PAIRINGS,
 } from "./curated-drift.mjs";
@@ -71,13 +70,16 @@ for (const [entries, table] of [
   [CURATED_STAND_INS, STAND_INS],
   [CURATED_PAIRINGS, PAIRINGS],
 ]) {
-  // The rate limit spans both tables: `checkPinned` paces the requests inside
-  // one run, and this is the seam between two.
-  if (results.length > 0) await sleep(REQUEST_INTERVAL_MS);
   console.log(
     `Checking ${entries.length} ${table.what}(s) against Open Food Facts.\n`
   );
-  const run = await checkPinned(entries, { fetchProduct, table });
+  // `continuing` keeps the rate limit spanning both tables. The interval stays
+  // `checkPinned`'s decision; all this says is that requests have been spent.
+  const run = await checkPinned(entries, {
+    fetchProduct,
+    table,
+    continuing: results.length > 0,
+  });
   console.log(`${formatReport(run, table)}\n`);
   results.push(...run);
 }
@@ -86,14 +88,20 @@ for (const [entries, table] of [
 // (#205): an entry OFF answered about needs a human to re-vet it, and an entry
 // OFF never answered about needs the run repeating. Both still fail the job —
 // a quarter in which a pinned barcode went unchecked is not a quarter it
-// passed. An entry lands in exactly one of the two, so the pair adds up, and
-// both tables are counted together because the job's answer is one exit code.
+// passed. Both tables are counted together because the job's answer is one exit
+// code.
+//
+// A third outcome asks for neither and so fails nothing: a barcode Open Food
+// Facts has no record of is settled, and running the job again would establish
+// the same nothing. It still prints, under its own mark, because a report that
+// said `ok` there would be claiming a confirmation nobody made.
 const toReVet = results.filter((result) =>
   result.findings.some(needsReVetting)
 ).length;
 const unchecked = results.filter(
   (result) =>
-    result.findings.length > 0 && !result.findings.some(needsReVetting)
+    result.findings.some(needsAnotherRun) &&
+    !result.findings.some(needsReVetting)
 ).length;
 if (toReVet + unchecked > 0) {
   const parts = [];

@@ -16,6 +16,7 @@ import {
   identityFindings,
   formatReport,
   needsReVetting,
+  needsAnotherRun,
   REQUEST_INTERVAL_MS,
   STAND_INS,
   PAIRINGS,
@@ -341,7 +342,9 @@ describe("driftFindings — has the pinned panel moved?", () => {
 
 describe("checkPinned — the run across every pinned entry", () => {
   /** A fetcher that answers each barcode from a table, and counts its calls. */
-  const fetcherFor = (answers: Record<string, unknown>) => {
+  const fetcherFor = (
+    answers: Record<string, { status: number; body: unknown } | Error>
+  ) => {
     const calls: string[] = [];
     const fetchProduct = async (code: string) => {
       calls.push(code);
@@ -468,6 +471,26 @@ describe("checkPinned — the run across every pinned entry", () => {
     expect(paused).toHaveLength(1);
     expect(paused[0]).toBe(REQUEST_INTERVAL_MS);
   });
+
+  it("pauses before the first request of a run that continues another", async () => {
+    // The job walks two tables in turn against one host, and the rate limit is
+    // the host's rather than the table's. `continuing` is how the second run
+    // says requests have already been spent, which keeps the interval this
+    // function's decision instead of the caller's.
+    const paused: number[] = [];
+    const { fetchProduct } = fetcherFor({
+      "5400706613279": { status: 200, body: unchanged() },
+    });
+    await checkPinned([entry()], {
+      fetchProduct,
+      table: STAND_INS,
+      continuing: true,
+      pause: async (ms: number) => {
+        paused.push(ms);
+      },
+    });
+    expect(paused).toEqual([REQUEST_INTERVAL_MS]);
+  });
 });
 
 describe("formatReport", () => {
@@ -475,7 +498,7 @@ describe("formatReport", () => {
     formatReport(
       [
         {
-          food: "cacao nibs",
+          label: "cacao nibs",
           code: "5400706613279",
           captured: "2026-08-18",
           findings,
@@ -720,7 +743,8 @@ describe("checkPinned over the Curated pairing table", () => {
     captured: "2026-09-17",
     ground: "Ricotta against `Cheese, ricotta, whole milk`.",
   };
-  const answering = (answer: unknown) => async () => answer;
+  const answering = (answer: { status: number; body: unknown }) => async () =>
+    answer;
 
   it("reports the pack the row names, and the date the claim was made", async () => {
     const [result] = await checkPinned([row], {
@@ -730,23 +754,27 @@ describe("checkPinned over the Curated pairing table", () => {
       }),
       table: PAIRINGS,
     });
-    expect(result.food).toBe("Riccotta");
+    expect(result.label).toBe("Riccotta");
     expect(result.code).toBe("8026160007705");
     expect(result.captured).toBe("2026-09-17");
     expect(result.findings).toEqual([]);
   });
 
-  it("does not report a barcode Open Food Facts has never listed", async () => {
+  it("says a barcode OFF has never listed was not confirmed, and fails nothing", async () => {
     // The mirror of the stand-ins' worst case, and it is not a case here at
     // all: a stand-in's panel IS an OFF record, so a delisting leaves search
     // answering from a snapshot of something gone. A pairing only points a
     // barcode at a USDA row, and some of the seed's packs were typed from their
-    // labels with no OFF record to begin with.
+    // labels with no OFF record to begin with. It is still not `ok`: nothing was
+    // learned, and a line saying otherwise is the silence this job runs against.
     const [result] = await checkPinned([row], {
       fetchProduct: answering({ status: 404, body: null }),
       table: PAIRINGS,
     });
-    expect(result.findings).toEqual([]);
+    expect(result.findings).toHaveLength(1);
+    expect(result.findings[0].kind).toBe("absent");
+    expect(needsReVetting(result.findings[0])).toBe(false);
+    expect(needsAnotherRun(result.findings[0])).toBe(false);
   });
 
   it("still reports a quarter in which OFF never answered", async () => {
@@ -755,5 +783,48 @@ describe("checkPinned over the Curated pairing table", () => {
       table: PAIRINGS,
     });
     expect(result.findings[0].kind).toBe("unreachable");
+  });
+});
+
+describe("the report tells a confirmed row from an unconfirmed one", () => {
+  const line = (kind: string) =>
+    formatReport(
+      [
+        {
+          label: "Panko breadcrumbs",
+          code: "8721321940623",
+          captured: "2026-09-17",
+          findings: kind ? [{ kind, message: "x" }] : [],
+        },
+      ],
+      PAIRINGS
+    ).split("\n")[0];
+
+  it("marks a row nothing was learned about as neither ok nor FAIL", () => {
+    // The third outcome. `ok` would claim a confirmation the run never made,
+    // and `FAIL` would claim something went wrong, and neither is what a
+    // barcode Open Food Facts has no record of means.
+    expect(line("")).toContain("ok");
+    expect(line("absent")).not.toContain("ok");
+    expect(line("absent")).not.toContain("FAIL");
+    expect(line("identity")).toContain("FAIL");
+    expect(line("unreachable")).toContain("FAIL");
+  });
+
+  it("asks for nothing at all on a run whose only finding is a missing record", () => {
+    const text = formatReport(
+      [
+        {
+          label: "Panko breadcrumbs",
+          code: "8721321940623",
+          captured: "2026-09-17",
+          findings: [{ kind: "absent", message: "no record" }],
+        },
+      ],
+      PAIRINGS
+    );
+    expect(text).toContain("NO RECORD");
+    expect(text).not.toMatch(/re-make or withdraw/i);
+    expect(text).not.toMatch(/Start the check again/i);
   });
 });

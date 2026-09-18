@@ -1,10 +1,8 @@
 import { describe, it, expect } from "vitest";
-import { readFileSync } from "node:fs";
 import {
   CURATED_PAIRINGS,
   CURATED_PAIRING_CEILING,
 } from "../../src/lib/food/curated-pairings";
-import { CURATED_STAND_INS } from "../../src/lib/food/curated-stand-ins";
 // The hand adjudication the seed is drawn from, and a plain-Node module too.
 // @ts-ignore
 import { ADJUDICATION, ACCEPTED } from "../../scripts/pairing-adjudication.mjs";
@@ -14,6 +12,7 @@ import { ADJUDICATION, ACCEPTED } from "../../scripts/pairing-adjudication.mjs";
 import {
   gtinFault,
   pairingFindings,
+  readShipped,
 } from "../../scripts/curated-pairing-check.mjs";
 
 // The offline gate behind the Curated pairing table (ADR-0113 §14, #523).
@@ -49,12 +48,13 @@ describe("gtinFault — is this string a barcode at all?", () => {
 
 describe("pairingFindings — does the table still hold?", () => {
   /** The two shipped sets, as the gate reads them: ids, and nothing else. */
-  const rows = {
-    reference: new Set([171413, 174277]),
-    "pairing-target": new Set([173740]),
+  const holds = {
+    idsBySet: {
+      reference: new Set([171413, 174277]),
+      "pairing-target": new Set([173740]),
+    },
+    standInGtins: new Set(["5010251341352"]),
   };
-  const standInGtins = new Set(["5010251341352"]);
-  const holds = { rows, standInGtins };
 
   /** A row of the shape ADR-0113 §14 fixes, with one field overridden. */
   const pairing = (over = {}) => ({
@@ -176,25 +176,13 @@ describe("the table as it ships", () => {
     expect(seeded.size).toBe(25);
   });
 
-  it("clears the gate against the artifacts this repo ships", () => {
+  it("clears the gate against the artifacts this repo ships", async () => {
     // The same three rules `pnpm check` runs, over the committed files rather
-    // than fixtures: every id resolves in the set its row names, every barcode
-    // is one and appears once, and no barcode carries a Curated stand-in.
-    const idsIn = (path: string) =>
-      new Set<number>(
-        JSON.parse(readFileSync(path, "utf8")).foods.map(
-          (food: { fdcId: number }) => food.fdcId
-        )
-      );
-    const findings = pairingFindings(CURATED_PAIRINGS, {
-      rows: {
-        reference: idsIn("public/usda/search-index.json"),
-        "pairing-target": idsIn("public/usda/pairing-index.json"),
-      },
-      standInGtins: new Set(
-        CURATED_STAND_INS.map((entry) => entry.snapshot.code)
-      ),
-    });
-    expect(findings).toEqual([]);
+    // than fixtures, and through the gate's own wiring rather than a second
+    // copy of it: every id resolves in the set its row names, every barcode is
+    // one and appears once, and no barcode carries a Curated stand-in.
+    const { pairings, ...shipped } = await readShipped(process.cwd());
+    expect(pairings).toEqual(CURATED_PAIRINGS);
+    expect(pairingFindings(pairings, shipped)).toEqual([]);
   });
 });

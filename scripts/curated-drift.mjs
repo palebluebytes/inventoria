@@ -213,12 +213,18 @@ function valueFindings(name, pinnedValue, currentValue) {
 }
 
 /**
- * One thing that has moved, and what kind of thing it is. The five kinds are
- * the whole vocabulary: a panel value, the ingredients text, a barcode that has
- * come to name a different food, a product OFF no longer lists, and a request
- * that never reached OFF at all.
+ * One thing a run found, and what kind of thing it is. The six kinds are the
+ * whole vocabulary: a panel value, the ingredients text, a barcode that has come
+ * to name a different food, a product OFF no longer lists, a barcode OFF has no
+ * record of, and a request that never reached OFF at all.
  *
- * @typedef {{ kind: "panel" | "ingredients" | "identity" | "delisted" | "unreachable", message: string }} Finding
+ * Only the first four ask anything of anybody. The last two are the two ways a
+ * row can go unconfirmed without being in doubt, and they are apart because they
+ * ask for different things: `unreachable` asks for the run again, and `absent`
+ * asks for nothing at all. Both still print, because a line reading `ok` over a
+ * row nothing was learned about is the silence this whole job exists against.
+ *
+ * @typedef {{ kind: "panel" | "ingredients" | "identity" | "delisted" | "absent" | "unreachable", message: string }} Finding
  */
 
 /**
@@ -284,13 +290,25 @@ export function driftFindings(snapshotProduct, currentProduct) {
  * how to read a row, what a served record means for it, what a delisting means,
  * and what a reader must do about a finding.
  *
+ * @template Row
  * @typedef {{
  *   what: string,
- *   describe: (entry: any) => { label: string, code: string, captured: string },
- *   served: (entry: any, product: Record<string, unknown>) => Finding[],
- *   delisted: (entry: any, reason: string) => Finding[],
+ *   describe: (entry: Row) => { label: string, code: string, captured: string },
+ *   served: (entry: Row, product: Record<string, unknown>) => Finding[],
+ *   delisted: (entry: Row, reason: string) => Finding[],
  *   advice: string[],
  * }} PinnedTable
+ */
+
+/**
+ * The fields each table's rules actually read off a row, which is deliberately
+ * less than the shipped tables carry: this job asks Open Food Facts about a
+ * barcode, and a stand-in's aliases or a pairing's `ground` are no part of that
+ * question. Structural, so `CURATED_STAND_INS` and `CURATED_PAIRINGS` satisfy
+ * them as they are and no app type crosses into a plain-Node module.
+ *
+ * @typedef {{ food: string, captured: string, snapshot: { code: string, product: Record<string, unknown> } }} PinnedStandIn
+ * @typedef {{ gtin: string, product: string, captured: string }} PinnedPairing
  */
 
 /**
@@ -317,8 +335,13 @@ const asIdentity = (name) =>
  * A record carrying NO name says nothing either way and is not a finding: one
  * seed row is exactly that pack, paired off its categories because its name is
  * blank, and a quarterly report of the blank it was paired with would spend the
- * attention this job exists to bank.
+ * attention this job exists to bank. The PINNED side of that row is a
+ * placeholder for the same reason, so the day Open Food Facts gives that barcode
+ * a name this reports it — correctly, as something to read, and the answer will
+ * be to write the name into `product` rather than to doubt the pairing.
  *
+ * @param {PinnedPairing} row
+ * @param {Record<string, unknown>} product
  * @returns {Finding[]}
  */
 export function identityFindings(row, product) {
@@ -335,7 +358,7 @@ export function identityFindings(row, product) {
 /**
  * The Curated stand-ins (ADR-0046 §4): the pinned OFF record IS the panel.
  *
- * @type {PinnedTable}
+ * @type {PinnedTable<PinnedStandIn>}
  */
 export const STAND_INS = {
   what: "curated stand-in",
@@ -378,7 +401,7 @@ export const STAND_INS = {
  *    GTIN stays invisible to this job, is named as such in the table's header,
  *    and is what each row's `captured` date exists to date.
  *
- * @type {PinnedTable}
+ * @type {PinnedTable<PinnedPairing>}
  */
 export const PAIRINGS = {
   what: "Curated pairing",
@@ -388,7 +411,12 @@ export const PAIRINGS = {
     captured: row.captured,
   }),
   served: identityFindings,
-  delisted: () => [],
+  delisted: (row) => [
+    {
+      kind: "absent",
+      message: `Open Food Facts has no record for ${row.gtin}, so nothing here was confirmed or contradicted`,
+    },
+  ],
   advice: [
     "Nothing above has been rewritten. A barcode that has come to name a",
     "different food is a pairing to re-make or withdraw by hand in",
@@ -409,21 +437,28 @@ export const PAIRINGS = {
  * falls BETWEEN requests: OFF asks callers to rate-limit, and a table this short
  * spends a few seconds a quarter honouring it.
  *
- * @param {readonly any[]} entries
- * @param {{ fetchProduct: (code: string) => Promise<any>, pause?: (ms: number) => Promise<void>, table: PinnedTable }} io
+ * `continuing` says this run follows another against the same host, so the
+ * pacing spans both rather than restarting: the interval stays this function's
+ * decision, and the caller only reports whether it has already spent requests.
+ *
+ * @template Row
+ * @param {readonly Row[]} entries
+ * @param {{
+ *   fetchProduct: (code: string) => Promise<{ status: number, body: unknown }>,
+ *   pause?: (ms: number) => Promise<void>,
+ *   table: PinnedTable<Row>,
+ *   continuing?: boolean,
+ * }} io
  */
 export async function checkPinned(
   entries,
-  { fetchProduct, pause = sleep, table }
+  { fetchProduct, pause = sleep, table, continuing = false }
 ) {
   const results = [];
   for (const entry of entries) {
-    if (results.length > 0) await pause(REQUEST_INTERVAL_MS);
-    const { label, code, captured } = table.describe(entry);
+    if (continuing || results.length > 0) await pause(REQUEST_INTERVAL_MS);
     const result = {
-      food: label,
-      code,
-      captured,
+      ...table.describe(entry),
       /** @type {Finding[]} */
       findings: [],
     };
@@ -431,7 +466,7 @@ export async function checkPinned(
 
     let response;
     try {
-      response = await fetchProduct(code);
+      response = await fetchProduct(result.code);
     } catch (error) {
       result.findings.push({
         kind: "unreachable",
@@ -464,19 +499,31 @@ export function sleep(ms) {
 }
 
 /**
- * Whether a finding asks a human to re-vet the entry against ADR-0046 §2, as
- * opposed to asking for the run to be repeated.
+ * Whether a finding asks a human to look at the row again.
  *
  * The one line every reader of this report has to draw (#205), and drawn once
  * here because two callers draw it: the closing advice below, and the exit
- * summary in `curated-snapshot-check.mjs`. `unreachable` is the whole of the
- * far side — OFF said nothing about the record, so nothing about the record is
- * in question.
+ * summary in `curated-snapshot-check.mjs`. The far side is everything OFF said
+ * nothing about — it never answered, or it answered that it has no such record —
+ * because nothing about the row is in question either way.
  *
  * @param {Finding} finding
  */
 export function needsReVetting(finding) {
-  return finding.kind !== "unreachable";
+  return finding.kind !== "unreachable" && finding.kind !== "absent";
+}
+
+/**
+ * Whether a finding asks for the run to be repeated rather than for a decision.
+ *
+ * The second line, and the reason it is not the negation of the first: a barcode
+ * OFF has no record of is settled, and running the job again would establish the
+ * same nothing. Only an entry OFF never answered about is worth another look.
+ *
+ * @param {Finding} finding
+ */
+export function needsAnotherRun(finding) {
+  return finding.kind === "unreachable";
 }
 
 /** What each kind of finding means to whoever reads the report. */
@@ -485,6 +532,7 @@ const KIND_LABEL = {
   panel: "PANEL",
   ingredients: "ADMISSION",
   identity: "IDENTITY",
+  absent: "NO RECORD",
   unreachable: "UNCHECKED",
 };
 
@@ -508,24 +556,30 @@ const KIND_LABEL = {
 export function formatReport(results, table) {
   const lines = [];
   for (const result of results) {
-    const where = `${result.food} (${result.code}, captured ${result.captured})`;
+    const where = `${result.label} (${result.code}, captured ${result.captured})`;
     if (result.findings.length === 0) {
       lines.push(`  ok  ${where}`);
       continue;
     }
-    lines.push(`FAIL  ${where}`);
+    // Three outcomes, not two: a row nothing was learned about has not failed,
+    // and must not read `ok` either. `--` is the middle one, and the findings
+    // under it say which of the two silences it was.
+    const failed = result.findings.some(
+      (finding) => needsReVetting(finding) || needsAnotherRun(finding)
+    );
+    lines.push(`${failed ? "FAIL" : "  --"}  ${where}`);
     for (const finding of result.findings)
       lines.push(`      ${KIND_LABEL[finding.kind]}  ${finding.message}`);
   }
 
   const findings = results.flatMap((result) => result.findings);
   if (findings.some(needsReVetting)) lines.push("", ...table.advice);
-  if (findings.some((finding) => !needsReVetting(finding)))
+  if (findings.some(needsAnotherRun))
     lines.push(
       "",
-      "An UNCHECKED line is not a finding about the food. Open Food Facts served",
-      "no record for that entry — it was busy, down, or turned the request away —",
-      "so the run established nothing either way, and that snapshot has been",
+      "An UNCHECKED line is not a finding about the food. Open Food Facts did",
+      "not answer for that entry — it was busy, down, or turned the request away",
+      "— so the run established nothing either way, and that row has been",
       "neither confirmed nor contradicted. Start the check again; if the same",
       "status comes back run after run, it is the check that needs looking at,",
       "not the row it was asked about."
