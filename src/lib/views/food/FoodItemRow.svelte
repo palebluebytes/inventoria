@@ -166,6 +166,21 @@
     padding-right: calc(1.5rem + var(--space-3xs) - var(--space-s));
   }
 
+  /* A second mark in the corner is a second box to clear, and the reserve above
+     is one box wide. Two `--tap-min` targets stand there on a logged recipe —
+     the occasion mark and the ✕ — so a name long enough to wrap ran under the
+     left one, which is the one failure an out-of-flow corner can produce. The
+     term that changes is the cluster's width; the inset and the row's own
+     padding are the same two the single-mark reserve subtracts.
+
+     It costs the name that width on every line it has, including the lines the
+     48px-tall cluster never reaches. A reserve that changed per line is not a
+     thing CSS offers, and a name that clears the marks on line one and collides
+     on line two would be the worse half of the trade. */
+  :global(.food-item.fi-logged.has-corner-lead .row-title) {
+    padding-right: calc(2 * var(--tap-min) + var(--space-3xs) - var(--space-s));
+  }
+
   /* A list line, not a poster: two short lines inside the frame's full padding
      left the card mostly air, with the ✕ alone in the band above the name. The
      side padding stays — the frame's left edge and the text's are the alignment

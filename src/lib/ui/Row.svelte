@@ -94,7 +94,15 @@
   <!-- One cluster holds everything the corner shows, so a second control arrives
        beside the ✕ rather than on top of it. The cluster is what is positioned;
        its contents are in flow inside it, which is why `FoodItemRow`'s measured
-       `top` for a logged row now names the cluster and nothing else moved. -->
+       `top` for a logged row now names the cluster and nothing else moved.
+
+       **The cluster is out of flow, so what it covers is the caller's to
+       reserve.** A row showing one mark reserves one box; a row showing two has
+       to reserve both, or the title runs under the left one — which is what
+       `has-corner-lead` on the root is for. It is written into the class string
+       rather than passed as a `class:` directive, for the reason the div below
+       already carries: alongside a `{...rest}` spread the compiler hands a
+       directive the identifier itself. -->
   {#if cornerLead || corner || onRemove}
     <span class="row-corner-cluster">
       {@render cornerLead?.()}
@@ -133,7 +141,7 @@
   <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
   <div
     {...rest}
-    class="row {className}"
+    class="row {className} {cornerLead ? 'has-corner-lead' : ''}"
     class:selected
     class:clickable={!!onclick}
     role={clickable ? "button" : undefined}

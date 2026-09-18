@@ -16,6 +16,7 @@ import { describe, it, expect } from "vitest";
 import { render } from "svelte/server";
 import { createRawSnippet } from "svelte";
 import FoodItemRow from "../../src/lib/views/food/FoodItemRow.svelte";
+import { styleOf } from "./support/stylesheet";
 
 const oats = {
   name: "Mock Oats",
@@ -74,6 +75,49 @@ describe("a food line", () => {
     expect(body).toMatch(
       /<button[^>]*class="[^"]*\bfi-remove\b[^"]*"[^>]*aria-label="Remove Mock Oats"/
     );
+  });
+
+  describe("a second mark in the corner", () => {
+    const mark = createRawSnippet(() => ({ render: () => "<span>🍲</span>" }));
+
+    /**
+     * The corner is out of flow, so what it covers is the row's own business to
+     * reserve. One mark reserves one box; two marks reserve two, and the
+     * class that says which is the whole seam between `ui/Row` (which emits it)
+     * and this file (which reserves on it). A long name ran under the left mark
+     * until #462's occasion control arrived to find that out.
+     */
+    it("says on the root that its corner is carrying two marks", () => {
+      const { body } = render(FoodItemRow, {
+        props: { ...oats, logged: true, onRemove: () => {}, cornerLead: mark },
+      } as Record<string, unknown>);
+
+      expect(body).toMatch(/class="row [^"]*\bhas-corner-lead\b/);
+      expect(body).toContain("🍲");
+      // Beside the ✕, not instead of it: both acts are on the row at once.
+      expect(body).toContain("fi-remove");
+    });
+
+    it("does not claim it on a row carrying one", () => {
+      const { body } = render(FoodItemRow, {
+        props: { ...oats, logged: true, onRemove: () => {} },
+      });
+
+      expect(body).not.toContain("has-corner-lead");
+    });
+
+    it("reserves both boxes off the name when it is", () => {
+      // Read out of the file: the single-mark reserve is one box wide and this
+      // one names `--tap-min` twice, which is the cluster the two marks make.
+      // A reserve that stayed at one box is the defect this pins.
+      const css = styleOf("src/lib/views/food/FoodItemRow.svelte");
+      const wide = css.match(
+        /\.has-corner-lead[^{]*\.row-title\)\s*\{[^}]*padding-right:\s*([^;]+);/
+      )?.[1];
+
+      expect(wide).toBeDefined();
+      expect(wide).toContain("2 * var(--tap-min)");
+    });
   });
 
   it("gives the corner to `corner` when there is one, ✕ or no ✕", () => {
