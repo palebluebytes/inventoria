@@ -21,6 +21,12 @@
   } from "../../food/off-signals";
   import { dietaryTagsView } from "../../food/dietary-tag";
   import { foodSourceView, type FoodSourceKind } from "../../food/food-source";
+  import {
+    pairingRefusalOf,
+    readFoodPairing,
+    referenceFoodName,
+  } from "../../food/pairing";
+  import { loadSearchCorpus } from "../../food/usda-corpus";
   import FoodAmountPanel from "./FoodAmountPanel.svelte";
   import AllergenSafetyBlock from "./AllergenSafetyBlock.svelte";
   import NovaBadge from "./NovaBadge.svelte";
@@ -47,6 +53,8 @@
     amount = $bindable(),
     unit = $bindable(),
     onAssertDensity = undefined,
+    onPair = undefined,
+    onClearPairing = undefined,
     onEdit,
     onExplainSource,
     onExplainNova,
@@ -79,6 +87,21 @@
      * put it, and the toggle then offers only the unit the panel names.
      */
     onAssertDensity?: (density: FoodDensity) => void;
+    /**
+     * Open the surface that pairs this pack with a reference food (ADR-0113
+     * §§1, 9). The sheet is the host's, like every explainer here: this card
+     * owns the mark and the host owns what the mark opens.
+     *
+     * Omit on a surface with nowhere to put the assertion, and no pairing
+     * affordance is drawn at all. A twin §15 refuses is not offered one either,
+     * whatever the host passes.
+     */
+    onPair?: () => void;
+    /**
+     * Clear this pack's pairing (§7). Appending an assertion that names nobody
+     * is the host's to write, and it changes no occasion already logged.
+     */
+    onClearPairing?: () => void;
     /**
      * Correct this food from its label. Drives the pencil origin badge, which
      * shows only for a twin that already carries a label capture (§7) — an
@@ -171,6 +194,45 @@
     asserted = next;
     onAssertDensity?.(next);
   }
+
+  // ── The Pack pairing (ADR-0113) ────────────────────────────────────────────
+  // Read off the same twin every other mark here is read from, so the staging
+  // screen and the edit sheet cannot come to different conclusions about the
+  // same jar. The affordance is offered only where §15 allows the act AND the
+  // host has somewhere to put it: a recipe twin, a reference twin and a
+  // hand-entered twin are refused by the food rather than by the screen.
+  let pairable = $derived(pairingRefusalOf(payload.entity) === null);
+  let paired = $derived(readFoodPairing(payload.attributes));
+  // The reference food's OWN source tag (§1), read from the id by the app's one
+  // origin reader rather than by a second rule written here.
+  let pairedSource = $derived(
+    paired ? foodSourceView({ entity: paired, attributes: {} }) : null
+  );
+
+  // The paired row's own description, resolved out of the corpus the search
+  // already reads. It is the name and never a stored copy of one: §7 keeps the
+  // twin's pairing a bare live id, so what a pack is paired WITH is looked up
+  // on every read.
+  //
+  // The bare id stands where the lookup cannot answer, which is two different
+  // honest cases: the row has left the corpus (§7 says the pairing still
+  // stands), or the artifact is unreachable on this device. Neither is a reason
+  // to claim a name, and neither unpairs anything.
+  let pairedName = $state<string | undefined>(undefined);
+  $effect(() => {
+    const reference = paired;
+    pairedName = undefined;
+    if (!reference) return;
+    let live = true;
+    void loadSearchCorpus()
+      .then((corpus) => {
+        if (live) pairedName = referenceFoodName(corpus, reference);
+      })
+      .catch(() => {});
+    return () => {
+      live = false;
+    };
+  });
 </script>
 
 <div class="food-card">
@@ -232,6 +294,49 @@
             </button>
           {/each}
         </div>
+      {/if}
+    </div>
+  {/if}
+
+  <!-- The Pack pairing (ADR-0113 §1). The reference food is shown BESIDE the
+       pack, named, with its own source tag, and the two are never merged into
+       one record — which is why this is a line of its own under the pack's
+       identity rather than a mark on the name above it.
+
+       Offered only where the act is allowed and the host can persist it. A twin
+       §15 refuses draws nothing here: a recipe screen saying "this cannot be
+       paired" would be noise about a capability that food never had. -->
+  {#if pairable && onPair}
+    <div class="pairing" data-testid="pack-pairing">
+      {#if paired && pairedSource}
+        <button
+          type="button"
+          class="paired"
+          data-testid="paired-with"
+          data-reference={paired}
+          onclick={onPair}
+          title="Pair with a different reference food"
+        >
+          <SourceTag source={pairedSource} />
+          <span class="paired-name">{pairedName ?? paired}</span>
+        </button>
+        {#if onClearPairing}
+          <button
+            type="button"
+            class="pairing-clear"
+            data-testid="clear-pairing"
+            aria-label="Clear the reference food paired with {name}"
+            title="Clear"
+            onclick={onClearPairing}>✕</button
+          >
+        {/if}
+      {:else}
+        <button
+          type="button"
+          class="pair"
+          data-testid="pair-food"
+          onclick={onPair}>Pair with a reference food</button
+        >
       {/if}
     </div>
   {/if}
@@ -412,6 +517,51 @@
   /* The no-energy refusal (ADR-0048 §6). A framed statement rather than a
      warning tint: nothing here is recoverable by trying again, so it reads as
      the card's own plain speech about what it holds. */
+  /* The pairing line: the reference food beside the pack, never merged into it
+     (ADR-0113 §1). A row rather than a chip, because it carries two controls —
+     the pairing itself, which re-opens the search, and the ✕ that clears it. */
+  .pairing {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2xs);
+    margin-top: var(--space-2xs);
+  }
+  /* Both controls are floored on the axis a finger can miss (ADR-0098). */
+  .pair,
+  .paired,
+  .pairing-clear {
+    min-height: var(--tap-min);
+    font-family: inherit;
+    font-size: var(--step-n1);
+    color: var(--text-secondary);
+    background: none;
+  }
+  .pair {
+    padding: var(--space-3xs) 0;
+    text-decoration: underline;
+    text-underline-offset: 0.2em;
+  }
+  .paired {
+    display: flex;
+    flex: 1 1 auto;
+    align-items: center;
+    gap: var(--space-2xs);
+    min-width: 0;
+    padding: var(--space-3xs) 0;
+    text-align: left;
+  }
+  .paired-name {
+    min-width: 0;
+    color: var(--text-primary);
+    font-weight: 700;
+    overflow-wrap: anywhere;
+  }
+  .pairing-clear {
+    flex: 0 0 auto;
+    min-width: var(--tap-min);
+    font-weight: 700;
+  }
+
   .no-energy {
     margin-top: var(--space-2xs);
     padding: var(--space-xs) var(--space-s);

@@ -998,7 +998,13 @@ describe("the floor, swept", () => {
     // standing beside "Makes" (#432). Both sides wrote 131 for reasons that do
     // not overlap, so the text merged clean at a figure neither of them meant;
     // the two added boxes were read off the sweep rather than arithmetic.
-    expect(how).toEqual({ declared: 133, drawn: 26, sanctioned: 6 });
+    //
+    // 133 → 136 at #519, and these three are one box each on the Pack pairing
+    // line `FoodCard` draws under a scanned pack (ADR-0113 §1): `.pair`, the
+    // offer; `.paired`, the reference food it is paired with, which re-opens the
+    // search; and `.pairing-clear`, the ✕ beside it. All three declare the
+    // floor, and the ✕ declares the width too, because it holds a single mark.
+    expect(how).toEqual({ declared: 136, drawn: 26, sanctioned: 6 });
     // Every box lands in exactly one column. Without this the two figures above
     // could both be right while a box fell out of the sweep between them.
     expect(how.declared + how.drawn + how.sanctioned).toBe(SWEEP.groups.size);

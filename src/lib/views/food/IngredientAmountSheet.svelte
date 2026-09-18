@@ -44,6 +44,8 @@
     onExplainSource,
     onExplainDietary,
     onAssertDensity,
+    onPair,
+    onClearPairing,
     onCommit,
     onClose,
   }: {
@@ -77,6 +79,12 @@
      *  than carrying it to a commit the way a staging screen does. Omit on a
      *  host with nowhere to put it, and the field offers only the panel's unit. */
     onAssertDensity?: (density: FoodDensity) => void;
+    /** Open the pairing search over this pack (ADR-0113 §9). Same split as the
+     *  density assertion: the twin already exists, so the host writes. Omit on a
+     *  host with nowhere to put it, and the card offers no pairing at all. */
+    onPair?: () => void;
+    /** Clear this pack's pairing (§7), by appending one that names nobody. */
+    onClearPairing?: () => void;
     onCommit: (amount: number, unit: MeasuredUnit) => void;
     onClose: () => void;
   } = $props();
@@ -141,6 +149,8 @@
     {onExplainNova}
     {onExplainDietary}
     {onAssertDensity}
+    {onPair}
+    {onClearPairing}
   />
 
   {#snippet footer()}

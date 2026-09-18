@@ -41,6 +41,7 @@
     type AmountContext,
     type FoodDensity,
   } from "../../food/density";
+  import { FOOD_PAIRING_ATTR, PAIRING_CLEARED } from "../../food/pairing";
   import {
     amountDefaults,
     basisUnit,
@@ -130,6 +131,7 @@
   import CategoryPicker from "./CategoryPicker.svelte";
   import DensityQuestion from "./DensityQuestion.svelte";
   import FoodCard from "./FoodCard.svelte";
+  import PackPairingSheet from "./PackPairingSheet.svelte";
   import ManualEntryFlow from "./ManualEntryFlow.svelte";
   import CommitButton from "./CommitButton.svelte";
   import NovaExplainerSheet from "./NovaExplainerSheet.svelte";
@@ -405,6 +407,37 @@
         attributes: {
           ...staged.payload.attributes,
           [FOOD_DENSITY_ATTR]: density,
+        },
+      },
+    };
+  }
+
+  // The pairing act, on a food still being staged (ADR-0113 §§1, 2). It lands
+  // on the staged payload for the reason the density assertion does: the payload
+  // IS what the host ingests on commit, so the assertion travels with the food
+  // it is about and a staging the user backs out of writes nothing.
+  //
+  // Both halves go through one writer, because §7 makes them one attribute with
+  // two values: an `fdc:` id, and the empty string that names nobody.
+  /** Whether the pairing search is open over the staged food. */
+  let pairingOpen = $state(false);
+
+  // The sheet is about the food under it, so staging another one closes it
+  // rather than re-opening over a pack nobody asked about.
+  $effect(() => {
+    void staged;
+    pairingOpen = false;
+  });
+
+  function stageFoodPairing(value: string) {
+    if (!staged) return;
+    staged = {
+      ...staged,
+      payload: {
+        ...staged.payload,
+        attributes: {
+          ...staged.payload.attributes,
+          [FOOD_PAIRING_ATTR]: value,
         },
       },
     };
@@ -2192,6 +2225,8 @@
                     bind:amount
                     bind:unit={amountUnit}
                     onAssertDensity={assertStagedDensity}
+                    onPair={() => (pairingOpen = true)}
+                    onClearPairing={() => stageFoodPairing(PAIRING_CLEARED)}
                     onEdit={editStaged}
                     onExplainSource={(kind) => (sourceExplain = kind)}
                     onExplainNova={explainNova}
@@ -3125,6 +3160,17 @@
   <DietaryExplainerSheet
     verdict={dietaryExplain}
     onClose={() => (dietaryExplain = null)}
+  />
+{/if}
+
+{#if pairingOpen && staged}
+  <!-- The pairing act (ADR-0113 §§1, 9), opened off the staged card's own mark.
+       The sheet only ever hands back an id: what it means for this food is
+       `stageFoodPairing`'s, and the write is the commit's. -->
+  <PackPairingSheet
+    packName={staged.name}
+    onAccept={stageFoodPairing}
+    onClose={() => (pairingOpen = false)}
   />
 {/if}
 

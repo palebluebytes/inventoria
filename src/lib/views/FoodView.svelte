@@ -14,8 +14,11 @@
     moveLoggedFoodsToMeal,
     copyPastMeal,
     setFoodDensity,
+    setFoodPairing,
+    clearFoodPairing,
     type ConsumptionEvent,
   } from "../stores/calorie.store";
+  import { FOOD_PAIRING_ATTR, PAIRING_CLEARED } from "../food/pairing";
   import {
     scaleAmount,
     parseScaleFactor,
@@ -86,6 +89,7 @@
   import RecipeLibrarySheet from "./food/RecipeLibrarySheet.svelte";
   import InstantiationSheet from "./food/InstantiationSheet.svelte";
   import IngredientAmountSheet from "./food/IngredientAmountSheet.svelte";
+  import PackPairingSheet from "./food/PackPairingSheet.svelte";
   import NovaExplainerSheet from "./food/NovaExplainerSheet.svelte";
   import SourceExplainerSheet from "./food/SourceExplainerSheet.svelte";
   import DietaryExplainerSheet from "./food/DietaryExplainerSheet.svelte";
@@ -361,6 +365,38 @@
   }
   // The food whose amount is being changed in the picker sheet (null = closed).
   let amountEdit = $state<AmountEdit | null>(null);
+
+  // Whether the pairing search is open over the food in the amount sheet. It is
+  // about the food under it, so closing that sheet or opening another row's
+  // closes it rather than re-opening over a food nobody asked about.
+  let pairingOpen = $state(false);
+  $effect(() => {
+    void amountEdit;
+    pairingOpen = false;
+  });
+
+  /**
+   * Writes a Pack pairing on an already-logged pack, and mirrors it onto the
+   * twin the sheet is holding (ADR-0113 §7).
+   *
+   * The mirror is not an optimism: `AmountEdit.payload` is a snapshot resolved
+   * when the row was tapped, so without it the card would keep reading the
+   * pairing the twin had before this act, and clearing one would look like it
+   * had done nothing. The datom is still the fact; this is the screen catching
+   * up with it without a re-read.
+   */
+  function pairFood(edit: AmountEdit, reference: string) {
+    void (reference === PAIRING_CLEARED
+      ? clearFoodPairing(edit.payload.entity)
+      : setFoodPairing(edit.payload.entity, reference));
+    edit.payload = {
+      ...edit.payload,
+      attributes: {
+        ...edit.payload.attributes,
+        [FOOD_PAIRING_ATTR]: reference,
+      },
+    };
+  }
 
   // Explainer handoff seam (#92, ADR-0041 §6): tapping the food-detail badge parks
   // its verdict here for the explainer sheet (ticket C) to mount off. #91 owns
@@ -1426,8 +1462,22 @@
     onExplainDietary={(v) => (dietaryExplain = v)}
     onAssertDensity={(density) =>
       void setFoodDensity(ae.payload.entity, density)}
+    onPair={() => (pairingOpen = true)}
+    onClearPairing={() => pairFood(ae, PAIRING_CLEARED)}
     onCommit={(amount, unit) => changeLoggedFoodAmount(ae.event, amount, unit)}
     onClose={() => (amountEdit = null)}
+  />
+{/if}
+
+{#if pairingOpen && amountEdit}
+  {@const ae = amountEdit}
+  <!-- The pairing act over an already-logged pack (ADR-0113 §§1, 9). Opened
+       from the card's own mark, over the amount sheet, the same seam the source
+       explainer uses. -->
+  <PackPairingSheet
+    packName={ae.name}
+    onAccept={(reference) => pairFood(ae, reference)}
+    onClose={() => (pairingOpen = false)}
   />
 {/if}
 
