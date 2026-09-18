@@ -6,6 +6,12 @@ import {
   FOOD_DENSITY_ATTR,
   type FoodDensity,
 } from "../food/density";
+import {
+  isReferenceFoodEntity,
+  pairingRefusalOf,
+  FOOD_PAIRING_ATTR,
+  PAIRING_CLEARED,
+} from "../food/pairing";
 import { HLC_ORDER_ASC } from "../db/hlc";
 import { createProjectionStore } from "./datoms.store";
 import type { ConsumptionEvent } from "../food/consumption-state";
@@ -480,6 +486,62 @@ export async function setFoodDensity(
   await dbClient.append(
     ingestEntity({ entity, attributes: { [FOOD_DENSITY_ATTR]: density } })
   );
+}
+
+/**
+ * Appends one `food/pairing` assertion, refusing a twin §15 will not have.
+ *
+ * The refusal is enforced at the append and not only at the affordance, because
+ * §15's three are properties of the FOOD: a screen that offered the act on a
+ * recipe twin would be a defect, and a screen that could write one past this
+ * would make the ledger carry it.
+ */
+async function appendPairing(entity: string, value: string): Promise<void> {
+  const refusal = pairingRefusalOf(entity);
+  if (refusal)
+    throw new Error(`${entity} may not be paired: ${refusal.because}`);
+  await dbClient.append(
+    ingestEntity({ entity, attributes: { [FOOD_PAIRING_ATTR]: value } })
+  );
+}
+
+/**
+ * Records that a named reference food describes the substance in this pack well
+ * enough to stand in for what its label left silent — a **Pack pairing**
+ * (ADR-0113 §1).
+ *
+ * The datom is a bare live `fdc:` id and carries no field list and no name (§7):
+ * which reference food you chose is the whole of the assertion, and what it
+ * fills is computed at read time from whichever panel rows are silent now.
+ * Latest-wins settles a person who changes their mind about their own jar, which
+ * is the same property `food/density` relies on and for the same reason.
+ *
+ * It is written only for an **explicit act** (§2). Pre-selecting a candidate is
+ * allowed and pre-accepting one is not: a figure reaching a meter without a
+ * person having said yes is the collapse ADR-0048 §1 exists to prevent.
+ *
+ * Like {@link setFoodDensity}, this is the path for a pack already in the
+ * ledger. One still being STAGED has no twin yet, and its assertion rides its
+ * payload to whatever commits it.
+ */
+export async function setFoodPairing(
+  entity: string,
+  reference: string
+): Promise<void> {
+  if (!isReferenceFoodEntity(reference))
+    throw new Error(`${reference} is not a reference food`);
+  await appendPairing(entity, reference);
+}
+
+/**
+ * Unpairs a pack, by appending an assertion that names nobody (§7).
+ *
+ * It is an append and not a deletion, so the pairing it supersedes stays in the
+ * ledger; and it changes no logged occasion, because an occasion froze what its
+ * own pairing supplied at the moment it was logged.
+ */
+export async function clearFoodPairing(entity: string): Promise<void> {
+  await appendPairing(entity, PAIRING_CLEARED);
 }
 
 /** A manual-entry food from one of the Custom chooser's intents (ADR-0035). */

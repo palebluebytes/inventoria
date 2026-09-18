@@ -13,6 +13,8 @@ import {
   moveLoggedFoodsToMeal,
   consumptionForDay,
   copyPastMeal,
+  setFoodPairing,
+  clearFoodPairing,
 } from "../../src/lib/stores/calorie.store";
 import {
   saveRecipe,
@@ -2176,5 +2178,66 @@ describe("moveLoggedFoodsToMeal", () => {
 
     expect(moved).toBe(1);
     expect(failed).toBe(1);
+  });
+});
+
+describe("the pairing act writes one assertion on one pack (ADR-0113)", () => {
+  const PACK = "gtin:5010251341352";
+
+  beforeEach(() => {
+    vi.mocked(dbClient.append).mockReset();
+    vi.mocked(dbClient.append).mockResolvedValue(undefined);
+  });
+
+  const appended = () =>
+    vi.mocked(dbClient.append).mock.calls[0][0] as unknown as Datom[];
+
+  it("writes the reference food's bare id and nothing beside it", async () => {
+    // No field list and no name (§7): which reference food you chose is the
+    // whole of your assertion, and what it fills is computed at read time from
+    // whichever panel rows are silent now.
+    await setFoodPairing(PACK, "fdc:173740");
+
+    expect(appended()).toEqual([
+      expect.objectContaining({
+        entity: PACK,
+        attribute: "food/pairing",
+        value: "fdc:173740",
+      }),
+    ]);
+  });
+
+  it("unpairs by appending an assertion that names nobody", async () => {
+    await clearFoodPairing(PACK);
+
+    expect(appended()).toEqual([
+      expect.objectContaining({ attribute: "food/pairing", value: "" }),
+    ]);
+  });
+
+  it("refuses the three twins §15 names, and writes nothing", async () => {
+    for (const twin of [
+      "recipe:7",
+      "fdc:173740",
+      "food:custom_1758200000000_ab12",
+    ]) {
+      await expect(setFoodPairing(twin, "fdc:173740")).rejects.toThrow(
+        /may not be paired/
+      );
+      await expect(clearFoodPairing(twin)).rejects.toThrow(/may not be paired/);
+    }
+    expect(dbClient.append).not.toHaveBeenCalled();
+  });
+
+  it("refuses a pairing that names anything but a reference food", async () => {
+    // The relationship has one end in the corpus. A `gtin:` id here would be
+    // one pack standing in for another, which is not what a pairing asserts.
+    await expect(setFoodPairing(PACK, "gtin:123")).rejects.toThrow(
+      /not a reference food/
+    );
+    await expect(setFoodPairing(PACK, "")).rejects.toThrow(
+      /not a reference food/
+    );
+    expect(dbClient.append).not.toHaveBeenCalled();
   });
 });

@@ -497,6 +497,12 @@ describe("the reference attributes the registry marks", () => {
     "event/replaced_by": ["event:consume_", "event:consume_"],
     // The Habit Lineage link, `habits.store.ts`.
     "habit/replaces": ["habit:", "habit:"],
+    // The Pack pairing: a scanned pack naming the reference food that stands in
+    // for what its label left silent (ADR-0113 §1). Declared rather than walked
+    // because you ate the jar — walking the reference food would ship a
+    // searchable food nobody ate, and the recipient's panel is composed from
+    // what the meal froze rather than from the sender's live pairing (§7).
+    "food/pairing": ["gtin:", "fdc:"],
   };
 
   /**

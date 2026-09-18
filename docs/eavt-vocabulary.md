@@ -206,6 +206,24 @@ aubergine`, because several independent readers show a food's name and only one 
   ([ADR-0085](adr/0085-a-setting-is-never-a-datom-and-a-consent-is-not-a-setting.md)
   draws that line). Absent on every food nobody has classified, which is the standing
   case: such a food stays in millilitres and remains fully loggable.
+- `pairing` **(reference)**: the **Pack pairing**. One `fdc:` id, on a `gtin:` twin,
+  naming the reference food whose figures may stand in for what this pack's label left
+  silent ([ADR-0113](adr/0113-a-pairing-annotates-a-packaged-food-from-a-reference-food-you-name.md)
+  §1). It is a **bare live id** and nothing beside it: no field list and no name, because
+  which reference food you chose is the whole of the assertion, and what it fills is
+  computed at read time from whichever panel rows are silent now (§7). It is superseded
+  by appending when you change your mind about your jar, and cleared by appending `""`,
+  a later datom naming nobody, since the ledger has no other way to unsay something. It
+  is a property of **a capture, not of the corpus** (§3): two people can be right about
+  one barcode, drained against in-brine, so nothing in this app holds a fact of the form
+  _barcode X is food Y_ and this datom is the whole of the same-barcode cache. It is
+  refused on a `recipe:` twin (nutrition derives from its ingredients, so there is no
+  silence), on an `fdc:` twin (it is the other end of the relationship) and on a
+  `food:custom_` twin (a hand-entered silence is the user not typing rather than a
+  manufacturer not declaring, so §4's partition does not transfer). §15 carries those
+  three, and `calorie.store.ts` enforces them at the append. It **does not cross in a
+  sent meal**: you ate the jar, and walking the reference food would ship a searchable
+  food nobody ate.
 - `assessment`: one atomic Open Food Facts blob of consumer signals with no schema.org
   counterpart (`nova_group`, `nutri_score`, `eco_score`, `nutrient_levels`, `allergens`,
   `additives`, `labels`; ADR-0030). Read back by
