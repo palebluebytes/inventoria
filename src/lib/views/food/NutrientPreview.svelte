@@ -3,14 +3,13 @@
   import {
     buildNutrientPills,
     buildNutrientBreakdown,
-    ESTIMATED_MARK,
-    ESTIMATED_MEANING,
   } from "../../food/nutrient-display";
   import {
     visibleNutrients,
     calorieDisplayDecimals,
   } from "../../stores/device-settings";
   import NutrientBreakdown from "./NutrientBreakdown.svelte";
+  import EstMark from "./EstMark.svelte";
 
   // How a set of derived nutrition figures is shown, wherever they come from —
   // a food scaled to an amount, a recipe divided by its yield. Two parts, one
@@ -38,8 +37,13 @@
      * disclosure are one panel, so a borrowed nutrient the user happens to track
      * may not shed its mark by being promoted into the grid.
      *
-     * Omitted everywhere a figure cannot have been borrowed, which is every
-     * surface but a paired pack's own panel.
+     * Omitted everywhere a figure cannot have been borrowed, which today is
+     * every surface but a paired pack's own panel. The recipe editor's live
+     * per-serving figures are the one worth naming: `deriveRecipeNutrition`
+     * reads each ingredient twin's stored `nutrition/info`, which is strictly
+     * the label (§7), so no figure in that sum is borrowed and none is owed a
+     * mark. A dish's rows start borrowing when the occasion freezes them, which
+     * is #521's.
      */
     estimated?: ReadonlySet<string>;
     /** Test id for the disclosure, so a surface keeps its own selector. */
@@ -71,11 +75,7 @@
   {#each pills as pill (pill.key)}
     <div class="n nutrient-{pill.key}">
       <span title={pill.label}>{pill.label}</span><strong class:est={pill.est}
-        >{pill.value}{#if pill.est}<span
-            class="est-mark"
-            data-testid="est-mark"
-            title={ESTIMATED_MEANING}>{ESTIMATED_MARK}</span
-          >{/if}</strong
+        >{pill.value}{#if pill.est}<EstMark />{/if}</strong
       >
     </div>
   {/each}
@@ -123,14 +123,6 @@
      in (ADR-0113 §5). */
   .n strong.est {
     font-weight: 400;
-  }
-  .est-mark {
-    margin-left: var(--space-3xs);
-    font-size: 0.7em;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    color: var(--text-secondary);
   }
   .full-panel {
     margin-top: var(--space-s);

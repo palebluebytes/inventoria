@@ -264,9 +264,7 @@
     panel ? markPanel(panel, pairedPanel, density) : undefined
   );
   let estimated = $derived(
-    marked && marked.filled_fields.length > 0
-      ? new Set<string>(marked.filled_fields)
-      : undefined
+    marked ? new Set<string>(marked.filled_fields) : undefined
   );
 </script>
 

@@ -105,9 +105,13 @@ export interface MarkedPanel {
   /** The label's panel, widened by the borrowed rows. Never stored (§7). */
   panel: NutritionInfo;
   /**
-   * The keys the reference food supplied, in panel order. **Empty rather than
-   * absent**, and a caller reads _nothing was supplied_ off its length — the
-   * same rule `buildRawProvenance` keeps for `merged_from`.
+   * The keys the reference food supplied, in panel order. Always present and
+   * empty where nothing was: this is a reading rather than a datom, so a caller
+   * asks its length and never its existence.
+   *
+   * The ledger rule is the other one and is not this shape's — a frozen occasion
+   * omits the key entirely rather than writing an empty list (§6), which is
+   * #521's.
    */
   filled_fields: ExtraNutrientKey[];
 }
@@ -155,6 +159,16 @@ export function referenceFoodPanel(
  *  - **A serving of unstated weight.** `parseBasisQuantity` falls back to 100 so
  *    that a scaler always has a divisor; borrowing against that fallback would
  *    assert the serving weighs 100 g, which is a number nobody measured.
+ *
+ * **What that actually refuses, measured rather than asserted:** exactly the
+ * first case. A pairing is offered on a `gtin:` twin and on nothing else (§15),
+ * and `mapOffProductToPayload` writes such a twin's basis as `PER_100G` or
+ * `PER_100ML` and never anything else, as does the label form that corrects one
+ * (`resolveServingSize`). So the second arm is unreachable today: a `N g` or
+ * weightless `1 serving` panel comes only from the manual-entry writers, whose
+ * `food:custom_` twins §15 already refuses to pair. It is kept because the guard
+ * and its reason belong together, and because a source publishing a weighed
+ * serving is a shape this app has held before.
  */
 function basisFactor(
   label: NutritionInfo,
@@ -211,9 +225,9 @@ export function markPanel(
     filled[key] = roundExtraNutrient(borrowed * factor);
     filled_fields.push(key);
   }
-  // Omitted, never emitted empty: a pairing that supplied nothing hands back the
-  // very panel it was given, so a caller comparing identity sees no reading at
-  // all rather than a copy that happens to be equal.
+  // A pairing that supplied nothing hands back the very panel it was given, so
+  // a caller comparing identity sees no reading at all rather than a copy that
+  // happens to be equal.
   if (filled_fields.length === 0) return { panel: label, filled_fields };
   return { panel: { ...label, ...filled }, filled_fields };
 }

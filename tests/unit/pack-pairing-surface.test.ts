@@ -13,7 +13,7 @@
  */
 import { describe, expect, it } from "vitest";
 import { render } from "svelte/server";
-import { readCode } from "./support/source";
+import { readCode, readSource } from "./support/source";
 import FoodCard from "../../src/lib/views/food/FoodCard.svelte";
 import NutrientPreview from "../../src/lib/views/food/NutrientPreview.svelte";
 import { FOOD_PAIRING_ATTR } from "../../src/lib/food/pairing";
@@ -200,6 +200,21 @@ describe("the est mark a borrowed figure wears (§5)", () => {
     expect(preview(new Set(["iron"]))).toContain(ESTIMATED_MEANING);
   });
 
+  it("never lets the word outweigh the figure it is about", () => {
+    // Half the mark is a lighter figure, so a bold uppercase `est` beside a
+    // 400-weight number would make the word the heaviest thing on the line —
+    // the at-a-glance provenance cue ADR-0041's amendment removed, put back in
+    // a smaller font. The two weights are read off the one component that
+    // draws the word and the rule that lightens the value.
+    const mark = readSource("src/lib/views/food/EstMark.svelte");
+    const markWeight = Number(/font-weight:\s*(\d+)/.exec(mark)![1]);
+    const rows = readSource("src/lib/views/food/NutrientBreakdown.svelte");
+    const figureWeight = Number(
+      /dd\.est \{[^}]*font-weight:\s*(\d+)/.exec(rows)![1]
+    );
+    expect(markWeight).toBeLessThanOrEqual(figureWeight);
+  });
+
   it("lightens the figure the mark is about, and no other", () => {
     // The mark is one word AND a lighter weight (§5): the figure stops being
     // the boldest thing on its line the way a printed one is. The class is what
@@ -233,17 +248,17 @@ describe("the est mark a borrowed figure wears (§5)", () => {
 describe("the marked panel a paired pack's card composes (§§4, 7)", () => {
   it("reads the reference food's figures rather than storing them", () => {
     // An estimate never reaches a stored `nutrition/info` (§7): the card asks
-    // the shipped artifacts what the paired id resolves to and composes the
-    // reading, and the only thing it hands the amount panel is that reading.
-    expect(CARD).toContain("referenceFoodPanel(store, reference)");
-    expect(CARD).toMatch(/markPanel\(panel, pairedPanel, density\)/);
-    expect(CARD).toMatch(/panel=\{marked\?\.panel \?\? panel\}/);
-  });
-
-  it("marks nothing where the pairing filled nothing", () => {
-    // Omitted, never emitted empty — the same rule the datom keeps. An empty
-    // fill hands the preview no mark set at all rather than an empty one.
-    expect(CARD).toMatch(/marked\.filled_fields\.length > 0/);
+    // the shipped artifacts what the paired id resolves to, composes the
+    // reading, and hands the amount panel that reading instead of the label.
+    // Asserted against source because the resolution runs in an effect, which a
+    // server render does not run — the reason this file already reads the
+    // sheet's source rather than its markup.
+    expect(CARD).toContain("referenceFoodPanel(");
+    expect(CARD).toContain("markPanel(");
+    expect(CARD).toMatch(/panel=\{marked[^}]*\}/);
+    // And nothing appends it: the only writes a card makes are the host's
+    // callbacks, so a panel built here can reach no datom.
+    expect(CARD).not.toMatch(/nutrition\/info/);
   });
 
   it("draws an unpaired pack's panel exactly as it always was", () => {
