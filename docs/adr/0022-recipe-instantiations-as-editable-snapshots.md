@@ -328,3 +328,90 @@ derived. ADR-0008 remains Accepted and correct about habits.
 `event/replaced_by` survives, narrowed to the one job it was shaped for: the
 many-to-one link from foods consolidated into a recipe to the event that consumed
 them.
+
+## Amendment (2026-09-17): an occasion is corrected where it was logged, one act at a time
+
+Charted by #462, off `prototype/logged-recipe-inline`.
+
+**The day gains an Occasion fold.** A logged recipe's row keeps everything it
+already is — the same card, the same ✕, the same place in its meal, the same
+long-press into a Selection — and gains a caret. Opening it drops the occasion's
+ingredients on a rule under the row's left edge, **each drawn as the logged row
+it behaves like**: the day's own `FoodItemRow logged`, a name over its amount,
+the ✕ in the corner, tapped to open its amount. A row inside a dish and a row
+outside one are therefore the same row, and what marks these as contents is the
+rule they hang on and their inset under the parent's name. Tapping the parent is
+what opens them; the correction sheet is no longer what a tap reaches.
+
+**What this replaces was a sheet over the whole day.** Correcting 60 g of
+avocado to 80 g cost the entire screen: `InstantiationSheet` re-seeded every row
+against its twin, asked again what the batch weighed, and committed the lot.
+That surface still exists and is still the Instantiate path, and one door into
+it remains — the fold corrects **what is in** the dish, and the sheet is still
+the only place that asks **how much of it** was eaten (ADR-0106 §5, §8).
+Neither surface derives that size: the fold carries forward what the occasion
+already said, so an occasion logged at 220 g of a 900 g batch stays 220 g when
+an ingredient changes.
+
+**That door is a mark on the parent row, not a row in the fold.** It is the
+recipe `WayInIcon` verbatim, standing in the row's corner under the ✕ and in the
+same column, because it opens the screen that way in logs and because it is an
+act on the dish — a control that leaves the fold has no business sitting inside
+it, where it read as a third act beside "add an ingredient". The corner is where
+this app already puts an act on a row, so `ui/Row` gained a `cornerBelow` slot
+rather than the day drawing a second ✕ of its own: the corner becomes a column
+of acts, the ✕ keeps the top of it because that is where every row's is, and the
+row grows tall enough to hold both. The fold below holds nothing but the dish's
+contents and the one act that extends them.
+
+**Every act writes, and there is no Save.** The amount sheet's Done writes, the
+✕ writes, an added ingredient writes. These lines are another view of the
+ingredients the occasion already records, not a second editing mode over them,
+so a logged ingredient behaves like a logged food — the day's own amount picker
+already commits this way, and a second rule on one screen is not worth what
+batching would save. The price is stated rather than hidden: the ingredients are
+one frozen blob and no datom holds a single row (§2), so each act appends a whole
+fresh copy of the list. Three corrected amounts are three snapshots.
+
+**The fold is only affordable because a correction appends.** Under
+retract-and-replace every act minted a new event id, so the open state, the
+Selection's membership and #440's reveal would each have had to follow a
+successor through every tap. Since the amendment above they do not move at all.
+This record is therefore the first thing built on ADR-0111 rather than merely
+compatible with it.
+
+**Removing the last ingredient is refused.** An occasion with no rows has no
+snapshot to derive from, and `Σrows` over nothing is not a dish. Removing the
+whole thing is the card's own ✕, which is a removal (1 → 0) rather than a
+correction (1 → 1).
+
+**The tap-floor question #462 carried is dissolved rather than answered.** The
+prototype drew each amount in a 3.4rem × 2rem box, under `--tap-min`, and left an
+exemption to ADR-0093 and ADR-0098 for the implementation to argue. The first
+build gave the floor back by wrapping that box in a 48px button; this one has no
+box to wrap. A row here is `Row`, which is already floored, already carries a
+corner ✕, and is already the tap target — so the exemption is not argued, not
+granted, and not needed.
+
+**What the box cost was a second row treatment on one screen.** The column of
+small boxes was the prototype's claim: a cook fixing a stew sees the numbers to
+change before touching any of them. Against it stands the day itself, where every
+amount is read under its name on a row of one shape, and where a logged
+ingredient already behaves like a logged food in every other respect this record
+settles. One row shape wins; the amount is where the eye has already learnt to
+find it.
+
+**A dangling ingredient now opens at the amount it was logged at.** The seed's
+fallback for a ref whose twin is gone fabricated a flat "1 serving", which opened
+a 240 g row reading `1 srv` — an amount nobody logged, in a unit the row was
+never in. It now divides the frozen figures by the frozen amount to fabricate a
+basis of one unit's worth: per 100 g for a measured row, per serving for a counted
+one. The derived contribution is identical, because the basis is divided by
+exactly what the amount multiplies back; what changes is that the reading is true.
+This reaches the correction sheet too, which shared the defect.
+
+**`IngredientAmountSheet` now means two things, and this is where that is
+written down.** In `IngredientListEditor` its Done fills in a list nobody has
+committed; in the fold its Done reaches the ledger. Both are correct — `onCommit`
+belongs to the caller — but the next reader will otherwise assume the builder's
+meaning.

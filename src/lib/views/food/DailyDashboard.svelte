@@ -51,12 +51,14 @@
   import NutrientGroupHead from "./NutrientGroupHead.svelte";
   import NutritionPanel from "./NutritionPanel.svelte";
   import SendFace from "./SendFace.svelte";
+  import WayInIcon from "./WayInIcon.svelte";
   import WayOutIcon from "./WayOutIcon.svelte";
   import NutritionPanelCell from "./NutritionPanelCell.svelte";
   import { longpress } from "../../actions/longpress";
   import type { ScalePreview } from "../../food/scale-amount";
   import WayInBar from "./WayInBar.svelte";
   import LoggedFoodsPanel from "./LoggedFoodsPanel.svelte";
+  import LoggedRecipeFold from "./LoggedRecipeFold.svelte";
 
   let {
     dbReady,
@@ -378,13 +380,42 @@
     suppressNextClick = false;
   }
 
+  /**
+   * Which logged recipes are open on the day, by Consumption Event id (#462).
+   *
+   * **The day owns it, not the row**, because a row is remounted by everything
+   * the projection does and a fold that closed on every re-render would be a
+   * fold nobody could edit through. Keyed on the id is safe since ADR-0111 §1:
+   * a correction appends onto the occasion, so the id an open fold names is
+   * still the id after the write it just made.
+   *
+   * It is not persisted. What is open is a fact about this sitting, and a day
+   * reopened tomorrow with five recipes unfolded is a day you have to fold up.
+   */
+  let openFolds = $state(new Set<string>());
+
+  // Replaced rather than mutated, which is how every other set on this screen
+  // moves (`selected_ids`): a `$state` Set is not deeply reactive here.
+  function toggleFold(id: string) {
+    const next = new Set(openFolds);
+    if (!next.delete(id)) next.add(id);
+    openFolds = next;
+  }
+
   function onCardClick(item: ConsumptionEvent) {
     if (suppressNextClick) {
       suppressNextClick = false;
       return;
     }
-    // In selection mode a tap toggles the item; otherwise it opens the editor.
-    if (selectionActive) onTapItem(item.id);
+    // In selection mode a tap toggles the item.
+    if (selectionActive) {
+      onTapItem(item.id);
+      return;
+    }
+    // A logged recipe opens where it is (#462): its ingredients are what a tap
+    // on it was always reaching for, and they are one fold away rather than one
+    // sheet over the whole day. Everything else opens its editor.
+    if (item.instantiation) toggleFold(item.id);
     else onEditItem(item);
   }
 
@@ -714,9 +745,41 @@
               {#each groupedMeals[meal_type] as item}
                 {@const isSelected = selectedIds.has(item.id)}
                 {@const qty = parseLoggedQuantity(item.quantity)}
+                {@const rowsIn = item.instantiation?.ingredients.length ?? 0}
+                {@const foldOpen = openFolds.has(item.id)}
                 <!-- While a selection is active the check takes the remove ✕'s
                      corner: the whole card is the tap target then, so the ✕ has no
                      role, and the check reads where the eye already looks. -->
+                <!-- The occasion itself: what the batch weighed and how much
+                     of it was eaten (ADR-0106 §5, §8), which is the one question
+                     the fold does not ask. It stands under the row's ✕, in the
+                     column the corner has always been, because it is an act on
+                     the dish rather than a mark about it; and it is the recipe
+                     `WayInIcon` verbatim, since it opens the screen that way in
+                     logs.
+
+                     The tap is stopped exactly as the photo thumb's is: the card
+                     around it toggles the fold, and a control inside a control
+                     has to say which one was meant. -->
+                {#snippet occasionMark()}
+                  <button
+                    type="button"
+                    class="occasion-btn"
+                    aria-label="How much of {item.foodName} did you eat?"
+                    onpointerdown={(e) => e.stopPropagation()}
+                    onclick={(e) => {
+                      e.stopPropagation();
+                      if (suppressNextClick) {
+                        suppressNextClick = false;
+                        return;
+                      }
+                      if (selectionActive) onTapItem(item.id);
+                      else onEditItem(item);
+                    }}
+                  >
+                    <WayInIcon kind="recipe" />
+                  </button>
+                {/snippet}
                 {#snippet selectCheck()}
                   <span
                     class="select-check"
@@ -750,11 +813,26 @@
                     calories={Number(item.calories) || 0}
                     selected={isSelected}
                     preview={scalePreview?.get(item.id)}
-                    note={scaleNotes?.get(item.id) ?? ""}
+                    note={scaleNotes?.get(item.id) ??
+                      (rowsIn > 0 ? `${rowsIn} ingredients` : "")}
                     onRemove={() => onRemoveItem(item.id)}
                     corner={selectionActive ? selectCheck : undefined}
+                    cornerBelow={item.instantiation ? occasionMark : undefined}
                   >
                     {#snippet lead()}
+                      <!-- A logged recipe says so before it is tapped (#462):
+                           the caret is the only thing about the parent row that
+                           changes, and it turns where the fold below opens. A
+                           Scale preview owns the quantity line while it is live,
+                           so the count above steps aside for it rather than
+                           competing. -->
+                      {#if item.instantiation}
+                        <span
+                          class="fold-caret"
+                          class:open={foldOpen}
+                          aria-hidden="true">›</span
+                        >
+                      {/if}
                       {#if item.photoBase64}
                         <button
                           type="button"
@@ -781,6 +859,14 @@
                     {/snippet}
                   </FoodItemRow>
                 </div>
+                <!-- Outside the card on purpose: the card is the day's entry and
+                     carries the long-press, the selection check and the ✕, and
+                     the fold is that entry's contents rather than part of it.
+                     Inside it, every tap on a line would be a tap on the row
+                     that owns the fold. -->
+                {#if foldOpen && item.instantiation}
+                  <LoggedRecipeFold {item} />
+                {/if}
               {/each}
             </div>
             <!-- Subtle one-line subtotal for the section: Calories + just the macros
@@ -1328,6 +1414,43 @@
   /* The card wraps a `ui/Row`, which clears the floor on its own — declared
      because a height inherited from a child is not one this model can walk, and
      a true thing that cannot be shown is not yet proved (ADR-0093 §5). */
+  /* The one mark that says a row has contents. It turns rather than swapping
+     glyphs, so the row's geometry cannot change between open and shut. */
+  .fold-caret {
+    display: inline-block;
+    align-self: center;
+    font-size: var(--step-0);
+    line-height: 1;
+    color: var(--text-secondary);
+    transition: transform 0.15s var(--ease-snap);
+  }
+  .fold-caret.open {
+    transform: rotate(90deg);
+  }
+  /* The ✕'s own box and the ✕'s own ink, because it stands next to it and two
+     corner marks of one row may not read as two weights. The floor is declared
+     rather than drawn from the mark's size. */
+  .occasion-btn {
+    min-width: var(--tap-min);
+    min-height: var(--tap-min);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    border: none;
+    background: none;
+    color: var(--text-muted);
+    cursor: pointer;
+  }
+  .occasion-btn:hover {
+    color: var(--text-primary);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .fold-caret {
+      transition: none;
+    }
+  }
+
   .meal-item-card {
     min-height: var(--tap-min);
   }

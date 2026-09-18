@@ -2,10 +2,10 @@
   import { untrack } from "svelte";
   import { dbClient } from "../../db/db.client";
   import { ingestEntity } from "../../ingestion/ingest";
-  import { retractConsumptionEvent } from "../../stores/calorie.store";
   import {
     saveRecipe,
     nameRecipe,
+    consolidateIntoRecipe,
     logRecipeConsumption,
     seedRowsFromTemplate,
   } from "../../stores/recipe.store";
@@ -239,45 +239,65 @@
     error = "";
     try {
       if (impromptu && template) return await promote(template.entity);
+      // Everything a Recipe Twin carries beyond its ingredients — this form's
+      // whole output. The UI labels Source / Notes / Steps map to `recipe/url`,
+      // `recipe/description` and `recipe/instructions` (ADR-0021).
+      const fields = {
+        name: recipeName.trim(),
+        url: source,
+        description: notes,
+        instructions: steps.map((s) => s.text.trim()).filter(Boolean),
+        image: image ?? undefined,
+        yield: yieldNum,
+        batch_weight: sanitizeWeight(batchWeight),
+      };
+      // **Consolidate is the store's act, not this screen's.** Its ingest, save,
+      // log and retraction are one sequence with one owner
+      // (`consolidateIntoRecipe`), because since ADR-0088's 2026-09-17 amendment
+      // the Selection bar performs exactly that sequence in one tap without ever
+      // opening this builder. What the form adds is `fields`: a consolidation
+      // reached through this screen and a one-tap one differ in what the dish
+      // carries, never in what the act does.
+      if (mode === "consolidate") {
+        onCommitted([
+          await consolidateIntoRecipe(
+            ingredients,
+            meal_type,
+            selectedDate,
+            fields
+          ),
+        ]);
+        return;
+      }
       // 1. Ingest each ingredient's food twin so it exists in the ledger.
       for (const ing of ingredients) {
         await dbClient.append(ingestEntity(ing.payload));
       }
       // 2. Save the recipe twin: pure {ref, amount, unit} ingredient references
-      //    and schema.org-faithful fields, including the user's yield (ADR-0021).
-      //    UI labels Source/Notes/Steps map to recipe/url, recipe/description,
-      //    recipe/instructions. In edit mode the twin's own id is passed, so this
-      //    appends to it (latest-wins re-seeds only FUTURE instantiations).
+      //    beside the schema.org-faithful fields above. In edit mode the twin's
+      //    own id is passed, so this appends to it (latest-wins re-seeds only
+      //    FUTURE instantiations).
       const recipeId = await saveRecipe(
-        {
-          name: recipeName.trim(),
-          ingredients: referenceIngredients,
-          url: source,
-          description: notes,
-          instructions: steps.map((s) => s.text.trim()).filter(Boolean),
-          image: image ?? undefined,
-          yield: yieldNum,
-          batch_weight: sanitizeWeight(batchWeight),
-        },
+        { ...fields, ingredients: referenceIngredients },
         mode === "edit" ? template?.entity : undefined
       );
       // The row this save put on the day, if it put one there: #440 reveals it,
-      // and the two template-only modes below leave it empty on purpose.
+      // and the two template-only modes here leave it empty on purpose.
       let logged: string | null = null;
-      // 3. Consolidate and Define both LOG the recipe onto the current day — a
-      //    recipe you just built should appear on the day you built it (ADR-0022,
-      //    amended). Edit stays template-only: it re-seeds only FUTURE
-      //    instantiations, so it logs nothing. Create is template-only for the
-      //    opposite reason: it is reached from the screen header rather than
-      //    from a meal, so there is no meal it could honestly log into.
-      if (mode === "consolidate" || mode === "define") {
-        // Log the recipe: the store derives its per-serving snapshot with the
-        // shared formula over each ingredient's REAL nutrition/info panel and
-        // the same yield, then freezes it. Same helper + panels + yield as the
-        // live display above and the projection's derivation, so the frozen
-        // snapshot equals what the builder showed at the moment it was logged.
-        // Panels are read in memory, so real food twins are never mutated.
-        const loggedEventId = await logRecipeConsumption(
+      // 3. Define LOGS the recipe onto the current day — a recipe you just built
+      //    should appear on the day you built it (ADR-0022, amended). Edit stays
+      //    template-only: it re-seeds only FUTURE instantiations, so it logs
+      //    nothing. Create is template-only for the opposite reason: it is
+      //    reached from the screen header rather than from a meal, so there is no
+      //    meal it could honestly log into.
+      if (mode === "define") {
+        // The store derives the per-serving snapshot with the shared formula over
+        // each ingredient's REAL nutrition/info panel and the same yield, then
+        // freezes it. Same helper + panels + yield as the live display above and
+        // the projection's derivation, so the frozen snapshot equals what the
+        // builder showed at the moment it was logged. Panels are read in memory,
+        // so real food twins are never mutated.
+        logged = await logRecipeConsumption(
           recipeId,
           referenceIngredients,
           yieldNum,
@@ -286,28 +306,6 @@
           meal_type,
           selectedDate
         );
-        logged = loggedEventId;
-        // Replace (consolidate only): retract the selection events that remain as
-        // ingredients. Define builds from scratch, so it has no seeded event_ids
-        // and nothing to retract — the guard keeps its fresh foods untouched.
-        //
-        // A row can carry SEVERAL events: two logs of the same food fold into
-        // one ingredient (ADR-0024), and the recipe replaces both of them.
-        //
-        // The link names the EVENT this consolidation just logged, not the twin
-        // it was seeded from (#468). `event/replaced_by` is defined as one
-        // `event:consume_` naming the `event:consume_` that superseded it, and
-        // the projection's slot walk reads it to hand the recipe its first
-        // ingredient's place — a twin id is in no event group, so the walk
-        // donated the slot to nothing and the dish fell to the bottom of its
-        // meal.
-        if (mode === "consolidate") {
-          for (const ing of ingredients) {
-            for (const event_id of ing.event_ids ?? []) {
-              await retractConsumptionEvent(event_id, loggedEventId);
-            }
-          }
-        }
       }
       onCommitted(logged ? [logged] : []);
     } catch (e: any) {

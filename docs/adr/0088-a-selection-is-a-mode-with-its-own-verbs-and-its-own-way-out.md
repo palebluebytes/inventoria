@@ -466,3 +466,47 @@ nothing should want them.
 The narrowed rule from that amendment — "a verb that only re-files or copies the
 foods keeps the Selection; a verb that rewrites or consumes them ends it" — is
 unchanged, and its worked examples still land in the same places.
+
+## Amendment (2026-09-17): consolidating is one tap, and the bar carries five marks
+
+§2's shape becomes `✕ · [scale][move][hand off][combine][recipe]`. The new mark
+consolidates the Selection where it stands: the foods become one **Impromptu
+Recipe** on the day, with no sheet, no form and no name.
+
+**It is not a new verb.** Consolidate has been on this bar since §2 was written;
+what it lacked was a way to reach it without answering for a template first.
+ADR-0110 removed the thing that made the sheet compulsory — a twin with no name
+is complete, identified by its ingredients, and stays out of the library — so the
+builder now stands between the user and an act that no longer needs a decision
+from them. Both marks run the same sequence (`consolidateIntoRecipe`), and what
+the builder adds is fields rather than behaviour: a name if you want one, notes,
+steps, an image, a yield, a batch weight.
+
+**So the two stand together, and the builder keeps the weight.** Combine sits
+immediately left of Recipe, and only Recipe is `primary`. Two green marks side by
+side would be two recommendations where there is one act, and the mark under the
+thumb is the one that has been there since the bar shipped.
+
+**The fifth mark is paid for out of the gaps, not the targets.** At the 360px
+floor the bar's padding leaves 319.5px of content box; the `✕` (48px, pulled
+15.2px back into that padding) plus five 48px marks plus the gaps between them
+come to 323.4px at `--space-2xs` and 303.2px at `--space-3xs`. `.sb-verbs`
+therefore spends the smaller step. The alternative was `.sb-main`'s `flex-wrap`
+dropping the verbs onto a second row, which is the bar growing to two rows at the
+one width where the day has the least of them to spare. No target moves: 48px is
+ADR-0089 §3's floor and every verb here still meets it. The 2026-09-02
+amendment's arithmetic — "four marks and a `✕` measure 220px of the 360px floor
+before gaps" — was taken at the 44px target this app no longer uses, and is
+restated here at 48px rather than corrected there.
+
+**A failure keeps the Selection, and a repeat is safe.** The sequence is four
+appends and nothing rolls back, so a throw part-way leaves facts rather than a
+half-built dish, and the bar keeps its foods so the run can be repeated — which
+is §10's rule, unchanged. Running it again is not a second dish: the id is
+derived from the sorted ingredient refs (ADR-0110 §4), so the repeat lands on the
+same twin and logs a second occasion of it.
+
+**What it does not get is an undo.** Nothing in this app has one, and the
+recovery is the one the model already offers: the sources are retracted rather
+than deleted, the dish is a complete record of what was made, and a dish made by
+accident costs a name nobody types.

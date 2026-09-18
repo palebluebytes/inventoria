@@ -29,6 +29,7 @@
   } from "../../food/batch-weight";
   import { scaleAmount } from "../../food/scale-amount";
   import AddIngredientSheet from "./AddIngredientSheet.svelte";
+  import AddIngredientButton from "./AddIngredientButton.svelte";
   import IngredientAmountSheet from "./IngredientAmountSheet.svelte";
   import FoodItemRow from "./FoodItemRow.svelte";
   import NutrientPreview from "./NutrientPreview.svelte";
@@ -313,9 +314,10 @@
   {/if}
 </ul>
 {#if !readonly}
-  <button class="add" id="add-ingredient-btn" onclick={() => (showAdd = true)}
-    >+ Add ingredient</button
-  >
+  <AddIngredientButton
+    id="add-ingredient-btn"
+    onclick={() => (showAdd = true)}
+  />
 {/if}
 
 <!-- Servings — the number the whole surface is read against, asked in the terms
@@ -518,15 +520,6 @@
     padding: var(--space-xs) var(--space-s);
     color: var(--text-muted);
     font-size: var(--step-n2);
-  }
-  .add {
-    width: 100%;
-    margin-top: var(--space-2xs);
-    border: 2px dashed var(--ink);
-    background: var(--paper);
-    padding: var(--space-s);
-    font-weight: 700;
-    cursor: pointer;
   }
   .tin {
     width: 100%;
