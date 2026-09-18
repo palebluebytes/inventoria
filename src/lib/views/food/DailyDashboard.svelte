@@ -750,6 +750,35 @@
                 <!-- While a selection is active the check takes the remove ✕'s
                      corner: the whole card is the tap target then, so the ✕ has no
                      role, and the check reads where the eye already looks. -->
+                <!-- The occasion itself: what the batch weighed and how much
+                     of it was eaten (ADR-0106 §5, §8), which is the one question
+                     the fold does not ask. It stands beside the row's ✕ because
+                     it is an act on the dish, where the ✕ is, rather than a mark
+                     about it; and it is the recipe `WayInIcon` verbatim, since
+                     it opens the screen that way in logs.
+
+                     The tap is stopped exactly as the photo thumb's is: the card
+                     around it toggles the fold, and a control inside a control
+                     has to say which one was meant. -->
+                {#snippet occasionMark()}
+                  <button
+                    type="button"
+                    class="occasion-btn"
+                    aria-label="How much of {item.foodName} did you eat?"
+                    onpointerdown={(e) => e.stopPropagation()}
+                    onclick={(e) => {
+                      e.stopPropagation();
+                      if (suppressNextClick) {
+                        suppressNextClick = false;
+                        return;
+                      }
+                      if (selectionActive) onTapItem(item.id);
+                      else onEditItem(item);
+                    }}
+                  >
+                    <WayInIcon kind="recipe" />
+                  </button>
+                {/snippet}
                 {#snippet selectCheck()}
                   <span
                     class="select-check"
@@ -787,6 +816,7 @@
                       (rowsIn > 0 ? `${rowsIn} ingredients` : "")}
                     onRemove={() => onRemoveItem(item.id)}
                     corner={selectionActive ? selectCheck : undefined}
+                    cornerLead={item.instantiation ? occasionMark : undefined}
                   >
                     {#snippet lead()}
                       <!-- A logged recipe says so before it is tapped (#462):
@@ -801,35 +831,6 @@
                           class:open={foldOpen}
                           aria-hidden="true">›</span
                         >
-                        <!-- The occasion itself: what the batch weighed and how
-                             much of it was eaten (ADR-0106 §5, §8), which is the
-                             one question the fold below does not ask. It stands
-                             on the parent row because it is about the dish
-                             rather than about any line in it, and it is the
-                             recipe mark verbatim — the same `WayInIcon` the way
-                             in that logged this row carries, since it opens the
-                             same screen.
-
-                             The tap is stopped exactly as the photo thumb's is:
-                             the card around it toggles the fold, and a control
-                             inside a control has to say which one was meant. -->
-                        <button
-                          type="button"
-                          class="occasion-btn"
-                          aria-label="How much of {item.foodName} did you eat?"
-                          onpointerdown={(e) => e.stopPropagation()}
-                          onclick={(e) => {
-                            e.stopPropagation();
-                            if (suppressNextClick) {
-                              suppressNextClick = false;
-                              return;
-                            }
-                            if (selectionActive) onTapItem(item.id);
-                            else onEditItem(item);
-                          }}
-                        >
-                          <WayInIcon kind="recipe" />
-                        </button>
                       {/if}
                       {#if item.photoBase64}
                         <button
@@ -1425,9 +1426,9 @@
   .fold-caret.open {
     transform: rotate(90deg);
   }
-  /* The thumb button's shape, because it is the same kind of thing: a mark in
-     the row's lead that takes its own tap. The floor is declared rather than
-     drawn from the mark's size. */
+  /* The ✕'s own box and the ✕'s own ink, because it stands next to it and two
+     corner marks of one row may not read as two weights. The floor is declared
+     rather than drawn from the mark's size. */
   .occasion-btn {
     min-width: var(--tap-min);
     min-height: var(--tap-min);
@@ -1437,8 +1438,11 @@
     padding: 0;
     border: none;
     background: none;
-    color: var(--text-secondary);
+    color: var(--text-muted);
     cursor: pointer;
+  }
+  .occasion-btn:hover {
+    color: var(--text-primary);
   }
   @media (prefers-reduced-motion: reduce) {
     .fold-caret {

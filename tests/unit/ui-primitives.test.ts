@@ -345,6 +345,30 @@ describe("Row", () => {
     expect(body).not.toContain("row-remove");
   });
 
+  it("stands a `cornerLead` mark beside the ✕ rather than in place of it", () => {
+    // `corner` displaces the ✕; this one joins it. The day's logged recipe needs
+    // both at once — an occasion control and a removal — and a second control in
+    // the row's flow would sit under the corner rather than beside it.
+    const { body } = render(Row, {
+      props: { ...props, onRemove: () => {}, cornerLead: mark("🍲") },
+    } as Record<string, unknown>);
+
+    expect(body).toContain("row-corner-cluster");
+    expect(body).toContain("🍲");
+    expect(body).toContain("row-remove");
+    expect(body.indexOf("🍲")).toBeLessThan(body.indexOf("row-remove"));
+  });
+
+  it("keeps a row holding a corner mark out of the native button", () => {
+    // HTML forbids a button inside a button, and a `cornerLead` is a control.
+    const { body } = render(Row, {
+      props: { ...props, onclick: () => {}, cornerLead: mark("🍲") },
+    } as Record<string, unknown>);
+
+    expect(body).toMatch(/<div[^>]*class="row[ "]/);
+    expect(body).toContain('role="button"');
+  });
+
   it("places the lead ahead of the text and the trailing mark after it", () => {
     const { body } = render(Row, {
       props: { ...props, lead: mark("⚡"), trailing: mark("›") },

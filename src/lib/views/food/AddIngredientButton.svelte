@@ -34,9 +34,9 @@
 <style>
   .add {
     width: 100%;
-    /* Its own clearance from the row above, which is the same relationship on
-       both surfaces: a list of ingredients, then the act that extends it. */
-    margin-top: var(--space-2xs);
+    /* No margin of its own. The act belongs to the list above it on both
+       surfaces, so it sits against it and the host decides what, if anything,
+       comes between them. */
     min-height: var(--tap-min);
     border: 2px dashed var(--ink);
     background: var(--paper);

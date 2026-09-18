@@ -354,11 +354,13 @@ already said, so an occasion logged at 220 g of a 900 g batch stays 220 g when
 an ingredient changes.
 
 **That door is a mark on the parent row, not a row in the fold.** It is the
-recipe `WayInIcon` verbatim, beside the caret, because it opens the screen that
-way in logs and because it is about the dish rather than about any line in it —
-a control that leaves the fold has no business sitting inside it, where it read
-as a third act beside "add an ingredient". The fold below therefore holds
-nothing but the dish's contents and the one act that extends them.
+recipe `WayInIcon` verbatim, standing in the row's corner beside the ✕, because
+it opens the screen that way in logs and because it is an act on the dish — a
+control that leaves the fold has no business sitting inside it, where it read as
+a third act beside "add an ingredient". The corner is where this app already
+puts an act on a row, so `ui/Row` gained a `cornerLead` slot rather than the day
+drawing a second ✕ of its own; the fold below holds nothing but the dish's
+contents and the one act that extends them.
 
 **Every act writes, and there is no Save.** The amount sheet's Done writes, the
 ✕ writes, an added ingredient writes. These lines are another view of the

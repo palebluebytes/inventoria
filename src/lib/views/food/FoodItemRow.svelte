@@ -40,6 +40,7 @@
     onclick,
     lead,
     corner,
+    cornerLead,
     selected = false,
     preview,
     note = "",
@@ -61,6 +62,9 @@
     /** Top-right corner content. Takes the remove ✕'s place when given — the
      *  dashboard puts its selection check here while a selection is active. */
     corner?: Snippet;
+    /** A mark beside whichever of those the corner is showing (`Row`'s own
+     *  `cornerLead`) — the day puts a logged recipe's occasion control there. */
+    cornerLead?: Snippet;
     /** Dashboard selection highlight; ignored by the recipe list. */
     selected?: boolean;
     /** What this food WOULD read at, while a Scale preview is live (ADR-0088
@@ -104,6 +108,7 @@
   {onclick}
   {lead}
   {corner}
+  {cornerLead}
   {selected}
 >
   {#snippet trailing()}
@@ -180,8 +185,7 @@
 
      The selection check takes the same box, so both move together — a Selection
      opening may not shift anything (ADR-0088). */
-  :global(.food-item.fi-logged .row-remove),
-  :global(.food-item.fi-logged .row-corner) {
+  :global(.food-item.fi-logged .row-corner-cluster) {
     top: calc(var(--space-xs) + 0.625 * var(--step-n1) - 0.75rem);
   }
 

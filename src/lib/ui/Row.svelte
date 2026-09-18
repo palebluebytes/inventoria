@@ -29,6 +29,7 @@
     lead,
     trailing,
     corner,
+    cornerLead,
     onRemove,
     onclick,
     selected = false,
@@ -49,6 +50,16 @@
     trailing?: Snippet;
     /** Top-right corner content. Takes the remove ✕'s place when given. */
     corner?: Snippet;
+    /**
+     * A mark in the top-right corner **beside** whichever of those two the row
+     * is showing, ahead of it — a second control on the row that belongs with
+     * the ✕ rather than in the text.
+     *
+     * It is not `trailing`: that mark sits in the row's flow, which is why a
+     * food line drops its kcal to the baseline to clear the corner. This one
+     * joins the corner instead of clearing it.
+     */
+    cornerLead?: Snippet;
     onRemove?: () => void;
     /** Whole-row tap. Omit to make the row inert. */
     onclick?: () => void;
@@ -65,7 +76,7 @@
 
   let clickable = $derived(!!onclick);
   // A ✕ or a corner mark is content a native <button> may not hold.
-  let asButton = $derived(clickable && !corner && !onRemove);
+  let asButton = $derived(clickable && !corner && !onRemove && !cornerLead);
 </script>
 
 {#snippet body()}
@@ -80,19 +91,28 @@
     {/if}
   </span>
   {@render trailing?.()}
-  {#if corner}
-    <span class="row-corner">{@render corner()}</span>
-  {:else if onRemove}
-    <button
-      class="row-remove {removeClass}"
-      aria-label="Remove {title}"
-      title="Remove"
-      onpointerdown={(e) => e.stopPropagation()}
-      onclick={(e) => {
-        e.stopPropagation();
-        onRemove?.();
-      }}>✕</button
-    >
+  <!-- One cluster holds everything the corner shows, so a second control arrives
+       beside the ✕ rather than on top of it. The cluster is what is positioned;
+       its contents are in flow inside it, which is why `FoodItemRow`'s measured
+       `top` for a logged row now names the cluster and nothing else moved. -->
+  {#if cornerLead || corner || onRemove}
+    <span class="row-corner-cluster">
+      {@render cornerLead?.()}
+      {#if corner}
+        <span class="row-corner">{@render corner()}</span>
+      {:else if onRemove}
+        <button
+          class="row-remove {removeClass}"
+          aria-label="Remove {title}"
+          title="Remove"
+          onpointerdown={(e) => e.stopPropagation()}
+          onclick={(e) => {
+            e.stopPropagation();
+            onRemove?.();
+          }}>✕</button
+        >
+      {/if}
+    </span>
   {/if}
 {/snippet}
 
@@ -192,11 +212,15 @@
   }
   /* Borderless ✕ tucked into the row's top-right corner — and the same box for
      whatever `corner` puts there instead, so the two never shift the row. */
-  .row-remove,
-  .row-corner {
+  .row-corner-cluster {
     position: absolute;
     top: var(--space-3xs);
     right: var(--space-3xs);
+    display: inline-flex;
+    align-items: center;
+  }
+  .row-remove,
+  .row-corner {
     display: inline-flex;
     align-items: center;
     justify-content: center;
