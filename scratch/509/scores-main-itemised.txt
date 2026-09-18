@@ -1,0 +1,32 @@
+
+========================================================================
+raw-main-itemised.json  (50 rows)
+========================================================================
+
+MALFORMED: 1
+  dish_1566328776 200 unparseable: Unexpected non-whitespace character after JSON at position 7
+
+PLATES: 49 scored, 0 answered null
+  MAE            173.3 kcal
+  MAE / mean     38.9%   (Nutrition5k 2D baseline 70.6 kcal / 26.1%)
+  MAPE           73.7%   median 34.2%
+  bias (signed)  +77.6 kcal   (36/49 over)
+  within 25%     20/49
+  within 50%     28/49
+  worst          1560526408 67.1->540 (705%), 1561662190 117.32->420 (258%), 1567007783 50->170 (240%)
+
+  by calorie band:
+    150-300   n=10  MAE  224 kcal  MAPE  97%  bias +224
+    300-500   n=10  MAE  104 kcal  MAPE  27%  bias +78
+    50-150    n=10  MAE  152 kcal  MAPE 188%  bias +129
+    500-800   n=10  MAE  125 kcal  MAPE  22%  bias +35
+    800+      n= 9  MAE  272 kcal  MAPE  30%  bias -94
+
+  itemisation:
+    items/plate    4.0  (truth 9.0)
+    parts sum to the total  29/49
+    mass MAE       115 g  bias +16 g  (truth mean 312 g)
+
+  naming (token overlap against the weighed ingredient list):
+    named foods that are really there  125/198
+    real ingredients the model named   128/441

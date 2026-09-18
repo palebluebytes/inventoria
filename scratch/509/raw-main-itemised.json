@@ -1,0 +1,2635 @@
+[
+  {
+    "id": "dish_1565123816",
+    "kind": "plate",
+    "prompt": "itemised",
+    "model": "llama-4-scout",
+    "model_id": "@cf/meta/llama-4-scout-17b-16e-instruct",
+    "n_images": 1,
+    "repeat": 0,
+    "truth_kcal": 250.92,
+    "truth_mass": 110,
+    "status": 200,
+    "ms": 2726,
+    "content": {
+      "calories": 744,
+      "items": [
+        {
+          "food": "pizza",
+          "grams": 100,
+          "kcal": 250,
+          "portion": "1 slice"
+        },
+        {
+          "food": "roast beef",
+          "grams": 150,
+          "kcal": 494,
+          "portion": "a few pieces"
+        }
+      ],
+      "name": "Meat and Pizza"
+    },
+    "usage": {
+      "prompt_tokens": 1090,
+      "completion_tokens": 95,
+      "total_tokens": 1185,
+      "prompt_tokens_details": {
+        "cached_tokens": 0
+      },
+      "neurons": 34.095455169677734
+    },
+    "raw": null
+  },
+  {
+    "id": "dish_1558031394",
+    "kind": "plate",
+    "prompt": "itemised",
+    "model": "llama-4-scout",
+    "model_id": "@cf/meta/llama-4-scout-17b-16e-instruct",
+    "n_images": 1,
+    "repeat": 0,
+    "truth_kcal": 237.41,
+    "truth_mass": 318,
+    "status": 200,
+    "ms": 2917,
+    "content": {
+      "calories": 245.9,
+      "items": [
+        {
+          "food": "Cantaloupe",
+          "grams": 160,
+          "kcal": 54,
+          "portion": "about 1 cup"
+        },
+        {
+          "food": "Watermelon",
+          "grams": 152,
+          "kcal": 46,
+          "portion": "about 1 cup"
+        },
+        {
+          "food": "Roasted Sweet Potatoes",
+          "grams": 110,
+          "kcal": 76,
+          "portion": "about 1 cup"
+        },
+        {
+          "food": "Roasted Potatoes",
+          "grams": 75,
+          "kcal": 69.9,
+          "portion": "about 1/2 cup"
+        }
+      ],
+      "name": "Fresh Fruits and Roasted Vegetables"
+    },
+    "usage": {
+      "prompt_tokens": 1090,
+      "completion_tokens": 164,
+      "total_tokens": 1254,
+      "prompt_tokens_details": {
+        "cached_tokens": 0
+      },
+      "neurons": 39.427276611328125
+    },
+    "raw": null
+  },
+  {
+    "id": "dish_1563551194",
+    "kind": "plate",
+    "prompt": "itemised",
+    "model": "llama-4-scout",
+    "model_id": "@cf/meta/llama-4-scout-17b-16e-instruct",
+    "n_images": 1,
+    "repeat": 0,
+    "truth_kcal": 471.64,
+    "truth_mass": 400,
+    "status": 200,
+    "ms": 4574,
+    "content": {
+      "calories": 522.2,
+      "items": [
+        {
+          "food": "Oatmeal",
+          "grams": 150,
+          "kcal": 150,
+          "portion": "a scoop"
+        },
+        {
+          "food": "Banana",
+          "grams": 50,
+          "kcal": 105,
+          "portion": "two slices"
+        },
+        {
+          "food": "Egg",
+          "grams": 120,
+          "kcal": 140,
+          "portion": "two"
+        },
+        {
+          "food": "Zucchini",
+          "grams": 100,
+          "kcal": 25,
+          "portion": "a handful"
+        },
+        {
+          "food": "English Muffin",
+          "grams": 50,
+          "kcal": 120,
+          "portion": "one"
+        },
+        {
+          "food": "Butter or Cream Cheese",
+          "grams": 20,
+          "kcal": 82.2,
+          "portion": "a spread"
+        }
+      ],
+      "name": "Breakfast Plate"
+    },
+    "usage": {
+      "prompt_tokens": 1090,
+      "completion_tokens": 202,
+      "total_tokens": 1292,
+      "prompt_tokens_details": {
+        "cached_tokens": 0
+      },
+      "neurons": 42.36363983154297
+    },
+    "raw": null
+  },
+  {
+    "id": "dish_1566920339",
+    "kind": "plate",
+    "prompt": "itemised",
+    "model": "llama-4-scout",
+    "model_id": "@cf/meta/llama-4-scout-17b-16e-instruct",
+    "n_images": 1,
+    "repeat": 0,
+    "truth_kcal": 449.53,
+    "truth_mass": 730,
+    "status": 200,
+    "ms": 2039,
+    "content": {
+      "calories": 372,
+      "items": [
+        {
+          "food": "scrambled eggs",
+          "grams": 200,
+          "kcal": 140,
+          "portion": "a large scoop"
+        },
+        {
+          "food": "roasted sweet potatoes",
+          "grams": 150,
+          "kcal": 232,
+          "portion": "about 6 pieces"
+        }
+      ],
+      "name": "Scrambled Eggs with Sweet Potatoes"
+    },
+    "usage": {
+      "prompt_tokens": 1090,
+      "completion_tokens": 103,
+      "total_tokens": 1193,
+      "prompt_tokens_details": {
+        "cached_tokens": 0
+      },
+      "neurons": 34.71363830566406
+    },
+    "raw": null
+  },
+  {
+    "id": "dish_1562790775",
+    "kind": "plate",
+    "prompt": "itemised",
+    "model": "llama-4-scout",
+    "model_id": "@cf/meta/llama-4-scout-17b-16e-instruct",
+    "n_images": 1,
+    "repeat": 0,
+    "truth_kcal": 75.69,
+    "truth_mass": 40,
+    "status": 200,
+    "ms": 1674,
+    "content": {
+      "calories": 20,
+      "items": [
+        {
+          "food": "Spinach",
+          "grams": 100,
+          "kcal": 20,
+          "portion": "a handful"
+        }
+      ],
+      "name": "Spinach Salad"
+    },
+    "usage": {
+      "prompt_tokens": 1090,
+      "completion_tokens": 61,
+      "total_tokens": 1151,
+      "prompt_tokens_details": {
+        "cached_tokens": 0
+      },
+      "neurons": 31.468183517456055
+    },
+    "raw": null
+  },
+  {
+    "id": "dish_1567007783",
+    "kind": "plate",
+    "prompt": "itemised",
+    "model": "llama-4-scout",
+    "model_id": "@cf/meta/llama-4-scout-17b-16e-instruct",
+    "n_images": 1,
+    "repeat": 0,
+    "truth_kcal": 50,
+    "truth_mass": 106,
+    "status": 200,
+    "ms": 2898,
+    "content": {
+      "calories": 170,
+      "items": [
+        {
+          "food": "strawberries",
+          "grams": 80,
+          "kcal": 50,
+          "portion": "5-6 pieces"
+        },
+        {
+          "food": "blueberries",
+          "grams": 40,
+          "kcal": 20,
+          "portion": "a small handful"
+        },
+        {
+          "food": "raspberries",
+          "grams": 20,
+          "kcal": 10,
+          "portion": "2-3 pieces"
+        },
+        {
+          "food": "cantaloupe",
+          "grams": 100,
+          "kcal": 90,
+          "portion": "5-6 chunks"
+        }
+      ],
+      "name": "Fresh Fruit Salad"
+    },
+    "usage": {
+      "prompt_tokens": 1090,
+      "completion_tokens": 166,
+      "total_tokens": 1256,
+      "prompt_tokens_details": {
+        "cached_tokens": 0
+      },
+      "neurons": 39.581817626953125
+    },
+    "raw": null
+  },
+  {
+    "id": "dish_1564428181",
+    "kind": "plate",
+    "prompt": "itemised",
+    "model": "llama-4-scout",
+    "model_id": "@cf/meta/llama-4-scout-17b-16e-instruct",
+    "n_images": 1,
+    "repeat": 0,
+    "truth_kcal": 510.05,
+    "truth_mass": 320,
+    "status": 200,
+    "ms": 2537,
+    "content": {
+      "calories": 720,
+      "items": [
+        {
+          "food": "chicken thigh",
+          "grams": 120,
+          "kcal": 240,
+          "portion": "2 pieces"
+        },
+        {
+          "food": "mixed rice",
+          "grams": 200,
+          "kcal": 300,
+          "portion": "a scoop"
+        },
+        {
+          "food": "arugula salad",
+          "grams": 50,
+          "kcal": 20,
+          "portion": "a handful"
+        }
+      ],
+      "name": "Chicken and Rice with Salad"
+    },
+    "usage": {
+      "prompt_tokens": 1090,
+      "completion_tokens": 130,
+      "total_tokens": 1220,
+      "prompt_tokens_details": {
+        "cached_tokens": 0
+      },
+      "neurons": 36.80000305175781
+    },
+    "raw": null
+  },
+  {
+    "id": "dish_1559849537",
+    "kind": "plate",
+    "prompt": "itemised",
+    "model": "llama-4-scout",
+    "model_id": "@cf/meta/llama-4-scout-17b-16e-instruct",
+    "n_images": 1,
+    "repeat": 0,
+    "truth_kcal": 549.52,
+    "truth_mass": 393,
+    "status": 200,
+    "ms": 3629,
+    "content": {
+      "calories": 540.9,
+      "items": [
+        {
+          "food": "almonds",
+          "grams": 60,
+          "kcal": 342,
+          "portion": "about 1/2 cup"
+        },
+        {
+          "food": "grapes",
+          "grams": 80,
+          "kcal": 60,
+          "portion": "about 1/2 cup"
+        },
+        {
+          "food": "pear",
+          "grams": 180,
+          "kcal": 62,
+          "portion": "1 medium"
+        },
+        {
+          "food": "mandarin",
+          "grams": 88,
+          "kcal": 76.5,
+          "portion": "1 medium"
+        }
+      ],
+      "name": "Fruit and Nuts"
+    },
+    "usage": {
+      "prompt_tokens": 1090,
+      "completion_tokens": 152,
+      "total_tokens": 1242,
+      "prompt_tokens_details": {
+        "cached_tokens": 0
+      },
+      "neurons": 38.5
+    },
+    "raw": null
+  },
+  {
+    "id": "dish_1566414412",
+    "kind": "plate",
+    "prompt": "itemised",
+    "model": "llama-4-scout",
+    "model_id": "@cf/meta/llama-4-scout-17b-16e-instruct",
+    "n_images": 1,
+    "repeat": 0,
+    "truth_kcal": 920.12,
+    "truth_mass": 658,
+    "status": 200,
+    "ms": 3947,
+    "content": {
+      "calories": 540,
+      "items": [
+        {
+          "food": "Mixed Greens Salad",
+          "grams": 100,
+          "kcal": 20,
+          "portion": "a large handful"
+        },
+        {
+          "food": "Quinoa",
+          "grams": 100,
+          "kcal": 150,
+          "portion": "about half a cup"
+        },
+        {
+          "food": "Roasted Potatoes",
+          "grams": 150,
+          "kcal": 210,
+          "portion": "three pieces"
+        },
+        {
+          "food": "Grilled Chicken or Tofu",
+          "grams": 100,
+          "kcal": 120,
+          "portion": "a few chunks"
+        },
+        {
+          "food": "Cherry Tomatoes",
+          "grams": 20,
+          "kcal": 10,
+          "portion": "a few"
+        },
+        {
+          "food": "Red Pepper",
+          "grams": 20,
+          "kcal": 6,
+          "portion": "a slice"
+        }
+      ],
+      "name": "Mixed Salad with Quinoa and Vegetables"
+    },
+    "usage": {
+      "prompt_tokens": 1090,
+      "completion_tokens": 239,
+      "total_tokens": 1329,
+      "prompt_tokens_details": {
+        "cached_tokens": 0
+      },
+      "neurons": 45.22272872924805
+    },
+    "raw": null
+  },
+  {
+    "id": "dish_1566328831",
+    "kind": "plate",
+    "prompt": "itemised",
+    "model": "llama-4-scout",
+    "model_id": "@cf/meta/llama-4-scout-17b-16e-instruct",
+    "n_images": 1,
+    "repeat": 0,
+    "truth_kcal": 941.61,
+    "truth_mass": 500,
+    "status": 200,
+    "ms": 5386,
+    "content": {
+      "calories": 1241.9,
+      "items": [
+        {
+          "food": "Pizza",
+          "grams": 210,
+          "kcal": 714,
+          "portion": "3 slices"
+        },
+        {
+          "food": "Chicken Breast",
+          "grams": 150,
+          "kcal": 165,
+          "portion": "about 150g"
+        },
+        {
+          "food": "Pineapple",
+          "grams": 80,
+          "kcal": 53.2,
+          "portion": "a handful"
+        },
+        {
+          "food": "Cherry Tomatoes",
+          "grams": 120,
+          "kcal": 22.8,
+          "portion": "about 10"
+        },
+        {
+          "food": "Olives",
+          "grams": 20,
+          "kcal": 4.8,
+          "portion": "a few"
+        },
+        {
+          "food": "Onion",
+          "grams": 20,
+          "kcal": 8.1,
+          "portion": "a few slices"
+        }
+      ],
+      "name": "Hawaiian Pizza with Chicken and Vegetables"
+    },
+    "usage": {
+      "prompt_tokens": 1090,
+      "completion_tokens": 218,
+      "total_tokens": 1308,
+      "prompt_tokens_details": {
+        "cached_tokens": 0
+      },
+      "neurons": 43.60000228881836
+    },
+    "raw": null
+  },
+  {
+    "id": "dish_1564428144",
+    "kind": "plate",
+    "prompt": "itemised",
+    "model": "llama-4-scout",
+    "model_id": "@cf/meta/llama-4-scout-17b-16e-instruct",
+    "n_images": 1,
+    "repeat": 0,
+    "truth_kcal": 205.21,
+    "truth_mass": 171,
+    "status": 200,
+    "ms": 3426,
+    "content": {
+      "calories": 350,
+      "items": [
+        {
+          "food": "chicken breast",
+          "grams": 120,
+          "kcal": 140,
+          "portion": "one piece"
+        },
+        {
+          "food": "arugula",
+          "grams": 200,
+          "kcal": 20,
+          "portion": "a handful"
+        },
+        {
+          "food": "chicken skin",
+          "grams": 20,
+          "kcal": 50,
+          "portion": "a small piece"
+        },
+        {
+          "food": "dressing",
+          "grams": 0,
+          "kcal": 0,
+          "portion": "none visible"
+        }
+      ],
+      "name": "Grilled Chicken and Arugula Salad"
+    },
+    "usage": {
+      "prompt_tokens": 1090,
+      "completion_tokens": 167,
+      "total_tokens": 1257,
+      "prompt_tokens_details": {
+        "cached_tokens": 0
+      },
+      "neurons": 39.65909194946289
+    },
+    "raw": null
+  },
+  {
+    "id": "dish_1561739238",
+    "kind": "plate",
+    "prompt": "itemised",
+    "model": "llama-4-scout",
+    "model_id": "@cf/meta/llama-4-scout-17b-16e-instruct",
+    "n_images": 1,
+    "repeat": 0,
+    "truth_kcal": 274.19,
+    "truth_mass": 257,
+    "status": 200,
+    "ms": 5103,
+    "content": {
+      "calories": 540.2,
+      "items": [
+        {
+          "food": "Mozzarella Cheese",
+          "grams": 90,
+          "kcal": 216,
+          "portion": "about 6 chunks"
+        },
+        {
+          "food": "Sauerkraut",
+          "grams": 50,
+          "kcal": 17,
+          "portion": "a small pile"
+        },
+        {
+          "food": "Sweet Potato",
+          "grams": 120,
+          "kcal": 128,
+          "portion": "about 8 chunks"
+        },
+        {
+          "food": "Raspberries",
+          "grams": 60,
+          "kcal": 64,
+          "portion": "about 5"
+        },
+        {
+          "food": "Blackberries",
+          "grams": 20,
+          "kcal": 15,
+          "portion": "about 2"
+        },
+        {
+          "food": "Black Olives",
+          "grams": 10,
+          "kcal": 4,
+          "portion": "about 2"
+        }
+      ],
+      "name": "Mixed Plate"
+    },
+    "usage": {
+      "prompt_tokens": 1090,
+      "completion_tokens": 210,
+      "total_tokens": 1300,
+      "prompt_tokens_details": {
+        "cached_tokens": 0
+      },
+      "neurons": 42.98181915283203
+    },
+    "raw": null
+  },
+  {
+    "id": "dish_1561654392",
+    "kind": "plate",
+    "prompt": "itemised",
+    "model": "llama-4-scout",
+    "model_id": "@cf/meta/llama-4-scout-17b-16e-instruct",
+    "n_images": 1,
+    "repeat": 0,
+    "truth_kcal": 494.07,
+    "truth_mass": 282,
+    "status": 200,
+    "ms": 3254,
+    "content": {
+      "calories": 542.2,
+      "items": [
+        {
+          "food": "scrambled eggs",
+          "grams": 120,
+          "kcal": 144,
+          "portion": "a generous helping"
+        },
+        {
+          "food": "bacon",
+          "grams": 80,
+          "kcal": 250,
+          "portion": "4-5 strips"
+        },
+        {
+          "food": "mixed greens salad",
+          "grams": 20,
+          "kcal": 10,
+          "portion": "a small handful"
+        },
+        {
+          "food": "dressing or toppings",
+          "grams": 10,
+          "kcal": 138.2,
+          "portion": "a few bits"
+        }
+      ],
+      "name": "Breakfast Plate"
+    },
+    "usage": {
+      "prompt_tokens": 1090,
+      "completion_tokens": 153,
+      "total_tokens": 1243,
+      "prompt_tokens_details": {
+        "cached_tokens": 0
+      },
+      "neurons": 38.577274322509766
+    },
+    "raw": null
+  },
+  {
+    "id": "dish_1563984242",
+    "kind": "plate",
+    "prompt": "itemised",
+    "model": "llama-4-scout",
+    "model_id": "@cf/meta/llama-4-scout-17b-16e-instruct",
+    "n_images": 1,
+    "repeat": 0,
+    "truth_kcal": 402.12,
+    "truth_mass": 753,
+    "status": 200,
+    "ms": 3418,
+    "content": {
+      "calories": 350,
+      "items": [
+        {
+          "food": "scrambled eggs",
+          "grams": 200,
+          "kcal": 140,
+          "portion": "a large pile"
+        },
+        {
+          "food": "grilled mushrooms",
+          "grams": 100,
+          "kcal": 20,
+          "portion": "a small pile"
+        },
+        {
+          "food": "pineapple chunks",
+          "grams": 80,
+          "kcal": 40,
+          "portion": "a small pile"
+        },
+        {
+          "food": "cantaloupe chunks",
+          "grams": 80,
+          "kcal": 30,
+          "portion": "a small pile"
+        }
+      ],
+      "name": "Breakfast Plate"
+    },
+    "usage": {
+      "prompt_tokens": 1090,
+      "completion_tokens": 166,
+      "total_tokens": 1256,
+      "prompt_tokens_details": {
+        "cached_tokens": 0
+      },
+      "neurons": 39.581817626953125
+    },
+    "raw": null
+  },
+  {
+    "id": "dish_1563996441",
+    "kind": "plate",
+    "prompt": "itemised",
+    "model": "llama-4-scout",
+    "model_id": "@cf/meta/llama-4-scout-17b-16e-instruct",
+    "n_images": 1,
+    "repeat": 0,
+    "truth_kcal": 80.24,
+    "truth_mass": 65,
+    "status": 200,
+    "ms": 1896,
+    "content": {
+      "calories": 20,
+      "items": [
+        {
+          "food": "arugula",
+          "grams": 100,
+          "kcal": 20,
+          "portion": "a large handful"
+        }
+      ],
+      "name": "Arugula Salad"
+    },
+    "usage": {
+      "prompt_tokens": 1090,
+      "completion_tokens": 64,
+      "total_tokens": 1154,
+      "prompt_tokens_details": {
+        "cached_tokens": 0
+      },
+      "neurons": 31.700000762939453
+    },
+    "raw": null
+  },
+  {
+    "id": "dish_1567007848",
+    "kind": "plate",
+    "prompt": "itemised",
+    "model": "llama-4-scout",
+    "model_id": "@cf/meta/llama-4-scout-17b-16e-instruct",
+    "n_images": 1,
+    "repeat": 0,
+    "truth_kcal": 100.3,
+    "truth_mass": 243,
+    "status": 200,
+    "ms": 4494,
+    "content": {
+      "calories": 170,
+      "items": [
+        {
+          "food": "Strawberries",
+          "grams": 100,
+          "kcal": 33,
+          "portion": "a handful"
+        },
+        {
+          "food": "Blueberries",
+          "grams": 20,
+          "kcal": 25,
+          "portion": "about 10"
+        },
+        {
+          "food": "Raspberries",
+          "grams": 20,
+          "kcal": 15,
+          "portion": "about 5"
+        },
+        {
+          "food": "Watermelon",
+          "grams": 150,
+          "kcal": 45,
+          "portion": "a few chunks"
+        },
+        {
+          "food": "Cantaloupe",
+          "grams": 100,
+          "kcal": 34,
+          "portion": "about half a cup"
+        },
+        {
+          "food": "Peach",
+          "grams": 50,
+          "kcal": 18,
+          "portion": "a few slices"
+        }
+      ],
+      "name": "Fresh Fruit Salad"
+    },
+    "usage": {
+      "prompt_tokens": 1090,
+      "completion_tokens": 231,
+      "total_tokens": 1321,
+      "prompt_tokens_details": {
+        "cached_tokens": 0
+      },
+      "neurons": 44.60454559326172
+    },
+    "raw": null
+  },
+  {
+    "id": "dish_1568401302",
+    "kind": "plate",
+    "prompt": "itemised",
+    "model": "llama-4-scout",
+    "model_id": "@cf/meta/llama-4-scout-17b-16e-instruct",
+    "n_images": 1,
+    "repeat": 0,
+    "truth_kcal": 716.48,
+    "truth_mass": 561,
+    "status": 200,
+    "ms": 3151,
+    "content": {
+      "calories": 720,
+      "items": [
+        {
+          "food": "Mashed Sweet Potato",
+          "grams": 100,
+          "kcal": 105,
+          "portion": "about 100g"
+        },
+        {
+          "food": "Cooked Rice",
+          "grams": 150,
+          "kcal": 195,
+          "portion": "about 150g"
+        },
+        {
+          "food": "Tuna Salad",
+          "grams": 100,
+          "kcal": 150,
+          "portion": "about 100g"
+        },
+        {
+          "food": "Shredded Carrots",
+          "grams": 50,
+          "kcal": 20,
+          "portion": "about 50g"
+        },
+        {
+          "food": "Avocado",
+          "grams": 30,
+          "kcal": 55,
+          "portion": "about 30g"
+        }
+      ],
+      "name": "Mixed Plate"
+    },
+    "usage": {
+      "prompt_tokens": 1090,
+      "completion_tokens": 195,
+      "total_tokens": 1285,
+      "prompt_tokens_details": {
+        "cached_tokens": 0
+      },
+      "neurons": 41.822731018066406
+    },
+    "raw": null
+  },
+  {
+    "id": "dish_1559849497",
+    "kind": "plate",
+    "prompt": "itemised",
+    "model": "llama-4-scout",
+    "model_id": "@cf/meta/llama-4-scout-17b-16e-instruct",
+    "n_images": 1,
+    "repeat": 0,
+    "truth_kcal": 521.43,
+    "truth_mass": 340,
+    "status": 200,
+    "ms": 2487,
+    "content": {
+      "calories": 534.2,
+      "items": [
+        {
+          "food": "almonds",
+          "grams": 60,
+          "kcal": 342,
+          "portion": "about 1/2 cup"
+        },
+        {
+          "food": "grapes",
+          "grams": 80,
+          "kcal": 67.2,
+          "portion": "about 1/2 cup"
+        },
+        {
+          "food": "pear",
+          "grams": 180,
+          "kcal": 125,
+          "portion": "1 medium"
+        }
+      ],
+      "name": "fruit and nuts"
+    },
+    "usage": {
+      "prompt_tokens": 1090,
+      "completion_tokens": 123,
+      "total_tokens": 1213,
+      "prompt_tokens_details": {
+        "cached_tokens": 0
+      },
+      "neurons": 36.25909423828125
+    },
+    "raw": null
+  },
+  {
+    "id": "dish_1563478751",
+    "kind": "plate",
+    "prompt": "itemised",
+    "model": "llama-4-scout",
+    "model_id": "@cf/meta/llama-4-scout-17b-16e-instruct",
+    "n_images": 1,
+    "repeat": 0,
+    "truth_kcal": 950.4,
+    "truth_mass": 545,
+    "status": 200,
+    "ms": 3395,
+    "content": {
+      "calories": 720,
+      "items": [
+        {
+          "food": "penne pasta",
+          "grams": 150,
+          "kcal": 200,
+          "portion": "about 1 cup"
+        },
+        {
+          "food": "beef or pork",
+          "grams": 85,
+          "kcal": 200,
+          "portion": "about 3 ounces"
+        },
+        {
+          "food": "spinach",
+          "grams": 20,
+          "kcal": 20,
+          "portion": "a handful"
+        },
+        {
+          "food": "sauce",
+          "grams": 50,
+          "kcal": 300,
+          "portion": "enough to coat"
+        }
+      ],
+      "name": "Pasta with Meat and Spinach"
+    },
+    "usage": {
+      "prompt_tokens": 1090,
+      "completion_tokens": 170,
+      "total_tokens": 1260,
+      "prompt_tokens_details": {
+        "cached_tokens": 0
+      },
+      "neurons": 39.89091110229492
+    },
+    "raw": null
+  },
+  {
+    "id": "dish_1566328805",
+    "kind": "plate",
+    "prompt": "itemised",
+    "model": "llama-4-scout",
+    "model_id": "@cf/meta/llama-4-scout-17b-16e-instruct",
+    "n_images": 1,
+    "repeat": 0,
+    "truth_kcal": 927.81,
+    "truth_mass": 488,
+    "status": 200,
+    "ms": 3268,
+    "content": {
+      "calories": 1241.9,
+      "items": [
+        {
+          "food": "Pizza",
+          "grams": 320,
+          "kcal": 848,
+          "portion": "4 slices"
+        },
+        {
+          "food": "Chicken Breast",
+          "grams": 100,
+          "kcal": 165,
+          "portion": "about 100g"
+        },
+        {
+          "food": "Pineapple",
+          "grams": 80,
+          "kcal": 53.6,
+          "portion": "a handful"
+        },
+        {
+          "food": "Cherry Tomatoes",
+          "grams": 120,
+          "kcal": 22.4,
+          "portion": "7-8 pieces"
+        }
+      ],
+      "name": "Hawaiian Pizza with Chicken and Vegetables"
+    },
+    "usage": {
+      "prompt_tokens": 1090,
+      "completion_tokens": 158,
+      "total_tokens": 1248,
+      "prompt_tokens_details": {
+        "cached_tokens": 0
+      },
+      "neurons": 38.96363830566406
+    },
+    "raw": null
+  },
+  {
+    "id": "dish_1560526514",
+    "kind": "plate",
+    "prompt": "itemised",
+    "model": "llama-4-scout",
+    "model_id": "@cf/meta/llama-4-scout-17b-16e-instruct",
+    "n_images": 1,
+    "repeat": 0,
+    "truth_kcal": 183.25,
+    "truth_mass": 224,
+    "status": 200,
+    "ms": 4080,
+    "content": {
+      "calories": 542.2,
+      "items": [
+        {
+          "food": "Spinach",
+          "grams": 20,
+          "kcal": 20,
+          "portion": "a handful"
+        },
+        {
+          "food": "Strawberries",
+          "grams": 80,
+          "kcal": 32,
+          "portion": "about 5 pieces"
+        },
+        {
+          "food": "Pineapple",
+          "grams": 80,
+          "kcal": 48,
+          "portion": "about 1/2 cup"
+        },
+        {
+          "food": "Mixed Greens",
+          "grams": 20,
+          "kcal": 10,
+          "portion": "a handful"
+        },
+        {
+          "food": "Potatoes",
+          "grams": 120,
+          "kcal": 432.2,
+          "portion": "about 6 pieces"
+        }
+      ],
+      "name": "Mixed Salad with Fruits and Potatoes"
+    },
+    "usage": {
+      "prompt_tokens": 1090,
+      "completion_tokens": 185,
+      "total_tokens": 1275,
+      "prompt_tokens_details": {
+        "cached_tokens": 0
+      },
+      "neurons": 41.05000305175781
+    },
+    "raw": null
+  },
+  {
+    "id": "dish_1558030435",
+    "kind": "plate",
+    "prompt": "itemised",
+    "model": "llama-4-scout",
+    "model_id": "@cf/meta/llama-4-scout-17b-16e-instruct",
+    "n_images": 1,
+    "repeat": 0,
+    "truth_kcal": 246.94,
+    "truth_mass": 221,
+    "status": 200,
+    "ms": 3651,
+    "content": {
+      "calories": 532.2,
+      "items": [
+        {
+          "food": "Bacon",
+          "grams": 120,
+          "kcal": 360,
+          "portion": "4 strips"
+        },
+        {
+          "food": "Potatoes",
+          "grams": 100,
+          "kcal": 70,
+          "portion": "about 1/2 cup"
+        },
+        {
+          "food": "Melon",
+          "grams": 150,
+          "kcal": 102.2,
+          "portion": "a handful"
+        }
+      ],
+      "name": "Breakfast Plate"
+    },
+    "usage": {
+      "prompt_tokens": 1090,
+      "completion_tokens": 119,
+      "total_tokens": 1209,
+      "prompt_tokens_details": {
+        "cached_tokens": 0
+      },
+      "neurons": 35.95000076293945
+    },
+    "raw": null
+  },
+  {
+    "id": "dish_1560445004",
+    "kind": "plate",
+    "prompt": "itemised",
+    "model": "llama-4-scout",
+    "model_id": "@cf/meta/llama-4-scout-17b-16e-instruct",
+    "n_images": 1,
+    "repeat": 0,
+    "truth_kcal": 339.6,
+    "truth_mass": 290,
+    "status": 200,
+    "ms": 4447,
+    "content": {
+      "calories": 522.2,
+      "items": [
+        {
+          "food": "Bacon",
+          "grams": 120,
+          "kcal": 240,
+          "portion": "4 slices"
+        },
+        {
+          "food": "Scrambled Eggs",
+          "grams": 120,
+          "kcal": 140,
+          "portion": "about 2 eggs"
+        },
+        {
+          "food": "Pineapple",
+          "grams": 80,
+          "kcal": 53.6,
+          "portion": "a handful"
+        },
+        {
+          "food": "Watermelon",
+          "grams": 120,
+          "kcal": 45,
+          "portion": "about half a cup"
+        },
+        {
+          "food": "Cantaloupe",
+          "grams": 40,
+          "kcal": 15.2,
+          "portion": "a few chunks"
+        },
+        {
+          "food": "Mixed Vegetables",
+          "grams": 100,
+          "kcal": 28.2,
+          "portion": "a small serving"
+        }
+      ],
+      "name": "Breakfast Plate"
+    },
+    "usage": {
+      "prompt_tokens": 1090,
+      "completion_tokens": 214,
+      "total_tokens": 1304,
+      "prompt_tokens_details": {
+        "cached_tokens": 0
+      },
+      "neurons": 43.29090881347656
+    },
+    "raw": null
+  },
+  {
+    "id": "dish_1568401199",
+    "kind": "plate",
+    "prompt": "itemised",
+    "model": "llama-4-scout",
+    "model_id": "@cf/meta/llama-4-scout-17b-16e-instruct",
+    "n_images": 1,
+    "repeat": 0,
+    "truth_kcal": 459.64,
+    "truth_mass": 343,
+    "status": 200,
+    "ms": 2189,
+    "content": {
+      "calories": 540,
+      "items": [
+        {
+          "food": "sweet potato",
+          "grams": 100,
+          "kcal": 105,
+          "portion": "about 100g"
+        },
+        {
+          "food": "tuna salad",
+          "grams": 150,
+          "kcal": 435,
+          "portion": "about 150g"
+        }
+      ],
+      "name": "Tuna salad with sweet potato"
+    },
+    "usage": {
+      "prompt_tokens": 1090,
+      "completion_tokens": 98,
+      "total_tokens": 1188,
+      "prompt_tokens_details": {
+        "cached_tokens": 0
+      },
+      "neurons": 34.327274322509766
+    },
+    "raw": null
+  },
+  {
+    "id": "dish_1561662190",
+    "kind": "plate",
+    "prompt": "itemised",
+    "model": "llama-4-scout",
+    "model_id": "@cf/meta/llama-4-scout-17b-16e-instruct",
+    "n_images": 1,
+    "repeat": 0,
+    "truth_kcal": 117.32,
+    "truth_mass": 104,
+    "status": 200,
+    "ms": 3580,
+    "content": {
+      "calories": 420,
+      "items": [
+        {
+          "food": "Mixed greens",
+          "grams": 100,
+          "kcal": 20,
+          "portion": "a handful"
+        },
+        {
+          "food": "Cherry tomatoes",
+          "grams": 80,
+          "kcal": 20,
+          "portion": "about 5"
+        },
+        {
+          "food": "Cooked rice",
+          "grams": 100,
+          "kcal": 130,
+          "portion": "a small scoop"
+        },
+        {
+          "food": "Croutons",
+          "grams": 20,
+          "kcal": 100,
+          "portion": "a few pieces"
+        },
+        {
+          "food": "Salad dressing",
+          "grams": 10,
+          "kcal": 50,
+          "portion": "a light drizzle"
+        }
+      ],
+      "name": "Mixed salad with rice"
+    },
+    "usage": {
+      "prompt_tokens": 1090,
+      "completion_tokens": 198,
+      "total_tokens": 1288,
+      "prompt_tokens_details": {
+        "cached_tokens": 0
+      },
+      "neurons": 42.05454635620117
+    },
+    "raw": null
+  },
+  {
+    "id": "dish_1556575327",
+    "kind": "plate",
+    "prompt": "itemised",
+    "model": "llama-4-scout",
+    "model_id": "@cf/meta/llama-4-scout-17b-16e-instruct",
+    "n_images": 1,
+    "repeat": 0,
+    "truth_kcal": 103.3,
+    "truth_mass": 152,
+    "status": 200,
+    "ms": 14463,
+    "content": {
+      "calories": 245.9,
+      "items": [
+        {
+          "food": "Brussels Sprouts",
+          "grams": 100,
+          "kcal": 35,
+          "portion": "7-8 sprouts"
+        },
+        {
+          "food": "Kalamata Olives",
+          "grams": 125,
+          "kcal": 130,
+          "portion": "about 25 olives"
+        },
+        {
+          "food": "Green Bell Pepper",
+          "grams": 80,
+          "kcal": 80,
+          "portion": "a handful of slices"
+        }
+      ],
+      "name": "Veggie Plate"
+    },
+    "usage": {
+      "prompt_tokens": 1090,
+      "completion_tokens": 128,
+      "total_tokens": 1218,
+      "prompt_tokens_details": {
+        "cached_tokens": 0
+      },
+      "neurons": 36.64545440673828
+    },
+    "raw": null
+  },
+  {
+    "id": "dish_1560801883",
+    "kind": "plate",
+    "prompt": "itemised",
+    "model": "llama-4-scout",
+    "model_id": "@cf/meta/llama-4-scout-17b-16e-instruct",
+    "n_images": 1,
+    "repeat": 0,
+    "truth_kcal": 512.11,
+    "truth_mass": 315,
+    "status": 200,
+    "ms": 4977,
+    "content": {
+      "calories": 1045.2,
+      "items": [
+        {
+          "food": "chicken breast",
+          "grams": 85,
+          "kcal": 165,
+          "portion": "about 3 oz"
+        },
+        {
+          "food": "roasted potatoes",
+          "grams": 100,
+          "kcal": 110,
+          "portion": "a few chunks"
+        },
+        {
+          "food": "cauliflower",
+          "grams": 20,
+          "kcal": 5,
+          "portion": "a small floret"
+        },
+        {
+          "food": "mushrooms",
+          "grams": 50,
+          "kcal": 15,
+          "portion": "a small handful"
+        },
+        {
+          "food": "pepperoni pizza slice",
+          "grams": 100,
+          "kcal": 250,
+          "portion": "one slice"
+        },
+        {
+          "food": "green pepper",
+          "grams": 20,
+          "kcal": 6,
+          "portion": "a small piece"
+        },
+        {
+          "food": "salad greens",
+          "grams": 20,
+          "kcal": 5,
+          "portion": "a small handful"
+        }
+      ],
+      "name": "Mixed Plate"
+    },
+    "usage": {
+      "prompt_tokens": 1090,
+      "completion_tokens": 240,
+      "total_tokens": 1330,
+      "prompt_tokens_details": {
+        "cached_tokens": 0
+      },
+      "neurons": 45.30000305175781
+    },
+    "raw": null
+  },
+  {
+    "id": "dish_1559844366",
+    "kind": "plate",
+    "prompt": "itemised",
+    "model": "llama-4-scout",
+    "model_id": "@cf/meta/llama-4-scout-17b-16e-instruct",
+    "n_images": 1,
+    "repeat": 0,
+    "truth_kcal": 529.22,
+    "truth_mass": 192,
+    "status": 200,
+    "ms": 3213,
+    "content": {
+      "calories": 549.1,
+      "items": [
+        {
+          "food": "almonds",
+          "grams": 100,
+          "kcal": 575,
+          "portion": "a large pile"
+        },
+        {
+          "food": "broccoli",
+          "grams": 50,
+          "kcal": 16,
+          "portion": "a few florets"
+        },
+        {
+          "food": "grapes",
+          "grams": 80,
+          "kcal": 60,
+          "portion": "about 15"
+        }
+      ],
+      "name": "snack plate"
+    },
+    "usage": {
+      "prompt_tokens": 1090,
+      "completion_tokens": 118,
+      "total_tokens": 1208,
+      "prompt_tokens_details": {
+        "cached_tokens": 0
+      },
+      "neurons": 35.87273025512695
+    },
+    "raw": null
+  },
+  {
+    "id": "dish_1565811139",
+    "kind": "plate",
+    "prompt": "itemised",
+    "model": "llama-4-scout",
+    "model_id": "@cf/meta/llama-4-scout-17b-16e-instruct",
+    "n_images": 1,
+    "repeat": 0,
+    "truth_kcal": 902.2,
+    "truth_mass": 416,
+    "status": 200,
+    "ms": 4087,
+    "content": {
+      "calories": 420,
+      "items": [
+        {
+          "food": "Spinach",
+          "grams": 100,
+          "kcal": 20,
+          "portion": "a handful"
+        },
+        {
+          "food": "Broccoli",
+          "grams": 55,
+          "kcal": 25,
+          "portion": "about half a cup"
+        },
+        {
+          "food": "Carrots",
+          "grams": 50,
+          "kcal": 20,
+          "portion": "a small pile"
+        },
+        {
+          "food": "Feta cheese",
+          "grams": 60,
+          "kcal": 355,
+          "portion": "about 1/4 cup crumbled"
+        }
+      ],
+      "name": "Salad with spinach, broccoli, carrots, and feta cheese"
+    },
+    "usage": {
+      "prompt_tokens": 1090,
+      "completion_tokens": 176,
+      "total_tokens": 1266,
+      "prompt_tokens_details": {
+        "cached_tokens": 0
+      },
+      "neurons": 40.35454559326172
+    },
+    "raw": null
+  },
+  {
+    "id": "dish_1558373159",
+    "kind": "plate",
+    "prompt": "itemised",
+    "model": "llama-4-scout",
+    "model_id": "@cf/meta/llama-4-scout-17b-16e-instruct",
+    "n_images": 1,
+    "repeat": 0,
+    "truth_kcal": 1013.34,
+    "truth_mass": 334,
+    "status": 200,
+    "ms": 2374,
+    "content": {
+      "calories": 1047.8,
+      "items": [
+        {
+          "food": "Apple",
+          "grams": 130,
+          "kcal": 95,
+          "portion": "1 medium"
+        },
+        {
+          "food": "Sausages",
+          "grams": 100,
+          "kcal": 260,
+          "portion": "about 4"
+        },
+        {
+          "food": "Almonds",
+          "grams": 160,
+          "kcal": 692.8,
+          "portion": "a large handful"
+        }
+      ],
+      "name": "Apple, Sausages and Almonds"
+    },
+    "usage": {
+      "prompt_tokens": 1090,
+      "completion_tokens": 123,
+      "total_tokens": 1213,
+      "prompt_tokens_details": {
+        "cached_tokens": 0
+      },
+      "neurons": 36.25909423828125
+    },
+    "raw": null
+  },
+  {
+    "id": "dish_1565896701",
+    "kind": "plate",
+    "prompt": "itemised",
+    "model": "llama-4-scout",
+    "model_id": "@cf/meta/llama-4-scout-17b-16e-instruct",
+    "n_images": 1,
+    "repeat": 0,
+    "truth_kcal": 294.47,
+    "truth_mass": 184,
+    "status": 200,
+    "ms": 3121,
+    "content": {
+      "calories": 540,
+      "items": [
+        {
+          "food": "Grilled Meat",
+          "grams": 120,
+          "kcal": 360,
+          "portion": "about 120g"
+        },
+        {
+          "food": "Mixed Greens Salad",
+          "grams": 50,
+          "kcal": 20,
+          "portion": "a handful"
+        },
+        {
+          "food": "Diced Tomatoes",
+          "grams": 100,
+          "kcal": 20,
+          "portion": "about 1/2 cup"
+        },
+        {
+          "food": "Herbs",
+          "grams": 10,
+          "kcal": 1,
+          "portion": "a sprinkle"
+        }
+      ],
+      "name": "Grilled Meat and Salad"
+    },
+    "usage": {
+      "prompt_tokens": 1090,
+      "completion_tokens": 161,
+      "total_tokens": 1251,
+      "prompt_tokens_details": {
+        "cached_tokens": 0
+      },
+      "neurons": 39.195457458496094
+    },
+    "raw": null
+  },
+  {
+    "id": "dish_1558110478",
+    "kind": "plate",
+    "prompt": "itemised",
+    "model": "llama-4-scout",
+    "model_id": "@cf/meta/llama-4-scout-17b-16e-instruct",
+    "n_images": 1,
+    "repeat": 0,
+    "truth_kcal": 205.44,
+    "truth_mass": 161,
+    "status": 200,
+    "ms": 2811,
+    "content": {
+      "calories": 442.2,
+      "items": [
+        {
+          "food": "Scrambled Eggs",
+          "grams": 80,
+          "kcal": 140,
+          "portion": "a small pile"
+        },
+        {
+          "food": "Bacon",
+          "grams": 60,
+          "kcal": 210,
+          "portion": "4-5 strips"
+        },
+        {
+          "food": "Sweet Potato",
+          "grams": 100,
+          "kcal": 80,
+          "portion": "about 5 chunks"
+        },
+        {
+          "food": "Mixed Berries",
+          "grams": 60,
+          "kcal": 12.2,
+          "portion": "a small handful"
+        }
+      ],
+      "name": "Breakfast Plate"
+    },
+    "usage": {
+      "prompt_tokens": 1090,
+      "completion_tokens": 151,
+      "total_tokens": 1241,
+      "prompt_tokens_details": {
+        "cached_tokens": 0
+      },
+      "neurons": 38.4227294921875
+    },
+    "raw": null
+  },
+  {
+    "id": "dish_1561663606",
+    "kind": "plate",
+    "prompt": "itemised",
+    "model": "llama-4-scout",
+    "model_id": "@cf/meta/llama-4-scout-17b-16e-instruct",
+    "n_images": 1,
+    "repeat": 0,
+    "truth_kcal": 474.5,
+    "truth_mass": 347,
+    "status": 200,
+    "ms": 2689,
+    "content": {
+      "calories": 540,
+      "items": [
+        {
+          "food": "fish",
+          "grams": 120,
+          "kcal": 240,
+          "portion": "about 120g"
+        },
+        {
+          "food": "cooked white rice",
+          "grams": 100,
+          "kcal": 130,
+          "portion": "about 100g"
+        },
+        {
+          "food": "boiled corn on the cob",
+          "grams": 80,
+          "kcal": 170,
+          "portion": "two pieces"
+        }
+      ],
+      "name": "Fish with Rice and Corn"
+    },
+    "usage": {
+      "prompt_tokens": 1090,
+      "completion_tokens": 135,
+      "total_tokens": 1225,
+      "prompt_tokens_details": {
+        "cached_tokens": 0
+      },
+      "neurons": 37.186363220214844
+    },
+    "raw": null
+  },
+  {
+    "id": "dish_1559849097",
+    "kind": "plate",
+    "prompt": "itemised",
+    "model": "llama-4-scout",
+    "model_id": "@cf/meta/llama-4-scout-17b-16e-instruct",
+    "n_images": 1,
+    "repeat": 0,
+    "truth_kcal": 495.93,
+    "truth_mass": 325,
+    "status": 200,
+    "ms": 2318,
+    "content": {
+      "calories": 534.2,
+      "items": [
+        {
+          "food": "pear",
+          "grams": 180,
+          "kcal": 62,
+          "portion": "1"
+        },
+        {
+          "food": "almonds",
+          "grams": 30,
+          "kcal": 170,
+          "portion": "a handful"
+        },
+        {
+          "food": "grapes",
+          "grams": 80,
+          "kcal": 302.2,
+          "portion": "about 15"
+        }
+      ],
+      "name": "fruit and nuts"
+    },
+    "usage": {
+      "prompt_tokens": 1090,
+      "completion_tokens": 115,
+      "total_tokens": 1205,
+      "prompt_tokens_details": {
+        "cached_tokens": 0
+      },
+      "neurons": 35.64091110229492
+    },
+    "raw": null
+  },
+  {
+    "id": "dish_1560526408",
+    "kind": "plate",
+    "prompt": "itemised",
+    "model": "llama-4-scout",
+    "model_id": "@cf/meta/llama-4-scout-17b-16e-instruct",
+    "n_images": 1,
+    "repeat": 0,
+    "truth_kcal": 67.1,
+    "truth_mass": 51,
+    "status": 200,
+    "ms": 3884,
+    "content": {
+      "calories": 540,
+      "items": [
+        {
+          "food": "Grilled meat",
+          "grams": 120,
+          "kcal": 360,
+          "portion": "a piece"
+        },
+        {
+          "food": "Mixed greens salad",
+          "grams": 50,
+          "kcal": 20,
+          "portion": "a handful"
+        },
+        {
+          "food": "Tomato",
+          "grams": 20,
+          "kcal": 16,
+          "portion": "a slice"
+        },
+        {
+          "food": "Red onion",
+          "grams": 10,
+          "kcal": 4,
+          "portion": "a few slices"
+        }
+      ],
+      "name": "Grilled meat with salad"
+    },
+    "usage": {
+      "prompt_tokens": 1090,
+      "completion_tokens": 162,
+      "total_tokens": 1252,
+      "prompt_tokens_details": {
+        "cached_tokens": 0
+      },
+      "neurons": 39.272727966308594
+    },
+    "raw": null
+  },
+  {
+    "id": "dish_1562690917",
+    "kind": "plate",
+    "prompt": "itemised",
+    "model": "llama-4-scout",
+    "model_id": "@cf/meta/llama-4-scout-17b-16e-instruct",
+    "n_images": 1,
+    "repeat": 0,
+    "truth_kcal": 69.06,
+    "truth_mass": 122,
+    "status": 200,
+    "ms": 2867,
+    "content": {
+      "calories": 170,
+      "items": [
+        {
+          "food": "strawberry",
+          "grams": 80,
+          "kcal": 50,
+          "portion": "about 4"
+        },
+        {
+          "food": "blueberry",
+          "grams": 20,
+          "kcal": 20,
+          "portion": "about 15"
+        },
+        {
+          "food": "broccoli",
+          "grams": 30,
+          "kcal": 100,
+          "portion": "about 3 florets"
+        }
+      ],
+      "name": "Strawberry Blueberry Broccoli"
+    },
+    "usage": {
+      "prompt_tokens": 1090,
+      "completion_tokens": 135,
+      "total_tokens": 1225,
+      "prompt_tokens_details": {
+        "cached_tokens": 0
+      },
+      "neurons": 37.186363220214844
+    },
+    "raw": null
+  },
+  {
+    "id": "dish_1562618000",
+    "kind": "plate",
+    "prompt": "itemised",
+    "model": "llama-4-scout",
+    "model_id": "@cf/meta/llama-4-scout-17b-16e-instruct",
+    "n_images": 1,
+    "repeat": 0,
+    "truth_kcal": 685.99,
+    "truth_mass": 448,
+    "status": 200,
+    "ms": 4007,
+    "content": {
+      "calories": 540,
+      "items": [
+        {
+          "food": "Mixed Greens",
+          "grams": 100,
+          "kcal": 20,
+          "portion": "a handful"
+        },
+        {
+          "food": "Broccoli",
+          "grams": 55,
+          "kcal": 28,
+          "portion": "about 1/2 cup"
+        },
+        {
+          "food": "Grilled Chicken",
+          "grams": 85,
+          "kcal": 140,
+          "portion": "about 3 oz"
+        },
+        {
+          "food": "Rice",
+          "grams": 20,
+          "kcal": 80,
+          "portion": "a small handful"
+        },
+        {
+          "food": "Dressing",
+          "grams": 10,
+          "kcal": 50,
+          "portion": "a light drizzle"
+        },
+        {
+          "food": "Nuts/Seeds",
+          "grams": 5,
+          "kcal": 25,
+          "portion": "a sprinkle"
+        }
+      ],
+      "name": "Chicken and Broccoli Salad"
+    },
+    "usage": {
+      "prompt_tokens": 1090,
+      "completion_tokens": 235,
+      "total_tokens": 1325,
+      "prompt_tokens_details": {
+        "cached_tokens": 0
+      },
+      "neurons": 44.913639068603516
+    },
+    "raw": null
+  },
+  {
+    "id": "dish_1558630325",
+    "kind": "plate",
+    "prompt": "itemised",
+    "model": "llama-4-scout",
+    "model_id": "@cf/meta/llama-4-scout-17b-16e-instruct",
+    "n_images": 1,
+    "repeat": 0,
+    "truth_kcal": 751.54,
+    "truth_mass": 269,
+    "status": 200,
+    "ms": 2545,
+    "content": {
+      "calories": 574.2,
+      "items": [
+        {
+          "food": "almonds",
+          "grams": 60,
+          "kcal": 345,
+          "portion": "about 1/2 cup"
+        },
+        {
+          "food": "apple",
+          "grams": 130,
+          "kcal": 95,
+          "portion": "1 medium"
+        },
+        {
+          "food": "mixed greens",
+          "grams": 20,
+          "kcal": 7.2,
+          "portion": "a handful"
+        }
+      ],
+      "name": "Almonds, Apple, and Greens"
+    },
+    "usage": {
+      "prompt_tokens": 1090,
+      "completion_tokens": 123,
+      "total_tokens": 1213,
+      "prompt_tokens_details": {
+        "cached_tokens": 0
+      },
+      "neurons": 36.25909423828125
+    },
+    "raw": null
+  },
+  {
+    "id": "dish_1566590056",
+    "kind": "plate",
+    "prompt": "itemised",
+    "model": "llama-4-scout",
+    "model_id": "@cf/meta/llama-4-scout-17b-16e-instruct",
+    "n_images": 1,
+    "repeat": 0,
+    "truth_kcal": 815.65,
+    "truth_mass": 519,
+    "status": 200,
+    "ms": 2443,
+    "content": {
+      "calories": 542.2,
+      "items": [
+        {
+          "food": "Spinach",
+          "grams": 20,
+          "kcal": 20,
+          "portion": "a handful"
+        },
+        {
+          "food": "Omelette",
+          "grams": 120,
+          "kcal": 120,
+          "portion": "half"
+        },
+        {
+          "food": "Chicken Salad",
+          "grams": 100,
+          "kcal": 150,
+          "portion": "about half a cup"
+        },
+        {
+          "food": "Meat Patty",
+          "grams": 80,
+          "kcal": 252.2,
+          "portion": "one"
+        }
+      ],
+      "name": "Mixed Plate"
+    },
+    "usage": {
+      "prompt_tokens": 1090,
+      "completion_tokens": 145,
+      "total_tokens": 1235,
+      "prompt_tokens_details": {
+        "cached_tokens": 0
+      },
+      "neurons": 37.95909118652344
+    },
+    "raw": null
+  },
+  {
+    "id": "dish_1566328776",
+    "kind": "plate",
+    "prompt": "itemised",
+    "model": "llama-4-scout",
+    "model_id": "@cf/meta/llama-4-scout-17b-16e-instruct",
+    "n_images": 1,
+    "repeat": 0,
+    "truth_kcal": 901.81,
+    "truth_mass": 436,
+    "status": 200,
+    "ms": 9120,
+    "content": "{\n  \"name\": \"Ham and Pineapple Pizza with Chicken and Tomatoes\",\n  \"calories\": 1047.8,\n  \"items\": [\n    { \"food\": \"pizza\", \"portion\": \"4 slices\", \"grams\": 320, \"kcal\": 640 },\n    { \"food\": \"chicken breast\", \"portion\": \"about 100g\", \"grams\": 100, \"kcal\": 165 },\n    { \"food\": \"cherry tomatoes\", \"portion\": \"a handful\", \"grams\": 100, \"kcal\": 20 },\n    { \"food\": \"ham\", \"portion\": \"included in pizza\", \"grams\": 20, \"kcal\": 40 },\n    { \"food\": \"pineapple\", \"portion\": \"included in pizza\", \"grams\": 20, \"kcal\": 16 },\n    { \"food\": \"onion\", \"portion\": \"included in pizza\", \"grams\": 10, \"kcal\": 4 },\n    { \"food\": \"cheese\", \"portion\": \"included in pizza\", \"grams\": 40, \"kcal\": 112 },\n    { \"food\": \"tomato sauce\", \"portion\": \"included in pizza\", \"grams\": 20, \"kcal\": 10 }\n  ]\n} \n\nHowever, since some of the ingredients are included in the pizza, a better estimate would be:\n\n{\n  \"name\": \"Ham and Pineapple Pizza with Chicken and Tomatoes\",\n  \"calories\": 1047.8,\n  \"items\": [\n    { \"food\": \"pizza\", \"portion\": \"4 slices\", \"grams\": 320, \"kcal\": 822 },\n    { \"food\": \"chicken breast\", \"portion\": \"about 100g\", \"grams\": 100, \"kcal\": 165 },\n    { \"food\": \"cherry tomatoes\", \"portion\": \"a handful\", \"grams\": 100, \"kcal\": 20 },\n    { \"food\": \"dressing or sauce\", \"portion\": \"\", \"grams\": 0, \"kcal\": 40 }\n  ]\n} \n\nRevised response:\n\n{\n  \"name\": \"Ham and Pineapple Pizza with Chicken and Tomatoes\",\n  \"calories\": 1007,\n  \"items\": [\n    { \"food\": \"pizza\", \"portion\": \"4 slices\", \"grams\": 320, \"kcal\": 822 },\n    { \"food\": \"chicken breast\", \"portion\": \"about 100g\", \"grams\": 100, \"kcal\": 165 },\n    { \"food\": \"cherry tomatoes\", \"portion\": \"a handful\", \"grams\": 100, \"kcal\": 20 }\n  ]\n}",
+    "usage": {
+      "prompt_tokens": 1090,
+      "completion_tokens": 566,
+      "total_tokens": 1656,
+      "prompt_tokens_details": {
+        "cached_tokens": 0
+      },
+      "neurons": 70.49090576171875
+    },
+    "raw": null
+  },
+  {
+    "id": "dish_1566416701",
+    "kind": "plate",
+    "prompt": "itemised",
+    "model": "llama-4-scout",
+    "model_id": "@cf/meta/llama-4-scout-17b-16e-instruct",
+    "n_images": 1,
+    "repeat": 0,
+    "truth_kcal": 198.54,
+    "truth_mass": 122,
+    "status": 200,
+    "ms": 3547,
+    "content": {
+      "calories": 320,
+      "items": [
+        {
+          "food": "Tuna",
+          "grams": 60,
+          "kcal": 180,
+          "portion": "a handful"
+        },
+        {
+          "food": "Asparagus",
+          "grams": 20,
+          "kcal": 20,
+          "portion": "a few spears"
+        },
+        {
+          "food": "Herbs",
+          "grams": 5,
+          "kcal": 1,
+          "portion": "a sprinkle"
+        },
+        {
+          "food": "Dressing",
+          "grams": 10,
+          "kcal": 119,
+          "portion": "a drizzle"
+        }
+      ],
+      "name": "Salad with Tuna"
+    },
+    "usage": {
+      "prompt_tokens": 1090,
+      "completion_tokens": 162,
+      "total_tokens": 1252,
+      "prompt_tokens_details": {
+        "cached_tokens": 0
+      },
+      "neurons": 39.272727966308594
+    },
+    "raw": null
+  },
+  {
+    "id": "dish_1563551134",
+    "kind": "plate",
+    "prompt": "itemised",
+    "model": "llama-4-scout",
+    "model_id": "@cf/meta/llama-4-scout-17b-16e-instruct",
+    "n_images": 1,
+    "repeat": 0,
+    "truth_kcal": 246.92,
+    "truth_mass": 173,
+    "status": 200,
+    "ms": 2392,
+    "content": {
+      "calories": 322.8,
+      "items": [
+        {
+          "food": "scrambled eggs",
+          "grams": 57,
+          "kcal": 142,
+          "portion": "about 2 oz"
+        },
+        {
+          "food": "cream cheese",
+          "grams": 15,
+          "kcal": 105,
+          "portion": "about 1 tbsp"
+        },
+        {
+          "food": "whole wheat toast",
+          "grams": 30,
+          "kcal": 75.8,
+          "portion": "1 slice"
+        }
+      ],
+      "name": "Toast with scrambled eggs and cream cheese"
+    },
+    "usage": {
+      "prompt_tokens": 1090,
+      "completion_tokens": 125,
+      "total_tokens": 1215,
+      "prompt_tokens_details": {
+        "cached_tokens": 0
+      },
+      "neurons": 36.413639068603516
+    },
+    "raw": null
+  },
+  {
+    "id": "dish_1560975628",
+    "kind": "plate",
+    "prompt": "itemised",
+    "model": "llama-4-scout",
+    "model_id": "@cf/meta/llama-4-scout-17b-16e-instruct",
+    "n_images": 1,
+    "repeat": 0,
+    "truth_kcal": 348.27,
+    "truth_mass": 296,
+    "status": 200,
+    "ms": 4111,
+    "content": {
+      "calories": 742.2,
+      "items": [
+        {
+          "food": "Cabbage Salad",
+          "grams": 200,
+          "kcal": 50,
+          "portion": "a large scoop"
+        },
+        {
+          "food": "Lasagna",
+          "grams": 120,
+          "kcal": 250,
+          "portion": "one slice"
+        },
+        {
+          "food": "Chicken in Tomato Sauce",
+          "grams": 150,
+          "kcal": 320,
+          "portion": "about 3 pieces"
+        },
+        {
+          "food": "Broccoli",
+          "grams": 20,
+          "kcal": 10,
+          "portion": "two florets"
+        },
+        {
+          "food": "Mixed Vegetables",
+          "grams": 50,
+          "kcal": 20,
+          "portion": "a small serving"
+        }
+      ],
+      "name": "Mixed Plate"
+    },
+    "usage": {
+      "prompt_tokens": 1090,
+      "completion_tokens": 178,
+      "total_tokens": 1268,
+      "prompt_tokens_details": {
+        "cached_tokens": 0
+      },
+      "neurons": 40.50909423828125
+    },
+    "raw": null
+  },
+  {
+    "id": "dish_1568401233",
+    "kind": "plate",
+    "prompt": "itemised",
+    "model": "llama-4-scout",
+    "model_id": "@cf/meta/llama-4-scout-17b-16e-instruct",
+    "n_images": 1,
+    "repeat": 0,
+    "truth_kcal": 490.39,
+    "truth_mass": 418,
+    "status": 200,
+    "ms": 2929,
+    "content": {
+      "calories": 540,
+      "items": [
+        {
+          "food": "Mashed Sweet Potato",
+          "grams": 100,
+          "kcal": 105,
+          "portion": "about 100g"
+        },
+        {
+          "food": "Tuna Salad",
+          "grams": 150,
+          "kcal": 225,
+          "portion": "about 150g"
+        },
+        {
+          "food": "Shredded Carrot",
+          "grams": 80,
+          "kcal": 210,
+          "portion": "about 80g"
+        }
+      ],
+      "name": "Mixed Plate"
+    },
+    "usage": {
+      "prompt_tokens": 1090,
+      "completion_tokens": 130,
+      "total_tokens": 1220,
+      "prompt_tokens_details": {
+        "cached_tokens": 0
+      },
+      "neurons": 36.80000305175781
+    },
+    "raw": null
+  },
+  {
+    "id": "dish_1563909507",
+    "kind": "plate",
+    "prompt": "itemised",
+    "model": "llama-4-scout",
+    "model_id": "@cf/meta/llama-4-scout-17b-16e-instruct",
+    "n_images": 1,
+    "repeat": 0,
+    "truth_kcal": 117.93,
+    "truth_mass": 151,
+    "status": 200,
+    "ms": 3177,
+    "content": {
+      "calories": 175,
+      "items": [
+        {
+          "food": "Green Beans",
+          "grams": 80,
+          "kcal": 55,
+          "portion": "a large handful"
+        },
+        {
+          "food": "Spinach Leaves",
+          "grams": 20,
+          "kcal": 10,
+          "portion": "a small bunch"
+        },
+        {
+          "food": "Lettuce Leaves",
+          "grams": 40,
+          "kcal": 10,
+          "portion": "two large leaves"
+        },
+        {
+          "food": "Lemon Zest",
+          "grams": 5,
+          "kcal": 0,
+          "portion": "a sprinkle"
+        }
+      ],
+      "name": "Green Salad with Beans"
+    },
+    "usage": {
+      "prompt_tokens": 1090,
+      "completion_tokens": 166,
+      "total_tokens": 1256,
+      "prompt_tokens_details": {
+        "cached_tokens": 0
+      },
+      "neurons": 39.581817626953125
+    },
+    "raw": null
+  },
+  {
+    "id": "dish_1557937758",
+    "kind": "plate",
+    "prompt": "itemised",
+    "model": "llama-4-scout",
+    "model_id": "@cf/meta/llama-4-scout-17b-16e-instruct",
+    "n_images": 1,
+    "repeat": 0,
+    "truth_kcal": 106.78,
+    "truth_mass": 128,
+    "status": 200,
+    "ms": 4141,
+    "content": {
+      "calories": 242.8,
+      "items": [
+        {
+          "food": "Sweet Potato",
+          "grams": 80,
+          "kcal": 64,
+          "portion": "about 4 chunks"
+        },
+        {
+          "food": "Scrambled Eggs",
+          "grams": 30,
+          "kcal": 20,
+          "portion": "a small pile"
+        },
+        {
+          "food": "Strawberry",
+          "grams": 20,
+          "kcal": 7.4,
+          "portion": "2 slices"
+        },
+        {
+          "food": "Raspberries",
+          "grams": 60,
+          "kcal": 64,
+          "portion": "about 10"
+        },
+        {
+          "food": "Blackberries",
+          "grams": 10,
+          "kcal": 7.4,
+          "portion": "2"
+        }
+      ],
+      "name": "Breakfast Plate"
+    },
+    "usage": {
+      "prompt_tokens": 1090,
+      "completion_tokens": 179,
+      "total_tokens": 1269,
+      "prompt_tokens_details": {
+        "cached_tokens": 0
+      },
+      "neurons": 40.58636474609375
+    },
+    "raw": null
+  },
+  {
+    "id": "dish_1564773976",
+    "kind": "plate",
+    "prompt": "itemised",
+    "model": "llama-4-scout",
+    "model_id": "@cf/meta/llama-4-scout-17b-16e-instruct",
+    "n_images": 1,
+    "repeat": 0,
+    "truth_kcal": 516.09,
+    "truth_mass": 463,
+    "status": 200,
+    "ms": 6501,
+    "content": {
+      "calories": 534.2,
+      "items": [
+        {
+          "food": "Pineapple",
+          "grams": 120,
+          "kcal": 48,
+          "portion": "about 4 chunks"
+        },
+        {
+          "food": "Chicken Breast",
+          "grams": 100,
+          "kcal": 165,
+          "portion": "about 1/2 cup"
+        },
+        {
+          "food": "Cherry Tomatoes",
+          "grams": 100,
+          "kcal": 20,
+          "portion": "about 6 pieces"
+        },
+        {
+          "food": "Kalamata Olives",
+          "grams": 30,
+          "kcal": 35,
+          "portion": "about 5 pieces"
+        },
+        {
+          "food": "Broccoli",
+          "grams": 55,
+          "kcal": 28,
+          "portion": "about 1/2 cup"
+        },
+        {
+          "food": "Mushroom",
+          "grams": 50,
+          "kcal": 15,
+          "portion": "about 1 piece"
+        },
+        {
+          "food": "Olive Oil on Mushroom",
+          "grams": 10,
+          "kcal": 88.2,
+          "portion": "a drizzle"
+        }
+      ],
+      "name": "Mixed Plate"
+    },
+    "usage": {
+      "prompt_tokens": 1090,
+      "completion_tokens": 253,
+      "total_tokens": 1343,
+      "prompt_tokens_details": {
+        "cached_tokens": 0
+      },
+      "neurons": 46.30455017089844
+    },
+    "raw": null
+  },
+  {
+    "id": "dish_1558376984",
+    "kind": "plate",
+    "prompt": "itemised",
+    "model": "llama-4-scout",
+    "model_id": "@cf/meta/llama-4-scout-17b-16e-instruct",
+    "n_images": 1,
+    "repeat": 0,
+    "truth_kcal": 671.68,
+    "truth_mass": 350,
+    "status": 200,
+    "ms": 3054,
+    "content": {
+      "calories": 552.9,
+      "items": [
+        {
+          "food": "Apple",
+          "grams": 130,
+          "kcal": 95,
+          "portion": "1 medium"
+        },
+        {
+          "food": "Almonds",
+          "grams": 60,
+          "kcal": 342,
+          "portion": "about 1/2 cup"
+        },
+        {
+          "food": "Cherry Tomatoes",
+          "grams": 120,
+          "kcal": 25,
+          "portion": "about 1/2 cup"
+        },
+        {
+          "food": "Sausage Bites",
+          "grams": 90,
+          "kcal": 90,
+          "portion": "about 6 pieces"
+        }
+      ],
+      "name": "Mixed Snack"
+    },
+    "usage": {
+      "prompt_tokens": 1090,
+      "completion_tokens": 155,
+      "total_tokens": 1245,
+      "prompt_tokens_details": {
+        "cached_tokens": 0
+      },
+      "neurons": 38.73181915283203
+    },
+    "raw": null
+  },
+  {
+    "id": "dish_1566502573",
+    "kind": "plate",
+    "prompt": "itemised",
+    "model": "llama-4-scout",
+    "model_id": "@cf/meta/llama-4-scout-17b-16e-instruct",
+    "n_images": 1,
+    "repeat": 0,
+    "truth_kcal": 821.51,
+    "truth_mass": 487,
+    "status": 200,
+    "ms": 3364,
+    "content": {
+      "calories": 540.2,
+      "items": [
+        {
+          "food": "Grilled chicken breast",
+          "grams": 85,
+          "kcal": 165,
+          "portion": "about 3 oz"
+        },
+        {
+          "food": "Spinach leaves",
+          "grams": 20,
+          "kcal": 7,
+          "portion": "a handful"
+        },
+        {
+          "food": "Chickpeas",
+          "grams": 100,
+          "kcal": 160,
+          "portion": "about 1/2 cup"
+        },
+        {
+          "food": "Corn on the cob",
+          "grams": 17,
+          "kcal": 66,
+          "portion": "1 piece"
+        },
+        {
+          "food": "Mixed rice and vegetables",
+          "grams": 100,
+          "kcal": 142.2,
+          "portion": "about 1/2 cup"
+        }
+      ],
+      "name": "Grilled Chicken and Vegetable Plate"
+    },
+    "usage": {
+      "prompt_tokens": 1090,
+      "completion_tokens": 192,
+      "total_tokens": 1282,
+      "prompt_tokens_details": {
+        "cached_tokens": 0
+      },
+      "neurons": 41.590911865234375
+    },
+    "raw": null
+  },
+  {
+    "id": "dish_1558720236",
+    "kind": "plate",
+    "prompt": "itemised",
+    "model": "llama-4-scout",
+    "model_id": "@cf/meta/llama-4-scout-17b-16e-instruct",
+    "n_images": 1,
+    "repeat": 0,
+    "truth_kcal": 887.82,
+    "truth_mass": 407,
+    "status": 200,
+    "ms": 3806,
+    "content": {
+      "calories": 1040.9,
+      "items": [
+        {
+          "food": "carrots",
+          "grams": 100,
+          "kcal": 41,
+          "portion": "about 6 slices"
+        },
+        {
+          "food": "cauliflower",
+          "grams": 50,
+          "kcal": 11,
+          "portion": "about 1 small floret"
+        },
+        {
+          "food": "almonds",
+          "grams": 100,
+          "kcal": 575,
+          "portion": "a large handful"
+        },
+        {
+          "food": "apple",
+          "grams": 130,
+          "kcal": 414,
+          "portion": "1 small"
+        }
+      ],
+      "name": "Mixed Snack"
+    },
+    "usage": {
+      "prompt_tokens": 1090,
+      "completion_tokens": 147,
+      "total_tokens": 1237,
+      "prompt_tokens_details": {
+        "cached_tokens": 0
+      },
+      "neurons": 38.11363983154297
+    },
+    "raw": null
+  }
+]

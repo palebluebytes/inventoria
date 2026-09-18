@@ -1,0 +1,34 @@
+
+========================================================================
+raw-main-bare.json  (50 rows)
+========================================================================
+
+MALFORMED: 37
+  dish_1563984242 429 no content
+  dish_1563996441 429 no content
+  dish_1567007848 429 no content
+  dish_1568401302 429 no content
+  dish_1559849497 429 no content
+  dish_1563478751 429 no content
+  dish_1566328805 429 no content
+  dish_1560526514 429 no content
+
+PLATES: 13 scored, 0 answered null
+  MAE            130.3 kcal
+  MAE / mean     31.2%   (Nutrition5k 2D baseline 70.6 kcal / 26.1%)
+  MAPE           54.2%   median 43.5%
+  bias (signed)  +30.8 kcal   (9/13 over)
+  within 25%     6/13
+  within 50%     7/13
+  worst          1567007783 50->150 (200%), 1565123816 250.92->550 (119%), 1558031394 237.41->420 (77%)
+
+  by calorie band:
+    150-300   n= 4  MAE  193 kcal  MAPE  80%  bias +193
+    300-500   n= 3  MAE   78 kcal  MAPE  17%  bias +12
+    50-150    n= 2  MAE   78 kcal  MAPE 137%  bias +22
+    500-800   n= 2  MAE   20 kcal  MAPE   4%  bias +20
+    800+      n= 2  MAE  246 kcal  MAPE  27%  bias -246
+
+  naming (token overlap against the weighed ingredient list):
+    named foods that are really there  25/54
+    real ingredients the model named   25/122
