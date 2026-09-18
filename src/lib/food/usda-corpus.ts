@@ -868,8 +868,13 @@ export function mapIndexRowToPayload(
  * out of the corpus — a scanned Open Food Facts product, a manual entry, a
  * recipe. The Nutrient store has nothing to say about those, and a 4 MB parse to
  * discover that is a cost every scan would pay.
+ *
+ * Exported because a Pack pairing asks the same question of the id it holds
+ * (ADR-0113 §7): the whole of what `food/pairing` may name is a row of this
+ * corpus, so *which row does this entity name* is the predicate there too, and
+ * a second regex spelling it would be free to disagree.
  */
-function fdcIdFor(entity: string): number | null {
+export function fdcIdFor(entity: string): number | null {
   const match = /^fdc:(\d+)$/.exec(entity);
   return match ? Number(match[1]) : null;
 }

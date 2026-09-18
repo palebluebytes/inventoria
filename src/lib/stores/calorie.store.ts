@@ -8,8 +8,7 @@ import {
 } from "../food/density";
 import {
   isReferenceFoodEntity,
-  pairingRefusalOf,
-  FOOD_PAIRING_ATTR,
+  withPairing,
   PAIRING_CLEARED,
 } from "../food/pairing";
 import { HLC_ORDER_ASC } from "../db/hlc";
@@ -489,19 +488,16 @@ export async function setFoodDensity(
 }
 
 /**
- * Appends one `food/pairing` assertion, refusing a twin §15 will not have.
+ * Appends one `food/pairing` assertion.
  *
- * The refusal is enforced at the append and not only at the affordance, because
- * §15's three are properties of the FOOD: a screen that offered the act on a
- * recipe twin would be a defect, and a screen that could write one past this
- * would make the ledger carry it.
+ * `withPairing` is what refuses a twin §15 will not have, and it is shared with
+ * the staging arm rather than restated here: §15's three are properties of the
+ * FOOD, so a screen that offered the act on a recipe twin would be a defect and
+ * a path that could write one past the predicate would make the ledger carry it.
  */
 async function appendPairing(entity: string, value: string): Promise<void> {
-  const refusal = pairingRefusalOf(entity);
-  if (refusal)
-    throw new Error(`${entity} may not be paired: ${refusal.because}`);
   await dbClient.append(
-    ingestEntity({ entity, attributes: { [FOOD_PAIRING_ATTR]: value } })
+    ingestEntity(withPairing({ entity, attributes: {} }, value))
   );
 }
 
@@ -528,6 +524,10 @@ export async function setFoodPairing(
   entity: string,
   reference: string
 ): Promise<void> {
+  // `withPairing` admits the clear too, because that is a legitimate value of
+  // this attribute. Pairing is not the act that writes it: a caller reaching
+  // here with nobody to name wanted {@link clearFoodPairing} and should hear so
+  // rather than silently unpair a pack.
   if (!isReferenceFoodEntity(reference))
     throw new Error(`${reference} is not a reference food`);
   await appendPairing(entity, reference);

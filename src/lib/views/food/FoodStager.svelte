@@ -21,6 +21,7 @@
     isPoorFoodTwin,
     NoReferenceFoodError,
     NO_FOOD_FOUND,
+    SEARCH_DEBOUNCE_MS,
     type FoodResult,
   } from "../../food/food-search";
   import { searchList } from "../../food/search-list";
@@ -41,7 +42,7 @@
     type AmountContext,
     type FoodDensity,
   } from "../../food/density";
-  import { FOOD_PAIRING_ATTR, PAIRING_CLEARED } from "../../food/pairing";
+  import { withPairing, PAIRING_CLEARED } from "../../food/pairing";
   import {
     amountDefaults,
     basisUnit,
@@ -412,35 +413,28 @@
     };
   }
 
-  // The pairing act, on a food still being staged (ADR-0113 §§1, 2). It lands
-  // on the staged payload for the reason the density assertion does: the payload
-  // IS what the host ingests on commit, so the assertion travels with the food
-  // it is about and a staging the user backs out of writes nothing.
-  //
-  // Both halves go through one writer, because §7 makes them one attribute with
-  // two values: an `fdc:` id, and the empty string that names nobody.
-  /** Whether the pairing search is open over the staged food. */
+  // Whether the pairing search is open over the staged food. It is about the
+  // food under it, so staging another one closes it rather than re-opening over
+  // a pack nobody asked about.
   let pairingOpen = $state(false);
-
-  // The sheet is about the food under it, so staging another one closes it
-  // rather than re-opening over a pack nobody asked about.
   $effect(() => {
     void staged;
     pairingOpen = false;
   });
 
+  // The pairing act, on a food still being staged (ADR-0113 §§1, 2). It lands
+  // on the staged payload for the reason the density assertion does: the payload
+  // IS what the host ingests on commit, so the assertion travels with the food
+  // it is about and a staging the user backs out of writes nothing.
+  //
+  // Through `withPairing` and not a spread of its own, because this path reaches
+  // the ledger too — at commit, through the host's ingest — so §15's refusals
+  // bind here exactly as they bind the store's append. Both halves go through
+  // one writer, because §7 makes them one attribute with two values: an `fdc:`
+  // id, and the empty string that names nobody.
   function stageFoodPairing(value: string) {
     if (!staged) return;
-    staged = {
-      ...staged,
-      payload: {
-        ...staged.payload,
-        attributes: {
-          ...staged.payload.attributes,
-          [FOOD_PAIRING_ATTR]: value,
-        },
-      },
-    };
+    staged = { ...staged, payload: withPairing(staged.payload, value) };
   }
 
   // The staged food's full nutrition panel (per its serving basis). Handed to
@@ -1183,15 +1177,6 @@
   // the search again. Plain let — not an $effect dependency.
   let lastQuery = "";
   let debounceTimer: ReturnType<typeof setTimeout>;
-  // How long typing has to settle before the search runs. This is a coalescer
-  // for a mid-word burst, NOT a network guard: the 400 ms it replaces was sized
-  // for the FDC API's 717–980 ms round trip and its request quota, and searching
-  // the bundled corpus (ADR-0047) costs 13 ms from keystroke to painted results
-  // at desktop speed, 28 ms at 4x CPU throttle. Firing on every keystroke was
-  // measured smooth — nine consecutive searches held a 2–7 ms median frame — so
-  // the value sits under a fast typist's inter-key interval and lets the results
-  // track the word instead of waiting for it.
-  const SEARCH_DEBOUNCE_MS = 120;
 
   // ── The search log's session (ADR-0053 §2, #149) ───────────────────────────
   // One entry per search session, never one per debounced search: the search effect

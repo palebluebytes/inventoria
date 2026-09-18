@@ -8,6 +8,7 @@
     searchUsdaFoods,
     NoReferenceFoodError,
     NO_FOOD_FOUND,
+    SEARCH_DEBOUNCE_MS,
     type FoodResult,
   } from "../../food/food-search";
   import { isReferenceFoodEntity } from "../../food/pairing";
@@ -55,8 +56,6 @@
     onClose: () => void;
   } = $props();
 
-  const SEARCH_DEBOUNCE_MS = 120;
-
   let query = $state("");
   let results = $state<FoodResult[]>([]);
   let chosen = $state<FoodResult | null>(null);
@@ -99,7 +98,9 @@
       error =
         e instanceof NoReferenceFoodError
           ? NO_FOOD_FOUND
-          : ((e as Error).message ?? String(e));
+          : e instanceof Error
+            ? e.message
+            : String(e);
     } finally {
       searching = false;
     }

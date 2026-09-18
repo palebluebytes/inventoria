@@ -2184,13 +2184,16 @@ describe("moveLoggedFoodsToMeal", () => {
 describe("the pairing act writes one assertion on one pack (ADR-0113)", () => {
   const PACK = "gtin:5010251341352";
 
+  // Cleared here rather than inherited: the `clearAllMocks` above is scoped to
+  // "Calorie Store Actions", so a spy taken at this level carries that suite's
+  // appends into the first call of every test below.
+  const spyOnAppend = () =>
+    vi.spyOn(dbClient, "append").mockResolvedValue(undefined);
+  let append: ReturnType<typeof spyOnAppend>;
   beforeEach(() => {
-    vi.mocked(dbClient.append).mockReset();
-    vi.mocked(dbClient.append).mockResolvedValue(undefined);
+    append = spyOnAppend();
+    append.mockClear();
   });
-
-  const appended = () =>
-    vi.mocked(dbClient.append).mock.calls[0][0] as unknown as Datom[];
 
   it("writes the reference food's bare id and nothing beside it", async () => {
     // No field list and no name (§7): which reference food you chose is the
@@ -2198,7 +2201,7 @@ describe("the pairing act writes one assertion on one pack (ADR-0113)", () => {
     // whichever panel rows are silent now.
     await setFoodPairing(PACK, "fdc:173740");
 
-    expect(appended()).toEqual([
+    expect(append.mock.calls[0][0]).toEqual([
       expect.objectContaining({
         entity: PACK,
         attribute: "food/pairing",
@@ -2210,7 +2213,7 @@ describe("the pairing act writes one assertion on one pack (ADR-0113)", () => {
   it("unpairs by appending an assertion that names nobody", async () => {
     await clearFoodPairing(PACK);
 
-    expect(appended()).toEqual([
+    expect(append.mock.calls[0][0]).toEqual([
       expect.objectContaining({ attribute: "food/pairing", value: "" }),
     ]);
   });
@@ -2226,7 +2229,7 @@ describe("the pairing act writes one assertion on one pack (ADR-0113)", () => {
       );
       await expect(clearFoodPairing(twin)).rejects.toThrow(/may not be paired/);
     }
-    expect(dbClient.append).not.toHaveBeenCalled();
+    expect(append).not.toHaveBeenCalled();
   });
 
   it("refuses a pairing that names anything but a reference food", async () => {
@@ -2238,6 +2241,6 @@ describe("the pairing act writes one assertion on one pack (ADR-0113)", () => {
     await expect(setFoodPairing(PACK, "")).rejects.toThrow(
       /not a reference food/
     );
-    expect(dbClient.append).not.toHaveBeenCalled();
+    expect(append).not.toHaveBeenCalled();
   });
 });

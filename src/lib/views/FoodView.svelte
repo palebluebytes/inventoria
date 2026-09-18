@@ -18,7 +18,7 @@
     clearFoodPairing,
     type ConsumptionEvent,
   } from "../stores/calorie.store";
-  import { FOOD_PAIRING_ATTR, PAIRING_CLEARED } from "../food/pairing";
+  import { withPairing, PAIRING_CLEARED } from "../food/pairing";
   import {
     scaleAmount,
     parseScaleFactor,
@@ -384,18 +384,22 @@
    * pairing the twin had before this act, and clearing one would look like it
    * had done nothing. The datom is still the fact; this is the screen catching
    * up with it without a re-read.
+   *
+   * Which is why it happens **after** the append settles, and not beside it: a
+   * card showing a pairing no datom carries is §2's collapse in miniature, a
+   * figure reaching a screen without the act having happened. A failed write
+   * leaves the card saying what the ledger says.
    */
-  function pairFood(edit: AmountEdit, reference: string) {
-    void (reference === PAIRING_CLEARED
-      ? clearFoodPairing(edit.payload.entity)
-      : setFoodPairing(edit.payload.entity, reference));
-    edit.payload = {
-      ...edit.payload,
-      attributes: {
-        ...edit.payload.attributes,
-        [FOOD_PAIRING_ATTR]: reference,
-      },
-    };
+  async function pairFood(edit: AmountEdit, reference: string) {
+    try {
+      await (reference === PAIRING_CLEARED
+        ? clearFoodPairing(edit.payload.entity)
+        : setFoodPairing(edit.payload.entity, reference));
+    } catch (e) {
+      appError("pairing this food failed", e);
+      return;
+    }
+    edit.payload = withPairing(edit.payload, reference);
   }
 
   // Explainer handoff seam (#92, ADR-0041 §6): tapping the food-detail badge parks
@@ -1463,7 +1467,7 @@
     onAssertDensity={(density) =>
       void setFoodDensity(ae.payload.entity, density)}
     onPair={() => (pairingOpen = true)}
-    onClearPairing={() => pairFood(ae, PAIRING_CLEARED)}
+    onClearPairing={() => void pairFood(ae, PAIRING_CLEARED)}
     onCommit={(amount, unit) => changeLoggedFoodAmount(ae.event, amount, unit)}
     onClose={() => (amountEdit = null)}
   />
@@ -1476,7 +1480,7 @@
        explainer uses. -->
   <PackPairingSheet
     packName={ae.name}
-    onAccept={(reference) => pairFood(ae, reference)}
+    onAccept={(reference) => void pairFood(ae, reference)}
     onClose={() => (pairingOpen = false)}
   />
 {/if}

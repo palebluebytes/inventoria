@@ -25,8 +25,8 @@
 // and the twin's own datom is the whole of the same-barcode cache.
 // ---------------------------------------------------------------------------
 
-import { mintEntity } from "../facets/entity-id";
-import type { SearchCorpus } from "./usda-corpus";
+import type { EntityPayload } from "../ingestion/ingest";
+import { fdcIdFor, type SearchCorpus } from "./usda-corpus";
 
 /** Where a pack's Pack pairing lives on its twin. */
 export const FOOD_PAIRING_ATTR = "food/pairing";
@@ -133,13 +133,40 @@ export function pairingRefusalOf(entity: string): PairingRefusal | null {
  * True for a bare live `fdc:` id — the whole of what `food/pairing` may hold
  * (§7).
  *
- * The digits are checked as well as the prefix, because the id is written into
- * the ledger and read back by a corpus lookup: `fdc:` with nothing after it
- * would be an assertion that names nobody, which is what {@link PAIRING_CLEARED}
- * already says unambiguously.
+ * Asked through `fdcIdFor` rather than through a second regex of its own: that
+ * function already answers *which corpus row does this entity name*, and a
+ * pairing that named an id it could not resolve would be an assertion pointing
+ * at nothing. A `fdc:` with no digits after it is exactly that, and it is what
+ * {@link PAIRING_CLEARED} already says unambiguously.
  */
 export function isReferenceFoodEntity(entity: string): boolean {
-  return /^fdc:\d+$/.test(entity);
+  return fdcIdFor(entity) !== null;
+}
+
+/**
+ * The payload a twin makes once it is paired, or unpaired by
+ * {@link PAIRING_CLEARED}.
+ *
+ * **This is the one place a pairing lands on a food**, and both arms go through
+ * it: a pack already in the ledger takes a datom built from this, and one still
+ * being staged carries this payload to its own commit. That is what makes the
+ * refusals §15 names a property of the FOOD rather than of the screen — the
+ * affordance being absent is a courtesy, and this is the enforcement, on every
+ * path a `food/pairing` can reach the ledger by.
+ */
+export function withPairing(
+  payload: EntityPayload,
+  value: string
+): EntityPayload {
+  const refusal = pairingRefusalOf(payload.entity);
+  if (refusal)
+    throw new Error(`${payload.entity} may not be paired: ${refusal.because}`);
+  if (value !== PAIRING_CLEARED && !isReferenceFoodEntity(value))
+    throw new Error(`${value} is not a reference food`);
+  return {
+    ...payload,
+    attributes: { ...payload.attributes, [FOOD_PAIRING_ATTR]: value },
+  };
 }
 
 /**
@@ -180,8 +207,7 @@ export function referenceFoodName(
   corpus: SearchCorpus,
   reference: string
 ): string | undefined {
-  if (!isReferenceFoodEntity(reference)) return undefined;
-  return corpus.foods.find(
-    (food) => mintEntity("fdc:", food.row.fdcId) === reference
-  )?.row.description;
+  const fdcId = fdcIdFor(reference);
+  if (fdcId === null) return undefined;
+  return corpus.foods.find((food) => food.row.fdcId === fdcId)?.row.description;
 }

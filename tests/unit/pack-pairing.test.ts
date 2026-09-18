@@ -15,6 +15,7 @@ import {
   pairingRefusalOf,
   readFoodPairing,
   referenceFoodName,
+  withPairing,
 } from "../../src/lib/food/pairing";
 import { TRACKED_DOMAINS } from "../../src/lib/facets/domains";
 import {
@@ -97,6 +98,59 @@ describe("what may never be paired (§15)", () => {
       expect(refusal).not.toBeNull();
       expect(refusal!.because.length).toBeGreaterThan(0);
     }
+  });
+});
+
+describe("the one place a pairing lands on a food", () => {
+  const packPayload = {
+    entity: "gtin:5010251341352",
+    attributes: { "food/name": "Double Cream" },
+  };
+
+  it("adds the assertion and leaves the rest of the twin alone", () => {
+    // The pack stays the food (§1). Nothing is merged, nothing is replaced: one
+    // attribute arrives beside everything the twin already said.
+    expect(withPairing(packPayload, "fdc:173740")).toEqual({
+      entity: "gtin:5010251341352",
+      attributes: {
+        "food/name": "Double Cream",
+        [FOOD_PAIRING_ATTR]: "fdc:173740",
+      },
+    });
+  });
+
+  it("supersedes a pairing already on the twin rather than accumulating", () => {
+    const paired = withPairing(packPayload, "fdc:173740");
+    expect(readFoodPairing(withPairing(paired, "fdc:171077").attributes)).toBe(
+      "fdc:171077"
+    );
+  });
+
+  it("takes the clear, which is an assertion naming nobody", () => {
+    const cleared = withPairing(packPayload, PAIRING_CLEARED);
+    expect(cleared.attributes[FOOD_PAIRING_ATTR]).toBe(PAIRING_CLEARED);
+    expect(readFoodPairing(cleared.attributes)).toBeUndefined();
+  });
+
+  it("refuses the three twins §15 names, on the staging path as on the append", () => {
+    // The staged payload reaches the ledger at commit, through the host's
+    // ingest, so a refusal enforced only where the datom is written would leave
+    // the other arm guarded by a screen alone.
+    for (const entity of [
+      "recipe:7",
+      "fdc:173740",
+      "food:custom_1758200000000_ab12",
+    ]) {
+      expect(() => withPairing({ entity, attributes: {} }, "fdc:1")).toThrow(
+        /may not be paired/
+      );
+    }
+  });
+
+  it("refuses a pairing that names anything but a reference food", () => {
+    expect(() => withPairing(packPayload, "gtin:123")).toThrow(
+      /not a reference food/
+    );
   });
 });
 

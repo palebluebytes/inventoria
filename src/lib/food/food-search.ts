@@ -151,6 +151,23 @@ export function isCatalogueFood(
 export const NO_FOOD_FOUND = "No food found.";
 
 /**
+ * How long typing has to settle before the corpus is searched.
+ *
+ * This is a coalescer for a mid-word burst, NOT a network guard: the 400 ms it
+ * replaces was sized for the FDC API's 717–980 ms round trip and its request
+ * quota, and searching the bundled corpus (ADR-0047) costs 13 ms from keystroke
+ * to painted results at desktop speed, 28 ms at 4x CPU throttle. Firing on every
+ * keystroke was measured smooth — nine consecutive searches held a 2–7 ms median
+ * frame — so the value sits under a fast typist's inter-key interval and lets the
+ * results track the word instead of waiting for it.
+ *
+ * Here rather than in a screen because two screens now search this corpus, the
+ * staging screen and the pairing sheet, and one answering at a different speed
+ * from the other is one fact spelled twice.
+ */
+export const SEARCH_DEBOUNCE_MS = 120;
+
+/**
  * Thrown when a search returns no food. Distinct from the plain `Error`s the
  * search path throws for a genuine fault, so a broken artifact or a broken
  * service worker is never folded into "no food found".
