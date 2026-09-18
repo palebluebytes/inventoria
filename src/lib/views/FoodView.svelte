@@ -77,6 +77,7 @@
     type IngredientSource,
   } from "../food/recipe-nutrition";
   import { readFoodDensity } from "../food/density";
+  import { loadReferenceFoods, pairedSource } from "../food/frozen-pairing";
   import type { NovaVerdict } from "../food/nova-verdict";
   import type { DietaryVerdict } from "../food/off-signals";
   import type { EntityPayload } from "../ingestion/ingest";
@@ -774,20 +775,29 @@
    */
   async function resolveScalables(): Promise<Map<string, Scalable>> {
     const next = new Map<string, Scalable>();
+    const resolvedItems: { id: string; resolved: AmountEdit; ref: string }[] =
+      [];
     for (const item of selectedItems) {
       if (item.instantiation || !item.target) continue;
       const resolved = await resolveAmountEdit(item);
       if (!resolved?.panel) continue;
-      next.set(item.id, {
+      resolvedItems.push({ id: item.id, resolved, ref: item.target });
+    }
+    // One load for the whole Selection, and none at all unless one of its foods
+    // is actually paired (ADR-0113 §6). A scale is a NEW reading at a new
+    // amount, so it reads each pack's pairing as it stands now — and the
+    // occasion it replaces keeps its own frozen account untouched (§7).
+    const references = await loadReferenceFoods(
+      resolvedItems.map(({ resolved }) => resolved.payload.attributes)
+    );
+    for (const { id, resolved, ref } of resolvedItems) {
+      next.set(id, {
         amount: resolved.amount,
         // The unit the amount is in, resolved once above — not re-read off the
         // panel, which on a classified food can name the other one.
         unit: resolved.unit,
-        source: {
-          panel: resolved.panel,
-          density: readFoodDensity(resolved.payload.attributes),
-        },
-        ref: item.target,
+        source: pairedSource(resolved.payload.attributes, references),
+        ref,
       });
     }
     return next;

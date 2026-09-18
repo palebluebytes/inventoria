@@ -266,3 +266,48 @@ describe("the marked panel a paired pack's card composes (§§4, 7)", () => {
     expect(body).not.toContain('data-testid="est-mark"');
   });
 });
+
+/**
+ * The log path (ADR-0113 §6). What a freeze writes is `calorie-store.test.ts`'s
+ * and `frozen-pairing.test.ts`'s; what is asserted here is that every surface
+ * that logs reaches those through the one function that resolves the panel and
+ * the account of it together, rather than reading the twin's panel itself.
+ *
+ * Source rather than render, for the reason the file already reads source: the
+ * claim is about a commit handler, which a server render never runs.
+ */
+describe("what a surface freezes when it logs a paired pack (§6)", () => {
+  const SHEET = readCode("src/lib/views/food/LogFoodSheet.svelte");
+  const LIST = readCode("src/lib/views/food/IngredientListEditor.svelte");
+  const INSTANTIATOR = readCode("src/lib/views/food/RecipeInstantiator.svelte");
+  const BUILDER = readCode("src/lib/views/food/RecipeBuilder.svelte");
+
+  it("scales the widened panel and freezes the account of it in one act", () => {
+    // The two are one return value on purpose: a surface free to take the panel
+    // without the envelope is one refactor away from freezing borrowed numbers
+    // with nothing naming them, which is the defect §6 exists to prevent.
+    expect(SHEET).toContain("pairedSource(");
+    expect(SHEET).toMatch(/const panel = source\.panel/);
+    expect(SHEET).toContain("source.pairing");
+    // And it no longer reads the stored panel off the payload itself, which
+    // would be the label alone and would silently drop every borrowed row.
+    expect(SHEET).not.toMatch(/f\.payload\.attributes\["nutrition\/info"\]/);
+  });
+
+  it("resolves a dish's rows through the same pairing the list drew", () => {
+    // The editor's live figures and the occasion it logs read one reading, so
+    // the panel a person approved is the panel that is frozen.
+    expect(LIST).toMatch(
+      /sourceFromIngredients\(ingredients, ref, references\)/
+    );
+    expect(LIST).toContain("borrowedKeys(");
+    expect(LIST).toMatch(/\{estimated\}/);
+  });
+
+  it("awaits the artifacts at the commit rather than trusting the editor's load", () => {
+    // A commit that raced the editor's load would freeze the rows without the
+    // account of them — consistent, and quietly less than what was on screen.
+    for (const source of [INSTANTIATOR, BUILDER])
+      expect(source).toMatch(/await loadReferenceFoods\(/);
+  });
+});

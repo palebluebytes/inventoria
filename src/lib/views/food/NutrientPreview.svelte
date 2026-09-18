@@ -37,13 +37,11 @@
      * disclosure are one panel, so a borrowed nutrient the user happens to track
      * may not shed its mark by being promoted into the grid.
      *
-     * Omitted everywhere a figure cannot have been borrowed, which today is
-     * every surface but a paired pack's own panel. The recipe editor's live
-     * per-serving figures are the one worth naming: `deriveRecipeNutrition`
-     * reads each ingredient twin's stored `nutrition/info`, which is strictly
-     * the label (§7), so no figure in that sum is borrowed and none is owed a
-     * mark. A dish's rows start borrowing when the occasion freezes them, which
-     * is #521's.
+     * Omitted everywhere a figure cannot have been borrowed. Two surfaces pass
+     * one: a paired pack's own panel, and the recipe editor's live figures —
+     * where the set is the **union** over the rows, because the mark says *not
+     * every figure in this row was printed on a label* and a sum gets one mark
+     * per key, never a second, softer one saying how much (§5).
      */
     estimated?: ReadonlySet<string>;
     /** Test id for the disclosure, so a surface keeps its own selector. */

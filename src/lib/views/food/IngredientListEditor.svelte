@@ -24,6 +24,11 @@
   } from "../../food/nutrition";
   import { FOOD_DENSITY_ATTR } from "../../food/density";
   import {
+    borrowedKeys,
+    loadReferenceFoods,
+    type ReferenceFoods,
+  } from "../../food/frozen-pairing";
+  import {
     occasionFraction,
     servingsOfOccasion,
   } from "../../food/batch-weight";
@@ -205,10 +210,31 @@
 
   // Pure {ref, amount, unit} references — the shape the derivation reads.
   let referenceIngredients = $derived(ingredients.map(toReferenceIngredient));
+  // The two bundled artifacts a **Pack pairing** on an ingredient's twin is read
+  // through, loaded only when one of the rows on screen is actually paired
+  // (ADR-0113 §6). Until they arrive — and for ever on a list where nothing is
+  // paired — every row resolves to its label alone, which is what the whole of
+  // this editor was before #521.
+  let references = $state<ReferenceFoods | undefined>(undefined);
+  $effect(() => {
+    const twins = ingredients.map((i) => i.payload?.attributes);
+    let live = true;
+    void loadReferenceFoods(twins)
+      .then((loaded) => {
+        if (live) references = loaded;
+      })
+      .catch(() => {});
+    return () => {
+      live = false;
+    };
+  });
+
   // Each ingredient's real nutrition panel / display name, read in memory from
-  // its inlined twin payload — never mutating the food twin.
+  // its inlined twin payload — never mutating the food twin. The panel is
+  // widened by whatever that twin's Pack pairing supplies, so this list shows
+  // the same figures the occasion it logs will freeze.
   const resolveSource = (ref: string) =>
-    sourceFromIngredients(ingredients, ref);
+    sourceFromIngredients(ingredients, ref, references);
   const resolveName = (ref: string) => nameFromIngredients(ingredients, ref);
 
   // The figures describe the ingredients ON SCREEN: Σ(panel × amount ÷
@@ -220,6 +246,13 @@
   // saving surface's business, not this list's.
   let visibleTotal = $derived(
     deriveRecipeNutrition(referenceIngredients, 1, resolveSource)
+  );
+  // Which of those figures a pairing supplied rather than a manufacturer — the
+  // union over the rows, because that is what the `est` mark means on a dish:
+  // *not every figure in this row was printed on a label* (ADR-0113 §5). A sum
+  // gets one mark per key and never a second, softer one saying how much.
+  let estimated = $derived(
+    borrowedKeys(ingredients.map((i) => resolveSource(i.entity)))
   );
   // A row's derived display: the clean {ref, amount, unit} (its `amount` coerced
   // once at this boundary, since the inline editor's numeric input is briefly
@@ -430,6 +463,7 @@
   <span class="section-head">{figuresLabel}</span>
   <NutrientPreview
     breakdown={visibleTotal}
+    {estimated}
     testid="recipe-nutrient-breakdown"
   />
 </div>

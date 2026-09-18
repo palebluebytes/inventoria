@@ -36,7 +36,8 @@
   } from "../../food/recent-foods";
   import type { MealType } from "../../food/meal-type";
   import { wayInTitle, type WayIn } from "../../food/ways-in";
-  import { amountAgainstBasis, readFoodDensity } from "../../food/density";
+  import { amountAgainstBasis } from "../../food/density";
+  import { loadReferenceFoods, pairedSource } from "../../food/frozen-pairing";
   import {
     basisUnit,
     enteredUnit,
@@ -410,9 +411,18 @@
         // macros (ADR-0030 / #28). The headline stays exactly the macros the
         // dashboard already reads (scaleNutrition rounds identically); the extra
         // nutrients ride along in event/metrics for the day breakdown.
-        const panel = f.payload.attributes["nutrition/info"] as
-          | NutritionInfo
-          | undefined;
+        //
+        // The panel is the label WIDENED by whatever this pack's Pack pairing
+        // supplies, which is the reading the card above just showed (ADR-0113
+        // §§5-6), and `source.pairing` names exactly which keys that was. The two
+        // are resolved together and frozen together: borrowed figures are
+        // indistinguishable inside `event/metrics`, so the sibling naming them is
+        // what keeps the occasion honest. Nothing loads for an unpaired food.
+        const source = pairedSource(
+          f.payload.attributes,
+          await loadReferenceFoods([f.payload.attributes])
+        );
+        const panel = source.panel;
         // Scale by the panel's OWN basis, like every other scaler (#148). This
         // divided by a hardcoded 100 while the amount screen the user just read
         // divided by the basis, so the two disagreed on any panel not measured
@@ -428,7 +438,7 @@
             choice.amount,
             choice.unit,
             panel?.serving_size,
-            readFoodDensity(f.payload.attributes)
+            source.density
           ) / parseBasisQuantity(panel?.serving_size);
         const breakdown = scaleNutrition(panel, factor);
         const newId = await logFoodConsumption(
@@ -452,7 +462,9 @@
           breakdown.carbs,
           selectedDate,
           undefined,
-          breakdown
+          breakdown,
+          undefined,
+          source.pairing
         );
         if (edit) await retractConsumptionEvent(edit.id, newId);
         else onLogged?.([newId]);

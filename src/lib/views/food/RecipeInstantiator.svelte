@@ -16,6 +16,7 @@
     type RecipeIngredient,
   } from "../../food/recipe-ingredient";
   import { sanitizeYield } from "../../food/recipe-nutrition";
+  import { loadReferenceFoods } from "../../food/frozen-pairing";
   import {
     RECIPE_BATCH_WEIGHT_ATTR,
     sanitizeWeight,
@@ -252,7 +253,15 @@
         await dbClient.append(ingestEntity(ing.payload));
       }
       const refs = ingredients.map(toReferenceIngredient);
-      const resolve = (ref: string) => sourceFromIngredients(ingredients, ref);
+      // Awaited here rather than read off the editor's own load, so a commit can
+      // never freeze a paired row's figures without the account of them: the
+      // rows and the envelopes are derived from one resolver (ADR-0113 §6).
+      // Nothing loads unless a row is actually paired.
+      const references = await loadReferenceFoods(
+        ingredients.map((i) => i.payload?.attributes)
+      );
+      const resolve = (ref: string) =>
+        sourceFromIngredients(ingredients, ref, references);
       const resolveName = (ref: string) =>
         nameFromIngredients(ingredients, ref);
       if (edit) {
