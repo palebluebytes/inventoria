@@ -936,3 +936,23 @@ protects and refused it, so these nine are the cost of that refusal, paid in
 coverage and never in correctness (ADR-0103 §3's direction of failure). §11's "1,035
 rows, not 1,725, because an axis holds corpus-wide" is about where the axis is
 CLASSIFIED, not a claim that it reaches every pair USDA published.
+
+## Amendment (2026-09-18, #519): the food sense lands as **Pack pairing**
+
+§16 ruled that bare **Pairing** is spent — `CONTEXT.md` has carried it since ADR-0096
+§8 as the act that makes two of your own devices Paired Devices — and left the
+qualified term to whichever ticket shipped the datoms.
+[#519](https://github.com/palebluebytes/inventoria/issues/519) ships them, and the term
+it coins is **Pack pairing**.
+
+The qualifier is the one that is load-bearing rather than merely distinguishing. §15's
+three refusals are all the same refusal read three ways: a pairing annotates a
+**packaged food**, and a recipe twin, an `fdc:` twin and a hand-entered twin are not
+one. So `pairingRefusalOf` tests for `gtin:` and refuses everything else, the three
+named twins by name and anything else as _not a pack_, and the name of the concept says
+what the predicate tests. The alternatives were weaker on exactly that point:
+_Reference pairing_ reads as the name of what the id points at, and is wrong the moment
+§11's set is reachable, because a **Pairing target** is not a **Reference food**; _Food
+pairing_ collides with the culinary sense and says nothing the namespace does not.
+
+The attribute is `food/pairing` and is unaffected, as §16 says: it is namespaced.
