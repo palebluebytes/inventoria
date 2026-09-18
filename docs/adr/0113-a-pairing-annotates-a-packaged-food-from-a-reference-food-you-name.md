@@ -779,3 +779,91 @@ above is measured against 25 of 35 and is unaffected. §13 already reasons from 
 finding; what the correction moves is where that finding lives — out of a research note
 and into the committed literal, so a reader of the adjudication no longer meets the
 falsified reason with nothing beside it.
+
+## Amendment (2026-09-18, #517): the salt entries read the segment beside its siblings
+
+§12 coins the axis and then states the claim the coining rests on — that it changes
+**0 shipped rows** — and calls that "the one assertion this section is most exposed
+on". Executing the hand-off,
+[#517](https://github.com/palebluebytes/inventoria/issues/517) put the entry in the
+roster and re-ran the generator against the archives. The claim is false as §12
+words it. `with salt` / `without salt`, spelled as narrowly as the section coins it
+and reading the segment alone, takes **seven** rows out of
+`public/usda/search-index.json`:
+
+| shipped both ways today                                           |
+| ----------------------------------------------------------------- |
+| `Butter, light, stick`                                            |
+| `Margarine, 80% fat, composite, stick`                            |
+| `Margarine, 80% fat, composite, stick, with added vitamin D`      |
+| `Margarine, 80% fat, composite, tub`                              |
+| `Margarine-like, vegetable oil spread, 60% fat, stick/tub/bottle` |
+| `Margarine-like, vegetable oil spread, 20% fat`                   |
+| `Peanut butter, chunk style`                                      |
+
+A wider spelling taking `with salt added` reaches **27**, and four of those are the
+roasted nuts and seeds ADR-0104 §2 keeps on the shop test. The reach also arrives as
+four new head phrases — `Butter`, `Margarine`, `Margarine-like`, `Peanut butter` —
+so `assertCollapseReach` refuses the generation rather than writing them, which is
+how the seven were found.
+
+**The classification stands, and stays corpus-wide. What was wrong is the premise,
+not the verdict.** §12's ground is that salting a pot while it boils happens after
+the purchase. Every one of the seven is the other thing: salted butter is a
+distinction the pack supplies, which is the argument §12 gives for refusing to merge
+cooking methods, turned on salt itself. The same three words name the pot on a boiled
+vegetable and the shelf on a tub of margarine, so a roster entry reading the segment
+alone cannot tell them apart.
+
+So salt's entries are the only two that read the **rest of the name**: a salt
+statement is collapsing where another segment names a cooking method the food was not
+bought in. The condition is not a new judgement — `COOKING_AFTER_BUYING` is
+`usda-food-kind.ts`'s own vocabulary, exported rather than re-spelled, with `roasted`
+and `toasted` left out because ADR-0104 §2 already holds those two to be words a food
+is SOLD under. It reads a name and never a record, which is what lets the roster ask
+it at all: `isCookedForm` needs the food category to know that a roasted nut is the
+exemption rather than the rule, and the roster has never read one — the argument for
+that is in the module's own header, and it is that a category would put ADR-0104 §2's
+exemption in a second place to drift from. Where a name alone cannot tell, the
+condition walks past, which is ADR-0103 §3's direction of failure: coverage, never
+correctness.
+
+**ADR-0103 §10's positional rule is not bent, and the distinction is worth stating
+rather than assuming.** §10 governs what an entry CLAIMS, and the claimed segment is
+still matched whole: the salt entries strike out `with salt` and never a word inside
+anything. What the condition does is read a DIFFERENT segment as evidence, by word,
+and strike nothing there. The trap §10 was written for is an entry that renames three
+egg rows off the word `grade` buried in `Grade A` — a claim made on a substring. No
+claim here rests on one.
+
+**With the condition the claim is true, and truer than §12 asked for.** The entries
+claim not one segment of the 2,023 rows that ship, so the account's shipped table is
+byte-identical and `pnpm check` is clean. It is a _structural_ zero rather than a
+lucky one: the 36 shipped rows carrying a bare salt statement name no cooking method
+beside it but roasting and toasting. `usda-collapse-roster.test.ts` asks the corpus
+both halves of that so a mirror refresh cannot quietly move it.
+
+**Two entries, not one, and `with salt` is non-preferred.** A group's name with the
+salt struck out would claim an unsalted food over a panel that measured a salted one,
+which is exactly §5's hazard, and §4 above names sodium as the one nutrient the two
+reliably differ on and forbids a pairing spending it. Separation's asymmetry, on the
+second axis to earn it.
+
+**§11's row count moves: the Pairing target set is 1,035, not 1,182.** The entries
+absorb **147** of the arm's 1,725 — §12's estimate of 145 pairs was right within two
+— so every figure §11 and
+[#518](https://github.com/palebluebytes/inventoria/issues/518) carry about the
+artifacts is measured against a set that no longer exists and must be re-measured in
+the commit that ships them. Coverage is unaffected: all three twins §11 gains are
+state gaps closed by a row that survives the merge.
+
+**The second table §12 promises is not in this change**, and #517 is split rather than
+stretched to hold it. `usda-account-check.mjs` rebuilds the account from committed
+artifacts alone, and the pairing arm's named rows are not committed until #518 ships
+the Pairing index: the drop census carries the 1,744 records `cooked_form` removed,
+but it carries them as USDA wrote them, before the ADR-0056/0062 name rules that the
+pairing arm runs them through, and they group to 1,275 rather than to anything §11
+states. A second table built from them would be an account of no corpus. The honest
+edit §12 names — _purely butchery_ becoming butchery **and salt** — belongs with it,
+and is not made here for the same reason it is not yet due: in the shipped arm the
+sentence is still exactly true.

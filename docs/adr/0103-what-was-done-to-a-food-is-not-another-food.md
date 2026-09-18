@@ -1064,3 +1064,29 @@ pairs agree within 10% on the twelve nutrients a pairing may spend, and ADR-0113
 §4 forbids a pairing spending the one they reliably differ on. Nothing is merged
 in the shipped corpus, so the shopper's search is untouched by this in both
 directions.
+
+## Amendment (2026-09-18, #517): the salt axis is conditioned on a cooking method
+
+The Amendment above coins salt and rests it on a premise that does not survive being
+run: "there was no pair for it to act on" in the shipped corpus. There are seven.
+`Butter, light, stick`, three margarines, two vegetable oil spreads and
+`Peanut butter, chunk style` each ship `with salt` and `without salt` today, and an
+entry reading the segment alone merges all seven — arriving as four head phrases
+`assertCollapseReach` does not name, which is how it was caught.
+
+The classification is unchanged and stays corpus-wide. What was wrong is the reach:
+§2's line is _as bought_, and salted butter is bought salted. What the roster gains
+is therefore two entries rather than one, both conditioned on another segment naming
+a cooking method the food was not bought in — `COOKING_AFTER_BUYING`, which is
+`usda-food-kind.ts`'s vocabulary minus the two words ADR-0104 §2 holds to be words a
+food is SOLD under. §10 is not weakened by it: the segment an entry CLAIMS is still
+matched whole, and what the condition additionally reads is a different segment, as
+evidence, striking nothing there. Nor does it reach a food category, which the roster
+has never read and still does not.
+
+With the condition the "0 shipped rows" figure is true and structural — the entries
+claim not one segment of the 2,023 rows that ship — and the second table and the
+_purely butchery_ edit the Amendment above promises stay owed, blocked on the Pairing
+index rather than on this. The argument for both is in
+[ADR-0113](0113-a-pairing-annotates-a-packaged-food-from-a-reference-food-you-name.md)'s
+own 2026-09-18 Amendment, which carries the measurements.
