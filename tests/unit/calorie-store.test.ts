@@ -39,6 +39,7 @@ import { buildLabelPanel } from "../../src/lib/food/label-form";
 import { parseLoggedQuantity } from "../../src/lib/food/recipe-ingredient";
 import { asStored } from "./support/stored";
 import type { Datom } from "../../src/lib/db/db.core";
+import type { Instantiation } from "../../src/lib/food/recipe-instantiation";
 
 vi.mock("../../src/lib/db/db.client", () => {
   return {
@@ -2242,5 +2243,149 @@ describe("the pairing act writes one assertion on one pack (ADR-0113)", () => {
       /not a reference food/
     );
     expect(append).not.toHaveBeenCalled();
+  });
+});
+
+describe("a logged occasion freezes what the pairing supplied (ADR-0113 §6)", () => {
+  const BEANS =
+    "Beans, kidney, all types, mature seeds, cooked, boiled, without salt";
+  const FROZEN = {
+    ref: "fdc:173740",
+    name: BEANS,
+    source_uri: "https://api.nal.usda.gov/fdc/v1/food/173740",
+    filled_fields: ["iron", "potassium", "folate", "magnesium"],
+  };
+
+  // Cleared here rather than inherited, for the reason the suite above states.
+  const spyOnAppend = () =>
+    vi.spyOn(dbClient, "append").mockResolvedValue(undefined);
+  let append: ReturnType<typeof spyOnAppend>;
+  beforeEach(() => {
+    append = spyOnAppend();
+    append.mockClear();
+  });
+
+  /** Every datom of the one append, by attribute. */
+  const written = () =>
+    Object.fromEntries(
+      append.mock.calls[0][0].map((d) => [d.attribute, d.value])
+    );
+
+  it("writes the account as a sibling of the metrics it accounts for", async () => {
+    // The honesty test (§6): a reader greps the event id out of the NDJSON and
+    // two lines come back. One carries every number, the other names a USDA
+    // food, its URI and the keys that came from it. The intersection is the
+    // answer and the difference is the label's.
+    await logFoodConsumption(
+      "gtin:5010251341352",
+      "150g",
+      "lunch",
+      174,
+      13,
+      0.8,
+      23.4,
+      new Date("2026-09-18T12:00:00"),
+      undefined,
+      { calories: 174, protein: 13, fat: 0.8, carbs: 23.4, iron: 0.0033 },
+      undefined,
+      FROZEN
+    );
+
+    const rows = written();
+    expect(rows["event/pairing"]).toEqual(FROZEN);
+    // `event/metrics` is unchanged — one blob, every number in it, the borrowed
+    // figures indistinguishable there because that is what §5 already ruled the
+    // meter does with them.
+    expect(rows["event/metrics"]).toMatchObject({
+      calories: 174,
+      iron: 0.0033,
+    });
+  });
+
+  it("writes no datom at all for a food nothing was borrowed for", async () => {
+    // Omitted, never emitted empty: absence means exactly one thing
+    // ledger-wide — *nothing here was supplied*.
+    await logFoodConsumption(
+      "gtin:5010251341352",
+      "150g",
+      "lunch",
+      174,
+      13,
+      0.8,
+      23.4,
+      new Date("2026-09-18T12:00:00")
+    );
+
+    expect(Object.keys(written())).not.toContain("event/pairing");
+  });
+
+  it("carries the account through a copy rather than re-deriving it", async () => {
+    // A copy of a meal is a copy of the reading that was taken (§7): it keeps
+    // naming the reference food the original borrowed from even if the jar has
+    // since been re-paired. Dropping it would leave borrowed numbers in the copy
+    // with nothing naming them.
+    const source: ConsumptionEvent = {
+      id: "event:consume_src",
+      time: Date.parse("2026-09-17T12:00:00"),
+      target: "gtin:5010251341352",
+      quantity: "150g",
+      calories: 174,
+      metrics: { calories: 174, protein: 13, fat: 0.8, carbs: 23.4 },
+      pairing: FROZEN,
+    };
+
+    const { copied } = await copyPastMeal(
+      [source],
+      "dinner",
+      new Date("2026-09-18T19:00:00")
+    );
+
+    expect(copied).toBe(1);
+    expect(written()["event/pairing"]).toEqual(FROZEN);
+  });
+
+  it("gives a dish no event/pairing, and puts the account on the row instead", async () => {
+    // The two attributes never co-occur, and a reader need not guess which
+    // shape is in front of them: `event/instantiation` is already the thing
+    // that says *this is a dish*.
+    const refs: ReferenceIngredient[] = [
+      { ref: "gtin:beans", amount: 400, unit: "g" },
+      { ref: "fdc:rice", amount: 100, unit: "g" },
+    ];
+    const panel = (calories: number, extra = {}) => ({
+      serving_size: "100 g",
+      calories,
+      protein_content: 8,
+      fat_content: 1,
+      carbohydrate_content: 20,
+      ...extra,
+    });
+
+    await logRecipeConsumption(
+      "recipe:stew",
+      refs,
+      2,
+      (ref) =>
+        ref === "gtin:beans"
+          ? { panel: panel(116, { iron: 0.0022 }), pairing: FROZEN }
+          : { panel: panel(360) },
+      (ref) => (ref === "gtin:beans" ? "Kidney beans" : "Rice"),
+      "dinner",
+      new Date("2026-09-18T19:00:00")
+    );
+
+    const rows = written();
+    expect(Object.keys(rows)).not.toContain("event/pairing");
+
+    const snapshot = rows["event/instantiation"] as Instantiation;
+    expect(snapshot.ingredients[0]).toMatchObject({
+      ref: "gtin:beans",
+      name: "Kidney beans",
+      pairing: FROZEN,
+    });
+    // The unpaired row carries no key at all, so a reader sums the marked rows
+    // and divides by the snapshot's own yield to get the exact borrowed share.
+    expect(snapshot.ingredients[1]).not.toHaveProperty("pairing");
+    expect(snapshot.yield).toBe(2);
   });
 });

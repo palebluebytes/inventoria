@@ -1,16 +1,18 @@
 import { dbClient } from "../db/db.client";
 import { mintEntity } from "../facets/entity-id";
 import { ingestEntity } from "../ingestion/ingest";
-import {
-  readFoodDensity,
-  FOOD_DENSITY_ATTR,
-  type FoodDensity,
-} from "../food/density";
+import { FOOD_DENSITY_ATTR, type FoodDensity } from "../food/density";
 import {
   isReferenceFoodEntity,
   withPairing,
   PAIRING_CLEARED,
 } from "../food/pairing";
+import {
+  loadReferenceFoods,
+  pairedSource,
+  EVENT_PAIRING_ATTR,
+  type FrozenPairing,
+} from "../food/frozen-pairing";
 import { HLC_ORDER_ASC } from "../db/hlc";
 import { createProjectionStore } from "./datoms.store";
 import type { ConsumptionEvent } from "../food/consumption-state";
@@ -86,6 +88,14 @@ export function consumptionForDay(
  * not-counted (never coerced to 0), moving only the calorie ring. Every other
  * caller passes real numbers and is unchanged.
  *
+ * `pairing` is what a **Pack pairing** supplied into `breakdown` (ADR-0113 §6).
+ * It is a separate argument rather than a field of the breakdown because it is a
+ * different KIND of fact — the numbers are the occasion's and this is an account
+ * of where some of them came from — and they land as two sibling datoms for the
+ * same reason: `event/metrics` stays one blob with every number in it, and a
+ * reader greps the event id and gets both lines. Omitted on every unpaired food,
+ * and on every pairing that happened to fill nothing.
+ *
  * `entityId` is the id the event is logged under. Every caller but one omits it
  * and gets the fresh random mint below, which is right for an occasion the user
  * is recording now. The receive path supplies one instead, derived from the
@@ -120,7 +130,8 @@ function consumptionDatoms(
   selectedDate: Date,
   instantiation?: Instantiation,
   breakdown?: NutritionBreakdown,
-  entityId?: string
+  entityId?: string,
+  pairing?: FrozenPairing
 ) {
   // Use selected date's time, but keep current hour/minute/second so events don't all cluster at 00:00
   const now = new Date();
@@ -163,6 +174,14 @@ function consumptionDatoms(
     "event/metrics": metrics,
   };
   if (instantiation) attributes["event/instantiation"] = instantiation;
+  // The account of what a Pack pairing supplied into the metrics above
+  // (ADR-0113 §6). Omitted and never emitted empty: a pairing that supplied
+  // nothing writes no datom, so absence means exactly one thing ledger-wide —
+  // *nothing here was borrowed*. It never co-occurs with an instantiation
+  // either: a dish's account is nested on its rows, because that is the shape a
+  // reader can reconstruct the borrowed share from, and `event/instantiation` is
+  // already the thing that says *this is a dish*.
+  if (pairing) attributes[EVENT_PAIRING_ATTR] = pairing;
 
   const datoms = ingestEntity({ entity, attributes });
 
@@ -185,7 +204,9 @@ export interface ScaleChange {
   /** The target twin's panel and density, read when the Scale tier opened. A
    *  scaled amount keeps the unit it was logged in, so the density is needed for
    *  the same reason the panel is: a gram amount against a per-100 ml panel has
-   *  to be converted before it can be divided (ADR-0108 §5). */
+   *  to be converted before it can be divided (ADR-0108 §5). It also carries
+   *  what a Pack pairing supplied into that panel, because the two are resolved
+   *  together and a scale freezes both (ADR-0113 §6). */
   source: IngredientSource;
   /** The food twin the replacement points at. */
   ref: string;
@@ -227,7 +248,13 @@ export async function scaleLoggedFoods(
       roundFood(breakdown.carbs),
       new Date(change.event.time),
       undefined,
-      breakdown
+      breakdown,
+      undefined,
+      // Off the source the Scale tier already resolved, which is where a Pack
+      // pairing's widened panel and the account of it arrive together
+      // (ADR-0113 §6). The tier's live preview and this freeze therefore read
+      // one reading rather than two.
+      change.source.pairing
     );
     datoms.push(...replacement.datoms);
     // The same retraction `retractConsumptionEvent` writes, inlined so it rides
@@ -300,7 +327,15 @@ export async function copyPastMeal(
         selectedDate,
         item.instantiation,
         item.metrics,
-        mintEventId?.(item)
+        mintEventId?.(item),
+        // Carried verbatim beside the metrics it accounts for, never re-derived
+        // from the twin's pairing as it stands now (ADR-0113 §7). A copy of a
+        // meal is a copy of the reading that was taken, so it keeps naming the
+        // reference food the original borrowed from even if the jar has since
+        // been re-paired or unpaired. Dropping it would leave borrowed numbers
+        // in the copy with nothing naming them, which is the one shape §6
+        // refuses.
+        item.pairing
       );
       ids.push(id);
     } catch (e) {
@@ -712,13 +747,19 @@ export async function changeLoggedFoodAmount(
 ): Promise<string | null> {
   if (!event.target) return null;
   const twin = await getLocalFoodTwin(event.target);
-  const panel = twin?.attributes?.["nutrition/info"] as
-    | NutritionInfo
-    | undefined;
-  if (!panel) return null;
+  // The panel a Pack pairing widened, and the account of what widened it,
+  // resolved together (ADR-0113 §6). This is a NEW reading at a new amount, not
+  // a re-scaling of the old one, so it reads the pairing as it stands now —
+  // which is exactly what the amount screen above it drew. The occasion this
+  // replaces keeps its own frozen account, untouched (§7).
+  const source = pairedSource(
+    twin?.attributes,
+    await loadReferenceFoods([twin?.attributes])
+  );
+  if (!source.panel) return null;
   const breakdown = deriveIngredientMacros(
     { ref: event.target, amount, unit },
-    () => ({ panel, density: readFoodDensity(twin?.attributes) })
+    () => source
   );
   const newId = await logFoodConsumption(
     event.target,
@@ -730,7 +771,9 @@ export async function changeLoggedFoodAmount(
     roundFood(breakdown.carbs),
     new Date(event.time),
     undefined,
-    breakdown
+    breakdown,
+    undefined,
+    source.pairing
   );
   await retractConsumptionEvent(event.id, newId);
   return newId;

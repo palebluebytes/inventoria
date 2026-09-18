@@ -1,6 +1,7 @@
 import type { StoredDatom } from "../db/db.client";
 import { groupByEntity } from "../db/datom-fold";
 import type { Instantiation } from "./recipe-instantiation";
+import type { FrozenPairing } from "./provenance";
 import { sumNutrition, type NutritionBreakdown } from "./nutrition";
 
 export interface ConsumptionEvent {
@@ -18,6 +19,17 @@ export interface ConsumptionEvent {
    * below — the headline the ring and summary read; the full breakdown lives here.
    */
   metrics?: NutritionBreakdown;
+  /**
+   * The frozen `event/pairing` account (ADR-0113 §6): which of the numbers in
+   * `metrics` a **Pack pairing**'s reference food supplied, under the name and
+   * URI that food had when this occasion was logged.
+   *
+   * Present only on a logged **food** whose pairing actually filled something. A
+   * dish never carries one — its account is nested on each `instantiation` row —
+   * and an unpaired food carries none, which is the same absence and means the
+   * same thing: every number here was printed on a label.
+   */
+  pairing?: FrozenPairing;
   calories?: number;
   protein?: number;
   fat?: number;

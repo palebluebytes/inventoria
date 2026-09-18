@@ -13,7 +13,7 @@ import {
   type NutritionInfo,
 } from "./nutrition";
 import type { IngredientSource, ReferenceIngredient } from "./recipe-nutrition";
-import { readFoodDensity } from "./density";
+import { pairedSource, type ReferenceFoods } from "./frozen-pairing";
 
 /**
  * A single recipe ingredient in the builder. It carries only what cannot be
@@ -69,17 +69,24 @@ export interface RecipeIngredient {
  * (ADR-0108 §7), and converting it is what the density is for. A resolver
  * handing back only the panel was what this was until #430, and every caller
  * would have compiled unchanged while silently dropping the conversion.
+ *
+ * `references` widens each ingredient's panel by whatever a **Pack pairing** on
+ * its own twin supplies, and carries the account of it onto the row the snapshot
+ * freezes (ADR-0113 §6). It is a parameter rather than a lookup made here for
+ * the same reason the panel is inline: this resolver is called once per row per
+ * derivation and must stay synchronous and free, so the caller loads the two
+ * bundled artifacts once — and only where one of its ingredients is actually
+ * paired ({@link loadReferenceFoods}). Omitted, every row resolves to its label
+ * alone, which is what every unpaired dish already is.
  */
 export function sourceFromIngredients(
   ings: RecipeIngredient[],
-  ref: string
+  ref: string,
+  references?: ReferenceFoods
 ): IngredientSource | undefined {
   const attributes = ings.find((i) => i.entity === ref)?.payload?.attributes;
   if (!attributes) return undefined;
-  return {
-    panel: attributes["nutrition/info"] as NutritionInfo | undefined,
-    density: readFoodDensity(attributes),
-  };
+  return pairedSource(attributes, references);
 }
 
 /**

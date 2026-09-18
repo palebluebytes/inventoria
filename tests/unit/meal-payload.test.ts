@@ -361,6 +361,45 @@ describe("referencesOf", () => {
       referencesOf(row("recipe:a", "recipe/ingredients", { ref: "fdc:1" }))
     ).toEqual([]);
   });
+
+  /**
+   * The one case the registry partition above cannot reach (ADR-0113 §6).
+   *
+   * `event/instantiation` is already marked `(reference)` and already walked, so
+   * a reference nested INSIDE one of its rows is invisible to that test: the
+   * attribute is accounted for, and nothing asks what the reader does with a key
+   * the row grew later. A dish's frozen `pairing.ref` is exactly such a key, and
+   * a walk that read it would ship a searchable food nobody ate — the same
+   * refusal `food/pairing` gets, one level down and with nothing counting it.
+   *
+   * So it is pinned here, by name, against a row that carries one.
+   */
+  it("leaves a paired instantiation row's reference food out of the closure", () => {
+    const refs = referencesOf(
+      row("event:consume_a", "event/instantiation", {
+        based_on: "recipe:stew",
+        yield: 2,
+        ingredients: [
+          { ref: "gtin:5000", name: "Kidney beans", amount: 400, unit: "g" },
+          {
+            ref: "gtin:5001",
+            name: "Chopped tomatoes",
+            amount: 400,
+            unit: "g",
+            pairing: {
+              ref: "fdc:173740",
+              name: "Beans, kidney, all types, mature seeds, cooked, boiled, without salt",
+              source_uri: "https://api.nal.usda.gov/fdc/v1/food/173740",
+              filled_fields: ["iron", "folate"],
+            },
+          },
+        ],
+      })
+    );
+
+    expect(refs).toEqual(["recipe:stew", "gtin:5000", "gtin:5001"]);
+    expect(refs).not.toContain("fdc:173740");
+  });
 });
 
 describe("the ceiling", () => {
@@ -503,6 +542,11 @@ describe("the reference attributes the registry marks", () => {
     // searchable food nobody ate, and the recipient's panel is composed from
     // what the meal froze rather than from the sender's live pairing (§7).
     "food/pairing": ["gtin:", "fdc:"],
+    // The same reference one tense later: a logged occasion naming the reference
+    // food that filled it (§6). Declared for the same reason, and with one more
+    // of its own — the occasion's numbers are frozen, so a recipient needs
+    // nothing from the record beyond the account itself.
+    "event/pairing": ["event:consume_", "fdc:"],
   };
 
   /**

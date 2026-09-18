@@ -4,6 +4,7 @@ import {
   type ReferenceIngredient,
 } from "./recipe-nutrition";
 import type { AmountUnit, NutritionBreakdown } from "./nutrition";
+import type { FrozenPairing } from "./provenance";
 import { sanitizeWeight } from "./batch-weight";
 
 /**
@@ -24,6 +25,25 @@ export interface InstantiationRow extends NutritionBreakdown {
   name: string;
   amount: number;
   unit: AmountUnit;
+  /**
+   * What a **Pack pairing** on this ingredient's twin supplied into this row's
+   * frozen figures (ADR-0113 §6). Nested here, on the row, so `ref` and `name`
+   * keep meaning the ingredient twin and the reference food is named separately
+   * from it.
+   *
+   * **A dish carries no `event/pairing` at all** — the account lives per row and
+   * nowhere else. A top-level list over the rows was refused because it is not
+   * reconstructible: the row's numbers are frozen, so a reader sums the marked
+   * rows and divides by the snapshot's own `yield` and gets the exact borrowed
+   * share, where a list can only say that somewhere inside a sum something was
+   * borrowed. The measurement that decided it (#498, `pnpm recipes:census`): one
+   * live occasion froze twelve rows naming four reference foods, and in that dish
+   * folate is 100% borrowed and calcium 2.3%. A list would have said both with
+   * equal weight.
+   *
+   * Absent on every unpaired ingredient and on every pairing that filled nothing.
+   */
+  pairing?: FrozenPairing;
 }
 
 /**
@@ -66,6 +86,11 @@ export interface Instantiation {
  * Yield is only carried here, not applied to the rows: the rows are the batch as
  * cooked, and dividing by yield happens once, in the headline.
  *
+ * A row whose twin carries a **Pack pairing** freezes that pairing's account
+ * beside its figures, read off the same `resolve` (ADR-0113 §6). A dish writes
+ * no `event/pairing`: the account is per row, because the rows are what a reader
+ * reconstructs the borrowed share from.
+ *
  * `batch_weight` is what the caller's surface said the finished dish weighed,
  * carried onto the snapshot beside the rows it sized (ADR-0106 §5). It is
  * carried and never derived: a pot does not weigh what went into it, so the row
@@ -79,13 +104,25 @@ export function buildInstantiation(
   resolveName: (ref: string) => string | undefined,
   batch_weight?: number
 ): Instantiation {
-  const rows: InstantiationRow[] = ingredients.map((ing) => ({
-    ref: ing.ref,
-    name: resolveName(ing.ref) ?? ing.ref,
-    amount: ing.amount,
-    unit: ing.unit,
-    ...deriveIngredientMacros(ing, resolve),
-  }));
+  const rows: InstantiationRow[] = ingredients.map((ing) => {
+    // The account of what a Pack pairing put into this row's macros, off the
+    // same resolver that supplied the panel they were derived from (ADR-0113
+    // §6). It travels with the figures or not at all: `resolve` hands back the
+    // widened panel and this envelope together, so a row can never carry
+    // borrowed numbers with nothing naming them.
+    const pairing = resolve(ing.ref)?.pairing;
+    return {
+      ref: ing.ref,
+      name: resolveName(ing.ref) ?? ing.ref,
+      amount: ing.amount,
+      unit: ing.unit,
+      ...deriveIngredientMacros(ing, resolve),
+      // Spread rather than assigned, so an unpaired row carries no key at all.
+      // `pairing: undefined` would survive into the stored JSON shape as an
+      // account of nothing, which §6 reserves for the one meaning it has.
+      ...(pairing ? { pairing } : {}),
+    };
+  });
   const weighed = sanitizeWeight(batch_weight);
   return {
     based_on,
