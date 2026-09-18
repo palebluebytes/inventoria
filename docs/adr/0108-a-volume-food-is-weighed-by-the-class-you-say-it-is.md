@@ -3,6 +3,7 @@
 **Status:** Accepted  
 **Date:** 2026-09-14  
 **Amends:** [ADR-0060](0060-an-amount-is-entered-in-its-panels-unit.md) §1 (the unit stops being unchoosable on a food that carries a density), §2 (the refusal is lifted for a class the user asserts) and §6 (a portion may now be offered in either unit); [ADR-0045](0045-usda-stays-the-base-food-composition-authority.md) §5 (what may cross from one source to another, answering #242); [ADR-0041](0041-nova-processing-badge.md) §3 (the client-side inference ban gains a second carve-out)  
+**Amended by:** [ADR-0113](0113-a-pairing-annotates-a-packaged-food-from-a-reference-food-you-name.md) §8 (§10's _a nutrient value may never_ is narrowed to the product's stored panel and to any field the label carries; a value shown in a marked reading, or frozen onto a logged occasion, is outside it)  
 **Charted by:** #428  
 **Implemented:** §2 and §3 (the class table and the gate that proves its figures) — #429. §1, §4, §5, §6 and §7, plus the pre-fill and the opening-unit rule of both 2026-09 amendments — #430. §8 and §9 — #431. §10's household portions and §12's model pick are not built.
 

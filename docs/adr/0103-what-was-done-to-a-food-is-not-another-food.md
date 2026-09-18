@@ -4,6 +4,7 @@
 **Date:** 2026-09-12  
 **Implemented:** [#434](https://github.com/palebluebytes/inventoria/issues/434) — `src/lib/food/usda-collapse-roster.ts` (§2's roster, §3's two keys, §5's eligibility test) reached through `scripts/usda-app-module.mjs`'s seam (§9); [#435](https://github.com/palebluebytes/inventoria/issues/435) — `scripts/usda-collapse.mjs` (§3's grouping, §4's chain, §6's corpus-wide firing, §9's survivor assertion and §9's account at `docs/research/190-corpus-account.md`), run last from `scripts/usda-bundle.mjs` and replayed by `scripts/usda-drop-census.mjs`, which is where every collapsed row names its survivor; [#436](https://github.com/palebluebytes/inventoria/issues/436) — §5's strip as `resolveCollapsedNames` in `src/lib/food/usda-shipped-name.ts`, licensed by `collapseCorpus` and asserted by `assertNamesClaimNoLess` and `assertNoAxisHidesInAGloss` in `scripts/usda-collapse.mjs`, so a collapsed group's row reads `Beef, composite of trimmed retail cuts` rather than `Beef, composite of trimmed retail cuts, separable lean and fat, trimmed to 0" fat, choice`; [#437](https://github.com/palebluebytes/inventoria/issues/437) — the account's staleness gate, `scripts/usda-account-check.mjs`, chained into `pnpm check`: it rebuilds the whole file from `public/usda/search-index.json` and the census's `"stage": "collapse"` rows and compares the bytes, which is what §9's third requirement asks of a reader who has neither the archives nor a reason to trust the file  
 **Amended by:** [ADR-0104](0104-the-corpus-is-ingredients-as-bought-and-not-yet-cooked.md), which keeps §2's as-bought line and replaces the §2–§4 collapse as the mechanism: the cooked records are removed rather than merged. It also corrects this record's Context, whose "the fix that reaches USDA's granularity is the fix that deletes quinoa" rests on a substring match of `/cooked/` that also matched the fourteen rows saying **un**cooked — against §10's own standing warning. Under a word boundary quinoa, teff, spelt and apricots all survive the cut
+**Amended by:** [ADR-0113](0113-a-pairing-annotates-a-packaged-food-from-a-reference-food-you-name.md) §12, which coins `salt` as the fourth Collapsing axis under §2's as-bought line. See the 2026-09-18 Amendment at the bottom of this record
 
 This record amends [ADR-0055](0055-who-eats-a-food-ranks-it-and-never-drops-it.md)
 §1 for a third time, and it is the **narrowest** of the three amendments rather
@@ -1015,3 +1016,51 @@ branch can reproduce. The 2026-09-14 gold-set amendment in
 measured its re-pin both ways over one corpus with one build — the only kind of
 comparison this subsection is arguing for. The like-for-like statement about the
 collapse is the one this Amendment opens with.
+
+## Amendment (2026-09-18, #510): salt is the fourth Collapsing axis
+
+§2 says an axis is one of two things, corpus-wide, and the line is _as bought_.
+`with salt` / `without salt` is a **collapsing** axis under that line: salting a
+pot while it boils is something done to a food after it was bought. It is coined
+here and the roster's `CollapsingAxisName` gains a fourth member, which
+`src/lib/food/usda-collapse-roster.ts` has priced at "an ADR" since it shipped.
+
+**Nothing in the decision above changes, and no shipped row moves.** The axis has
+never needed classifying because ADR-0104 removed the cooked records before the
+variant rules ever saw them, so there was no pair for it to act on. It becomes
+live because map [#240](https://github.com/palebluebytes/inventoria/issues/240)
+re-admits 1,182 of those records as a second set reached only as pairing targets,
+never through the food search
+([ADR-0113](0113-a-pairing-annotates-a-packaged-food-from-a-reference-food-you-name.md)
+§11), and inside that set the axis arrives at **145 pairs, 290 of the 1,182 rows,
+a quarter of it**.
+
+**Corpus-wide rather than scoped to the new set.** Because the coining removes
+**0** rows from `public/usda/search-index.json`, "a fourth axis corpus-wide" and
+"a merge scoped to the pairing set" are mechanically the same act today and differ
+only in what the glossary claims. Given that, the corpus-wide statement is the
+true one, and it is the one §2 supports: the classification is a property of the
+axis. Scoping it to the pairing set would assert that salting distinguishes a food
+when you pair but not when you shop, which is a claim about the **record** and is
+the kind of claim §2's second paragraph refuses.
+
+**Narrow to salt, and deliberately not to preparation at large.** Boiled, braised
+and roasted are also things done after buying, and they are **not** coined here. A
+pack names its own cooking method, so merging them would erase a distinction the
+pack itself supplies — which is the same reasoning §2 uses for drying, run the
+other way.
+
+**Where the claim becomes checkable.** `docs/research/190-corpus-account.md` gains
+a second table for the pairing arm and `scripts/usda-account-check.mjs` a third
+artifact to read, with the shipped table staying byte-identical across the change.
+That is §9's third requirement applied to the one assertion this amendment is most
+exposed on. One honest edit falls out of it: the account says what is left after
+ADR-0104 removed the cooked half is _purely butchery: separation, trim and grade_,
+and in the pairing arm it is butchery **and salt**.
+
+**What the merge costs inside the new set**, measured before it was taken
+([#497](https://github.com/palebluebytes/inventoria/issues/497)): 130 of the 145
+pairs agree within 10% on the twelve nutrients a pairing may spend, and ADR-0113
+§4 forbids a pairing spending the one they reliably differ on. Nothing is merged
+in the shipped corpus, so the shopper's search is untouched by this in both
+directions.
