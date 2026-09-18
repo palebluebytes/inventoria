@@ -9,7 +9,7 @@
  *
  * **The judgement is one act over two populations, and both halves live here.**
  * ADR-0113 §11 ships the cooked records as a second set — the Pairing target
- * set, 1,182 collapsed rows, reached only by a person who declares the pack
+ * set, 1,035 collapsed rows, reached only by a person who declares the pack
  * cooked — so "what could be paired" now has two answers per barcode:
  *
  * - {@link ADJUDICATION} reads every twin against the **as-bought** corpus, the

@@ -125,7 +125,7 @@ The artifact the pairing search reads once a person declares a pack cooked, one 
 _Avoid_: Cooked index, second index, pairing corpus (the two artifacts together are not given a name)
 
 **Pairing nutrient store**:
-The artifact holding every nutrient USDA reports for a **Pairing target**, mirroring the **Nutrient store**. Fetched only when a person accepts a row, on ADR-0047's rule that search never reads a nutrient and staging reads all of them, which keeps every panel off the act of looking — 1.17 MB when #497 measured it, against a set the salt axis has since made 147 rows smaller. See ADR-0113 §11.
+The artifact holding every nutrient USDA reports for a **Pairing target**, mirroring the **Nutrient store**. Fetched only when a person accepts a row, on ADR-0047's rule that search never reads a nutrient and staging reads all of them, which keeps every panel off the act of looking — 1,061,664 B raw and 124,344 B brotli as it ships, against the Pairing index's 405,498 B and 27,212 B. See ADR-0113 §11.
 _Avoid_: Cooked nutrient store, pairing panels
 
 **Declared state**:

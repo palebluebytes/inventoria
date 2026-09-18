@@ -26,7 +26,7 @@
  * with a flag.** `usda-bundle.mjs`'s `main()` carries a dozen assertions
  * calibrated to the shipped corpus — the collapse's reach, the vocabulary's
  * retrieval counts, the twin ledger. Every one of them would fail on a corpus
- * holding 1,182 rows nobody adjudicated, and they would fail for the right
+ * holding 1,035 rows nobody adjudicated, and they would fail for the right
  * reason: this is not a corpus anybody proposed to ship as the search index.
  * So the passes are composed directly and the assertions are left out, which is
  * safe precisely because nothing is written.

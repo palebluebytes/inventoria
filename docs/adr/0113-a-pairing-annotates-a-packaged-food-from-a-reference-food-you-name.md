@@ -867,3 +867,72 @@ states. A second table built from them would be an account of no corpus. The hon
 edit §12 names — _purely butchery_ becoming butchery **and salt** — belongs with it,
 and is not made here for the same reason it is not yet due: in the shipped arm the
 sentence is still exactly true.
+
+## Amendment (2026-09-18, #518): the artifacts, measured, and one of the two inert keys is live
+
+§11 was written against a 1,182-row set, and every byte figure in it was an estimate
+taken from a census whose arm the salt entries have since narrowed.
+[#518](https://github.com/palebluebytes/inventoria/issues/518) ships the two files and
+re-measures them. What ships is **1,035 rows**, and these are the bytes:
+
+| artifact                                  |       raw |  gzip-9 | brotli-11 |
+| ----------------------------------------- | --------: | ------: | --------: |
+| `public/usda/pairing-index.json`          |   405,498 |  38,602 |    27,212 |
+| `public/usda/pairing-nutrient-store.json` | 1,061,664 | 207,486 |   124,344 |
+
+§11's "28,853 B brotli" for the index was therefore close, and the argument it carried —
+that narrowing the row's fields cannot save enough to be worth a second builder — is
+unaffected by the correction. **The two shipped artifacts do not move a byte**, which is
+asserted rather than hoped: `assertShippedRowsUnmoved` refuses a generation in which
+re-admitting the cooked records removed or renamed any of the 2,023 rows the Search
+index holds, because the only way one could is ADR-0103's collapse absorbing a shipped
+row into a cooked group, and the two files would then name one food twice. It passes
+with nothing to report, and neither Facet's `precacheBytes` moves.
+
+**§11 says two of the twelve ranking keys ride inert over this set. One does.**
+`canonical` is inert as stated: its roster is two hand-picked rows of the shipped
+corpus, and the two sets share no `fdcId`. `raw` is **not**. It is set from
+`describedRaw`, which reads USDA's own published description, and USDA writes
+`Apples, raw, without skin, cooked, boiled` — so the flag lands on two rows of the
+1,035 while ADR-0056's strip takes the word out of the names that ship. The key is
+live, on 2 rows, and a lexicographic comparator reads it: those two apples sort above
+an equally-scoring cooked row. Nothing is wrong with either the rows or the key — a
+record can be both, and the flag says what USDA said — but the sentence "no cooked
+description satisfies `describedRaw`" is false, and it is pinned in
+`usda-bundle.test.ts` at exactly those two `fdcId`s so a mirror refresh that moves the
+count has to come back here. The other two keys behave as §11 says: `plain_sibling`
+is recomputed over this set and lands on 6 rows, and 16 rows carry the designated
+population's category.
+
+**The two artifacts carry no Vocabulary map and no state roster**, which §11 decided
+and the shapes now enforce: a `PairingIndex` is missing the three sections a
+`SearchIndex` has, so `buildSearchCorpus` cannot be handed one. The row types are the
+same fields apart, separated by a phantom `set` field present on no row in either
+artifact — `"reference"` against `"pairing-target"`, the same two words a Curated
+pairing writes (§14) — which makes both directions of the mistaken assignment a
+compile error. That is the whole of what the nominal type costs, and
+`tests/unit/pairing-targets.test.ts` holds it with `@ts-expect-error` so the gate
+fails loudly if it ever stops being one.
+
+**Coverage is re-measured rather than inherited.** `pnpm targets:census` on the
+roster that ships still prints **22 → 25 of 35**, and the three twins it gains are
+the three state gaps [#516](https://github.com/palebluebytes/inventoria/issues/516)
+settled — the salt entries took 147 rows out of the arm and none of them was a
+target a person accepts. The chartered jar's row is in the committed file:
+`fdcId 173740`, `Beans, kidney, all types, dried, cooked, boiled`, with 98
+nutrients, and `tests/unit/pairing-targets.test.ts` reads its fibre back out of
+the Pairing nutrient store at the 6.4 g per 100 g the pack's label prints, which
+is the match the Context above opens on.
+
+**Nine `with salt` / `without salt` pairs still ship both halves inside this set,
+and that is §12's chosen direction rather than a hole in it.** Five are the
+peanuts — `oil-roasted` and `dry-roasted` — where the condition correctly does not
+fire, because ADR-0104 §2 holds roasting to be a word a food is SOLD under. The
+other four are spellings the entry deliberately does not take: `no salt added`,
+`with added salt` / `without added salt`, and `Rice, white, long-grain, cooked
+without salt`, whose missing comma makes the whole thing one segment. #517 priced
+the wider spelling at 27 shipped rows including the roasted seeds ADR-0104 §2
+protects and refused it, so these nine are the cost of that refusal, paid in
+coverage and never in correctness (ADR-0103 §3's direction of failure). §11's "1,035
+rows, not 1,725, because an axis holds corpus-wide" is about where the axis is
+CLASSIFIED, not a claim that it reaches every pair USDA published.

@@ -18,7 +18,7 @@
  *    (2,023 rows), read exactly as `pairing-census.mjs` reads it.
  *  - the cooked state set: `pairing-target-census.mjs`'s two arms, rebuilt from
  *    the committed archives with `isCookedForm` stubbed false, collapsed
- *    (1,182 rows).
+ *    (1,035 rows).
  *  - the offer: the app's own `searchIndexRows`, asked the same queries #243
  *    asked (OFF `en:` categories, most specific first, first query that reaches
  *    anything), keeping EVERY hit rather than the top one. The app caps a
