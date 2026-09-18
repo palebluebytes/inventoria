@@ -1000,3 +1000,58 @@ describe("buildMealRdaView", () => {
     expect(view.micros).toEqual([]);
   });
 });
+
+describe("the est mark a borrowed figure carries (ADR-0113 §5)", () => {
+  // One list in normal panel order, in the shipped shape: a figure the reference
+  // food supplied is told apart from one the manufacturer printed by a small
+  // `est` mark, and by nothing else. Nothing is framed off, nothing moves into a
+  // second column, and a nutrient both sources carry shows the label's figure
+  // with no mark at all.
+  const scaled: NutritionBreakdown = {
+    calories: 116,
+    protein: 8.7,
+    fat: 0.5,
+    carbs: 15.6,
+    fiber_content: 6.4,
+    iron: 0.00222,
+  };
+
+  it("marks a filled row and leaves every other row unmarked", () => {
+    const rows = buildNutrientBreakdown(
+      scaled,
+      undefined,
+      false,
+      undefined,
+      new Set(["iron"])
+    );
+    expect(rows.find((r) => r.key === "iron")!.est).toBe(true);
+    expect(rows.find((r) => r.key === "fiber_content")!.est).toBeUndefined();
+    expect(rows.find((r) => r.key === "calories")!.est).toBeUndefined();
+  });
+
+  it("marks a filled pill the same way, so a tracked nutrient keeps its mark", () => {
+    // The grid and the disclosure are one panel split by what the user tracks,
+    // so a borrowed iron that happens to be tracked may not lose its mark by
+    // being promoted into the grid. The mark is the sole carrier of provenance
+    // on screen and it has no backstop.
+    const pills = buildNutrientPills(
+      scaled,
+      ["protein", "iron"],
+      undefined,
+      false,
+      new Set(["iron"])
+    );
+    expect(pills.find((p) => p.key === "iron")!.est).toBe(true);
+    expect(pills.find((p) => p.key === "protein")!.est).toBeUndefined();
+  });
+
+  it("marks nothing at all when nothing was filled", () => {
+    // Omitted, never emitted empty: an unpaired pack's rows are the shape they
+    // have always been, down to the absent key.
+    const rows = buildNutrientBreakdown(scaled);
+    expect(rows.every((r) => r.est === undefined)).toBe(true);
+    expect(buildNutrientPills(scaled, ["iron"]).every((p) => !p.est)).toBe(
+      true
+    );
+  });
+});

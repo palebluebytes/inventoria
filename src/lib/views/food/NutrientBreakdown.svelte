@@ -1,5 +1,9 @@
 <script lang="ts">
-  import type { NutrientRow } from "../../food/nutrient-display";
+  import {
+    ESTIMATED_MARK,
+    ESTIMATED_MEANING,
+    type NutrientRow,
+  } from "../../food/nutrient-display";
 
   // A read-only, collapsed-by-default disclosure of a food's *full* nutrition
   // panel (ticket #30, parent #21): every macro and micronutrient it carries,
@@ -24,7 +28,16 @@
       {#each rows as row (row.key)}
         <div class="breakdown-row nutrient-{row.key}">
           <dt>{row.label}</dt>
-          <dd>{row.value}</dd>
+          <!-- A borrowed figure differs from a printed one by the mark and the
+               weight, and by nothing else (ADR-0113 §5): same list, same order,
+               same row. -->
+          <dd class:est={row.est}>
+            {row.value}{#if row.est}<span
+                class="est-mark"
+                data-testid="est-mark"
+                title={ESTIMATED_MEANING}>{ESTIMATED_MARK}</span
+              >{/if}
+          </dd>
         </div>
       {/each}
     </dl>
@@ -69,5 +82,19 @@
     font-weight: 700;
     color: var(--text-primary);
     white-space: nowrap;
+  }
+  /* The lighter weight is half the mark (ADR-0113 §5): the figure is still the
+     row's value and still reads as one, it just stops being the boldest thing on
+     the line the way a printed figure is. */
+  dd.est {
+    font-weight: 400;
+  }
+  .est-mark {
+    margin-left: var(--space-3xs);
+    font-size: 0.7em;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--text-secondary);
   }
 </style>
