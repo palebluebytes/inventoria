@@ -988,3 +988,39 @@ that construction leaks: Reference foods on screen under a person who has just s
 their jar is cooked, one tap from the pairing the partition exists to refuse, for as
 long as the next search takes to settle. The rows, the pick and the message all go when
 the question changes.
+
+## Amendment (2026-09-18, #523): what the quarterly job may and may not say about a curated row
+
+§14 hands the Curated pairing table to the quarterly `curated:check` job without
+saying what a finding there means, and executing the hand-off,
+[#523](https://github.com/palebluebytes/inventoria/issues/523) found two answers
+worth writing down rather than leaving in a comment.
+
+**A delisting is not a finding for a Curated pairing.** It is the worst case for a
+Curated stand-in, because the stand-in's pinned panel _is_ an Open Food Facts
+record and a delisting leaves the food search answering from a snapshot of
+something gone. A pairing only points a barcode at a USDA row: the row's claim is
+about the pack's substance, and Open Food Facts is a witness to that rather than
+the source of it. A barcode nothing lists is a row no scan will ever reach, which
+harms nobody — and several of the seed's packs were typed from their labels and
+never had a record at all, so reporting absence would fail the job every quarter
+over rows nothing had happened to. The one question that survives is **identity**:
+has this barcode come to name a different food. That is what GTIN reuse looks like
+from here, and it is reported.
+
+**The extension cost the job its pacing, measured.** Going from 2 barcodes to 27
+put the run past a burst limiter Open Food Facts enforces below its published
+100-a-minute ceiling for product reads: at one request a second the fourteenth
+request and every one after it came back `429`. Ten of those same barcodes,
+re-read three seconds apart immediately afterwards, all answered, and the whole
+run at that pacing is clean in about a minute and a half. A quarterly job has no
+reason to hurry, and a fast run that establishes nothing about half the table is
+worth less than a slow one that establishes everything.
+
+**What the first clean run established.** Of the 25 seeded barcodes, 23 still
+carry the name they were paired against; `8710411045003` carries no name at all
+and was paired off its categories, which is why the rule above reads a blank as no
+evidence rather than as a different food; and `8721321940623` has no Open Food
+Facts record, which is the case the delisting rule is written for. Nothing this
+job can see distinguishes a pack reformulated under an unchanged barcode, which
+§14 already names as the blind spot and each row's `captured` date is what dates.
