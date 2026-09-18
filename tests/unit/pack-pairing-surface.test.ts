@@ -302,12 +302,15 @@ describe("the est mark a borrowed figure wears (§5)", () => {
 describe("the marked panel a paired pack's card composes (§§4, 7)", () => {
   it("reads the reference food's figures rather than storing them", () => {
     // An estimate never reaches a stored `nutrition/info` (§7): the card asks
-    // the shipped artifacts what the paired id resolves to, composes the
-    // reading, and hands the amount panel that reading instead of the label.
-    // Asserted against source because the resolution runs in an effect, which a
-    // server render does not run — the reason this file already reads the
-    // sheet's source rather than its markup.
-    expect(CARD).toContain("referenceFoodPanel(");
+    // the app's one reference-food resolver what the paired id resolves to,
+    // composes the reading, and hands the amount panel that reading instead of
+    // the label. Through that resolver and not the artifacts directly, because
+    // WHICH SET answers for an id is its question (§11) — a card reading the
+    // shipped pair itself would show nothing for a pack paired with a Pairing
+    // target. Asserted against source because the resolution runs in an effect,
+    // which a server render does not run — the reason this file already reads
+    // the sheet's source rather than its markup.
+    expect(CARD).toContain("loadReferenceFoods(");
     expect(CARD).toContain("markPanel(");
     expect(CARD).toMatch(/panel=\{marked[^}]*\}/);
     // And nothing appends it: the only writes a card makes are the host's

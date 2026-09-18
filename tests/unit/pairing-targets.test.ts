@@ -4,6 +4,7 @@ import {
   DECLARED_STATES,
   DECLARED_STATE_DEFAULT,
   pairingSearchCorpus,
+  pairingTargetName,
   readPairingIndex,
   type PairingIndex,
   type PairingNutrientStore,
@@ -324,5 +325,28 @@ describe("the Declared state — which set a pairing search reaches (§11)", () 
       "cooked",
     ]);
     expect(DECLARED_STATES[0].value).toBe(DECLARED_STATE_DEFAULT);
+  });
+});
+
+describe("pairingTargetName — the cooked row's own description", () => {
+  // The sibling of `referenceFoodName`, over the raw artifact rather than over
+  // a read corpus: a card resolving one paired id needs a description and not a
+  // search, and tokenising 1,035 rows to find one of them is work nobody asked
+  // for.
+  const index = pairingIndex([
+    row(173740, "Beans, kidney, all types, mature seeds, cooked, boiled"),
+  ]);
+
+  it("names a target out of the artifact itself", () => {
+    expect(pairingTargetName(index, "fdc:173740")).toBe(
+      "Beans, kidney, all types, mature seeds, cooked, boiled"
+    );
+  });
+
+  it("names nobody for a row this set does not carry", () => {
+    // §7 keeps such a pairing standing, so an unresolvable id is an UNNAMED
+    // pairing and never an absent one.
+    expect(pairingTargetName(index, "fdc:168409")).toBeUndefined();
+    expect(pairingTargetName(index, "")).toBeUndefined();
   });
 });

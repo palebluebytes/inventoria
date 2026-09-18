@@ -31,6 +31,11 @@ import { readFoodDensity } from "./density";
 import { markPanel, referenceFoodPanel } from "./marked-panel";
 import { NUTRITION_INFO_ATTR, type NutritionInfo } from "./nutrition";
 import { readFoodPairing, referenceFoodName } from "./pairing";
+import {
+  loadPairingTargetSet,
+  pairingTargetName,
+  type PairingTargetSet,
+} from "./pairing-targets";
 import type { FrozenPairing } from "./provenance";
 import type { IngredientSource } from "./recipe-nutrition";
 import { FDC_FOOD_BASE } from "./usda-fdc";
@@ -70,21 +75,33 @@ export interface ReferenceFoods {
 }
 
 /**
- * The two bundled artifacts read as one lookup.
+ * The bundled artifacts read as one lookup — **the shipped pair first, and the
+ * cooked set only where they cannot answer** (ADR-0113 §11).
  *
- * `corpus` is optional and its absence is not a failure: it carries the names
- * and the nutrient store carries the figures, so a device that has one and not
- * the other can still freeze an honest envelope — one whose `name` falls back to
- * the id, which is what {@link FrozenPairing.name} already documents.
+ * Every argument is optional and no absence is a failure: the stores carry the
+ * figures and the indexes carry the names, so a device holding some of the four
+ * still says something true. A missing name falls back to the id, which is what
+ * {@link FrozenPairing.name} already documents.
+ *
+ * **Shipped-first is the whole of how a set is decided**, because a Declared
+ * state records nothing: the target's own `fdc:` id *is* the state (§11), so an
+ * id the Nutrient store answers for is a Reference food and one it cannot is a
+ * Pairing target. The two sets share no `fdcId`, so the order settles a question
+ * that does not arise rather than picking a winner — and where it ever did, the
+ * shipped row is the one ADR-0104's shopper test kept.
  */
 export function referenceFoodsFrom(
-  store: UsdaCorpusNutrientStore,
-  corpus: SearchCorpus | undefined
+  store: UsdaCorpusNutrientStore | undefined,
+  corpus: SearchCorpus | undefined,
+  cooked: PairingTargetSet = {}
 ): ReferenceFoods {
   return {
-    panel: (reference) => referenceFoodPanel(store, reference),
+    panel: (reference) =>
+      (store ? referenceFoodPanel(store, reference) : undefined) ??
+      (cooked.store ? referenceFoodPanel(cooked.store, reference) : undefined),
     name: (reference) =>
-      corpus ? referenceFoodName(corpus, reference) : undefined,
+      (corpus ? referenceFoodName(corpus, reference) : undefined) ??
+      (cooked.index ? pairingTargetName(cooked.index, reference) : undefined),
   };
 }
 
@@ -103,19 +120,43 @@ export function referenceFoodsFrom(
  * lose because an artifact would not load, and the honest result of not being
  * able to read the reference food is the panel the label already carried, with
  * no envelope beside it — which is exactly the state an unpaired pack is in.
+ *
+ * **The cooked set is a third fetch, and it is conditional on the first two.**
+ * A pairing the shipped Nutrient store cannot answer for is a Pairing target,
+ * because a Declared state records nothing and the id is the state (§11) — so
+ * that, and only that, is what reaches for `loadCooked`. Every ordinary paired
+ * pack resolves without it, which is ADR-0113 §11's promise kept at the one seam
+ * that could break it.
  */
 export async function loadReferenceFoods(
   twins: readonly (Record<string, unknown> | undefined)[],
   loadStore: () => Promise<UsdaCorpusNutrientStore> = loadNutrientStore,
-  loadCorpus: () => Promise<SearchCorpus> = loadSearchCorpus
+  loadCorpus: () => Promise<SearchCorpus> = loadSearchCorpus,
+  loadCooked: () => Promise<PairingTargetSet> = loadPairingTargetSet
 ): Promise<ReferenceFoods | undefined> {
-  if (!twins.some((attributes) => readFoodPairing(attributes)))
-    return undefined;
+  const references = new Set(
+    twins
+      .map((attributes) => readFoodPairing(attributes))
+      .filter((reference): reference is string => reference !== undefined)
+  );
+  if (references.size === 0) return undefined;
   const [store, corpus] = await Promise.all([
     loadStore().catch(() => undefined),
     loadCorpus().catch(() => undefined),
   ]);
-  return store ? referenceFoodsFrom(store, corpus) : undefined;
+  // The cooked set is asked for only where the shipped store was read AND could
+  // not answer for something, which is what keeps §11's promise that a person
+  // who never declares a pack cooked never fetches either new artifact. A store
+  // that did not load answers for nothing, and that is no evidence about any id
+  // — so an offline device spends no second fetch discovering it is offline.
+  const unresolved =
+    store !== undefined &&
+    [...references].some(
+      (reference) => referenceFoodPanel(store, reference) === undefined
+    );
+  const cooked = unresolved ? await loadCooked() : {};
+  if (!store && !corpus) return undefined;
+  return referenceFoodsFrom(store, corpus, cooked);
 }
 
 /**

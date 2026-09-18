@@ -21,13 +21,9 @@
   } from "../../food/off-signals";
   import { dietaryTagsView } from "../../food/dietary-tag";
   import { foodSourceView, type FoodSourceKind } from "../../food/food-source";
-  import {
-    pairingRefusalOf,
-    readFoodPairing,
-    referenceFoodName,
-  } from "../../food/pairing";
-  import { markPanel, referenceFoodPanel } from "../../food/marked-panel";
-  import { loadNutrientStore, loadSearchCorpus } from "../../food/usda-corpus";
+  import { pairingRefusalOf, readFoodPairing } from "../../food/pairing";
+  import { markPanel } from "../../food/marked-panel";
+  import { loadReferenceFoods } from "../../food/frozen-pairing";
   import FoodAmountPanel from "./FoodAmountPanel.svelte";
   import AllergenSafetyBlock from "./AllergenSafetyBlock.svelte";
   import NovaBadge from "./NovaBadge.svelte";
@@ -230,20 +226,21 @@
     pairedPanel = undefined;
     if (!reference) return;
     let live = true;
-    void loadSearchCorpus()
-      .then((corpus) => {
-        if (live) pairedName = referenceFoodName(corpus, reference);
-      })
-      .catch(() => {});
-    // The nutrient store is the megabyte ADR-0047 §2 keeps off the act of
-    // LOOKING at a food, and reading a pairing's panel is not looking: the
-    // person has already accepted this reference food, and every figure it
-    // supplies is on screen the moment the card draws.
-    void loadNutrientStore()
-      .then((store) => {
-        if (live) pairedPanel = referenceFoodPanel(store, reference);
-      })
-      .catch(() => {});
+    // Both come from the app's one reference-food resolver, which is also what
+    // a log freezes through. That is deliberate: it owns WHICH SET answers for
+    // an id — the shipped pair, or the cooked one a **Declared state** is the
+    // only route to (ADR-0113 §11) — and a card reading the shipped artifacts
+    // itself would show nothing at all for a pack paired with a Pairing target.
+    //
+    // The nutrient store it reaches is the megabyte ADR-0047 §2 keeps off the
+    // act of LOOKING at a food, and reading a pairing's panel is not looking:
+    // the person has already accepted this reference food, and every figure it
+    // supplies is on screen the moment the card draws. It never rejects.
+    void loadReferenceFoods([payload.attributes]).then((references) => {
+      if (!live || !references) return;
+      pairedName = references.name(reference);
+      pairedPanel = references.panel(reference);
+    });
     return () => {
       live = false;
     };

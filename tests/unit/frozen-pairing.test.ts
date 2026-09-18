@@ -27,6 +27,7 @@ import type {
   SearchCorpus,
   UsdaCorpusNutrientStore,
 } from "../../src/lib/food/usda-corpus";
+import type { PairingTargetSet } from "../../src/lib/food/pairing-targets";
 
 /** An EU pack's mandatory declaration and nothing else. */
 const label = (extra: Partial<NutritionInfo> = {}): NutritionInfo => ({
@@ -266,6 +267,116 @@ describe("what the two bundled artifacts are read through", () => {
   });
 });
 
+describe("which set a paired id is resolved out of (§11)", () => {
+  // A Declared state records nothing, so the target's own `fdc:` id **is** the
+  // state — and resolution reads that back the only way it can: the shipped
+  // Nutrient store answers for a Reference food, and one it cannot answer for is
+  // a Pairing target. The chain is shipped-first in both halves, so a row in
+  // both sets is always the shipped one's.
+  const shippedStore: UsdaCorpusNutrientStore = {
+    schema_version: 1,
+    generated_from: [],
+    nutrients: { "1008": { name: "Energy", unit: "KCAL" } },
+    foods: { "168409": { "1008": 333 } },
+  };
+  const shippedCorpus = {
+    foods: [{ row: { fdcId: 168409, description: "Beans, kidney, raw" } }],
+  } as unknown as SearchCorpus;
+  const cooked: PairingTargetSet = {
+    store: {
+      artifact: "usda-pairing-nutrient-store",
+      schema_version: 1,
+      generated_from: [],
+      nutrients: { "1008": { name: "Energy", unit: "KCAL" } },
+      foods: { "173740": { "1008": 127 } },
+    },
+    index: {
+      artifact: "usda-pairing-index",
+      schema_version: 1,
+      generated_from: [],
+      foods: [
+        {
+          fdcId: 173740,
+          description: BEANS,
+          dataType: "SR Legacy",
+          macros: { calories: 127 },
+        },
+      ],
+    },
+  };
+
+  it("reads a Pairing target's figures and name out of the cooked set", () => {
+    // The whole of what declaring a pack cooked buys: `fdcId 173740` left the
+    // Search index when ADR-0104 shipped, so a pairing onto it resolves here or
+    // resolves nowhere.
+    const read = referenceFoodsFrom(shippedStore, shippedCorpus, cooked);
+
+    expect(read.panel("fdc:173740")?.calories).toBe(127);
+    expect(read.name("fdc:173740")).toBe(BEANS);
+  });
+
+  it("keeps answering for a Reference food out of the shipped pair", () => {
+    const read = referenceFoodsFrom(shippedStore, shippedCorpus, cooked);
+
+    expect(read.panel("fdc:168409")?.calories).toBe(333);
+    expect(read.name("fdc:168409")).toBe("Beans, kidney, raw");
+  });
+
+  it("fetches neither cooked artifact for a pairing the shipped store answers", async () => {
+    // ADR-0113 §11's promise, and the one a person pays for on every ordinary
+    // log: the second artifact's fetch stays off the common path.
+    const unreachable = () => {
+      throw new Error("the cooked set was fetched");
+    };
+    const read = await loadReferenceFoods(
+      [{ "nutrition/info": label(), "food/pairing": "fdc:168409" }],
+      async () => shippedStore,
+      async () => shippedCorpus,
+      unreachable
+    );
+
+    expect(read?.panel("fdc:168409")?.calories).toBe(333);
+  });
+
+  it("fetches them once for a dish where one row names a target", async () => {
+    let loads = 0;
+    const read = await loadReferenceFoods(
+      [
+        { "nutrition/info": label(), "food/pairing": "fdc:168409" },
+        twin(),
+        twin(),
+      ],
+      async () => shippedStore,
+      async () => shippedCorpus,
+      async () => {
+        loads += 1;
+        return cooked;
+      }
+    );
+
+    expect(loads).toBe(1);
+    expect(read?.panel("fdc:173740")?.calories).toBe(127);
+    expect(read?.panel("fdc:168409")?.calories).toBe(333);
+  });
+
+  it("does not guess at the cooked set when the shipped store never loaded", async () => {
+    // An unanswerable id and an unread store look alike from here, and only the
+    // first is evidence of anything. Fetching on the second would spend a
+    // thousand rows on a device that has just failed to fetch four.
+    const unreachable = () => {
+      throw new Error("the cooked set was fetched");
+    };
+    const read = await loadReferenceFoods(
+      [twin()],
+      () => Promise.reject(new Error("offline")),
+      async () => shippedCorpus,
+      unreachable
+    );
+
+    expect(read?.panel("fdc:173740")).toBeUndefined();
+  });
+});
+
 describe("what a log pays for a food nobody paired", () => {
   const unreachable = () => {
     throw new Error("the artifact was fetched");
@@ -298,7 +409,11 @@ describe("what a log pays for a food nobody paired", () => {
         loads += 1;
         return store;
       },
-      async () => ({ foods: [] }) as unknown as SearchCorpus
+      async () => ({ foods: [] }) as unknown as SearchCorpus,
+      // This store carries no row at all, so the paired id reads as a Pairing
+      // target and the cooked set is asked for. Stated rather than left to the
+      // real loader, which would put a fetch in a unit test.
+      async () => ({})
     );
 
     expect(read).toBeDefined();

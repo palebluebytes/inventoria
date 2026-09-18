@@ -1,5 +1,6 @@
 import { fetchArtifact, loadedOncePerSession } from "./bundled-artifact";
 import {
+  fdcIdFor,
   loadSearchCorpus,
   readCorpusRows,
   type ArchiveSource,
@@ -94,6 +95,29 @@ export function readPairingIndex(
     vocabulary: shared.vocabulary,
     state_qualifiers: shared.state_qualifiers,
   };
+}
+
+/**
+ * The description this artifact publishes for one Pairing target, or
+ * `undefined` where it does not carry the row.
+ *
+ * The sibling of `referenceFoodName`, over the **raw** artifact rather than over
+ * a read corpus, and that is the whole difference: resolving the one id a paired
+ * pack holds wants a description, not a search, and tokenising a thousand rows
+ * to find one of them is work nobody asked for. A search over this set pays that
+ * once, through {@link loadPairingCorpus}, because a search is what it is for.
+ *
+ * Nobody is named where the row is gone, which is ADR-0113 §7 rather than a
+ * failure: a pairing keeps standing when the name has left the corpus, so an
+ * unresolvable id is an unnamed pairing and never an absent one.
+ */
+export function pairingTargetName(
+  index: PairingIndex,
+  reference: string
+): string | undefined {
+  const fdcId = fdcIdFor(reference);
+  if (fdcId === null) return undefined;
+  return index.foods.find((row) => row.fdcId === fdcId)?.description;
 }
 
 // ---------------------------------------------------------------------------
@@ -227,3 +251,42 @@ export const loadPairingCorpus: () => Promise<SearchCorpus> =
   loadedOncePerSession(async () =>
     readPairingIndex(await loadPairingIndex(), await loadSearchCorpus())
   );
+
+/**
+ * As much of the cooked set as a device can get hold of — the two artifacts a
+ * reference food is resolved out of when the shipped pair cannot answer for it.
+ *
+ * Both halves are optional and either can be missing alone, which is the shape
+ * `referenceFoodsFrom` already gives the shipped pair: the store carries the
+ * figures, the index carries the name, and a device that has one and not the
+ * other still says something true.
+ */
+export interface PairingTargetSet {
+  store?: PairingNutrientStore;
+  index?: PairingIndex;
+}
+
+/**
+ * Both cooked artifacts, fetched now, degrading to nothing rather than throwing.
+ *
+ * **This is the only thing that fetches either file outside a declaration**, and
+ * the caller's guard is what keeps ADR-0113 §11's promise that a person who
+ * never declares a pack cooked never asks for one: it is reached only for a
+ * pairing the shipped Nutrient store could not answer for, which under a
+ * Declared state that records nothing is exactly what a Pairing target looks
+ * like — the id **is** the state (§11).
+ *
+ * That inference is the live twin's alone and is deliberately not the Curated
+ * pairing table's, which writes its `set` down (§14): a curated row is a
+ * standing claim, so a stale id there would fetch a thousand rows that will
+ * never hold it on every session. Here the alternative is worse, because a twin
+ * has nowhere to write it — and the case it costs, a pairing whose row has left
+ * both sets, is one fetch per session for a pack already showing nothing.
+ */
+export async function loadPairingTargetSet(): Promise<PairingTargetSet> {
+  const [store, index] = await Promise.all([
+    loadPairingNutrientStore().catch(() => undefined),
+    loadPairingIndex().catch(() => undefined),
+  ]);
+  return { store, index };
+}

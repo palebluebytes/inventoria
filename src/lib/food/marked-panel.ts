@@ -127,11 +127,12 @@ export interface MarkedPanel {
  * unfilled pairing and never an unpaired pack — the row may simply have left the
  * corpus, which §7 says leaves the pairing standing.
  *
- * `store` is the caller's, which is where the **Pairing nutrient store** will
- * enter: a pack paired with a **Pairing target** has its panel in the second
- * artifact rather than this one, and which set a pairing reaches is
- * [#522](https://github.com/palebluebytes/inventoria/issues/522)'s, alongside the
- * **Declared state** that is the only route to one.
+ * `store` is the caller's, and that is where the **Pairing nutrient store**
+ * enters: a pack paired with a **Pairing target** has its panel in the second
+ * artifact rather than this one, so `referenceFoodsFrom` asks this store first
+ * and that one only where this one cannot answer (ADR-0113 §11). Nothing here
+ * knows which set it was handed, deliberately — a row is a row, and which
+ * corpus wrote it is the caller's question.
  */
 export function referenceFoodPanel(
   store: UsdaCorpusNutrientStore,
