@@ -8,6 +8,8 @@ import {
   measure,
   serialiseIndex,
   serialiseNutrientStore,
+  serialisePairingIndex,
+  serialisePairingNutrientStore,
 } from "../../scripts/usda-artifacts.mjs";
 
 // ADR-0047 §3: both artifacts are committed, so their bytes are a review
@@ -126,6 +128,63 @@ describe("serialisation — stable, diffable, one food per line", () => {
     expect(lines).toContain('"source": "Inventoria, hand-written",');
     expect(lines).toContain('"gammon": ["pork cured ham"]');
     expect(serialiseIndex(index)).not.toContain("undefined");
+  });
+});
+
+describe("the pairing artifacts — the same rows, one section fewer", () => {
+  // ADR-0113 §11. The cooked records ship as their own two files, and the
+  // Vocabulary map is shared from the shipped index rather than duplicated:
+  // there is no path to declaring a pack cooked that has not already loaded it.
+  const index = {
+    schema_version: SCHEMA_VERSION,
+    generated_from: [{ dataset: "SR Legacy", release: "2018-04" }],
+    foods: [
+      { fdcId: 173735, description: "Beans, black, dried, cooked, boiled" },
+      { fdcId: 173740, description: "Beans, kidney, dried, cooked, boiled" },
+    ],
+  };
+  const store = {
+    schema_version: SCHEMA_VERSION,
+    generated_from: [{ dataset: "SR Legacy", release: "2018-04" }],
+    nutrients: { 1003: { name: "Protein", unit: "g" } },
+    foods: { 173735: { 1003: 8.86 } },
+  };
+
+  it("names itself as the artifact a reader would refuse a search on", () => {
+    expect(JSON.parse(serialisePairingIndex(index)).artifact).toBe(
+      "usda-pairing-index"
+    );
+    expect(JSON.parse(serialisePairingNutrientStore(store)).artifact).toBe(
+      "usda-pairing-nutrient-store"
+    );
+  });
+
+  it("carries no vocabulary and no state roster of its own", () => {
+    expect(Object.keys(JSON.parse(serialisePairingIndex(index)))).toEqual([
+      "artifact",
+      "schema_version",
+      "generated_from",
+      "foods",
+    ]);
+  });
+
+  it("puts each food on its own line, like the file it mirrors", () => {
+    const lines = serialisePairingIndex(index).trimEnd().split("\n");
+    expect(lines).toContain(
+      '{"fdcId":173735,"description":"Beans, black, dried, cooked, boiled"},'
+    );
+    expect(
+      serialisePairingNutrientStore(store).trimEnd().split("\n")
+    ).toContain('"173735": {"1003":8.86}');
+  });
+
+  it("carries the schema version the shipped pair carries", () => {
+    // One corpus, one generation, one number: a pair that disagreed about their
+    // version would be the bug the number exists to catch, and so would a pair
+    // of pairs.
+    expect(JSON.parse(serialisePairingIndex(index)).schema_version).toBe(
+      SCHEMA_VERSION
+    );
   });
 });
 

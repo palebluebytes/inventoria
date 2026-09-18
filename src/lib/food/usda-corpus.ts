@@ -8,7 +8,7 @@ import {
   type NutritionInfo,
   type Portion,
 } from "./nutrition";
-import { ArtifactUnreachableError } from "./bundled-artifact";
+import { fetchArtifact, loadedOncePerSession } from "./bundled-artifact";
 import { buildRawProvenance, type MergedSource } from "./provenance";
 import {
   ADAPTER_VERSION,
@@ -69,15 +69,20 @@ export type IndexMacros = Pick<
 >;
 
 /**
- * One Search index row: identity, the fields ADR-0042 ranks on, the macros the
- * results list shows, the household portions, and the reference to any SR Legacy
- * twin whose values the row borrowed (ADR-0047 §2 and §8).
+ * Every field a corpus row carries: identity, the fields ADR-0042 ranks on, the
+ * macros the results list shows, the household portions, and the reference to any
+ * SR Legacy twin whose values the row borrowed (ADR-0047 §2 and §8).
  *
  * Every absent field is omitted rather than emitted null — "not measured" is a
  * distinction the panel makes — so the optionality here is the artifact's, not a
  * defensive `?`.
+ *
+ * It is the shape and not the identity: both index rows are exactly these fields
+ * (ADR-0113 §11), and what separates them is the phantom `set` below.
+ * A function that reads a row and does not care which set it came from — the
+ * ranking, the payload mapper — takes THIS, and accepts both by saying so.
  */
-export interface UsdaIndexRow {
+export interface UsdaCorpusRow {
   fdcId: number;
   description: string;
   dataType: string;
@@ -117,6 +122,26 @@ export interface UsdaIndexRow {
    * like every other absent field on a row.
    */
   plain_sibling?: boolean;
+}
+
+/**
+ * One Search index row: {@link UsdaCorpusRow}, from the corpus of foods as
+ * bought (ADR-0104).
+ *
+ * **`set` is a phantom and is present on no row**, here or in the artifact —
+ * neither generator writes it and nothing reads it. It exists so the two index
+ * rows are the same fields and different TYPES, which is ADR-0113 §11's gate:
+ * with one type, {@link buildSearchCorpus} accepts a Pairing target, and cooked
+ * rows reaching the Search index is the one leak that record puts out of scope.
+ * A compile error is the cheapest gate that decision can have, and this is the
+ * whole of what it costs.
+ *
+ * The word is `reference` against `pairing-target` because those are the two a
+ * Curated pairing's own `set` field carries (ADR-0113 §14), and they name the
+ * same two sets. `PairingTargetRow` in `pairing-targets.ts` is the other half.
+ */
+export interface UsdaIndexRow extends UsdaCorpusRow {
+  readonly set?: "reference";
 }
 
 /**
@@ -203,15 +228,26 @@ export interface SearchIndex {
   foods: UsdaIndexRow[];
 }
 
-/** The committed Nutrient store artifact, keyed by `fdcId` (ADR-0047 §5). */
-export interface NutrientStore {
-  artifact: "usda-nutrient-store";
+/**
+ * What a nutrient store holds, keyed by `fdcId` (ADR-0047 §5).
+ *
+ * Shared by both committed stores, because reading a panel out of one is the
+ * same act whichever corpus generated it: the ids are USDA's and so are the
+ * units. What is NOT shared is the name each file calls itself, which is where
+ * a reader refuses the wrong one.
+ */
+export interface UsdaCorpusNutrientStore {
   schema_version: number;
   generated_from: ArchiveSource[];
   /** Every nutrient id the corpus reports, with USDA's own name and unit. */
   nutrients: Record<string, { name: string; unit: string }>;
   /** `fdcId` -> nutrient id -> the amount in that nutrient's published unit. */
   foods: Record<string, Record<string, number>>;
+}
+
+/** The committed Nutrient store artifact, for the foods the search reaches. */
+export interface NutrientStore extends UsdaCorpusNutrientStore {
+  artifact: "usda-nutrient-store";
 }
 
 // ---------------------------------------------------------------------------
@@ -232,7 +268,7 @@ export const SEARCH_RESULT_LIMIT = 50;
 
 /** One Search index row with its name already read the way ranking reads it. */
 export interface SearchableFood {
-  row: UsdaIndexRow;
+  row: UsdaCorpusRow;
   name: ReferenceFoodName;
   /**
    * The row's aliases, read the same way — one name each, not a bag of extra
@@ -309,12 +345,7 @@ export interface SearchCorpus {
  */
 export function buildSearchCorpus(index: SearchIndex): SearchCorpus {
   return {
-    foods: index.foods.map((row) => ({
-      row,
-      name: readReferenceFoodName(row.description),
-      also: (row.also ?? []).map(readReferenceFoodName),
-      rank: readRowRank(row),
-    })),
+    foods: readCorpusRows(index.foods),
     schema_version: index.schema_version,
     vocabulary: {
       ...index.vocabulary_off.expansions,
@@ -322,6 +353,29 @@ export function buildSearchCorpus(index: SearchIndex): SearchCorpus {
     },
     state_qualifiers: readStateQualifiers(index.state_qualifiers),
   };
+}
+
+/**
+ * Index rows read into searchable foods: each description split into words once,
+ * at load, and the four row keys read once beside them.
+ *
+ * Takes {@link UsdaCorpusRow} rather than either index's own row type, because
+ * this is the reading ADR-0113 §11 means by reusing the shipped ranking whole:
+ * the Pairing index's rows come through here unchanged, and one of the twelve
+ * keys — `canonical`, whose roster names two shipped rows — then ties uniformly
+ * over a set it cannot separate. What it may NOT do is take an artifact:
+ * {@link buildSearchCorpus} and `readPairingIndex` each take their own, which is
+ * where the two sets stay apart.
+ */
+export function readCorpusRows(
+  rows: readonly UsdaCorpusRow[]
+): SearchableFood[] {
+  return rows.map((row) => ({
+    row,
+    name: readReferenceFoodName(row.description),
+    also: (row.also ?? []).map(readReferenceFoodName),
+    rank: readRowRank(row),
+  }));
 }
 
 /**
@@ -496,7 +550,7 @@ export interface SearchedPhrases {
 
 /** One reference food a search reached, and the name that reached it. */
 export interface SearchHit {
-  row: UsdaIndexRow;
+  row: UsdaCorpusRow;
   /**
    * The vocabulary key this row answered, on the searches where the typed word
    * reached nothing and the vocabulary offered another (ADR-0049 §1). Absent on
@@ -775,7 +829,7 @@ export function searchResultName(description: string, alias?: string): string {
 }
 
 export function mapIndexRowToPayload(
-  row: UsdaIndexRow,
+  row: UsdaCorpusRow,
   alias?: string
 ): EntityPayload {
   const attributes: EntityPayload["attributes"] = {
@@ -838,7 +892,7 @@ function fdcIdFor(entity: string): number | null {
  * one from being hand-edited into existence.
  */
 export function storedPanelFor(
-  store: NutrientStore,
+  store: UsdaCorpusNutrientStore,
   fdcId: number
 ): NutritionInfo | undefined {
   const amounts = store.foods[String(fdcId)];
@@ -938,81 +992,35 @@ const SEARCH_INDEX_URL = "/usda/search-index.json";
 const NUTRIENT_STORE_URL = "/usda/nutrient-store.json";
 
 /**
- * Fetches one bundled artifact, keeping the two ways it can fail apart.
- *
- * **Nothing answered at all** is an offline user (#307). ADR-0077 §5 takes the
- * Nutrient store out of Inventoria's precache — it is read when a food is
- * staged, seconds after launch, where the Search index is what the user is
- * looking at before they do anything — so a cold offline root reaches this with
- * no network and nothing cached, and the caller is handed something it can turn
- * into a sentence naming the network.
- *
- * **A response that is not `ok`** is the other one: the file is on the origin,
- * something served it, and its status is worth reading. That stays the plain
- * error naming the file that this has always thrown. **In Rations both are a
- * broken build or a broken service worker rather than an offline user** — that
- * Facet precaches all three USDA artifacts and owes ADR-0047 §11's promise
- * whole (ADR-0077 §4) — which is why the user-facing half of this is the
- * caller's and not decided here.
- *
- * Say which file either way, because the two artifacts fail for the same
- * reasons and read alike.
- */
-async function fetchArtifact<T>(subject: string, url: string): Promise<T> {
-  let res: Response;
-  try {
-    res = await fetch(url);
-  } catch (cause) {
-    throw new ArtifactUnreachableError(subject, url, cause);
-  }
-  if (!res.ok) throw new Error(`Failed to load ${url} (${res.status}).`);
-  return (await res.json()) as T;
-}
-
-let loadedCorpus: Promise<SearchCorpus> | null = null;
-let loadedNutrients: Promise<NutrientStore> | null = null;
-
-/**
  * The Search index, fetched, parsed and read into words once per session.
  *
- * A SUCCESS is what is memoised: a failed load is forgotten so the next search
- * tries again. Caching the rejection would be worse than not caching at all —
- * the likeliest way this fetch fails is a service worker that has not taken
- * control yet during the startup warm (see {@link warmUsdaCorpus}), and a cached
- * rejection would answer every search for the rest of the session.
+ * A failed load is forgotten so the next search tries again, which is
+ * {@link loadedOncePerSession}'s whole subject: the likeliest way this fetch
+ * fails is a service worker that has not taken control yet during the startup
+ * warm (see {@link warmUsdaCorpus}), and a held rejection would answer every
+ * search for the rest of the session.
  */
-export function loadSearchCorpus(): Promise<SearchCorpus> {
-  loadedCorpus ??= fetchArtifact<SearchIndex>(
-    "The food search",
-    SEARCH_INDEX_URL
-  )
-    .then(buildSearchCorpus)
-    .catch((error) => {
-      loadedCorpus = null;
-      throw error;
-    });
-  return loadedCorpus;
-}
+export const loadSearchCorpus: () => Promise<SearchCorpus> =
+  loadedOncePerSession(() =>
+    fetchArtifact<SearchIndex>("The food search", SEARCH_INDEX_URL).then(
+      buildSearchCorpus
+    )
+  );
 
 /**
  * The Nutrient store, fetched and parsed once per session — by
  * {@link completeStagedPanel}, once per staged food and never per keystroke.
  * Memoised, so the second stage of a session pays nothing, and warmed at idle
  * (see {@link warmUsdaCorpus}) so the first one usually pays nothing either.
+ *
+ * Here a held rejection would quietly stage every food of the session on four
+ * macros rather than on its panel, which is the sharper half of why the loader
+ * forgets one.
  */
-export function loadNutrientStore(): Promise<NutrientStore> {
-  loadedNutrients ??= fetchArtifact<NutrientStore>(
-    "The full nutrition panel",
-    NUTRIENT_STORE_URL
-  ).catch((error) => {
-    // Forgotten on failure, for the reason {@link loadSearchCorpus} gives —
-    // and here a cached rejection would quietly stage every food of the
-    // session on four macros rather than on its panel.
-    loadedNutrients = null;
-    throw error;
-  });
-  return loadedNutrients;
-}
+export const loadNutrientStore: () => Promise<NutrientStore> =
+  loadedOncePerSession(() =>
+    fetchArtifact<NutrientStore>("The full nutrition panel", NUTRIENT_STORE_URL)
+  );
 
 /**
  * Warms both artifacts, on the schedule ADR-0047 §2 sets: the index now, because
