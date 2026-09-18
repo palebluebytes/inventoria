@@ -956,3 +956,35 @@ _Reference pairing_ reads as the name of what the id points at, and is wrong the
 pairing_ collides with the culinary sense and says nothing the namespace does not.
 
 The attribute is `food/pairing` and is unaffected, as §16 says: it is namespaced.
+
+## Amendment (2026-09-18, #522): the id is the state on the way back, and a moved declaration takes the rows with it
+
+§11 decided that a **Declared state** records nothing, on the ground that every row in
+the Pairing index is a cooked record by construction, so the target's own `fdc:` id
+**is** the state. [#522](https://github.com/palebluebytes/inventoria/issues/522) ships
+it, and two things fall out that §11 states only one half of.
+
+**The id being the state is a rule about reading, not only about writing.** A card
+drawing a paired pack, and every path that freezes an occasion, holds a bare `fdc:` id
+with nothing beside it saying which set it came from — so resolution asks the shipped
+Nutrient store first and the Pairing nutrient store only where that one cannot answer.
+The two sets share no `fdcId`, so the order settles a question that does not arise. What
+it costs is one case: a pairing whose row has left **both** sets spends one fetch a
+session discovering that, on a pack that is already showing nothing. That is the whole
+price of the twin having nowhere to write the set, and the promise §11 makes holds
+either way — a person who never declares a pack cooked never names a target, so nothing
+they own ever reaches for either file.
+
+**The same derivation is refused for the Curated pairing table, and the two are not in
+tension.** §14's row writes its `set` down because a curated row is a standing claim
+about a barcode: a stale id there would fetch a thousand rows that will never hold it,
+on every session, for every person who has that barcode. A twin's own `food/pairing` is
+one person's assertion about one jar and has nowhere to put the field, so the
+derivation is the only reading available and its blast radius is that one jar.
+
+**A moved declaration takes the rows with it, not only the pick.** §11's partition is
+symmetric by construction, and a list left standing across the change is the one place
+that construction leaks: Reference foods on screen under a person who has just said
+their jar is cooked, one tap from the pairing the partition exists to refuse, for as
+long as the next search takes to settle. The rows, the pick and the message all go when
+the question changes.
