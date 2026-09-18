@@ -15,8 +15,26 @@ import { describe, expect, it } from "vitest";
 import { render } from "svelte/server";
 import { readCode } from "./support/source";
 import FoodCard from "../../src/lib/views/food/FoodCard.svelte";
+import NutrientPreview from "../../src/lib/views/food/NutrientPreview.svelte";
 import { FOOD_PAIRING_ATTR } from "../../src/lib/food/pairing";
+import { ESTIMATED_MEANING } from "../../src/lib/food/nutrient-display";
+import { PER_100G, type NutritionInfo } from "../../src/lib/food/nutrition";
 import type { EntityPayload } from "../../src/lib/ingestion/ingest";
+
+/** The source of the card itself, for the claims a server render cannot reach:
+ *  the reference food's panel is resolved in an effect, and an effect does not
+ *  run there. */
+const CARD = readCode("src/lib/views/food/FoodCard.svelte");
+
+/** An EU pack's mandatory declaration and nothing else — the silence a pairing
+ *  is for. */
+const PANEL: NutritionInfo = {
+  serving_size: PER_100G,
+  calories: 116,
+  protein_content: 8.7,
+  fat_content: 0.5,
+  carbohydrate_content: 15.6,
+};
 
 const card = (payload: EntityPayload, props: Record<string, unknown> = {}) =>
   render(FoodCard, {
@@ -146,5 +164,90 @@ describe("the search a person drives (§§2, 9)", () => {
     expect(SHEET).toMatch(
       /function accept\(\) \{\s*if \(!chosen\) return;\s*onAccept\(chosen\.entity\);/
     );
+  });
+});
+
+describe("the est mark a borrowed figure wears (§5)", () => {
+  // One list in normal panel order, in the shipped `NutrientBreakdown` shape.
+  // What tells a borrowed figure from a printed one is a small `est` mark and a
+  // lighter weight — nothing framed off, nothing in a second column, no dashed
+  // block — and a nutrient both sources carry shows the label's figure unmarked.
+  const breakdown = {
+    calories: 116,
+    protein: 8.7,
+    fat: 0.5,
+    carbs: 15.6,
+    fiber_content: 6.4,
+    iron: 0.00222,
+  };
+
+  const preview = (estimated?: ReadonlySet<string>) =>
+    render(NutrientPreview, { props: { breakdown, estimated } }).body;
+
+  it("marks the figures a pairing supplied and nothing else", () => {
+    const body = preview(new Set(["iron"]));
+    expect(body).toContain('data-testid="est-mark"');
+    // One mark, on one row: the iron the reference food lent, and not the fibre
+    // the label printed.
+    expect(body.match(/data-testid="est-mark"/g)).toHaveLength(1);
+    // On the iron's own row, right against its figure — same row, same list.
+    expect(body).toMatch(
+      /nutrient-iron(?:(?!<\/div>)[^])*?2\.22 mg(?:<!--[^>]*-->)?<span[^>]*class="est-mark/
+    );
+  });
+
+  it("says what the mark means, in the one sentence a dish will say too", () => {
+    expect(preview(new Set(["iron"]))).toContain(ESTIMATED_MEANING);
+  });
+
+  it("lightens the figure the mark is about, and no other", () => {
+    // The mark is one word AND a lighter weight (§5): the figure stops being
+    // the boldest thing on its line the way a printed one is. The class is what
+    // the rule hangs on, so a row losing it loses half the mark silently.
+    const body = preview(new Set(["iron"]));
+    expect(body).toMatch(/<dd class="[^"]*\best\b[^"]*">2\.22 mg/);
+    expect(body).toMatch(/<strong class="(?![^"]*\best\b)[^"]*">6\.4 g/);
+  });
+
+  it("draws no mark at all on a panel nothing was borrowed for", () => {
+    // A refused fill needs no surface and no new word, and neither does an
+    // unpaired pack: the panel is the shape it has always been.
+    expect(preview()).not.toContain('data-testid="est-mark"');
+    expect(preview(new Set())).not.toContain('data-testid="est-mark"');
+  });
+
+  it("keeps the mark on a borrowed nutrient the user happens to track", () => {
+    // The grid and the disclosure are one panel split by what the user tracks,
+    // so a borrowed figure promoted into the grid may not shed its mark. Fibre
+    // is tracked by default, which puts it in the grid and out of the
+    // disclosure — and it still wears the mark there.
+    const body = preview(new Set(["fiber_content"]));
+    expect(body).toMatch(
+      /n nutrient-fiber_content(?:(?!<\/div>)[^])*?<strong class="[^"]*\best\b[^"]*">6\.4 g(?:<!--[^>]*-->)?<span[^>]*class="est-mark/
+    );
+    // And exactly there: the iron below it, in the disclosure, was the label's.
+    expect(body.match(/data-testid="est-mark"/g)).toHaveLength(1);
+  });
+});
+
+describe("the marked panel a paired pack's card composes (§§4, 7)", () => {
+  it("reads the reference food's figures rather than storing them", () => {
+    // An estimate never reaches a stored `nutrition/info` (§7): the card asks
+    // the shipped artifacts what the paired id resolves to and composes the
+    // reading, and the only thing it hands the amount panel is that reading.
+    expect(CARD).toContain("referenceFoodPanel(store, reference)");
+    expect(CARD).toMatch(/markPanel\(panel, pairedPanel, density\)/);
+    expect(CARD).toMatch(/panel=\{marked\?\.panel \?\? panel\}/);
+  });
+
+  it("marks nothing where the pairing filled nothing", () => {
+    // Omitted, never emitted empty — the same rule the datom keeps. An empty
+    // fill hands the preview no mark set at all rather than an empty one.
+    expect(CARD).toMatch(/marked\.filled_fields\.length > 0/);
+  });
+
+  it("draws an unpaired pack's panel exactly as it always was", () => {
+    const body = card(pack({ "nutrition/info": PANEL }), { panel: PANEL });
+    expect(body).not.toContain('data-testid="est-mark"');
   });
 });

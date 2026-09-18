@@ -26,7 +26,8 @@
     readFoodPairing,
     referenceFoodName,
   } from "../../food/pairing";
-  import { loadSearchCorpus } from "../../food/usda-corpus";
+  import { markPanel, referenceFoodPanel } from "../../food/marked-panel";
+  import { loadNutrientStore, loadSearchCorpus } from "../../food/usda-corpus";
   import FoodAmountPanel from "./FoodAmountPanel.svelte";
   import AllergenSafetyBlock from "./AllergenSafetyBlock.svelte";
   import NovaBadge from "./NovaBadge.svelte";
@@ -219,9 +220,14 @@
   // stands), or the artifact is unreachable on this device. Neither is a reason
   // to claim a name, and neither unpairs anything.
   let pairedName = $state<string | undefined>(undefined);
+  // The paired row's own figures, on their own basis — what the marked panel
+  // below is composed from. Resolved beside the name and never stored: §7 keeps
+  // the twin's pairing a bare live id, so both are looked up on every read.
+  let pairedPanel = $state<NutritionInfo | undefined>(undefined);
   $effect(() => {
     const reference = paired;
     pairedName = undefined;
+    pairedPanel = undefined;
     if (!reference) return;
     let live = true;
     void loadSearchCorpus()
@@ -229,10 +235,39 @@
         if (live) pairedName = referenceFoodName(corpus, reference);
       })
       .catch(() => {});
+    // The nutrient store is the megabyte ADR-0047 §2 keeps off the act of
+    // LOOKING at a food, and reading a pairing's panel is not looking: the
+    // person has already accepted this reference food, and every figure it
+    // supplies is on screen the moment the card draws.
+    void loadNutrientStore()
+      .then((store) => {
+        if (live) pairedPanel = referenceFoodPanel(store, reference);
+      })
+      .catch(() => {});
     return () => {
       live = false;
     };
   });
+
+  // ── The marked panel (ADR-0113 §§4–5, §7) ──────────────────────────────────
+  // Composed here, on every read, and never written: the panel datom stays
+  // strictly the label, and what the card shows is the label widened by whatever
+  // the reference food supplies for the rows that are silent NOW. That is the
+  // live tense §7 gives a food's own panel — re-pair the jar and this changes
+  // under you, which is the point.
+  //
+  // It is deliberately downstream of the pairing line above rather than beside
+  // it: the reference food is shown named, with its own source tag, and the
+  // figures it lends are marked. Those are the two halves of §1's "shown beside
+  // it, never merged", and one without the other is what this record refuses.
+  let marked = $derived(
+    panel ? markPanel(panel, pairedPanel, density) : undefined
+  );
+  let estimated = $derived(
+    marked && marked.filled_fields.length > 0
+      ? new Set<string>(marked.filled_fields)
+      : undefined
+  );
 </script>
 
 <div class="food-card">
@@ -362,7 +397,8 @@
        half-answered question still open. -->
   {#key payload.entity}
     <FoodAmountPanel
-      {panel}
+      panel={marked?.panel ?? panel}
+      {estimated}
       {portions}
       bind:amount
       bind:unit
