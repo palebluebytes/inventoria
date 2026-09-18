@@ -1,6 +1,9 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { readFileSync } from "node:fs";
 import {
+  DECLARED_STATES,
+  DECLARED_STATE_DEFAULT,
+  pairingSearchCorpus,
   readPairingIndex,
   type PairingIndex,
   type PairingNutrientStore,
@@ -257,5 +260,69 @@ describe("the two loaders — on demand, and precached by neither Facet", () => 
     await expect(loadPairingNutrientStore()).rejects.toThrow(
       /pairing-nutrient-store\.json \(404\)/
     );
+  });
+});
+
+describe("the Declared state — which set a pairing search reaches (§11)", () => {
+  // One question about the pack in a person's hand, two values, defaulting to
+  // as-bought and recorded nowhere. What it decides is which corpus a keystroke
+  // reads, and the claim worth pinning is the **symmetry**: declaring cooked
+  // reaches the Pairing index and never the Search index, and the default
+  // reaches the Search index and never the Pairing index. That is what refuses
+  // both signs of the confusion at once — a cooked pack onto a dried row, and
+  // the 101 reverse confusions #497 measured below ×0.7.
+  const asBought = async () =>
+    buildSearchCorpus({
+      ...shipped,
+      foods: [
+        {
+          fdcId: 168409,
+          description: "Beans, kidney, raw",
+          dataType: "SR Legacy",
+          macros: { calories: 333 },
+        },
+      ],
+    });
+  const cooked = async () =>
+    readPairingIndex(
+      pairingIndex([row(173740, "Beans, kidney, dried, cooked, boiled")]),
+      buildSearchCorpus(shipped)
+    );
+
+  it("defaults to as you bought it", () => {
+    // The 22 twins that already pair behave exactly as they do today, a person
+    // never meets the question unless they reach for it, and the second
+    // artifact's fetch stays off the common path.
+    expect(DECLARED_STATE_DEFAULT).toBe("as-bought");
+  });
+
+  it("reaches the Search index and never the Pairing index by default", async () => {
+    const unreachable = () => {
+      throw new Error("the Pairing index was reached");
+    };
+    const corpus = await pairingSearchCorpus(
+      DECLARED_STATE_DEFAULT,
+      unreachable,
+      asBought
+    )();
+    expect(corpus.foods.map((food) => food.row.fdcId)).toEqual([168409]);
+  });
+
+  it("reaches the Pairing index and never the Search index once cooked is declared", async () => {
+    const unreachable = () => {
+      throw new Error("the Search index was reached");
+    };
+    const corpus = await pairingSearchCorpus("cooked", cooked, unreachable)();
+    expect(corpus.foods.map((food) => food.row.fdcId)).toEqual([173740]);
+  });
+
+  it("offers two values and no third, as-bought first", () => {
+    // An *I don't know* that showed both sets would re-admit, by the option
+    // nobody reads carefully, the whole error this partition exists to refuse.
+    expect(DECLARED_STATES.map((state) => state.value)).toEqual([
+      "as-bought",
+      "cooked",
+    ]);
+    expect(DECLARED_STATES[0].value).toBe(DECLARED_STATE_DEFAULT);
   });
 });

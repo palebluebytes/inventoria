@@ -7,7 +7,10 @@ import {
   NoReferenceFoodError,
   NO_FOOD_FOUND,
 } from "../../src/lib/food/food-search";
-import { searchUsdaCorpus } from "../../src/lib/food/usda-corpus";
+import {
+  loadSearchCorpus,
+  searchUsdaCorpus,
+} from "../../src/lib/food/usda-corpus";
 import type { NutritionInfo } from "../../src/lib/food/nutrition";
 import {
   buildArrival,
@@ -194,6 +197,9 @@ describe("isCatalogueFood", () => {
 
 vi.mock("../../src/lib/food/usda-corpus", () => ({
   searchUsdaCorpus: vi.fn(),
+  // The Search index loader, which is the set `searchUsdaFoods` reads unless a
+  // Declared state hands it another (ADR-0113 §11).
+  loadSearchCorpus: vi.fn(),
 }));
 
 const usdaFood = (entity: string, name: string) => ({
@@ -281,6 +287,28 @@ describe("searchUsdaFoods with curated stand-ins", () => {
       "fdc:1",
       "gtin:5400706613279",
     ]);
+  });
+
+  it("searches the set it is handed, so a Declared state can widen it", async () => {
+    // ADR-0113 §11: declaring a pack cooked searches the Pairing index and only
+    // it. The search itself is the shipped one whole — the same ranking, the
+    // same vocabulary, the same curated fold — and the corpus is the one thing
+    // that moves, so the seam is a loader handed in rather than a second search.
+    const cooked = async () => ({}) as never;
+    stubCorpus(found(["boiled"], [usdaFood("fdc:173740", "Beans, boiled")]));
+    await searchUsdaFoods("boiled", {}, cooked);
+    expect(vi.mocked(searchUsdaCorpus).mock.calls.at(-1)?.[1]).toBe(cooked);
+  });
+
+  it("reads the Search index when nothing says otherwise", async () => {
+    // The default is half of why a person who never declares a pack cooked
+    // never fetches the second artifact: nothing but that declaration can move
+    // the set a search is asked of.
+    stubCorpus(found(["banana"], [usdaFood("fdc:2", "Bananas, raw")]));
+    await searchUsdaFoods("banana");
+    expect(vi.mocked(searchUsdaCorpus).mock.calls.at(-1)?.[1]).toBe(
+      loadSearchCorpus
+    );
   });
 
   it("passes on whether the vocabulary answered, for #149's log", async () => {

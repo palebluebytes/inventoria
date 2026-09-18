@@ -1,5 +1,6 @@
 import { fetchArtifact, loadedOncePerSession } from "./bundled-artifact";
 import {
+  loadSearchCorpus,
   readCorpusRows,
   type ArchiveSource,
   type SearchCorpus,
@@ -18,11 +19,12 @@ import {
  * **fetched on demand and precached by neither Facet**: a person who never
  * declares a pack cooked never asks for either file.
  *
- * **This module owns the two artifacts' shape and their loading, and stops
- * there.** The search over them is the shipped search, read through
- * {@link readPairingIndex}; which set a person's Declared state reaches is the
- * caller's; and a Pairing target is never returned by the food search and never
- * directly loggable, so nothing here is reachable from the search path at all.
+ * **This module owns the two artifacts' shape, their loading, and the one
+ * question that reaches them.** The search over them is the shipped search, read
+ * through {@link readPairingIndex}, and the **Declared state** below is the
+ * whole of the route: {@link pairingSearchCorpus} is the partition, and a
+ * Pairing target is never returned by the food search and never directly
+ * loggable, so nothing here is reachable from the search path at all.
  */
 
 /**
@@ -95,6 +97,79 @@ export function readPairingIndex(
 }
 
 // ---------------------------------------------------------------------------
+// The Declared state: the one question that reaches the cooked set (§11)
+// ---------------------------------------------------------------------------
+
+/**
+ * A person's answer about the pack in their hand, which decides which set the
+ * Pack pairing search reaches — and **is never recorded** (ADR-0113 §11).
+ *
+ * **Two values and no third.** An *I don't know* that showed both sets would
+ * re-admit, by the option nobody reads carefully, the whole error this partition
+ * exists to refuse.
+ *
+ * **Nothing is stored**, because every row in the Pairing index is a cooked
+ * record by construction: the target's own `fdc:` id **is** the state, and it is
+ * already the whole of what a Pack pairing holds. Storing the question beside
+ * the answer would keep the question.
+ *
+ * It grades a **food-identity** claim about a person's own jar and never a
+ * composition one, which is the line ADR-0034 §4 draws about what a person is
+ * well placed to judge.
+ */
+export type DeclaredState = "as-bought" | "cooked";
+
+/**
+ * What a person is taken to have said before they say anything.
+ *
+ * As-bought, so the twins that already pair behave exactly as they do today, a
+ * person never meets the question unless they reach for it, and the second
+ * artifact's fetch stays off the common path. The declaration is a **widening
+ * act, not a gate in front of pairing**.
+ */
+export const DECLARED_STATE_DEFAULT: DeclaredState = "as-bought";
+
+/**
+ * The two values and the words a person reads them under, as one list, because
+ * a third option anywhere is the thing §11 refuses and a list is where one would
+ * appear.
+ *
+ * The default leads, which is the order the question is answered in: a person
+ * reaching for *cooked* is widening from where they already stand.
+ */
+export const DECLARED_STATES: { value: DeclaredState; label: string }[] = [
+  { value: "as-bought", label: "As you bought it" },
+  { value: "cooked", label: "Cooked" },
+];
+
+/**
+ * The corpus a pairing search reads under one Declared state.
+ *
+ * **The partition is symmetric, and that is what makes it refuse both signs.**
+ * Declaring cooked reaches the Pairing index and never the Search index; the
+ * default reaches the Search index and never the Pairing index. So it refuses
+ * §10's forward error — a cooked pack paired onto a dried row — by the same
+ * construction as the reverse one, the 101 confusions #497 measured below ×0.7
+ * where #489 found no signal at all.
+ *
+ * It hands back a **loader** rather than a corpus so the as-bought arm is
+ * exactly the shipped one, memoised and warmed at startup, and so declaring
+ * cooked and changing your mind again costs one fetch and not one per keystroke.
+ *
+ * Both loaders are parameters for the reason every impure edge in this module is
+ * one: the partition is asserted without a fetch, and a test that had to stub
+ * two artifacts to prove *which one was reached* would be proving it through the
+ * thing it is measuring.
+ */
+export function pairingSearchCorpus(
+  state: DeclaredState,
+  cooked: () => Promise<SearchCorpus> = loadPairingCorpus,
+  asBought: () => Promise<SearchCorpus> = loadSearchCorpus
+): () => Promise<SearchCorpus> {
+  return state === "cooked" ? cooked : asBought;
+}
+
+// ---------------------------------------------------------------------------
 // Loading: on demand, and precached by neither Facet
 // ---------------------------------------------------------------------------
 
@@ -132,4 +207,23 @@ export const loadPairingNutrientStore: () => Promise<PairingNutrientStore> =
       "The cooked foods' nutrition panel",
       PAIRING_NUTRIENT_STORE_URL
     )
+  );
+
+/**
+ * The Pairing index read into words once per session — the corpus a keystroke
+ * searches once a person has declared a pack cooked.
+ *
+ * Memoised beside the fetch rather than composed at the call site, because the
+ * reading is the expensive half: {@link readCorpusRows} tokenises every row, and
+ * a search sheet that rebuilt it per keystroke would pay a thousand rows of that
+ * for every letter typed. It is the exact discipline `loadSearchCorpus` keeps
+ * over `buildSearchCorpus`, and for the same reason.
+ *
+ * It awaits the shipped corpus for the Vocabulary map it borrows, which costs
+ * nothing: §11's own observation is that there is no path to declaring a pack
+ * cooked that has not already loaded the shipped index's header.
+ */
+export const loadPairingCorpus: () => Promise<SearchCorpus> =
+  loadedOncePerSession(async () =>
+    readPairingIndex(await loadPairingIndex(), await loadSearchCorpus())
   );

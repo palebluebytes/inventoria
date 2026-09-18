@@ -17,6 +17,7 @@ import { readCode, readSource } from "./support/source";
 import FoodCard from "../../src/lib/views/food/FoodCard.svelte";
 import NutrientPreview from "../../src/lib/views/food/NutrientPreview.svelte";
 import { FOOD_PAIRING_ATTR } from "../../src/lib/food/pairing";
+import { DECLARED_STATES } from "../../src/lib/food/pairing-targets";
 import { ESTIMATED_MEANING } from "../../src/lib/food/nutrient-display";
 import { PER_100G, type NutritionInfo } from "../../src/lib/food/nutrition";
 import type { EntityPayload } from "../../src/lib/ingestion/ingest";
@@ -117,6 +118,53 @@ describe("the search a person drives (§§2, 9)", () => {
     expect(SHEET).toMatch(/searchUsdaFoods\(/);
   });
 
+  it("asks one question about the pack, with two values and no third", () => {
+    // ADR-0113 §11's Declared state, and the whole of the route to a Pairing
+    // target. The two values are the module's own list, so a third would have to
+    // be coined there rather than typed into a screen — and an *I don't know*
+    // showing both sets is the error the partition exists to refuse.
+    expect(SHEET).toMatch(/options=\{DECLARED_STATES\}/);
+    expect(SHEET).toMatch(/bind:value=\{declared\}/);
+    expect(DECLARED_STATES).toHaveLength(2);
+  });
+
+  it("starts where a person already stands, so the question is a widening act", () => {
+    // Defaulting to as-bought is what keeps the twins that already pair behaving
+    // exactly as they do today, and what keeps the second artifact's fetch off
+    // the common path.
+    expect(SHEET).toMatch(/\$state<DeclaredState>\(DECLARED_STATE_DEFAULT\)/);
+  });
+
+  it("searches the set that declaration names, and only it", () => {
+    // The partition is `pairingSearchCorpus`'s, handed to the shipped search as
+    // the corpus it reads — so declaring cooked reaches the Pairing index and
+    // never the Search index, and the default reaches the Search index and never
+    // the Pairing index.
+    expect(SHEET).toMatch(
+      /searchUsdaFoods\(\s*typed,\s*\{\},\s*pairingSearchCorpus\(state\)\s*\)/
+    );
+  });
+
+  it("writes nothing about the declaration, on either value", () => {
+    // Nothing is recorded (§11): every row in the Pairing index is a cooked
+    // record by construction, so the target's own `fdc:` id IS the state, and
+    // the only thing this sheet hands its host is that id.
+    expect(SHEET).toMatch(/onAccept\(chosen\.entity\)/);
+    expect(SHEET).not.toMatch(/onAccept\([^)]*declared/);
+    expect(SHEET).not.toMatch(/declared_state|food\/state|pack\/state/);
+  });
+
+  it("drops the other set's rows, and the pick made from them, when the declaration moves", () => {
+    // This is the partition and not tidiness (§11). A list left standing across
+    // the change is a list of Reference foods under a person who has just said
+    // their jar is cooked — one tap from the pairing the partition exists to
+    // refuse, in the window the next search takes to settle.
+    expect(SHEET).toMatch(/onValueChange=\{redeclare\}/);
+    expect(SHEET).toMatch(
+      /function redeclare\(\) \{\s*chosen = null;\s*results = \[\];\s*answered = "";\s*error = "";\s*\}/
+    );
+  });
+
   it("reaches nothing that could propose a candidate", () => {
     // Nothing proposes a pairing (§9). A model handed the whole corpus emitted
     // six ids that are real rows naming a different food while its own stated
@@ -124,18 +172,24 @@ describe("the search a person drives (§§2, 9)", () => {
     // would launder the six that validating the id cannot catch.
     //
     // The whole import list rather than a search for words a proposer might
-    // use: a screen that reaches only these four modules has nowhere to get a
-    // candidate from except the query somebody typed, and a fifth import is
-    // what a reviewer has to see.
+    // use: a screen that reaches only these modules has nowhere to get a
+    // candidate from except the query somebody typed, and one more import is
+    // what a reviewer has to see. The three the Declared state added are the
+    // two corpora's partition, the control that asks the question, and the
+    // sentence a device with no network is owed for the artifact it has to
+    // fetch to answer it — none of which can name a food.
     const imports = [...SHEET.matchAll(/from "([^"]+)"/g)].map((m) => m[1]);
     expect([...new Set(imports)].sort()).toEqual([
+      "../../food/bundled-artifact",
       "../../food/food-search",
       "../../food/pairing",
+      "../../food/pairing-targets",
       "../../ui/Alert.svelte",
       "../../ui/BottomSheet.svelte",
       "../../ui/Button.svelte",
       "../../ui/Input.svelte",
       "../../ui/Row.svelte",
+      "../../ui/Segmented.svelte",
     ]);
   });
 

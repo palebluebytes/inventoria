@@ -4,6 +4,7 @@
   import Input from "../../ui/Input.svelte";
   import Row from "../../ui/Row.svelte";
   import Alert from "../../ui/Alert.svelte";
+  import Segmented from "../../ui/Segmented.svelte";
   import {
     searchUsdaFoods,
     NoReferenceFoodError,
@@ -12,6 +13,16 @@
     type FoodResult,
   } from "../../food/food-search";
   import { isReferenceFoodEntity } from "../../food/pairing";
+  import {
+    DECLARED_STATES,
+    DECLARED_STATE_DEFAULT,
+    pairingSearchCorpus,
+    type DeclaredState,
+  } from "../../food/pairing-targets";
+  import {
+    ArtifactUnreachableError,
+    needsNetworkLine,
+  } from "../../food/bundled-artifact";
 
   // **The pairing act** (ADR-0113 §§1, 2 and 9): a person searches the corpus
   // this app already ships, reads a reference food's own description, and says
@@ -39,6 +50,18 @@
   // product rather than a reference food, so it has no business being the second
   // end of this relationship. The filter is on the id and not on the tag,
   // because that is the property that has to hold.
+  //
+  // **The Declared state is the one question this sheet asks** (§11), and it
+  // decides which set the search reaches: *cooked* reaches the Pairing index and
+  // never the Search index, the default reaches the Search index and never the
+  // Pairing index. It defaults to as-bought, so it is a **widening act and not a
+  // gate in front of pairing** — a person never meets it unless they reach for
+  // it, and the pack that behaves as it did yesterday still does.
+  //
+  // **Nothing about it is recorded**, here or anywhere: every row in the Pairing
+  // index is a cooked record by construction, so the target's own `fdc:` id IS
+  // the state, and the id is the whole of what {@link onAccept} hands back.
+  // Storing the question beside the answer would keep the question.
   let {
     packName,
     onAccept,
@@ -63,10 +86,23 @@
   let error = $state("");
   /** The query the rows on screen answered, so a stale list never reads as this one's. */
   let answered = $state("");
+  /** The pack in this person's hand, as they have said it is (§11). */
+  let declared = $state<DeclaredState>(DECLARED_STATE_DEFAULT);
+  /**
+   * What the box is searching, said in the box rather than left to be inferred
+   * from the control above it. A cooked record is not a **Reference food**
+   * (§16), so the word moves with the declaration.
+   */
+  let searchLabel = $derived(
+    declared === "cooked" ? "Search cooked foods" : "Search reference foods"
+  );
 
   let debounceTimer: ReturnType<typeof setTimeout>;
   $effect(() => {
     const typed = query.trim();
+    // Read so that moving the declaration re-runs the search over the other set
+    // rather than leaving the last set's rows standing under the new question.
+    const state = declared;
     clearTimeout(debounceTimer);
     if (!typed) {
       results = [];
@@ -74,15 +110,22 @@
       error = "";
       return;
     }
-    debounceTimer = setTimeout(() => void runSearch(typed), SEARCH_DEBOUNCE_MS);
+    debounceTimer = setTimeout(
+      () => void runSearch(typed, state),
+      SEARCH_DEBOUNCE_MS
+    );
     return () => clearTimeout(debounceTimer);
   });
 
-  async function runSearch(typed: string) {
+  async function runSearch(typed: string, state: DeclaredState) {
     searching = true;
     error = "";
     try {
-      const search = await searchUsdaFoods(typed);
+      const search = await searchUsdaFoods(
+        typed,
+        {},
+        pairingSearchCorpus(state)
+      );
       // A search that answered while the user typed on is not this search's
       // answer, and the rows below say which query they are for.
       results = search.results.filter((food) =>
@@ -98,9 +141,18 @@
       error =
         e instanceof NoReferenceFoodError
           ? NO_FOOD_FOUND
-          : e instanceof Error
-            ? e.message
-            : String(e);
+          : // Neither Facet precaches the Pairing index (§11), so declaring a
+            // pack cooked with no network is an ordinary case rather than an
+            // exceptional one, and the recovery is the declaration itself: the
+            // set this device DOES keep is one tap away.
+            e instanceof ArtifactUnreachableError
+            ? needsNetworkLine(
+                e,
+                "Say “As you bought it” to search the foods this device keeps."
+              )
+            : e instanceof Error
+              ? e.message
+              : String(e);
     } finally {
       searching = false;
     }
@@ -110,6 +162,24 @@
     if (!chosen) return;
     onAccept(chosen.entity);
     onClose();
+  }
+
+  /**
+   * The declaration moved, so everything on screen is an answer to the other
+   * question and goes.
+   *
+   * **The rows go with the pick, and that is the partition rather than tidiness**
+   * (§11). A list left standing across the change is a list of Reference foods
+   * under a person who has just said their jar is cooked, one tap from exactly
+   * the pairing the partition exists to refuse — and it would be reachable in
+   * the window the search takes to settle, which is the one window nobody is
+   * watching for. The effect above re-runs and answers the new question.
+   */
+  function redeclare() {
+    chosen = null;
+    results = [];
+    answered = "";
+    error = "";
   }
 </script>
 
@@ -124,12 +194,24 @@
     figures fill only what this label leaves out, and the pack stays the food.
   </p>
 
+  <!-- The Declared state (§11): one question about the pack, two values, and
+       the only route to a Pairing target. It sits above the box because it says
+       what is being searched, and moving it takes the rows AND the pick with it
+       — see `redeclare`. -->
+  <Segmented
+    label="The pack in your hand"
+    options={DECLARED_STATES}
+    bind:value={declared}
+    onValueChange={redeclare}
+    testid="declared-state"
+  />
+
   <Input
     bind:value={query}
-    placeholder="Search reference foods"
+    placeholder={searchLabel}
     inputmode="search"
     data-testid="pairing-search"
-    aria-label="Search reference foods"
+    aria-label={searchLabel}
   />
 
   {#if searching}

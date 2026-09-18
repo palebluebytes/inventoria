@@ -1,5 +1,9 @@
 import type { EntityPayload } from "../ingestion/ingest";
-import { searchUsdaCorpus } from "./usda-corpus";
+import {
+  loadSearchCorpus,
+  searchUsdaCorpus,
+  type SearchCorpus,
+} from "./usda-corpus";
 import { curatedMatches } from "./curated-foods";
 import { byFrecency, type Frecency } from "./frecency";
 import { matchLedgerFoods, type LedgerFood } from "./ledger-foods";
@@ -240,10 +244,19 @@ export interface SearchContext {
  * No key, no quota and no network (ADR-0047 §1): the corpus is a committed
  * artifact precached at install, so this answers on a plane and on a cold
  * offline install alike.
+ *
+ * `load` is the **set** the query reads, and the Search index is the whole of
+ * the default. One thing moves it: a person's **Declared state** of *cooked*,
+ * which reaches the Pairing index and only it (ADR-0113 §11,
+ * `pairingSearchCorpus`). It sits here rather than on {@link SearchContext}
+ * because that is what this device already knows and this is what the query is
+ * asked of — and it mirrors `searchUsdaCorpus`'s own parameter, which is the
+ * one it is handed to.
  */
 export async function searchUsdaFoods(
   query: string,
-  context: SearchContext = {}
+  context: SearchContext = {},
+  load: () => Promise<SearchCorpus> = loadSearchCorpus
 ): Promise<ReferenceFoodSearch> {
   const trimmed = query.trim();
   if (!trimmed)
@@ -254,7 +267,7 @@ export async function searchUsdaFoods(
   // where what was typed reached no reference food at all.
   const { phrases, foods, rescued_by_vocabulary } = await searchUsdaCorpus(
     trimmed,
-    undefined,
+    load,
     frecency
   );
   const curated = curatedMatches(phrases);
