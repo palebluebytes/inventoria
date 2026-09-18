@@ -49,7 +49,7 @@ import {
 import { applyShippedNames, applyVariantDrops } from "./usda-adjudication.mjs";
 import { applyCollapsedNames, collapseCorpus } from "./usda-collapse.mjs";
 import { buildArtifacts } from "./usda-artifacts.mjs";
-import { ADJUDICATION } from "./pairing-adjudication.mjs";
+import { ACCEPTED, ADJUDICATION } from "./pairing-adjudication.mjs";
 import { resolve as resolveTs } from "./ts-resolve-hook.mjs";
 
 registerHooks({ resolve: resolveTs });
@@ -63,17 +63,6 @@ const EXPORT_PATH =
   process.env.INVENTORIA_LEDGER_EXPORT ??
   join(homedir(), ".local", "share", "inventoria", "ledger-export.jsonl");
 const INDEX_PATH = join(ROOT, "public", "usda", "search-index.json");
-
-/**
- * The three pairings #497 §3 added, adjudicated by hand there and reproduced
- * here by fdcId rather than re-derived. Each is a COOKED-state pairing: the
- * pack is sold cooked and the row is USDA's cooked assay.
- */
-const COOKED_PAIRINGS = {
-  4068263049675: 173740, // Alubia roja cocida -> Beans, kidney, dried, cooked, boiled
-  8426967020677: 173735, // Frijoles negros    -> Beans, black, dried, cooked, boiled
-  3379140130067: 174282, // Haricots chinois   -> Yardlong beans, dried, cooked, boiled
-};
 
 // ---------------------------------------------------------------------------
 // Population (copied from pairing-census.mjs's fold; same HLC rule)
@@ -221,8 +210,11 @@ for (const [gtin, adj] of Object.entries(ADJUDICATION)) {
       ratio: label && kcal ? kcal / label : null,
     });
   }
-  if (COOKED_PAIRINGS[gtin]) {
-    const fdcId = COOKED_PAIRINGS[gtin];
+  // The three pairings the Pairing target set adds, read from the same hand
+  // judgement as the as-bought verdicts above. This census kept its own copy of
+  // the three fdcIds until #516 folded every copy back into one literal.
+  if (ACCEPTED[gtin]) {
+    const { fdcId } = ACCEPTED[gtin];
     const kcal = energyOf.get(fdcId) ?? null;
     rightPairings.push({
       gtin,

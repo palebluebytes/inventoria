@@ -31,6 +31,12 @@
  * So the passes are composed directly and the assertions are left out, which is
  * safe precisely because nothing is written.
  *
+ * **The hand judgement lives in `pairing-adjudication.mjs`, all of it.** §3
+ * reads three literals from it — the as-bought verdicts, and the acceptances
+ * and refusals over the cooked set that #497 first wrote here. #516 folded
+ * those back after they drifted from the verdicts beside them; do not start a
+ * second copy of any of the three.
+ *
  * The energy figure is read through `buildIndexRow`, never off nutrient 1008.
  * Foundation rows carry 2047/2048 and no 1008 — eight shipped rows read as
  * having no energy at all if you ask for 1008, and `Spinach, mature` is one of
@@ -59,7 +65,7 @@ import {
   serialiseIndex,
   serialiseNutrientStore,
 } from "./usda-artifacts.mjs";
-import { ADJUDICATION } from "./pairing-adjudication.mjs";
+import { ACCEPTED, ADJUDICATION, REFUSED } from "./pairing-adjudication.mjs";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const ARCHIVE_DIR =
@@ -291,35 +297,6 @@ const SUBSTANCE = {
   8424790113009: /(?!)/,
 };
 
-/**
- * Whether the best row the cooked set offers is one this session would accept,
- * read by hand against the pack — the same act `pairing-adjudication.mjs`
- * performs, extended to the rows that corpus could not hold.
- *
- * Kept apart from the energy check on purpose. The veto admits five of these
- * and a person accepts three, and the two it waves through are not noise: they
- * are the reverse error §5 measures, caught here on the live population. A
- * census that reported the veto's five as coverage would be laundering exactly
- * the mistake this ticket was asked to price.
- */
-const ACCEPTED = {
-  4068263049675:
-    "the map's motivating jar; kidney beans boiled, the state the pack is sold in",
-  8426967020677:
-    "black beans boiled; the jar is in sauce and drains to about this",
-  3379140130067:
-    "yardlong beans DRIED then boiled — the mature seed, not the green pod #243 measured. " +
-    "#243 read this as the macro veto refusing a wrong food; it was the right food in a state the corpus did not hold",
-};
-const REFUSED = {
-  3379141822848:
-    "rice paper is a dried sheet at 341 kcal; `Rice, white, cooked` is 130 kcal of mostly water. " +
-    "Right grain, inverted state — the veto is silent because the error lands low",
-  6901089041097:
-    "mung bean STARCH against a wheat-and-egg noodle, and dried against cooked. " +
-    "Two errors compounding, both on the blind side",
-};
-
 console.log("\n## 3. Coverage over #241's population\n");
 const panels = readPanels(EXPORT_PATH);
 const unreached = Object.entries(ADJUDICATION).filter(
@@ -346,6 +323,16 @@ for (const [gtin, adjudication] of unreached) {
   // The veto #489 settled: one-sided, refusing above ~2.5x and silent below.
   const vetoAdmits = Boolean(best && label && best.kcal / label <= 2.5);
   const accepted = gtin in ACCEPTED;
+  // The hand named a row; this census finds one by regex and energy. If they
+  // have stopped being the same row, both the coverage figure and the refusals
+  // are about something nobody adjudicated — the drift #516 folded the literals
+  // to end, arriving from the corpus side instead of the editor's.
+  const judged = ACCEPTED[gtin] ?? REFUSED[gtin];
+  if (judged && best?.fdcId !== judged.fdcId)
+    throw new Error(
+      `The hand judged ${gtin} against ${judged.fdcId}; the cooked set's best row ` +
+        `is now ${best?.fdcId ?? "none"}. Re-read the twin before trusting this census.`
+    );
   if (accepted) closes++;
   if (vetoAdmits && !accepted) wavedThrough++;
   const mark = accepted ? "PAIRS  " : vetoAdmits ? "WAVED  " : "       ";
@@ -356,9 +343,9 @@ for (const [gtin, adjudication] of unreached) {
         ? `  ->  ${best.fdcId} x${(best.kcal / label).toFixed(2)} (${best.nutrients} nut) ${best.name}`
         : "  ->  nothing in the cooked set")
   );
-  if (accepted) console.log(`          why: ${ACCEPTED[gtin]}`);
+  if (accepted) console.log(`          why: ${ACCEPTED[gtin].why}`);
   if (vetoAdmits && !accepted)
-    console.log(`          refused by hand: ${REFUSED[gtin]}`);
+    console.log(`          refused by hand: ${REFUSED[gtin].why}`);
 }
 const pairedToday = Object.values(ADJUDICATION).filter(
   (a) => a.verdict === "paired"

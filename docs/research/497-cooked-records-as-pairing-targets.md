@@ -75,6 +75,8 @@ Of the 13 twins #243 could not pair, **3 gain a target a person accepts**:
 
 The population goes **22 → 25 of 35**. The two state gaps close, which was the floor #497 predicted, and one `none` closes, which was not.
 
+> **The `Haricots chinois` row of the _verdict today_ column is stale.** Acting on the finding below, #516 corrected it to `state-gap`. See the [#516 Correction](#8-correction-2026-09-18-516-all-three-rows-in-3-are-state-gaps) below. Nothing else in the table moves, and neither does the 22 → 25 the section was drawn for.
+
 **`Haricots chinois` is the finding, and it corrects the record.** #243 read this row as the macro veto doing its job — "the only candidate disagrees with the printed panel by 2.6× on energy, which is the macro-overlap check refusing a pairing the name would have waved through", and #489 and #496 both inherited it as the veto's one measured case of catching a _wrong food_ as against a wrong state. It was neither. The candidate #243 could see was `Yardlong bean` raw, the green pod; the pack is the dried mature seed, boiled, which USDA measured at 118 kcal against the label's 122. The name was right all along and the corpus did not hold the food. **The veto has no measured case of catching a wrong food left** — every error it has been shown to catch is a state gap, which is the thing this ticket removes.
 
 ## 4. What it puts beside the rows that already pair
@@ -117,3 +119,11 @@ The cooked set carries **145 with/without-salt pairs**, an axis the shipped corp
 - **The glossary term.** #497 asks for it as part of the work, and it is deliberately not coined here: naming a set the map has not decided to ship would put a term in `CONTEXT.md` ahead of the thing it names, which is the failure [#245](https://github.com/palebluebytes/inventoria/issues/245) recorded about the registry. What is established is that it cannot be **Reference food** — the entry is explicit that a record USDA cooked before it measured it is not one.
 - **#496's population.** It does not empty. Of the two twins #496 is argued over, both now pair — but §5 replaces them with 101 confusions of the opposite sign that the veto cannot see, so the override question survives with its sign flipped. #496 should be re-read against §3 and §5 rather than answered on its filed numbers.
 - **ADR-0048 §3 and ADR-0108 §10 are both silent here**, and the ADR should say so in a line rather than leave a reader to wonder. §3 forbids a _computed_ figure; a published USDA assay of a cooked food is a measurement. §10 forbids a composition value **crossing into the OFF product's panel**; the annotation still sits beside the panel and never in it. Neither needs amending either way.
+
+## 8. Correction (2026-09-18, #516): all three rows in §3 are state gaps
+
+§3's table reads its _verdict today_ column out of `scripts/pairing-adjudication.mjs`, which still held `Haricots chinois` at `none` — the verdict §3 goes on to refute in the paragraph beneath the table. [#516](https://github.com/palebluebytes/inventoria/issues/516) acted on that refutation: the as-bought corpus does ship the mature yardlong seed, as `fdcId 174281` `Yardlong beans, dried` at ×2.84 the label, so the verdict is `state-gap` and the literal now says so.
+
+What moves is the split behind [#243](https://github.com/palebluebytes/inventoria/issues/243)'s ceiling, from 22 + 2 to 22 + 3, and with it `pnpm pairing:census`'s printed 22 / 2 / 11 to 22 / 3 / 10. **The 22 → 25 this document measured does not move**, and the coincidence it creates is worth naming: the three twins the Pairing target set closes are now exactly the three the as-bought corpus records as state gaps. That is the data rather than a rule — a `none` could gain a target here too — and `pairing-adjudication.mjs` says so beside the literal rather than letting a reader infer the stronger claim.
+
+#516 also folded this document's three acceptances back into that module, from the two copies they had spread across `pairing-target-census.mjs` and `veto-census.mjs`.

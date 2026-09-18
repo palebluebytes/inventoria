@@ -1,11 +1,36 @@
 /**
  * The ceiling for #240's pairing question: every `gtin:` twin in #241's export,
- * adjudicated by hand against the shipped 2,023-row corpus.
+ * adjudicated by hand.
  *
  * Extracted from `pairing-census.mjs` when #495 needed the same population to
  * ask a different question — which limit nutrients a pairing may supply. One
- * hand judgement, read by both, so the two measurements cannot drift onto
+ * hand judgement, read by every census, so no two measurements can drift onto
  * different populations.
+ *
+ * **The judgement is one act over two populations, and both halves live here.**
+ * ADR-0113 §11 ships the cooked records as a second set — the Pairing target
+ * set, 1,182 collapsed rows, reached only by a person who declares the pack
+ * cooked — so "what could be paired" now has two answers per barcode:
+ *
+ * - {@link ADJUDICATION} reads every twin against the **as-bought** corpus, the
+ *   2,023 rows `public/usda/search-index.json` ships, which is what the default
+ *   Declared state reaches.
+ * - {@link ACCEPTED} and {@link REFUSED} read the twins that corpus could not
+ *   pair against the **Pairing target set**, which is what declaring _cooked_
+ *   reaches.
+ *
+ * #497 wrote the second half into `pairing-target-census.mjs` instead and
+ * `veto-census.mjs` then copied its three `fdcId`s out of that, which made the
+ * judgement three literals in two files; by #516 they had drifted, three
+ * verdicts in the first half still describing a corpus that no longer bounds
+ * what is reachable. Folded back here, one file, and the invariants at the foot
+ * of this module hold the halves to one population rather than leaving it to
+ * whoever reads them next.
+ *
+ * Type-import-only, deliberately: a bare runner's Node loads it with no install
+ * step, which is what lets the four censuses, the offline gate and the
+ * quarterly job all read the same judgement (`src/lib/food/curated-stand-ins.ts`
+ * has the property for the same reason).
  */
 
 /**
@@ -13,9 +38,12 @@
  *
  * `fdcId` is the row this session would accept if the app offered it;
  * `null` is a refusal, and `why` carries the refusal's reason as well as the
- * acceptance's. Every entry was read against the shipped 2,023-row corpus
- * rather than against USDA at large, because a row this app does not ship
- * cannot be proposed by anything.
+ * acceptance's. Every entry was read against the shipped 2,023-row **as-bought**
+ * corpus rather than against USDA at large, because a row this app does not ship
+ * cannot be proposed by anything — and against that corpus rather than the whole
+ * of what ships, because ADR-0113 §11's Declared state defaults to as-bought and
+ * a person who never reaches for the question meets these 2,023 rows and no
+ * others. What declaring _cooked_ adds is {@link ACCEPTED}, never this literal.
  *
  * Three verdicts, not two, and the third is the finding:
  *
@@ -28,6 +56,13 @@
  *   pulse. Counted apart from `paired` because calling it a pairing is what
  *   would put a 3x error into a meter.
  * - `none` — no defensible row, or the OFF record does not say what the food is.
+ *
+ * A `state-gap` names a gap in the as-bought corpus, not a gap in the app: every
+ * one of today's three is closed by the Pairing target set, and {@link ACCEPTED}
+ * says with what. The verdict stays `state-gap` because it is what the default Declared
+ * state reaches, and because the three proposer scores in `pairing-census.mjs`
+ * are scores against that corpus — folding the cooked row in here would credit
+ * the matcher with a row it cannot see.
  */
 export const ADJUDICATION = {
   8436578483167: {
@@ -40,7 +75,7 @@ export const ADJUDICATION = {
     name: "Alubia roja cocida",
     verdict: "state-gap",
     fdcId: 175193,
-    why: "#240's motivating case. `fdcId 173740` (kidney beans, cooked, boiled) is the row the map's Notes cite and it is NO LONGER SHIPPED — ADR-0103/0104's consolidation dropped every cooked row. What survives is `Beans, kidney, all types, dried` at ~333 kcal/100 g against this jar's 104.",
+    why: "#240's motivating case. Against the as-bought corpus what survives is `Beans, kidney, all types, dried` at ~333 kcal/100 g against this jar's 104 — the gap itself. `fdcId 173740` (kidney beans, dried, cooked, boiled) is the row the map's Notes cite; ADR-0103/0104's consolidation dropped it from the shipped corpus and ADR-0113 §11 put it back within reach, in the Pairing target set, at x1.22 (see ACCEPTED). Re-read for #516.",
   },
   4068263001970: {
     name: "Bebida de almendra ecologica",
@@ -88,7 +123,7 @@ export const ADJUDICATION = {
     name: "Frijoles negros",
     verdict: "state-gap",
     fdcId: 173734,
-    why: "Canned black beans in sauce. `Beans, black, dried` at ~341 kcal/100 g against the jar's 91. Same shape as the kidney bean above.",
+    why: "Canned black beans in sauce. `Beans, black, dried` at ~341 kcal/100 g against a jar #241's export reads at 85. Same shape as the kidney bean above, and closed the same way: `fdcId 173735` (black beans, dried, cooked, boiled) is in the Pairing target set at x1.55 (see ACCEPTED). Re-read for #516.",
   },
   3379141822848: {
     name: "Galette De Riz Ronde 22 CM LION",
@@ -104,9 +139,9 @@ export const ADJUDICATION = {
   },
   3379140130067: {
     name: "Haricots chinois",
-    verdict: "none",
-    fdcId: null,
-    why: "The name says yardlong bean and the label does not: 122 kcal and 13.1 g protein against `Yardlong bean` raw at 47 and 2.8. The only candidate disagrees with the printed panel by 2.6x on energy, which is the macro-overlap check refusing a pairing the name would have waved through.",
+    verdict: "state-gap",
+    fdcId: 174281,
+    why: "Adjudicated `none` at #243 on the reading that a 2.6x energy disagreement was the macro-overlap check refusing a WRONG FOOD — 122 kcal and 13.1 g protein against `Yardlong bean` raw at 47 and 2.8. #497 falsified that, and #516 corrects the verdict: the row #243 compared against is the green pod, and the pack is the mature seed, which the as-bought corpus ships as `fdcId 174281` Yardlong beans, dried, at 347 kcal — the same x2.8 state gap as the two pulses above. The name was right and the state was not, so the veto has no measured case of catching a wrong food. `fdcId 174282`, boiled, is in the Pairing target set at x0.97 (see ACCEPTED).",
   },
   8410069021649: {
     name: "Harina Gallo",
@@ -241,3 +276,94 @@ export const ADJUDICATION = {
     why: "Yogurt, plain, whole milk.",
   },
 };
+
+/**
+ * Whether the best row the **Pairing target set** offers is one this session
+ * would accept, read by hand against the pack — the same act
+ * {@link ADJUDICATION} performs, over the rows the as-bought corpus could not
+ * hold (ADR-0113 §11).
+ *
+ * `fdcId` is the row accepted and `why` is the reason. Only the twins
+ * {@link ADJUDICATION} could not pair appear: a twin that already pairs
+ * as-bought never meets the question, because the Declared state defaults to
+ * as-bought and the widening is the person's to reach for.
+ *
+ * Kept apart from the energy check on purpose. The veto admits five of these
+ * and a person accepts three, and the two it waves through are not noise: they
+ * are the reverse error `pairing-target-census.mjs` §5 measures, caught on the
+ * live population. A census that reported the veto's five as coverage would be
+ * laundering exactly the mistake #497 was asked to price.
+ *
+ * Three of thirteen, which is what takes the population from 22 to 25 of 35.
+ * They happen to be exactly today's three `state-gap` rows — the shipped corpus
+ * held the ingredient in the wrong state and this set holds the right one — but
+ * that is the data rather than a rule: a `none` could gain a target here too,
+ * and the invariants below say only what must hold.
+ */
+export const ACCEPTED = {
+  4068263049675: {
+    fdcId: 173740,
+    why: "the map's motivating jar; kidney beans boiled, the state the pack is sold in",
+  },
+  8426967020677: {
+    fdcId: 173735,
+    why: "black beans boiled; the jar is in sauce and drains to about this",
+  },
+  3379140130067: {
+    fdcId: 174282,
+    why:
+      "yardlong beans DRIED then boiled — the mature seed, not the green pod #243 measured. " +
+      "#243 read this as the macro veto refusing a wrong food; it was the right food in a state the corpus did not hold",
+  },
+};
+
+/**
+ * The twins where the Pairing target set offers a row and the hand refuses it.
+ *
+ * The other half of {@link ACCEPTED}'s act, in the same record shape — `fdcId`
+ * is the row that was offered and turned down — and written down for the same
+ * reason the refusals in {@link ADJUDICATION} are: both of these are rows the
+ * energy veto waves through, so a reader who only had the acceptances could not
+ * tell a measured refusal from an unexamined one.
+ */
+export const REFUSED = {
+  3379141822848: {
+    fdcId: 168878,
+    why:
+      "rice paper is a dried sheet at 341 kcal; `Rice, white, cooked` is 130 kcal of mostly water. " +
+      "Right grain, inverted state — the veto is silent because the error lands low",
+  },
+  6901089041097: {
+    fdcId: 168919,
+    why:
+      "mung bean STARCH against a wheat-and-egg noodle, and dried against cooked. " +
+      "Two errors compounding, both on the blind side",
+  },
+};
+
+/**
+ * What must hold between the two halves, checked on load rather than trusted.
+ *
+ * #516 exists because the halves lived in different files and one went stale
+ * against the other. Merging them removes the distance; this removes the
+ * silence, so the next divergence is a crash in all four censuses at once
+ * rather than a number nobody re-read. No import: a comparison over three
+ * object literals keeps the module loadable by a bare runner's Node.
+ */
+for (const [half, rows] of [
+  ["ACCEPTED", ACCEPTED],
+  ["REFUSED", REFUSED],
+]) {
+  for (const [gtin, row] of Object.entries(rows)) {
+    if (!ADJUDICATION[gtin])
+      throw new Error(`${half}[${gtin}] judges a twin ADJUDICATION does not`);
+    if (ADJUDICATION[gtin].verdict === "paired")
+      throw new Error(
+        `${half}[${gtin}] judges a twin that already pairs as-bought`
+      );
+    if (typeof row.fdcId !== "number")
+      throw new Error(`${half}[${gtin}] names no row`);
+    if (gtin in ACCEPTED && gtin in REFUSED)
+      throw new Error(`${gtin} is both accepted and refused over the same set`);
+  }
+}
