@@ -759,3 +759,23 @@ the fourth deliberately does not, and says why.
    making a claim about the archives, and nobody has examined whether their own
    pairing of a stand-in's barcode is theirs to make. What reopens it is an argument,
    not a count.
+
+## Amendment (2026-09-18, #516): the hand-adjudicated ceiling is 25 of 35, not 24
+
+The Context above reads the ceiling off
+[#243](https://github.com/palebluebytes/inventoria/issues/243)'s split — 22 `paired`
+plus 2 `state-gap` — and that split was one short. Executing this record's own hand-off,
+[#516](https://github.com/palebluebytes/inventoria/issues/516) re-read the thirteen
+unpaired verdicts against the Pairing target set §11 ships and found `Haricots chinois`
+adjudicated `none` on a reading #497 had already falsified: the pack is the mature
+yardlong seed, which the as-bought corpus does ship, dried, at ×2.84 the label. It is a
+state gap like the two pulses, `scripts/pairing-adjudication.mjs` now says so, and
+`pnpm pairing:census` prints **22 / 3 / 10**.
+
+Nothing in the Decision moves, and §11's 22 → 25 was already right: all three state gaps
+are what the Pairing target set closes, so the ceiling and the coverage figure now agree
+by construction rather than by arithmetic that happened to land. The reopening clause
+above is measured against 25 of 35 and is unaffected. §13 already reasons from #497's
+finding; what the correction moves is where that finding lives — out of a research note
+and into the committed literal, so a reader of the adjudication no longer meets the
+falsified reason with nothing beside it.
