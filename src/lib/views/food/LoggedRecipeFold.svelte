@@ -20,6 +20,7 @@
     type Portion,
   } from "../../food/nutrition";
   import { appError } from "../../logs/app-log";
+  import AddIngredientButton from "./AddIngredientButton.svelte";
   import FoodItemRow from "./FoodItemRow.svelte";
   import IngredientAmountSheet from "./IngredientAmountSheet.svelte";
   import AddIngredientSheet from "./AddIngredientSheet.svelte";
@@ -198,18 +199,17 @@
       />
     {/each}
 
-    <div class="fold-acts">
-      <button
-        type="button"
-        class="fold-act"
-        disabled={busy}
-        onclick={() => (adding = true)}>＋ Add ingredient</button
-      >
-      <!-- The one question this surface does not ask (ADR-0106 §5, §8). -->
-      <button type="button" class="fold-act muted" onclick={onOpenOccasion}
-        >How much of it?</button
-      >
-    </div>
+    <!-- The same act, in the same shape, as the one under the recipe builder's
+         ingredient list: both surfaces are a list of ingredients with one way to
+         extend it, and two spellings of that would be two affordances. -->
+    <AddIngredientButton disabled={busy} onclick={() => (adding = true)} />
+
+    <!-- The one question this surface does not ask (ADR-0106 §5, §8). It stays a
+         plain text control under the box: it leaves the fold rather than acting
+         on it, so it may not read as the act beside it. -->
+    <button type="button" class="fold-act" onclick={onOpenOccasion}
+      >How much of it?</button
+    >
   {/if}
 
   <!-- One status line, silent on success: the lines visibly change, which needs
@@ -254,30 +254,17 @@
     margin-left: var(--space-s);
     padding-left: var(--space-2xs);
   }
-  .fold-acts {
-    display: flex;
-    flex-wrap: wrap;
-    gap: var(--space-s);
-  }
   .fold-act {
+    align-self: flex-start;
     min-height: var(--tap-min);
     background: none;
     border: 0;
     padding: 0;
     font: inherit;
     font-size: var(--step-n2);
-    font-weight: 700;
     text-align: left;
-    color: var(--text-primary);
-    cursor: pointer;
-  }
-  .fold-act:disabled {
-    opacity: 0.5;
-    cursor: default;
-  }
-  .fold-act.muted {
-    font-weight: 400;
     color: var(--text-secondary);
+    cursor: pointer;
   }
   .fold-note {
     padding: var(--space-2xs) 0;

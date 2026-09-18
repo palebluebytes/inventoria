@@ -984,6 +984,21 @@ describe("the floor, swept", () => {
    * not one because this file keys a box by the element's own name, and the
    * second wears a class the first does not.
    *
+   * **Then the same ticket moved `drawn` 26 → 25 and left `declared` where it
+   * was, which is one box becoming shared and one box becoming honest.** The
+   * fold's "Add ingredient" took the dashed shape the recipe builder's has, and
+   * the two are now `AddIngredientButton` — so `IngredientListEditor`'s
+   * `button.add` leaves the sweep, the fold's `.fold-act.muted` key leaves with
+   * the class, and one key arrives at the new component. The arithmetic is
+   * −1 drawn, −1 declared, +1 declared.
+   *
+   * The box that left was `drawn` and the one that replaced it is `declared`,
+   * and that is the trade worth naming. The builder's add cleared the floor on
+   * `--space-s` padding around a bold line — true, and true only until somebody
+   * edits the padding. The shared one says `min-height: var(--tap-min)`, so the
+   * two surfaces that draw it cannot drift apart and neither can drift under the
+   * floor. `drawn` falling is this file's preferred direction.
+   *
    * **What did NOT arrive is the point of that ticket's second pass.** The
    * fold's ingredient rows draw the day's own `FoodItemRow`, so they are counted
    * once at `ui/Row` and never per call site. The first build drew its own line
@@ -1019,7 +1034,7 @@ describe("the floor, swept", () => {
     // standing beside "Makes" (#432). Both sides wrote 131 for reasons that do
     // not overlap, so the text merged clean at a figure neither of them meant;
     // the two added boxes were read off the sweep rather than arithmetic.
-    expect(how).toEqual({ declared: 135, drawn: 26, sanctioned: 6 });
+    expect(how).toEqual({ declared: 135, drawn: 25, sanctioned: 6 });
     // Every box lands in exactly one column. Without this the two figures above
     // could both be right while a box fell out of the sweep between them.
     expect(how.declared + how.drawn + how.sanctioned).toBe(SWEEP.groups.size);
