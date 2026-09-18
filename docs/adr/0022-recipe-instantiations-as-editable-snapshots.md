@@ -336,9 +336,12 @@ Charted by #462, off `prototype/logged-recipe-inline`.
 **The day gains an Occasion fold.** A logged recipe's row keeps everything it
 already is — the same card, the same ✕, the same place in its meal, the same
 long-press into a Selection — and gains a caret. Opening it drops the occasion's
-ingredients on a rule under the row's left edge, one line each: the name, the
-amount in a box, its unit, and a ✕. Tapping the row is what opens it; the
-correction sheet is no longer what a tap reaches.
+ingredients on a rule under the row's left edge, **each drawn as the logged row
+it behaves like**: the day's own `FoodItemRow logged`, a name over its amount,
+the ✕ in the corner, tapped to open its amount. A row inside a dish and a row
+outside one are therefore the same row, and what marks these as contents is the
+rule they hang on and their inset under the parent's name. Tapping the parent is
+what opens them; the correction sheet is no longer what a tap reaches.
 
 **What this replaces was a sheet over the whole day.** Correcting 60 g of
 avocado to 80 g cost the entire screen: `InstantiationSheet` re-seeded every row
@@ -371,12 +374,21 @@ snapshot to derive from, and `Σrows` over nothing is not a dish. Removing the
 whole thing is the card's own ✕, which is a removal (1 → 0) rather than a
 correction (1 → 1).
 
-**The amount control gives the tap floor back rather than arguing for an
-exemption.** The prototype's box was 3.4rem × 2rem, under `--tap-min`, and #462
-carried that as an open question against ADR-0093 and ADR-0098. It is answered
-by separating the control from the mark: the button is a full 48px target in both
-directions and the drawn box inside it is the 2rem the column is read down. No
-record needs amending to allow it, which is the outcome worth preferring.
+**The tap-floor question #462 carried is dissolved rather than answered.** The
+prototype drew each amount in a 3.4rem × 2rem box, under `--tap-min`, and left an
+exemption to ADR-0093 and ADR-0098 for the implementation to argue. The first
+build gave the floor back by wrapping that box in a 48px button; this one has no
+box to wrap. A row here is `Row`, which is already floored, already carries a
+corner ✕, and is already the tap target — so the exemption is not argued, not
+granted, and not needed.
+
+**What the box cost was a second row treatment on one screen.** The column of
+small boxes was the prototype's claim: a cook fixing a stew sees the numbers to
+change before touching any of them. Against it stands the day itself, where every
+amount is read under its name on a row of one shape, and where a logged
+ingredient already behaves like a logged food in every other respect this record
+settles. One row shape wins; the amount is where the eye has already learnt to
+find it.
 
 **A dangling ingredient now opens at the amount it was logged at.** The seed's
 fallback for a ref whose twin is gone fabricated a flat "1 serving", which opened

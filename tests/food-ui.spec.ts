@@ -2755,9 +2755,10 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     // No sheet was raised: the correction editor is not what a tap reaches now.
     await expect(page.locator('h2:text-is("Recipe")')).toHaveCount(0);
 
-    // Every amount is a box the moment the fold is open, and the box opens the
-    // app's own picker. Done writes — there is no Save anywhere on this screen.
-    await fold.getByLabel("Amount of Mock Oats").click();
+    // A row inside the dish is the day's own logged row, so it is opened the way
+    // a logged food is: by tapping it. Done writes — there is no Save anywhere
+    // on this screen.
+    await fold.locator(".food-item", { hasText: "Mock Oats" }).click();
     const sheet = page.locator(".amount-sheet");
     await sheet.getByLabel("Amount in grams").fill("100"); // 379 + 133.5 = 512.5
     await sheet.locator("#amount-done-btn").click();

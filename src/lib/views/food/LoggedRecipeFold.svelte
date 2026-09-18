@@ -8,9 +8,11 @@
   import {
     addOrMergeIngredient,
     sourceFromIngredients,
+    toReferenceIngredient,
     type IngredientAddOutcome,
     type RecipeIngredient,
   } from "../../food/recipe-ingredient";
+  import { deriveIngredientMacros } from "../../food/recipe-nutrition";
   import {
     enteredUnit,
     NUTRITION_INFO_ATTR,
@@ -18,29 +20,33 @@
     type Portion,
   } from "../../food/nutrition";
   import { appError } from "../../logs/app-log";
+  import FoodItemRow from "./FoodItemRow.svelte";
   import IngredientAmountSheet from "./IngredientAmountSheet.svelte";
   import AddIngredientSheet from "./AddIngredientSheet.svelte";
 
   // The **Occasion fold**: a logged recipe's ingredients, open on the day under
   // the row that logged them (ADR-0022, amended 2026-09-17; #462).
   //
-  // **Lines, not cards.** The weight stays on the card above, which is the day's
-  // actual entry; what hangs under it reads as that entry's contents rather than
-  // as six more of them. The parent row is untouched — the dashboard's own
-  // `FoodItemRow logged`, inside the wrapper that carries long-press, the
-  // selection check and the ✕ — so a logged recipe keeps everything a logged
-  // food has and gains a caret.
+  // **An ingredient is drawn as the logged food it behaves like.** Each line is
+  // the day's own `FoodItemRow logged` — a name over its amount, no kcal, the ✕
+  // in the corner — so a row inside a dish and a row outside one are the same
+  // row, read the same way down one list. What marks these as contents is the
+  // fold's rule and its inset under the parent's name; nothing about the line
+  // itself is this component's to draw.
   //
-  // **Every amount is a box, on every row, the moment the fold is open.** The
-  // column of boxes IS the affordance: a cook fixing a stew sees the three
-  // numbers to change before touching any of them. A line that had to be chosen
-  // first would teach what it does only by doing it.
+  // This replaced a bespoke line carrying its amount in a small box. Two row
+  // treatments on one screen was the whole of what that bought, and it cost an
+  // amount that was not read where every other amount on the day is read.
   //
-  // **The box opens the app's own picker** (`IngredientAmountSheet`) rather than
-  // editing in place — the same screen the recipe builder opens on a row, with
-  // its unit chips, its basis caption, its breakdown and its source marks.
-  // Changing how much of something there is has one surface in this app, and an
-  // inline field would be a cheaper thing that merely fitted the box.
+  // **The parent row is untouched** — the same card, inside the wrapper that
+  // carries long-press, the selection check and its own ✕ — so a logged recipe
+  // keeps everything a logged food has and gains a caret.
+  //
+  // **Tapping a line opens the app's own picker** (`IngredientAmountSheet`),
+  // which is what tapping a logged food already does, and the same screen the
+  // recipe builder opens on a row: its unit chips, its basis caption, its
+  // breakdown and its source marks. Changing how much of something there is has
+  // one surface in this app.
   //
   // **Every act writes at once and there is no Save.** These lines are another
   // view of the ingredients this occasion already records, so a logged
@@ -171,32 +177,25 @@
     <p class="fold-note">Reading the ingredients…</p>
   {:else}
     {#each rows as row (row.entity)}
-      <div class="line">
-        <span class="line-name">{row.name}</span>
-        <!-- The whole control is the tap target and the box is what the eye
-             reads: the button meets `--tap-min` in both directions (ADR-0093,
-             widened by ADR-0098) while the drawn box stays the height the
-             column needs. The floor is given back rather than argued away. -->
-        <button
-          type="button"
-          class="line-amt"
-          disabled={busy}
-          aria-label="Amount of {row.name}"
-          onclick={() => (editing = row.entity)}
-        >
-          <span class="line-box">{row.amount}</span>
-        </button>
-        <span class="line-unit"
-          >{row.unit === "serving" ? "srv" : row.unit}</span
-        >
-        <button
-          type="button"
-          class="line-x"
-          disabled={busy}
-          aria-label="Remove {row.name}"
-          onclick={() => removeRow(row)}>✕</button
-        >
-      </div>
+      <!-- The whole row is the target, as it is on the day: a logged food opens
+           its amount by being tapped, and so does an ingredient of a dish. The
+           tap floor, the corner ✕ and the two lines are `Row`'s, so nothing here
+           argues for them (ADR-0093, widened by ADR-0098).
+
+           Neither handler is withdrawn while a write is in flight: the guard is
+           in `commit`, so a second tap is dropped rather than the controls going
+           away under the thumb that is on them. -->
+      <FoodItemRow
+        logged
+        name={row.name}
+        amount={row.amount}
+        unit={row.unit}
+        calories={deriveIngredientMacros(toReferenceIngredient(row), (ref) =>
+          sourceFromIngredients(rows ?? [], ref)
+        ).calories}
+        onclick={() => (editing = row.entity)}
+        onRemove={() => removeRow(row)}
+      />
     {/each}
 
     <div class="fold-acts">
@@ -240,85 +239,20 @@
 {/if}
 
 <style>
-  /* The fold drops from the parent's left edge and the lines hang off it. One
-     step of inset, so the contents sit under the parent's NAME rather than
-     under its frame. */
+  /* The fold drops from the parent's left edge and its rows hang off it. One
+     step of inset, so the contents sit under the parent's NAME rather than under
+     its frame — which is the whole of what marks them as contents now that the
+     rows themselves are the day's own rows.
+
+     The gap is `.meal-items-list`'s, because rows inside a dish are read down
+     the same rhythm as the rows outside one. */
   .fold {
     display: flex;
     flex-direction: column;
+    gap: var(--space-xs);
     border-left: var(--edge);
     margin-left: var(--space-s);
     padding-left: var(--space-2xs);
-  }
-  .line {
-    display: flex;
-    align-items: center;
-    gap: var(--space-2xs);
-    min-height: var(--tap-min);
-    border-bottom: 1px solid var(--border);
-  }
-  .line-name {
-    flex: 1;
-    min-width: 0;
-    font-size: var(--step-n2);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-  .line-amt {
-    flex-shrink: 0;
-    /* The control, not the box: the floor is the tappable area, and the mark
-       inside it is what the column is read down. */
-    min-width: var(--tap-min);
-    min-height: var(--tap-min);
-    display: grid;
-    place-items: center;
-    padding: 0;
-    background: none;
-    border: 0;
-    cursor: pointer;
-  }
-  .line-amt:disabled {
-    opacity: 0.5;
-    cursor: default;
-  }
-  .line-box {
-    display: grid;
-    place-items: center end;
-    width: 3.4rem;
-    height: 2rem;
-    background: var(--paper);
-    border: var(--edge-thin);
-    padding: 0 var(--space-3xs);
-    /* Never under 16px: a smaller field zooms the page on focus and the day
-       goes sideways. */
-    font-size: var(--step-0);
-    font-variant-numeric: tabular-nums;
-    color: inherit;
-  }
-  /* **A column, not a word.** The unit sits after the box, so its width decides
-     where the box ends: `g` and `srv` are three characters apart, and that is
-     how far the boxes slid against each other down the list. Reserved at the
-     widest unit this app writes, so every box in the fold shares an edge. */
-  .line-unit {
-    flex-shrink: 0;
-    width: 2.2rem;
-    font-size: var(--step-n2);
-    font-weight: 700;
-    color: var(--text-secondary);
-  }
-  .line-x {
-    flex-shrink: 0;
-    width: var(--tap-min);
-    min-height: var(--tap-min);
-    background: none;
-    border: 0;
-    color: var(--text-muted);
-    cursor: pointer;
-  }
-  .line-x:disabled {
-    opacity: 0.5;
-    cursor: default;
   }
   .fold-acts {
     display: flex;

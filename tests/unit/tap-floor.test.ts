@@ -977,6 +977,27 @@ describe("the floor, swept", () => {
    * the floor and a box declaring none reads as unbounded. So these two boxes
    * leaving the count is the smaller half of #390; the larger half is 69 call
    * sites gaining a floor this file was never able to check.
+   *
+   * It rose 133 → 135 at #462, by the Occasion fold's two action buttons —
+   * `LoggedRecipeFold`'s `button.fold-act` and the `.muted` one beside it,
+   * measured off the sweep rather than counted by hand. They are two keys and
+   * not one because this file keys a box by the element's own name, and the
+   * second wears a class the first does not.
+   *
+   * **What did NOT arrive is the point of that ticket's second pass.** The
+   * fold's ingredient rows draw the day's own `FoodItemRow`, so they are counted
+   * once at `ui/Row` and never per call site. The first build drew its own line
+   * instead — an amount box in a button, a ✕ beside it — which would have put
+   * two more keys here wearing two more hand-written floors, in a file whose
+   * whole argument is that a copy is a fix that can be missed. A row shape
+   * borrowed is a box this sweep never has to keep level.
+   *
+   * A word on when it arrived, because it is the docblock's own warning made
+   * flesh a second time: these two boxes were invisible while
+   * `LoggedRecipeFold.svelte` was untracked, exactly as `DensityQuestion`'s
+   * `input.typed-num` was at #430. The suite passed at 133 with the fold on
+   * screen and its buttons unread. `trackedSvelteFiles` is the population, so a
+   * new control joins this census at `git add` and not before.
    */
   it("carries most of them on a declared floor, not on arithmetic", () => {
     const how = { declared: 0, drawn: 0, sanctioned: 0 };
@@ -998,7 +1019,7 @@ describe("the floor, swept", () => {
     // standing beside "Makes" (#432). Both sides wrote 131 for reasons that do
     // not overlap, so the text merged clean at a figure neither of them meant;
     // the two added boxes were read off the sweep rather than arithmetic.
-    expect(how).toEqual({ declared: 133, drawn: 26, sanctioned: 6 });
+    expect(how).toEqual({ declared: 135, drawn: 26, sanctioned: 6 });
     // Every box lands in exactly one column. Without this the two figures above
     // could both be right while a box fell out of the sweep between them.
     expect(how.declared + how.drawn + how.sanctioned).toBe(SWEEP.groups.size);
