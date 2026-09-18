@@ -30,12 +30,12 @@
 import { readFoodDensity } from "./density";
 import { markPanel, referenceFoodPanel } from "./marked-panel";
 import { NUTRITION_INFO_ATTR, type NutritionInfo } from "./nutrition";
-import { readFoodPairing, referenceFoodName } from "./pairing";
 import {
-  loadPairingTargetSet,
-  pairingTargetName,
-  type PairingTargetSet,
-} from "./pairing-targets";
+  describedReferenceFood,
+  readFoodPairing,
+  referenceFoodName,
+} from "./pairing";
+import { loadPairingTargetSet, type PairingTargetSet } from "./pairing-targets";
 import type { FrozenPairing } from "./provenance";
 import type { IngredientSource } from "./recipe-nutrition";
 import { FDC_FOOD_BASE } from "./usda-fdc";
@@ -101,7 +101,9 @@ export function referenceFoodsFrom(
       (cooked.store ? referenceFoodPanel(cooked.store, reference) : undefined),
     name: (reference) =>
       (corpus ? referenceFoodName(corpus, reference) : undefined) ??
-      (cooked.index ? pairingTargetName(cooked.index, reference) : undefined),
+      (cooked.index
+        ? describedReferenceFood(cooked.index.foods, reference)
+        : undefined),
   };
 }
 
@@ -121,12 +123,21 @@ export function referenceFoodsFrom(
  * able to read the reference food is the panel the label already carried, with
  * no envelope beside it — which is exactly the state an unpaired pack is in.
  *
+ * **It never rejects**, on any arm: every loader it calls is caught here.
+ *
  * **The cooked set is a third fetch, and it is conditional on the first two.**
  * A pairing the shipped Nutrient store cannot answer for is a Pairing target,
  * because a Declared state records nothing and the id is the state (§11) — so
  * that, and only that, is what reaches for `loadCooked`. Every ordinary paired
  * pack resolves without it, which is ADR-0113 §11's promise kept at the one seam
  * that could break it.
+ *
+ * §11 splits the two cooked artifacts — the index when a person declares cooked,
+ * the store when they accept a row — and that split is intact where it is about
+ * a person: the declaration fetches the index through `loadPairingCorpus`, and
+ * the acceptance reaches here for the store alone, the index already memoised.
+ * Both together happen only on a LATER session opening a pack somebody paired in
+ * an earlier one, where the name and the figures are wanted in the same breath.
  */
 export async function loadReferenceFoods(
   twins: readonly (Record<string, unknown> | undefined)[],
@@ -144,18 +155,29 @@ export async function loadReferenceFoods(
     loadStore().catch(() => undefined),
     loadCorpus().catch(() => undefined),
   ]);
-  // The cooked set is asked for only where the shipped store was read AND could
-  // not answer for something, which is what keeps §11's promise that a person
-  // who never declares a pack cooked never fetches either new artifact. A store
-  // that did not load answers for nothing, and that is no evidence about any id
-  // — so an offline device spends no second fetch discovering it is offline.
-  const unresolved =
-    store !== undefined &&
-    [...references].some(
-      (reference) => referenceFoodPanel(store, reference) === undefined
-    );
-  const cooked = unresolved ? await loadCooked() : {};
+  // Neither artifact answered, so there is nothing to build a lookup out of.
+  // Either one alone is enough and says something true: the store carries the
+  // figures a fill needs, and the corpus carries the name a card shows beside
+  // the pack — which is the state `FoodCard` resolved to before it read through
+  // here, and would be a regression to lose.
   if (!store && !corpus) return undefined;
+  // The cooked set is asked for only where the shipped store was READ and could
+  // not answer, which is what keeps §11's promise that a person who never
+  // declares a pack cooked never fetches either new artifact. A store that did
+  // not load answers for nothing, and that is no evidence about any id — so an
+  // offline device spends no second fetch discovering it is offline.
+  //
+  // The probe asks the shipped lookup rather than re-deriving it, so the
+  // shipped-first rule stays written once, in `referenceFoodsFrom`.
+  const shipped = referenceFoodsFrom(store, corpus);
+  const anyUnresolved =
+    store !== undefined &&
+    [...references].some((reference) => shipped.panel(reference) === undefined);
+  // Caught here rather than trusted to the loader. This function's promise to
+  // every caller is that it degrades rather than throws — `FoodCard` leans on it
+  // with a bare `.then` — and a promise that held only for the loader that
+  // happens to be the default is not one.
+  const cooked = anyUnresolved ? await loadCooked().catch(() => ({})) : {};
   return referenceFoodsFrom(store, corpus, cooked);
 }
 

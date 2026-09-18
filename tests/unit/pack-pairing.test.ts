@@ -14,6 +14,7 @@ import {
   isReferenceFoodEntity,
   pairingRefusalOf,
   readFoodPairing,
+  describedReferenceFood,
   referenceFoodName,
   withPairing,
 } from "../../src/lib/food/pairing";
@@ -191,5 +192,47 @@ describe("the reference food is named on screen, or it is not claimed (§9)", ()
     // than an absent one.
     expect(referenceFoodName(corpus(), "fdc:999999")).toBeUndefined();
     expect(referenceFoodName(corpus(), "gtin:1")).toBeUndefined();
+  });
+
+  it("names a row of the cooked set by the same predicate, off the raw index", () => {
+    // ADR-0113 §11 puts a **Pairing target** in a second artifact, whose rows
+    // are not read into a corpus to be named — a card resolving one paired id
+    // wants a description, not a search. One predicate answers for both sets,
+    // because which set a row came from changes nothing about how it is named.
+    const targets = [
+      {
+        fdcId: 173740,
+        description: "Beans, kidney, all types, mature seeds, cooked, boiled",
+        dataType: "SR Legacy",
+        macros: { calories: 127 },
+      },
+    ];
+
+    expect(describedReferenceFood(targets, "fdc:173740")).toBe(
+      "Beans, kidney, all types, mature seeds, cooked, boiled"
+    );
+    expect(describedReferenceFood(targets, "fdc:168409")).toBeUndefined();
+    expect(describedReferenceFood(targets, "")).toBeUndefined();
+  });
+
+  it("stops at the row it wants rather than walking the whole set", () => {
+    // It takes an iterable so neither caller builds an array: a corpus yields
+    // its rows as they are walked, and materialising two thousand of them to
+    // find one is the cost this reads around.
+    let walked = 0;
+    function* counted() {
+      for (const fdcId of [1, 2, 173740, 4]) {
+        walked += 1;
+        yield {
+          fdcId,
+          description: `Row ${fdcId}`,
+          dataType: "SR Legacy",
+          macros: {},
+        };
+      }
+    }
+
+    expect(describedReferenceFood(counted(), "fdc:173740")).toBe("Row 173740");
+    expect(walked).toBe(3);
   });
 });

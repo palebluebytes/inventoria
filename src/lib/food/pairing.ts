@@ -26,7 +26,7 @@
 // ---------------------------------------------------------------------------
 
 import type { EntityPayload } from "../ingestion/ingest";
-import { fdcIdFor, type SearchCorpus } from "./usda-corpus";
+import { fdcIdFor, type SearchCorpus, type UsdaCorpusRow } from "./usda-corpus";
 
 /** Where a pack's Pack pairing lives on its twin. */
 export const FOOD_PAIRING_ATTR = "food/pairing";
@@ -202,12 +202,47 @@ export function readFoodPairing(
  * Nobody is named where the row is gone, and that is §7 rather than a failure:
  * a pairing keeps standing when the name has left the corpus, so an unresolvable
  * id is an unnamed pairing and never an absent one.
+ *
+ * The rule itself is {@link describedReferenceFood}'s, so that a Pairing target
+ * read out of the raw Pairing index and a Reference food read out of a loaded
+ * corpus are named by one predicate rather than by two that could disagree
+ * (ADR-0113 §11). This is the adaptation of the second shape to it.
  */
 export function referenceFoodName(
   corpus: SearchCorpus,
   reference: string
 ): string | undefined {
+  return describedReferenceFood(corpusRows(corpus), reference);
+}
+
+/** A loaded corpus's rows, LAZILY: a name lookup stops at the row it wants, and
+ *  materialising two thousand of them to find one would be the cost this reads
+ *  around. */
+function* corpusRows(corpus: SearchCorpus): Iterable<UsdaCorpusRow> {
+  for (const food of corpus.foods) yield food.row;
+}
+
+/**
+ * The description these rows publish for one reference food, or `undefined`
+ * where they do not carry it.
+ *
+ * **The canonical answer to _what is this `fdc:` id called_**, over any rows
+ * that carry one. Two shapes ask it and must not answer differently: a loaded
+ * {@link SearchCorpus}, through {@link referenceFoodName}, and the raw Pairing
+ * index a paired pack falls back to when the shipped set cannot name its target
+ * (ADR-0113 §11). The set a row came from changes nothing about how it is
+ * named — that is the caller's question, and this is deliberately blind to it.
+ *
+ * It takes an `Iterable` rather than an array so neither caller has to build one:
+ * the index's rows are already in this shape and a corpus's are yielded as they
+ * are walked.
+ */
+export function describedReferenceFood(
+  rows: Iterable<UsdaCorpusRow>,
+  reference: string
+): string | undefined {
   const fdcId = fdcIdFor(reference);
   if (fdcId === null) return undefined;
-  return corpus.foods.find((food) => food.row.fdcId === fdcId)?.row.description;
+  for (const row of rows) if (row.fdcId === fdcId) return row.description;
+  return undefined;
 }

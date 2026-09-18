@@ -359,6 +359,37 @@ describe("which set a paired id is resolved out of (§11)", () => {
     expect(read?.panel("fdc:168409")?.calories).toBe(333);
   });
 
+  it("never rejects, whichever of the three loaders fails", async () => {
+    // `FoodCard` reads through here with a bare `.then`, so a rejection would be
+    // an unhandled one inside a Svelte effect. The guarantee has to hold for the
+    // cooked loader too: one that held only for the loader that happens to be
+    // the default is not a guarantee.
+    const refuses = () => Promise.reject(new Error("offline"));
+
+    await expect(
+      loadReferenceFoods([twin()], async () => shippedStore, refuses, refuses)
+    ).resolves.toBeDefined();
+    await expect(
+      loadReferenceFoods([twin()], refuses, refuses, refuses)
+    ).resolves.toBeUndefined();
+  });
+
+  it("keeps naming a pairing when the figures are the half that would not load", async () => {
+    // The corpus alone still says something true, and it is what a paired pack's
+    // card showed before it read through here: the reference food named beside
+    // the pack, with nothing borrowed from it. Losing that would be a
+    // regression, so either artifact alone builds a lookup.
+    const read = await loadReferenceFoods(
+      [{ "nutrition/info": label(), "food/pairing": "fdc:168409" }],
+      () => Promise.reject(new Error("offline")),
+      async () => shippedCorpus,
+      async () => ({})
+    );
+
+    expect(read?.name("fdc:168409")).toBe("Beans, kidney, raw");
+    expect(read?.panel("fdc:168409")).toBeUndefined();
+  });
+
   it("does not guess at the cooked set when the shipped store never loaded", async () => {
     // An unanswerable id and an unread store look alike from here, and only the
     // first is evidence of anything. Fetching on the second would spend a
