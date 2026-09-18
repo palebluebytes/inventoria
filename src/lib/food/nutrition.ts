@@ -585,6 +585,24 @@ export function parseBasisQuantity(serving_size: string | undefined): number {
 }
 
 /**
+ * True where the basis string actually **names** a quantity, rather than being
+ * read through one of the two fallbacks below.
+ *
+ * {@link parseBasisQuantity} and {@link basisUnit} both answer for every string,
+ * because a scaler always needs a divisor and a unit. That is the right answer
+ * for dividing and the wrong one for any caller whose act would be a **claim
+ * about the basis itself** — filling a silent panel row from another food's
+ * figures is one (ADR-0113 §4), because borrowing against the 100 g fallback
+ * would assert a weight for a serving nobody weighed.
+ *
+ * The third sibling over the same regex, so the three cannot come to different
+ * conclusions about one string.
+ */
+export function basisIsStated(serving_size: string | undefined): boolean {
+  return BASIS_QUANTITY.test((serving_size ?? "").trim());
+}
+
+/**
  * The unit a panel's amounts are entered and logged in: millilitres for a volume
  * basis, grams for everything else (ADR-0060 §1). The sibling of
  * {@link parseBasisQuantity} — one reads the basis's number, this one its unit —
