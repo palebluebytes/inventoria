@@ -40,7 +40,7 @@
     onclick,
     lead,
     corner,
-    cornerLead,
+    cornerBelow,
     selected = false,
     preview,
     note = "",
@@ -62,9 +62,10 @@
     /** Top-right corner content. Takes the remove ✕'s place when given — the
      *  dashboard puts its selection check here while a selection is active. */
     corner?: Snippet;
-    /** A mark beside whichever of those the corner is showing (`Row`'s own
-     *  `cornerLead`) — the day puts a logged recipe's occasion control there. */
-    cornerLead?: Snippet;
+    /** A second mark under whichever of those the corner is showing, in the
+     *  same column (`Row`'s own `cornerBelow`) — the day puts a logged recipe's
+     *  occasion control there. */
+    cornerBelow?: Snippet;
     /** Dashboard selection highlight; ignored by the recipe list. */
     selected?: boolean;
     /** What this food WOULD read at, while a Scale preview is live (ADR-0088
@@ -108,7 +109,7 @@
   {onclick}
   {lead}
   {corner}
-  {cornerLead}
+  {cornerBelow}
   {selected}
 >
   {#snippet trailing()}
@@ -166,19 +167,20 @@
     padding-right: calc(1.5rem + var(--space-3xs) - var(--space-s));
   }
 
-  /* A second mark in the corner is a second box to clear, and the reserve above
-     is one box wide. Two `--tap-min` targets stand there on a logged recipe —
-     the occasion mark and the ✕ — so a name long enough to wrap ran under the
-     left one, which is the one failure an out-of-flow corner can produce. The
-     term that changes is the cluster's width; the inset and the row's own
-     padding are the same two the single-mark reserve subtracts.
+  /* A corner that is a column is one box wide and two boxes tall, so what the
+     name gains back in width the AMOUNT has to give up: the second mark sits at
+     the foot of the corner, level with the line the amount is on, where the
+     single-mark reserve above left nothing at all.
 
-     It costs the name that width on every line it has, including the lines the
-     48px-tall cluster never reaches. A reserve that changed per line is not a
-     thing CSS offers, and a name that clears the marks on line one and collides
-     on line two would be the worse half of the trade. */
-  :global(.food-item.fi-logged.has-corner-lead .row-title) {
-    padding-right: calc(2 * var(--tap-min) + var(--space-3xs) - var(--space-s));
+     Both lines reserve the same width, and it is the target's rather than the
+     mark's — the drawn ✕ is 1.5rem in a 48px box and a name may run under the
+     transparent half of it, but a name running under the half of a *second*
+     control that a thumb actually lands on is a row with two meanings in one
+     place. */
+  :global(.food-item.fi-logged.has-corner-below .row-title),
+  :global(.food-item.fi-logged.has-corner-below .row-subtitle) {
+    padding-right: calc(var(--tap-min) + var(--space-3xs) - var(--space-s));
+    max-width: none;
   }
 
   /* A list line, not a poster: two short lines inside the frame's full padding

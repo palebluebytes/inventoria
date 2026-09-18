@@ -752,10 +752,11 @@
                      role, and the check reads where the eye already looks. -->
                 <!-- The occasion itself: what the batch weighed and how much
                      of it was eaten (ADR-0106 §5, §8), which is the one question
-                     the fold does not ask. It stands beside the row's ✕ because
-                     it is an act on the dish, where the ✕ is, rather than a mark
-                     about it; and it is the recipe `WayInIcon` verbatim, since
-                     it opens the screen that way in logs.
+                     the fold does not ask. It stands under the row's ✕, in the
+                     column the corner has always been, because it is an act on
+                     the dish rather than a mark about it; and it is the recipe
+                     `WayInIcon` verbatim, since it opens the screen that way in
+                     logs.
 
                      The tap is stopped exactly as the photo thumb's is: the card
                      around it toggles the fold, and a control inside a control
@@ -816,7 +817,7 @@
                       (rowsIn > 0 ? `${rowsIn} ingredients` : "")}
                     onRemove={() => onRemoveItem(item.id)}
                     corner={selectionActive ? selectCheck : undefined}
-                    cornerLead={item.instantiation ? occasionMark : undefined}
+                    cornerBelow={item.instantiation ? occasionMark : undefined}
                   >
                     {#snippet lead()}
                       <!-- A logged recipe says so before it is tapped (#462):

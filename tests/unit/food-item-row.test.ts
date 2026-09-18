@@ -87,12 +87,12 @@ describe("a food line", () => {
      * and this file (which reserves on it). A long name ran under the left mark
      * until #462's occasion control arrived to find that out.
      */
-    it("says on the root that its corner is carrying two marks", () => {
+    it("says on the root that its corner is a column of two", () => {
       const { body } = render(FoodItemRow, {
-        props: { ...oats, logged: true, onRemove: () => {}, cornerLead: mark },
+        props: { ...oats, logged: true, onRemove: () => {}, cornerBelow: mark },
       } as Record<string, unknown>);
 
-      expect(body).toMatch(/class="row [^"]*\bhas-corner-lead\b/);
+      expect(body).toMatch(/class="row [^"]*\bhas-corner-below\b/);
       expect(body).toContain("🍲");
       // Beside the ✕, not instead of it: both acts are on the row at once.
       expect(body).toContain("fi-remove");
@@ -103,20 +103,19 @@ describe("a food line", () => {
         props: { ...oats, logged: true, onRemove: () => {} },
       });
 
-      expect(body).not.toContain("has-corner-lead");
+      expect(body).not.toContain("has-corner-below");
     });
 
-    it("reserves both boxes off the name when it is", () => {
-      // Read out of the file: the single-mark reserve is one box wide and this
-      // one names `--tap-min` twice, which is the cluster the two marks make.
-      // A reserve that stayed at one box is the defect this pins.
+    it("reserves the target's width off BOTH lines when it is", () => {
+      // Read out of the file. A column of marks is one box wide, so the width is
+      // the single mark's — but the second one sits at the foot of the corner,
+      // level with the amount, which the single-mark reserve left uncovered.
       const css = styleOf("src/lib/views/food/FoodItemRow.svelte");
-      const wide = css.match(
-        /\.has-corner-lead[^{]*\.row-title\)\s*\{[^}]*padding-right:\s*([^;]+);/
-      )?.[1];
+      const rule = css.match(/\.has-corner-below[^{]*\{([^}]*)\}/)?.[1];
 
-      expect(wide).toBeDefined();
-      expect(wide).toContain("2 * var(--tap-min)");
+      expect(rule).toBeDefined();
+      expect(rule).toContain("var(--tap-min)");
+      expect(css).toMatch(/\.has-corner-below \.row-subtitle\)/);
     });
   });
 

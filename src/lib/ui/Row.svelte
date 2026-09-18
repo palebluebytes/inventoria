@@ -29,7 +29,7 @@
     lead,
     trailing,
     corner,
-    cornerLead,
+    cornerBelow,
     onRemove,
     onclick,
     selected = false,
@@ -51,15 +51,17 @@
     /** Top-right corner content. Takes the remove ✕'s place when given. */
     corner?: Snippet;
     /**
-     * A mark in the top-right corner **beside** whichever of those two the row
-     * is showing, ahead of it — a second control on the row that belongs with
-     * the ✕ rather than in the text.
+     * A second mark in the corner, **under** whichever of those two the row is
+     * showing and in the same column as it — another act on the row that
+     * belongs with the ✕ rather than in the text.
      *
      * It is not `trailing`: that mark sits in the row's flow, which is why a
      * food line drops its kcal to the baseline to clear the corner. This one
-     * joins the corner instead of clearing it.
+     * joins the corner instead of clearing it, so the corner becomes a column
+     * of acts rather than a single mark and the row grows tall enough to hold
+     * two.
      */
-    cornerLead?: Snippet;
+    cornerBelow?: Snippet;
     onRemove?: () => void;
     /** Whole-row tap. Omit to make the row inert. */
     onclick?: () => void;
@@ -76,7 +78,7 @@
 
   let clickable = $derived(!!onclick);
   // A ✕ or a corner mark is content a native <button> may not hold.
-  let asButton = $derived(clickable && !corner && !onRemove && !cornerLead);
+  let asButton = $derived(clickable && !corner && !onRemove && !cornerBelow);
 </script>
 
 {#snippet body()}
@@ -91,21 +93,25 @@
     {/if}
   </span>
   {@render trailing?.()}
-  <!-- One cluster holds everything the corner shows, so a second control arrives
-       beside the ✕ rather than on top of it. The cluster is what is positioned;
+  <!-- One cluster holds everything the corner shows, so a second act arrives
+       under the ✕ rather than on top of it. The cluster is what is positioned;
        its contents are in flow inside it, which is why `FoodItemRow`'s measured
-       `top` for a logged row now names the cluster and nothing else moved.
+       `top` for a logged row names the cluster and nothing else moved.
+
+       **The ✕ stays first, and the second mark goes below it.** Corner-first is
+       what the row has always drawn and what a reader reaches for without
+       looking; a mark that displaced it would move the one control every row
+       has to make room for one that few do.
 
        **The cluster is out of flow, so what it covers is the caller's to
-       reserve.** A row showing one mark reserves one box; a row showing two has
-       to reserve both, or the title runs under the left one — which is what
-       `has-corner-lead` on the root is for. It is written into the class string
-       rather than passed as a `class:` directive, for the reason the div below
-       already carries: alongside a `{...rest}` spread the compiler hands a
-       directive the identifier itself. -->
-  {#if cornerLead || corner || onRemove}
+       reserve** — `has-corner-below` on the root is how a caller knows the
+       corner is a column and that the row has to be tall enough to hold it. It
+       is written into the class string rather than passed as a `class:`
+       directive, for the reason the div below already carries: alongside a
+       `{...rest}` spread the compiler hands a directive the identifier
+       itself. -->
+  {#if cornerBelow || corner || onRemove}
     <span class="row-corner-cluster">
-      {@render cornerLead?.()}
       {#if corner}
         <span class="row-corner">{@render corner()}</span>
       {:else if onRemove}
@@ -120,6 +126,7 @@
           }}>✕</button
         >
       {/if}
+      {@render cornerBelow?.()}
     </span>
   {/if}
 {/snippet}
@@ -141,7 +148,7 @@
   <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
   <div
     {...rest}
-    class="row {className} {cornerLead ? 'has-corner-lead' : ''}"
+    class="row {className} {cornerBelow ? 'has-corner-below' : ''}"
     class:selected
     class:clickable={!!onclick}
     role={clickable ? "button" : undefined}
@@ -226,6 +233,24 @@
     right: var(--space-3xs);
     display: inline-flex;
     align-items: center;
+  }
+  /* Two acts, one column: the ✕ pinned to the top of the corner and the second
+     mark to the bottom of the row, so they share the column the corner has
+     always been in and can never meet. `space-between` is what keeps the pair
+     apart on a row taller than the two boxes — a name that wraps to three lines
+     lengthens the column rather than leaving the second mark floating under the
+     first. The row's own floor below is what stops it collapsing the other
+     way. */
+  .row.has-corner-below .row-corner-cluster {
+    bottom: var(--space-3xs);
+    flex-direction: column;
+    justify-content: space-between;
+  }
+  /* Tall enough for the pair, since the corner is out of flow and cannot ask
+     for the height itself. Two floored boxes and the insets they are held off
+     the edges by. */
+  .row.has-corner-below {
+    min-height: calc(2 * var(--tap-min) + 2 * var(--space-3xs));
   }
   .row-remove,
   .row-corner {
