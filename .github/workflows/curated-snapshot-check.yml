@@ -1,4 +1,4 @@
-# Have the curated stand-ins' pinned OFF records moved?
+# Have the pinned barcodes under the two curated tables moved?
 #
 # ADR-0046 §4 snapshots each curated stand-in's Open Food Facts record into the
 # repo rather than fetching it per search, and accepts silent staleness as the
@@ -6,6 +6,12 @@
 # live value is wrong instantly and invisibly". Visible at review only happens if
 # something looks, and nothing about an OFF edit — or a delisting — announces
 # itself here. This is what looks.
+#
+# Since #523 it looks at the Curated pairing table too (ADR-0113 §14), which
+# pins a barcode's substance to a USDA reference food rather than a panel. The
+# question asked of it is narrower — has this barcode come to name a different
+# food — and a barcode OFF does not list is not a finding there at all, because
+# several of those packs were typed from their labels and never had a record.
 #
 # Quarterly, like usda-mirror-check, but for a different reason: OFF has no
 # release calendar to time a check against, since anyone may edit a record at any
@@ -33,7 +39,11 @@ permissions:
 jobs:
   check:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    # The run is paced at one request per three seconds (#523 measured what OFF's
+    # burst limiter actually enforces), so it costs about a minute and a half at
+    # 27 barcodes and would cost six at the tables' ceilings. The timeout is what
+    # stops a hung fetch, not a budget for the pacing.
+    timeout-minutes: 15
 
     steps:
       - uses: actions/checkout@v7
@@ -49,10 +59,10 @@ jobs:
           node-version: 24
 
       # No Nix and no pnpm install here, unlike the e2e workflow: the script is
-      # plain Node built-ins with no dependencies, and it reads the curated table
-      # straight out of its TypeScript module, which is kept type-import-only so
-      # that Node can load it unaided. The whole job finishes in seconds.
-      - name: Re-fetch each pinned barcode and diff it against the snapshot
+      # plain Node built-ins with no dependencies, and it reads both curated
+      # tables straight out of their TypeScript modules, which are kept
+      # type-import-only so that Node can load them unaided.
+      - name: Re-fetch each pinned barcode and ask its table's question of it
         id: check
         run: |
           set +e
@@ -82,7 +92,7 @@ jobs:
           REPORT: ${{ steps.check.outputs.report }}
         run: |
           gh label create curated-snapshot \
-            --description "The pinned OFF records behind the curated stand-ins" \
+            --description "The pinned barcodes behind the two curated tables" \
             --color BFD4F2 --force
 
           # The prose sits in quoted heredocs so the markdown reaches the issue
@@ -90,7 +100,7 @@ jobs:
           # between them.
           {
             cat <<'INTRO'
-          The quarterly check did not confirm every barcode pinned in `src/lib/food/curated-stand-ins.ts` against the snapshot beside it. The report says which entries moved, and which Open Food Facts never answered for.
+          The quarterly check did not confirm every barcode pinned in `src/lib/food/curated-stand-ins.ts` and `src/lib/food/curated-pairings.ts`. The report says which entries moved, and which Open Food Facts never answered for.
 
           ```
           INTRO
@@ -98,7 +108,9 @@ jobs:
             cat <<'OUTRO'
           ```
 
-          Re-vetting means re-running ADR-0046 §2 for the entry — the absence proven across the complete archives, the single-ingredient text, the cross-product consensus, the independent corroboration — and then either updating the `snapshot` and its `captured` date by hand, pinning a different record that still clears the bar, or dropping the entry. `GONE` is the case with no snapshot to update: the product behind the stand-in has been delisted while search keeps answering from it.
+          For a **stand-in**, re-vetting means re-running ADR-0046 §2 for the entry — the absence proven across the complete archives, the single-ingredient text, the cross-product consensus, the independent corroboration — and then either updating the `snapshot` and its `captured` date by hand, pinning a different record that still clears the bar, or dropping the entry. `GONE` is the case with no snapshot to update: the product behind the stand-in has been delisted while search keeps answering from it.
+
+          For a **Curated pairing**, the only finding is `IDENTITY`: the barcode now names a different product than the one the pairing was made against. If it is the same food under a reworded name, the fix is the row's `product` field; if the barcode has been reused for something else, the row is withdrawn or re-made by hand with a new `ground` and `captured` date. ADR-0113 §14 makes a curated row a person's claim, so the job settles neither case for you — and note what it cannot see at all: a reformulation under an unchanged barcode.
 
           An `UNCHECKED` line is not one of those. It means Open Food Facts served no record for that entry — the request failed, or came back a 429, a 5xx, or a status the check cannot explain — so the run established nothing about the record either way, and it asks for another run rather than a re-vet. A block that is a stack trace rather than a report means the check itself failed. Either way the table is unchanged.
           OUTRO

@@ -12,9 +12,13 @@ import {
   countIngredients,
   productFromResponse,
   driftFindings,
-  checkStandIns,
+  checkPinned,
+  identityFindings,
   formatReport,
   needsReVetting,
+  REQUEST_INTERVAL_MS,
+  STAND_INS,
+  PAIRINGS,
 } from "../../scripts/curated-drift.mjs";
 
 // The drift rules behind the quarterly curated-snapshot check (#117). ADR-0046
@@ -335,7 +339,7 @@ describe("driftFindings — has the pinned panel moved?", () => {
   });
 });
 
-describe("checkStandIns — the run across every pinned entry", () => {
+describe("checkPinned — the run across every pinned entry", () => {
   /** A fetcher that answers each barcode from a table, and counts its calls. */
   const fetcherFor = (answers: Record<string, unknown>) => {
     const calls: string[] = [];
@@ -352,7 +356,10 @@ describe("checkStandIns — the run across every pinned entry", () => {
     const { fetchProduct } = fetcherFor({
       "5400706613279": { status: 200, body: unchanged() },
     });
-    const results = await checkStandIns([entry()], { fetchProduct });
+    const results = await checkPinned([entry()], {
+      fetchProduct,
+      table: STAND_INS,
+    });
     expect(results).toHaveLength(1);
     expect(results[0].findings).toEqual([]);
   });
@@ -361,7 +368,10 @@ describe("checkStandIns — the run across every pinned entry", () => {
     const { fetchProduct } = fetcherFor({
       "5400706613279": { status: 404, body: null },
     });
-    const [result] = await checkStandIns([entry()], { fetchProduct });
+    const [result] = await checkPinned([entry()], {
+      fetchProduct,
+      table: STAND_INS,
+    });
     expect(result.findings).toHaveLength(1);
     expect(result.findings[0].kind).toBe("delisted");
   });
@@ -376,7 +386,10 @@ describe("checkStandIns — the run across every pinned entry", () => {
       const { fetchProduct } = fetcherFor({
         "5400706613279": { status, body: null },
       });
-      const [result] = await checkStandIns([entry()], { fetchProduct });
+      const [result] = await checkPinned([entry()], {
+        fetchProduct,
+        table: STAND_INS,
+      });
       expect(result.findings).toHaveLength(1);
       expect(result.findings[0].kind).toBe("unreachable");
       expect(result.findings[0].message).toContain(String(status));
@@ -387,7 +400,10 @@ describe("checkStandIns — the run across every pinned entry", () => {
     const { fetchProduct } = fetcherFor({
       "5400706613279": { status: 404, body: null },
     });
-    const [result] = await checkStandIns([entry()], { fetchProduct });
+    const [result] = await checkPinned([entry()], {
+      fetchProduct,
+      table: STAND_INS,
+    });
     expect(result.findings[0].kind).toBe("delisted");
     expect(result.findings[0].message).toContain("snapshot");
   });
@@ -399,7 +415,10 @@ describe("checkStandIns — the run across every pinned entry", () => {
     const { fetchProduct } = fetcherFor({
       "5400706613279": new Error("getaddrinfo ENOTFOUND"),
     });
-    const [result] = await checkStandIns([entry()], { fetchProduct });
+    const [result] = await checkPinned([entry()], {
+      fetchProduct,
+      table: STAND_INS,
+    });
     expect(result.findings[0].kind).toBe("unreachable");
     expect(result.findings[0].message).toContain("ENOTFOUND");
   });
@@ -421,41 +440,49 @@ describe("checkStandIns — the run across every pinned entry", () => {
       "5400706613279": { status: 200, body: unchanged() },
       "9999999999999": { status: 404, body: null },
     });
-    const results = await checkStandIns([entry(), second], { fetchProduct });
+    const results = await checkPinned([entry(), second], {
+      fetchProduct,
+      table: STAND_INS,
+      pause: async () => {},
+    });
     expect(calls).toEqual(["5400706613279", "9999999999999"]);
     expect(results[0].findings).toEqual([]);
     expect(results[1].findings[0].kind).toBe("delisted");
   });
 
   it("pauses between requests, and not before the first", async () => {
-    // OFF asks callers to rate-limit; one request per second is well inside
-    // their guidance and costs a list this short a few seconds a quarter.
+    // OFF asks callers to rate-limit, and #523 measured what it actually
+    // enforces: a quarterly run spends a minute and a half honouring it.
     const paused: number[] = [];
     const { fetchProduct } = fetcherFor({
       "5400706613279": { status: 200, body: unchanged() },
       "9999999999999": { status: 200, body: unchanged() },
     });
-    await checkStandIns([entry(), entry({ food: "second" })], {
+    await checkPinned([entry(), entry({ food: "second" })], {
       fetchProduct,
+      table: STAND_INS,
       pause: async (ms: number) => {
         paused.push(ms);
       },
     });
     expect(paused).toHaveLength(1);
-    expect(paused[0]).toBeGreaterThanOrEqual(1000);
+    expect(paused[0]).toBe(REQUEST_INTERVAL_MS);
   });
 });
 
 describe("formatReport", () => {
   const report = (findings: { kind: string; message: string }[]) =>
-    formatReport([
-      {
-        food: "cacao nibs",
-        code: "5400706613279",
-        captured: "2026-08-18",
-        findings,
-      },
-    ]);
+    formatReport(
+      [
+        {
+          food: "cacao nibs",
+          code: "5400706613279",
+          captured: "2026-08-18",
+          findings,
+        },
+      ],
+      STAND_INS
+    );
 
   it("names a clean entry, with the date its snapshot was captured", () => {
     const text = report([]);
@@ -640,5 +667,93 @@ describe("the curated table under a bare Node", () => {
     expect(load.stderr).toBe("");
     expect(load.status).toBe(0);
     expect(Number(load.stdout)).toBeGreaterThan(0);
+  });
+});
+
+describe("identityFindings — is the barcode still the same food?", () => {
+  // A Curated pairing claims the barcode's SUBSTANCE, not Open Food Facts'
+  // record of it (ADR-0113 §14), so the question this job can ask is narrower
+  // than the stand-ins': has the pack behind the barcode become a different
+  // product? What it cannot ask is whether the recipe changed under a stable
+  // GTIN, and the table's header says so rather than dressing it as covered.
+  const row = {
+    gtin: "8026160007705",
+    fdcId: 746766,
+    set: "reference",
+    product: "Riccotta",
+    captured: "2026-09-17",
+    ground: "Ricotta against `Cheese, ricotta, whole milk`.",
+  };
+
+  it("stays quiet when the record still names the pack that was paired", () => {
+    expect(identityFindings(row, { product_name: "Riccotta" })).toEqual([]);
+  });
+
+  it("stays quiet over casing and stray space, which are not a new food", () => {
+    expect(identityFindings(row, { product_name: "  riccotta " })).toEqual([]);
+  });
+
+  it("reports a record that now names something else", () => {
+    const findings = identityFindings(row, { product_name: "Mozzarella" });
+    expect(findings).toHaveLength(1);
+    expect(findings[0].kind).toBe("identity");
+    expect(findings[0].message).toContain("Mozzarella");
+    expect(findings[0].message).toContain("Riccotta");
+  });
+
+  it("says nothing about a record carrying no name at all", () => {
+    // One seed row is a pack whose OFF record has no `product_name`, and the
+    // pairing was made off its categories. A blank is not evidence of a
+    // different food, and reporting it every quarter would spend the review
+    // attention this job is banking on.
+    expect(identityFindings(row, {})).toEqual([]);
+    expect(identityFindings(row, { product_name: "  " })).toEqual([]);
+  });
+});
+
+describe("checkPinned over the Curated pairing table", () => {
+  const row = {
+    gtin: "8026160007705",
+    fdcId: 746766,
+    set: "reference",
+    product: "Riccotta",
+    captured: "2026-09-17",
+    ground: "Ricotta against `Cheese, ricotta, whole milk`.",
+  };
+  const answering = (answer: unknown) => async () => answer;
+
+  it("reports the pack the row names, and the date the claim was made", async () => {
+    const [result] = await checkPinned([row], {
+      fetchProduct: answering({
+        status: 200,
+        body: { product: { product_name: "Riccotta" } },
+      }),
+      table: PAIRINGS,
+    });
+    expect(result.food).toBe("Riccotta");
+    expect(result.code).toBe("8026160007705");
+    expect(result.captured).toBe("2026-09-17");
+    expect(result.findings).toEqual([]);
+  });
+
+  it("does not report a barcode Open Food Facts has never listed", async () => {
+    // The mirror of the stand-ins' worst case, and it is not a case here at
+    // all: a stand-in's panel IS an OFF record, so a delisting leaves search
+    // answering from a snapshot of something gone. A pairing only points a
+    // barcode at a USDA row, and some of the seed's packs were typed from their
+    // labels with no OFF record to begin with.
+    const [result] = await checkPinned([row], {
+      fetchProduct: answering({ status: 404, body: null }),
+      table: PAIRINGS,
+    });
+    expect(result.findings).toEqual([]);
+  });
+
+  it("still reports a quarter in which OFF never answered", async () => {
+    const [result] = await checkPinned([row], {
+      fetchProduct: answering({ status: 502, body: null }),
+      table: PAIRINGS,
+    });
+    expect(result.findings[0].kind).toBe("unreachable");
   });
 });
