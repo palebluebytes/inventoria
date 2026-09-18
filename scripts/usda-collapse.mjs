@@ -292,9 +292,13 @@ export function assertNamesClaimNoLess(before, after, licensed, app) {
         `its residual description is "${app.residualDescription(published)}"`
       );
     const kept = new Set(app.descriptionSegments(shipped).tail);
-    for (const segment of app.descriptionSegments(published).tail) {
+    const tail = app.descriptionSegments(published).tail;
+    for (const [at, segment] of tail.entries()) {
       if (kept.has(segment)) continue;
-      const entry = app.claimingAxis(segment);
+      // Read beside its siblings, as the strip read it: ADR-0113 §12's salt
+      // entries claim nothing out of context, so asking without the tail would
+      // report a struck-out `with salt` as a segment no entry claims.
+      const entry = app.claimingAxis(segment, app.siblingsOf(tail, at));
       if (!entry) refuse(`no roster entry claims the segment "${segment}"`);
       if (!entry.preferred)
         refuse(
@@ -331,12 +335,14 @@ export function assertNamesClaimNoLess(before, after, licensed, app) {
  */
 export function assertNoAxisHidesInAGloss(rows, app) {
   let read = 0;
-  for (const row of rows)
-    for (const segment of app.descriptionSegments(row.food.description).tail) {
+  for (const row of rows) {
+    const tail = app.descriptionSegments(row.food.description).tail;
+    for (const [at, segment] of tail.entries()) {
       read++;
-      if (app.claimingAxis(segment)) continue;
+      const siblings = app.siblingsOf(tail, at);
+      if (app.claimingAxis(segment, siblings)) continue;
       const bare = app.withoutTrailingGloss(segment);
-      const hidden = bare === segment ? null : app.claimingAxis(bare);
+      const hidden = bare === segment ? null : app.claimingAxis(bare, siblings);
       if (!hidden) continue;
       throw new Error(
         `"${row.food.description}" (${row.food.fdcId}) carries the segment ` +
@@ -349,6 +355,7 @@ export function assertNoAxisHidesInAGloss(rows, app) {
           "gloss makes it a different segment."
       );
     }
+  }
   return read;
 }
 

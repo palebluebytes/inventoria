@@ -267,6 +267,7 @@ export const TWIN_LEDGER_EXPORTS = [
 export const COLLAPSE_ROSTER_EXPORTS = [
   "COLLAPSING_AXES",
   "claimingAxis",
+  "siblingsOf",
   "descriptionSegments",
   "residualDescription",
   "withoutTrailingGloss",

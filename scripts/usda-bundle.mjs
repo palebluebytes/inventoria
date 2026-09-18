@@ -220,7 +220,8 @@ export const BUNDLE_DATASETS = ["Foundation Foods", "SR Legacy"];
  * @property {(description: string) => { head: string, tail: string[] }} descriptionSegments
  * @property {(description: string) => string} residualDescription
  * @property {(segment: string) => string} withoutTrailingGloss
- * @property {(segment: string) => { axis: string, preferred: boolean } | null} claimingAxis
+ * @property {(segment: string, siblings: readonly string[]) => { axis: string, preferred: boolean } | null} claimingAxis
+ * @property {(tail: readonly string[], at: number) => readonly string[]} siblingsOf
  * @property {(rows: { fdcId: number, description: string, also?: readonly string[] }[], licensed: ReadonlySet<number>) => { renamed: ReadonlyMap<number, string>, tally: { stripped: number, refused: number } }} resolveCollapsedNames
  */
 

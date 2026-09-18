@@ -87,6 +87,7 @@ const store = JSON.parse(readFileSync(STORE_PATH, "utf8"));
 const scratch = await mkdtemp(join(tmpdir(), "usda-beef-pilot-"));
 const {
   claimingAxis,
+  siblingsOf,
   collapseGroupKey,
   residualDescription,
   descriptionSegments,
@@ -110,8 +111,8 @@ const STRICT = [
 const eligibleUnder =
   (refusing, strict = false) =>
   (row) =>
-    descriptionSegments(row.description).tail.every((segment) => {
-      const entry = claimingAxis(segment);
+    descriptionSegments(row.description).tail.every((segment, at, tail) => {
+      const entry = claimingAxis(segment, siblingsOf(tail, at));
       if (!entry || !refusing.has(entry.axis)) return true;
       if (!strict) return entry.preferred;
       const designated = STRICT.find((s) => s.axis === entry.axis);

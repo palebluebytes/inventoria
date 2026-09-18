@@ -216,8 +216,12 @@ function replayVariantDrops(survivors, app) {
 function measureStripRosters(survivors) {
   const names = survivors.map((s) => s.food.description);
   const reached = (changes) => names.filter(changes).length;
+  // Out of context deliberately: the question is whether the collapse ALSO
+  // claims this strip-roster entry, and a strip roster's entry is a segment
+  // with no name around it. ADR-0113 §12's salt entries therefore count as
+  // claiming nothing here, which is the true answer to the question asked.
   const overlap = (roster) =>
-    [...roster].filter((entry) => claimingAxis(entry)).length;
+    [...roster].filter((entry) => claimingAxis(entry, [])).length;
   return [
     {
       roster: "ORIGIN_QUALIFIERS",

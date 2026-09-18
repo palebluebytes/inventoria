@@ -793,6 +793,18 @@ describe("the roster stays out of the app's bundle", () => {
     // already follows: the corpus is filtered once, ahead of time, and what
     // ships is the survivors. 400 lines of editorial roster in the app bundle
     // would be dead weight on every page load (#146).
-    expect(importersOf("usda-food-kind")).toEqual([]);
+    //
+    // One importer since #517, and the claim is a CLOSURE rather than a list:
+    // ADR-0113 §12's salt entries need the cooking vocabulary this module owns
+    // and borrow it rather than spelling a second one, so the chain has to be
+    // walked to its end. Every link in it is generation-only, and each of the
+    // two assertions below is what stops the next being taken on trust.
+    expect(importersOf("usda-food-kind")).toEqual([
+      "src/lib/food/usda-collapse-roster.ts",
+    ]);
+    expect(importersOf("usda-collapse-roster")).toEqual([
+      "src/lib/food/usda-shipped-name.ts",
+    ]);
+    expect(importersOf("usda-shipped-name")).toEqual([]);
   });
 });

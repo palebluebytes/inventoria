@@ -62,6 +62,7 @@
  */
 
 import { readFileSync } from "node:fs";
+import { registerHooks } from "node:module";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 
@@ -71,11 +72,16 @@ import {
   collapseReach,
   headPhraseCount,
 } from "./usda-collapse.mjs";
-import {
-  descriptionSegments,
-  mayRepresentGroup,
-  residualDescription,
-} from "../src/lib/food/usda-collapse-roster.ts";
+import { resolve as resolveTs } from "./ts-resolve-hook.mjs";
+
+// ADR-0113 §12's salt entries read a cooking method out of `usda-food-kind.ts`
+// rather than spelling one a second time, so the roster now has a neighbour and
+// a plain Node import of it needs the extensionless-import hook. Registered
+// before the dynamic import below, which is why that import is dynamic: a static
+// one is hoisted above this line and resolves against the bare specifier.
+registerHooks({ resolve: resolveTs });
+const { descriptionSegments, mayRepresentGroup, residualDescription } =
+  await import("../src/lib/food/usda-collapse-roster.ts");
 
 const INDEX_PATH = join("public", "usda", "search-index.json");
 const CENSUS_PATH = join("docs", "research", "usda-drop-census.json");
