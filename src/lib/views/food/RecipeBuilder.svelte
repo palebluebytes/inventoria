@@ -11,14 +11,11 @@
   import {
     toReferenceIngredient,
     sourceFromIngredients,
+    referenceFoodsFor,
     nameFromIngredients,
     type RecipeIngredient,
   } from "../../food/recipe-ingredient";
   import { sanitizeYield } from "../../food/recipe-nutrition";
-  import {
-    loadReferenceFoods,
-    type ReferenceFoods,
-  } from "../../food/frozen-pairing";
   import {
     RECIPE_BATCH_WEIGHT_ATTR,
     sanitizeWeight,
@@ -162,13 +159,6 @@
   // and the ingredient editing live in IngredientListEditor; this component only
   // needs the references and resolvers for the save/log step below.
   let referenceIngredients = $derived(ingredients.map(toReferenceIngredient));
-  // Each ingredient's real nutrition panel / display name, resolved in memory
-  // from its inlined twin payload — never mutating the food twin. `references`
-  // is what a **Pack pairing** on one of those twins is read through, awaited by
-  // the save below so a commit can never freeze a paired row's figures without
-  // the account of them (ADR-0113 §6).
-  const resolveSource = (ref: string, references?: ReferenceFoods) =>
-    sourceFromIngredients(ingredients, ref, references);
   const resolveName = (ref: string) => nameFromIngredients(ingredients, ref);
 
   function addStep() {
@@ -243,15 +233,17 @@
         // live display above and the projection's derivation, so the frozen
         // snapshot equals what the builder showed at the moment it was logged.
         // Panels are read in memory, so real food twins are never mutated.
-        // Nothing loads unless one of the rows is actually paired.
-        const references = await loadReferenceFoods(
-          ingredients.map((i) => i.payload?.attributes)
-        );
+        // Each ingredient's real nutrition panel, resolved in memory from its
+        // inlined twin payload and widened by whatever a **Pack pairing** on
+        // that twin supplies. Awaited here so a commit can never freeze a paired
+        // row's figures without the account of them (ADR-0113 §6); nothing loads
+        // unless one of the rows is actually paired.
+        const references = await referenceFoodsFor(ingredients);
         logged = await logRecipeConsumption(
           recipeId,
           referenceIngredients,
           yieldNum,
-          (ref) => resolveSource(ref, references),
+          (ref) => sourceFromIngredients(ingredients, ref, references),
           resolveName,
           meal_type,
           selectedDate

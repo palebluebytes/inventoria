@@ -10,10 +10,13 @@ import {
   PER_SERVING,
   type AmountUnit,
   type MeasuredUnit,
-  type NutritionInfo,
 } from "./nutrition";
 import type { IngredientSource, ReferenceIngredient } from "./recipe-nutrition";
-import { pairedSource, type ReferenceFoods } from "./frozen-pairing";
+import {
+  loadReferenceFoods,
+  pairedSource,
+  type ReferenceFoods,
+} from "./frozen-pairing";
 
 /**
  * A single recipe ingredient in the builder. It carries only what cannot be
@@ -87,6 +90,21 @@ export function sourceFromIngredients(
   const attributes = ings.find((i) => i.entity === ref)?.payload?.attributes;
   if (!attributes) return undefined;
   return pairedSource(attributes, references);
+}
+
+/**
+ * The reference foods a list of builder ingredients needs, or `undefined` where
+ * none of them is paired and nothing should be fetched (ADR-0113 §6).
+ *
+ * The question is asked of the ingredients rather than of their attributes so
+ * every surface holding a list asks it the same way: two of them load at the
+ * commit and one loads to draw, and a third spelling of the same `map` is how
+ * one of them would come to ask about the wrong thing.
+ */
+export function referenceFoodsFor(
+  ings: RecipeIngredient[]
+): Promise<ReferenceFoods | undefined> {
+  return loadReferenceFoods(ings.map((i) => i.payload?.attributes));
 }
 
 /**

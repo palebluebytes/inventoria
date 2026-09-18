@@ -42,8 +42,6 @@ import {
   type UsdaCorpusNutrientStore,
 } from "./usda-corpus";
 
-export type { FrozenPairing };
-
 /**
  * Where a logged food's frozen pairing lives, the sibling of `FOOD_PAIRING_ATTR`
  * and named beside it for the same reason: the attribute belongs with the module

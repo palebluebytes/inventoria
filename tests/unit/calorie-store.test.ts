@@ -2344,6 +2344,73 @@ describe("a logged occasion freezes what the pairing supplied (ADR-0113 §6)", (
     expect(written()["event/pairing"]).toEqual(FROZEN);
   });
 
+  /**
+   * ADR-0113 §7's two consequences, read where they are actually true: on the
+   * ledger. The twin's `food/pairing` is live and latest-datom-wins; the
+   * occasion's copy is a value that was written once, so re-pairing or unpairing
+   * the jar appends to the TWIN and reaches no event.
+   */
+  describe("the two tenses (§7)", () => {
+    const asLedger = (datoms: any[]) =>
+      asStored(datoms.map((d) => ({ ...d, value: JSON.stringify(d.value) })));
+
+    /** Yesterday's occasion: a paired pack logged, account and all. */
+    const loggedYesterday = async () => {
+      const appended: any[] = [];
+      append.mockImplementation(async (d: any) => {
+        appended.push(...d);
+      });
+      await logFoodConsumption(
+        "gtin:5010251341352",
+        "150g",
+        "lunch",
+        174,
+        13,
+        0.8,
+        23.4,
+        new Date("2026-09-17T12:00:00"),
+        undefined,
+        { calories: 174, protein: 13, fat: 0.8, carbs: 23.4, iron: 0.0033 },
+        undefined,
+        FROZEN
+      );
+      return appended;
+    };
+
+    /** One later assertion about the jar, of the kind §7 says wins live. */
+    const jarDatom = (value: string) => ({
+      entity: "gtin:5010251341352",
+      attribute: "food/pairing",
+      value,
+      time: Date.parse("2026-09-18T09:00:00"),
+    });
+
+    it("keeps yesterday's account when the jar is re-paired today", async () => {
+      const yesterday = await loggedYesterday();
+
+      const [event] = computeConsumption(
+        asLedger([...yesterday, jarDatom("fdc:171077")])
+      );
+
+      // Still marking exactly the rows yesterday's pairing supplied, under
+      // yesterday's reference food's name.
+      expect(event.pairing).toEqual(FROZEN);
+      expect(event.metrics).toMatchObject({ iron: 0.0033 });
+    });
+
+    it("keeps yesterday's account when the jar is unpaired today", async () => {
+      const yesterday = await loggedYesterday();
+
+      const [event] = computeConsumption(
+        asLedger([...yesterday, jarDatom("")])
+      );
+
+      // Unpair it and yesterday's meal changes not at all.
+      expect(event.pairing).toEqual(FROZEN);
+      expect(event.metrics).toMatchObject({ iron: 0.0033 });
+    });
+  });
+
   it("gives a dish no event/pairing, and puts the account on the row instead", async () => {
     // The two attributes never co-occur, and a reader need not guess which
     // shape is in front of them: `event/instantiation` is already the thing

@@ -318,12 +318,17 @@ describe("what a log pays for a food nobody paired", () => {
   });
 });
 
-describe("the two tenses (§7)", () => {
+describe("the freeze is a value, not a view onto the twin (§7)", () => {
   /**
-   * The occasion's copy is a value, not a view onto the twin. Both consequences
-   * §7 states follow from that and are asserted rather than left to be found.
+   * What §7's two consequences rest on, one level below them: the envelope is
+   * read once and holds nothing that re-resolves, so re-pairing or unpairing the
+   * jar cannot reach one already taken.
+   *
+   * The consequences themselves are asserted where they are actually true, on
+   * the ledger, in `calorie-store.test.ts` — a later `food/pairing` datom on the
+   * twin leaves the logged occasion's own datoms exactly as they were.
    */
-  it("keeps yesterday's account when the jar is re-paired tomorrow", () => {
+  it("keeps an account already taken when the jar is re-paired", () => {
     const attributes = twin();
     const yesterday = pairedSource(attributes, references()).pairing;
 
@@ -347,7 +352,7 @@ describe("the two tenses (§7)", () => {
     expect(tomorrow).toBeUndefined();
   });
 
-  it("keeps yesterday's account when the jar is unpaired", () => {
+  it("keeps an account already taken when the jar is unpaired", () => {
     const attributes = twin();
     const yesterday = pairedSource(attributes, references()).pairing;
 

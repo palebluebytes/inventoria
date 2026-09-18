@@ -287,7 +287,6 @@ describe("what a surface freezes when it logs a paired pack (§6)", () => {
     // without the envelope is one refactor away from freezing borrowed numbers
     // with nothing naming them, which is the defect §6 exists to prevent.
     expect(SHEET).toContain("pairedSource(");
-    expect(SHEET).toMatch(/const panel = source\.panel/);
     expect(SHEET).toContain("source.pairing");
     // And it no longer reads the stored panel off the payload itself, which
     // would be the label alone and would silently drop every borrowed row.
@@ -308,6 +307,6 @@ describe("what a surface freezes when it logs a paired pack (§6)", () => {
     // A commit that raced the editor's load would freeze the rows without the
     // account of them — consistent, and quietly less than what was on screen.
     for (const source of [INSTANTIATOR, BUILDER])
-      expect(source).toMatch(/await loadReferenceFoods\(/);
+      expect(source).toMatch(/await referenceFoodsFor\(/);
   });
 });

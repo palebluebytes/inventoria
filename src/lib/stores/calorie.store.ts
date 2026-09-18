@@ -11,7 +11,6 @@ import {
   loadReferenceFoods,
   pairedSource,
   EVENT_PAIRING_ATTR,
-  type FrozenPairing,
 } from "../food/frozen-pairing";
 import { HLC_ORDER_ASC } from "../db/hlc";
 import { createProjectionStore } from "./datoms.store";
@@ -27,7 +26,11 @@ import {
   type NutritionBreakdown,
   type Portion,
 } from "../food/nutrition";
-import type { LabelCapture, ManualEntry } from "../food/provenance";
+import type {
+  FrozenPairing,
+  LabelCapture,
+  ManualEntry,
+} from "../food/provenance";
 import {
   deriveIngredientMacros,
   type IngredientSource,

@@ -3,6 +3,7 @@
   import {
     toReferenceIngredient,
     sourceFromIngredients,
+    referenceFoodsFor,
     nameFromIngredients,
     addOrMergeIngredient,
     coerceAmount,
@@ -23,11 +24,7 @@
     type Portion,
   } from "../../food/nutrition";
   import { FOOD_DENSITY_ATTR } from "../../food/density";
-  import {
-    borrowedKeys,
-    loadReferenceFoods,
-    type ReferenceFoods,
-  } from "../../food/frozen-pairing";
+  import { borrowedKeys, type ReferenceFoods } from "../../food/frozen-pairing";
   import {
     occasionFraction,
     servingsOfOccasion,
@@ -217,13 +214,14 @@
   // this editor was before #521.
   let references = $state<ReferenceFoods | undefined>(undefined);
   $effect(() => {
-    const twins = ingredients.map((i) => i.payload?.attributes);
+    // `referenceFoodsFor` swallows a failed fetch itself and cannot reject, so
+    // there is no `.catch` here: a device that could not read the artifacts
+    // draws every row's label alone, which is the standing state.
+    const loading = referenceFoodsFor(ingredients);
     let live = true;
-    void loadReferenceFoods(twins)
-      .then((loaded) => {
-        if (live) references = loaded;
-      })
-      .catch(() => {});
+    void loading.then((loaded) => {
+      if (live) references = loaded;
+    });
     return () => {
       live = false;
     };
