@@ -38,6 +38,7 @@
 import {
   TRACKED_DOMAINS,
   entityPrefixesOfDomains,
+  type ContentDomainId,
   type TrackedDomain,
 } from "./domains";
 
@@ -138,6 +139,28 @@ export interface Facet {
    */
   readonly icons: readonly ManifestIcon[];
   readonly domains: readonly string[];
+  /**
+   * The faces this shell holds — the roster its switcher draws (ADR-0114 §8).
+   *
+   * **A declaration, and deliberately not a discovery.** To find out at runtime
+   * that a face's module is present, the switcher would have to reference it,
+   * which puts every face in every bundle and costs ADR-0077 its 4.23 MB — the
+   * saving ADR-0076 §6 made Facet identity a build-time constant to protect. So
+   * what keeps the roster honest is a gate: `checkViewContainment` holds each
+   * declared face's screens to what this Facet's built entry actually reaches,
+   * and a shell cannot name a face whose modules are absent.
+   *
+   * It is also where ADR-0078 §1 survives **as the mechanism rather than as the
+   * obstacle**. A roster drawn from what the build holds cannot offer a crossing,
+   * so nothing is suppressed at runtime and no `display-mode` test appears
+   * anywhere: Rations' faces are all inside `/food/` and the root's are all
+   * inside `/`. §2 of that record falls — Rations gains a switcher — and §1 does
+   * not.
+   *
+   * Membership only. The order is {@link FACES}' and is read through
+   * {@link facesOf}, so this array cannot re-sort a grid.
+   */
+  readonly faces: readonly FaceId[];
   /**
    * Everything this Facet's service worker precaches that no chunk imports:
    * emitted file names, `*` matching a run of characters inside one path
@@ -268,6 +291,17 @@ export const FACETS = [
       { src: "/favicon.svg", sizes: "192x192 512x512", type: "image/svg+xml" },
     ],
     domains: ["food", "media", "items", "habits", "calendar", "notes"],
+    // **All seven** (ADR-0114 §8). The root holds every content domain, so every
+    // face's screen is in this build and the switcher can offer the lot.
+    faces: [
+      "rations",
+      "recipes",
+      "media",
+      "items",
+      "agenda",
+      "notes",
+      "settings",
+    ],
     precache: [
       ...JAR_PRECACHE,
       // The mark its own manifest enumerates. `includeManifestIcons` puts it in
@@ -418,6 +452,13 @@ export const FACETS = [
       },
     ],
     domains: ["food"],
+    // **Three**, and the shape of a prefix of the root's. Rations and Recipes
+    // both draw `food`, which is the one domain this Facet holds, and Settings is
+    // in every Facet's roster because a door in the same place everywhere is the
+    // whole of ADR-0114 §10. The other four are not merely hidden here: their
+    // screens are not in this build, which is what makes ADR-0078 §1 the
+    // mechanism rather than a rule anything has to enforce at runtime.
+    faces: ["rations", "recipes", "settings"],
     precache: [
       ...JAR_PRECACHE,
       // **ADR-0047 §11 binds this Facet** (ADR-0077 §4). That promise — "an app
@@ -548,6 +589,247 @@ export function facetOf(id: FacetId): Facet {
 }
 
 /**
+ * A named, mark-bearing screen of the app the switcher can reach (ADR-0114 §1).
+ *
+ * **A face is not a {@link Facet}, and the two words are kept apart because the
+ * costs are not comparable.** A face is a name, a mark, a maturity and a screen.
+ * A Facet is a manifest, a service worker, a precache declaration with a
+ * measured byte band, an arm on the offline-boot gate, and an install that
+ * shares no bytes with its siblings. Collapsing them would price every new name
+ * at nine megabytes.
+ *
+ * **This roster is authored, where a Facet's prefix set is derived**, and the
+ * asymmetry is the one thing about this type worth arguing. A Facet's domains
+ * decide what it *owns*, and ownership must be derivable or it drifts
+ * (ADR-0086 §1). A face's domains decide only what it *draws*, which is a
+ * presentation choice no gate can infer: Agenda draws two domains, Rations and
+ * Recipes both draw `food`, and Settings draws none at all.
+ */
+export interface Face {
+  /** Build vocabulary, and never written to a datom. */
+  readonly id: string;
+  /**
+   * **The one canonical name** (ADR-0114 §3), read by the switcher tile, the
+   * pinned header, the accessible name and the `<h1>`. `src/lib/food/pages.ts`
+   * already takes this route with `pageLabel()`, which reads Rations' name off
+   * `FACETS` rather than spelling it.
+   *
+   * A switcher is the first surface that puts every name beside every other,
+   * which is what retires `Media Tracker`, `Physical Digital Twins` and
+   * `Notes & Checklist`: until now the same face could be called three things.
+   */
+  readonly name: string;
+  /**
+   * The mark the switcher draws, served from `public/`.
+   *
+   * One file per face at 256, because a tile is 64 and the five-file ladder is
+   * owed only where something is installable (ADR-0114 §12). Declared rather
+   * than derived from the id for {@link Facet.icons}' reason: this is a path to
+   * a committed file, and the registry's header refuses a field naming a file
+   * that is not there.
+   *
+   * **They serve from `/icons/faces/`, which is above `/food/`**, so Rations'
+   * service worker cannot precache the three its own switcher draws — a
+   * precached URL must sit inside the Facet's own scope. Copy or inline is
+   * #529's call; nothing reads this field yet, so no manifest moves here.
+   */
+  readonly mark: string;
+  /**
+   * The Tracked Domains this face draws, or none.
+   *
+   * **Plural, and that is not a hedge.** ADR-0114 §1 states a face is not
+   * one-to-one with a Tracked Domain in either direction, and every arm of that
+   * is live on today's roster: Agenda draws Habits and Calendar events, which
+   * have no face of their own; Rations and Recipes both draw `food`; and
+   * Settings draws nothing, being jar-wide. A singular field would be a lie
+   * about two of the seven.
+   *
+   * A **content** domain, so the Jar domain cannot be named here: it has no
+   * screen (ADR-0096 §13), and a face onto it would be a tile that opens onto
+   * nothing.
+   *
+   * This is what {@link screensOfFace} reads, and through it the half of
+   * `checkViewContainment` that holds a shell's declaration to its own build.
+   */
+  readonly domains: readonly ContentDomainId[];
+  /**
+   * What the face claims about itself, drawn as a band under the switcher tile's
+   * mark and as a `Badge` beside the title in its own header (ADR-0114 §11).
+   *
+   * **Declared, never derived from an id.** Rations and Settings ship; the other
+   * five are beta. Settings is exempt although it is not Rations, and that is a
+   * decision rather than an oversight: its contents are the oldest surfaces in
+   * the app, and a badge that is visibly wrong once teaches people to ignore it
+   * everywhere. What earns `shipped` is in that record — a face's screens do the
+   * whole job its name claims, and it works with the network off — so the five
+   * have a stated way out rather than a permanent label.
+   */
+  readonly maturity: "shipped" | "beta";
+  /**
+   * Whether this face is also a Facet, which is **a sparse property of a face**
+   * (ADR-0114 §1) and the one stored field on this roster.
+   *
+   * **It is stored, and {@link domainsOf}'s rule in this module says a registry
+   * carries no field re-recording a conclusion whose reason is discarded
+   * (ADR-0080 §8). This is the answer to that rule rather than an exception to
+   * it.** There is no join to derive it through: a face id and a Facet id name
+   * different things — `rations` the face draws `food` the Facet — the root Facet
+   * is not a face at all, and the only handle the two rosters share is the
+   * canonical name, which is a *coincidence of today's roster* and not something
+   * either record promises. Deriving through it would mean renaming what Rations
+   * calls itself on a home screen silently made a face uninstallable, which is a
+   * wrong answer arrived at quietly. ADR-0114 §4 asks for the flag for the other
+   * half of the same reason: promotion should cost a flag plus the install, and
+   * never a restructure of the navigation.
+   *
+   * So the coherence is asserted rather than derived —
+   * `tests/unit/facet-registry.test.ts` holds this field to the Facet roster by
+   * that shared name, which is a **staleness guard and not a derivation**: it
+   * fails loudly on the day the two disagree, where a derivation would just
+   * change its answer.
+   *
+   * Recipes is `false` on purpose, and the reason is a gate rather than a
+   * preference (ADR-0114 §4): `recipe:` is owned by the `food` domain and
+   * `pnpm check:facets` holds a Facet to reaching *every* screen of *every*
+   * domain it holds, so a recipes-only Facet holding `food` is unbuildable.
+   * Promoting it is a domain split plus an install's own costs, and **no
+   * navigation code changes** — which is what this field being one flag buys.
+   */
+  readonly installable: boolean;
+}
+
+/**
+ * The seven faces, in the one fixed order (ADR-0114 §2).
+ *
+ * `Rations · Recipes · Media · Items · Agenda · Notes · Settings` — today's
+ * deleted `Sidebar` order with Recipes inserted after Rations, because Recipes
+ * lives inside Rations' scope and each Facet's roster is then a **prefix** of
+ * the root's.
+ *
+ * **The order is fixed and nothing re-sorts it**, ever. Ordering by frequency of
+ * use was considered at length and refused: seven destinations are learned by
+ * position within a week, and a grid whose tiles move spends that and gives back
+ * adaptation nobody asked for (ADR-0114 §7). Settings is last here *and* pinned
+ * to the grid's last column, because a list is a poor thing to trust with a
+ * right edge once faces can be hidden.
+ *
+ * It is **not** the six Tracked Domains re-listed: Agenda holds two of them and
+ * Settings holds none.
+ */
+export const FACES = [
+  {
+    id: "rations",
+    name: "Rations",
+    mark: "/icons/faces/rations-256.png",
+    domains: ["food"],
+    maturity: "shipped",
+    installable: true,
+  },
+  {
+    id: "recipes",
+    name: "Recipes",
+    mark: "/icons/faces/recipes-256.png",
+    // The same domain Rations draws, which is the arm of ADR-0114 §1 that keeps
+    // this roster authored: `food` has one screen and two faces read it.
+    domains: ["food"],
+    maturity: "beta",
+    installable: false,
+  },
+  {
+    id: "media",
+    name: "Media",
+    mark: "/icons/faces/media-256.png",
+    domains: ["media"],
+    maturity: "beta",
+    installable: false,
+  },
+  {
+    id: "items",
+    name: "Items",
+    mark: "/icons/faces/items-256.png",
+    domains: ["items"],
+    maturity: "beta",
+    installable: false,
+  },
+  {
+    id: "agenda",
+    name: "Agenda",
+    mark: "/icons/faces/agenda-256.png",
+    // Two domains, one screen. The root has six tabs and six domains and they
+    // are not the same six, and this is where that has always been true.
+    domains: ["habits", "calendar"],
+    maturity: "beta",
+    installable: false,
+  },
+  {
+    id: "notes",
+    name: "Notes",
+    mark: "/icons/faces/notes-256.png",
+    domains: ["notes"],
+    maturity: "beta",
+    installable: false,
+  },
+  {
+    id: "settings",
+    name: "Settings",
+    mark: "/icons/faces/settings-256.png",
+    // **None, and it is the field saying so.** Settings is jar-wide, so it draws
+    // no Tracked Domain and its contents vary by Facet (ADR-0114 §10) — the root
+    // holds `SettingsView` and Rations holds `FoodSettingsSheet`, and there is no
+    // module both shells could be held to. That is the same surface ADR-0083 §10
+    // declined to gate, and an empty list here is what keeps the gate honest
+    // about not looking at it rather than quietly excusing it.
+    domains: [],
+    maturity: "shipped",
+    installable: false,
+  },
+] as const satisfies readonly Face[];
+
+/**
+ * The id of a face on the roster. A literal union rather than `string`, so a
+ * shell declaring a face that does not exist is a compile error and
+ * {@link faceOf} is total — the same reason {@link FacetId} is one.
+ */
+export type FaceId = (typeof FACES)[number]["id"];
+
+/** The face a {@link FaceId} names. */
+export function faceOf(id: FaceId): Face {
+  const face = FACES.find((f) => f.id === id);
+  // Unreachable while `id` is typed, and a throw rather than a `!` so the day
+  // someone widens the parameter the failure says what happened.
+  if (!face) throw new Error(`no face '${id}' on the roster`);
+  return face;
+}
+
+/**
+ * The faces a shell holds, **in the roster's order rather than the shell's**.
+ *
+ * The ordering is the point of routing through here. {@link Facet.faces} is a
+ * membership list, and a shell that declared its three backwards would still
+ * draw them in ADR-0114 §2's one order with Settings last. It is also what makes
+ * each Facet's roster a *prefix* of the root's without either list having to say
+ * so.
+ *
+ * **It takes the Facet and not its id**, which is the seam `checks.ts` needs:
+ * every rule there is handed the thing it judges so it can be handed one that
+ * does not exist, and a lookup by id inside the rule would quietly judge the
+ * roster instead of the declaration it was given. {@link domainsOf} takes a
+ * string because a lane's scope arrives from a peer as one; nothing hands this
+ * function a name it might not know.
+ *
+ * It **filters** where {@link faceOf} throws, and the asymmetry is the field's
+ * type rather than a difference of nerve: {@link Facet.faces} is
+ * `readonly FaceId[]`, so a declaration naming a face off the roster does not
+ * compile and a runtime guard here would be unreachable. It also must not throw
+ * — its one non-app caller is a `checks.ts` rule, and a rule that raises instead
+ * of returning a verdict exits the gate with a stack trace where a claim belongs.
+ */
+export function facesOf(facet: Facet): Face[] {
+  const declared: readonly string[] = facet.faces;
+  return FACES.filter((face) => declared.includes(face.id));
+}
+
+/**
  * The Tracked Domains a Facet holds, or none if nothing on the roster is that
  * Facet.
  *
@@ -631,15 +913,42 @@ export function screenOf(domain: TrackedDomain): string {
 }
 
 /**
+ * The screens a set of Tracked Domains imply, named by id.
+ *
+ * **Deduplicated**, because two domains may name one screen: habits and calendar
+ * events both draw through `AgendaView`, so a Facet with six domains implies five
+ * screens and a count of one screen per domain would never be satisfiable.
+ *
+ * It is the pair {@link entityPrefixesOfDomains} and {@link entityPrefixesOf}
+ * already are, and for the same reason: two callers need this over two different
+ * domain sets — a Facet's own, and a face's, which is neither a Facet's nor
+ * derivable from one — and one derivation is what keeps them from becoming two
+ * lists of the same thing. A domain id this build does not know contributes
+ * nothing.
+ */
+export function screensOfDomains(ids: readonly string[]): string[] {
+  const named = new Set(ids);
+  return [
+    ...new Set(TRACKED_DOMAINS.filter((d) => named.has(d.id)).map(screenOf)),
+  ].sort();
+}
+
+/**
  * The screens a Facet's declared domains imply: what its built entry must reach,
  * all of them (ADR-0083 §5).
- *
- * Two domains may name one screen — habits and calendar events both draw through
- * `AgendaView` — so this deduplicates, and a Facet with six domains can imply
- * five screens.
  */
 export function screensOf(facetId: string): string[] {
-  return [...new Set(domainsOf(facetId).map(screenOf))].sort();
+  return screensOfDomains(domainsOf(facetId).map((d) => d.id));
+}
+
+/**
+ * The screens a face draws: what a shell declaring it must reach.
+ *
+ * Empty for a face that draws no domain, which is Settings — and an empty answer
+ * is what makes `checkViewContainment` count it as unjudged rather than proved.
+ */
+export function screensOfFace(face: Face): string[] {
+  return screensOfDomains(face.domains);
 }
 
 /**

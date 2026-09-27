@@ -217,6 +217,63 @@ describe("view containment (ADR-0078 §8, ADR-0083 §5)", () => {
   it("fails a Facet the build recorded no bundle for", () => {
     expect(checkViewContainment(ROOT, undefined).ok).toBe(false);
   });
+
+  it("proves the faces a shell declares, and says how many", () => {
+    // #528, ADR-0114 §8. The switcher's roster is a declaration rather than a
+    // discovery — referencing a face's module to find out it is there would put
+    // every face in every bundle and cost ADR-0077 its 4.23 MB — so the thing
+    // that keeps it honest is this claim, read against the built entry.
+    const claim = checkViewContainment(
+      ROOT,
+      bundle({
+        facet: "root",
+        modules: [
+          "src/lib/views/AgendaView.svelte",
+          "src/lib/views/FoodView.svelte",
+          "src/lib/views/ItemsView.svelte",
+          "src/lib/views/MediaView.svelte",
+          "src/lib/views/NotesView.svelte",
+        ],
+      })
+    );
+    expect(claim.ok).toBe(true);
+    // **Six of seven, and the seventh is not a failure.** Settings draws no
+    // Tracked Domain, so this arm attempted nothing about it — and a message
+    // claiming all seven were proved would be the gate going green over
+    // something it never looked at, which is ADR-0083's whole subject.
+    expect(claim.message).toContain("6 of its 7 declared faces");
+  });
+
+  it("fails a shell declaring a face its entry cannot draw", () => {
+    // The failure #528 calls the one worth a test of its own: a roster that can
+    // lie is a roster that will. Rations declaring Notes is the copy-paste — the
+    // root's seven pasted into a Facet holding one domain — and it is exactly
+    // the crossing ADR-0078 §1 makes unexpressible, arriving as a tile that
+    // would open onto nothing.
+    const claim = checkViewContainment(
+      { ...FOOD, faces: ["rations", "recipes", "notes", "settings"] },
+      bundle({ facet: "food", modules: ["src/lib/views/FoodView.svelte"] })
+    );
+    expect(claim.ok).toBe(false);
+    expect(claim.message).toContain("Notes");
+    expect(claim.message).toContain("src/lib/views/NotesView.svelte");
+    // Every claim names the Facet it is about, never "the app" (ADR-0083 §1).
+    expect(claim.message).toContain("Rations");
+  });
+
+  it("gates nothing on a face that draws no domain", () => {
+    // Settings sits on no Tracked Domain, being jar-wide (ADR-0114 §1), and the
+    // surface behind it is the one ADR-0083 §10 declined to gate: `SettingsView`
+    // is the root's and `FoodSettingsSheet` is Rations', so there is no module
+    // both shells could be held to. Declared with nothing under it rather than
+    // declared and quietly excused.
+    const claim = checkViewContainment(
+      { ...FOOD, faces: ["settings"] },
+      bundle({ facet: "food", modules: ["src/lib/views/FoodView.svelte"] })
+    );
+    expect(claim.ok).toBe(true);
+    expect(claim.message).toContain("0 of its 1 declared faces");
+  });
 });
 
 describe("the outdated-cache cleanup (ADR-0083 §7)", () => {

@@ -18,10 +18,12 @@
  * wrong build, and that is how a gate gets switched off rather than fixed.
  */
 import {
+  facesOf,
   nestedFacetsOf,
   ownerOfViewModule,
   precacheBandOf,
   screensOf,
+  screensOfFace,
   VIEWS_ROOT,
   type Facet,
 } from "./registry";
@@ -93,9 +95,10 @@ export function checkPrecacheBand(
 
 /**
  * Every view module a Facet's built entry reaches belongs to a domain it
- * declares, and every domain it declares has its screen in there.
+ * declares, every domain it declares has its screen in there, and every face it
+ * declares has a screen in there too.
  *
- * **Two halves, because there are two failures.** A crossing — anything under
+ * **Three arms, because there are three failures.** A crossing — anything under
  * `src/lib/views/` owned by a domain this Facet does not hold — is the failure
  * ADR-0078 §8 names, and it is judged over the whole surface rather than over
  * the six screens: the screens are six of ninety modules, and a population of
@@ -110,6 +113,44 @@ export function checkPrecacheBand(
  * it would false-positive on every Facet: ADR-0076 §6 makes identity a
  * build-time constant precisely so the bundler drops the other Facets' code, and
  * a source walk sees every module behind every dropped branch.
+ *
+ * The third is the **face roster** (ADR-0114 §8). A shell declares which faces
+ * its switcher offers, and it has to be a declaration rather than a discovery:
+ * referencing a face's module to find out it is present puts every face in every
+ * bundle and costs ADR-0077 its 4.23 MB. So this is what stands between the
+ * declaration and a lie — a roster that can lie is a roster that will — and it is
+ * checked against the built entry for the same reason the other two are. The
+ * failure it catches is the root's seven pasted into a Facet holding one domain:
+ * a tile that would open onto a screen this build does not contain, which is
+ * exactly the crossing ADR-0078 §1 makes unexpressible rather than forbidden.
+ *
+ * It is a **reading of the same population** rather than a second one
+ * (ADR-0083 §6): a face's screens are its domains' screens, so a declaration
+ * whose faces draw only domains this Facet holds is already proved by the arm
+ * above, and what is left to fail is a face drawing a domain the shell does not
+ * have. A screen tree-shaken away therefore trips both arms, and both sentences
+ * are worth saying — the install opens on nothing *and* the switcher offers a
+ * tile that cannot open.
+ *
+ * **What that overlap costs is worth stating plainly, because it is the thing
+ * this record's own subject is about.** On the shipped registry this arm cannot
+ * fire: `tests/unit/facet-registry.test.ts` holds every declared face's domains to
+ * the Facet's own, so the only state that reaches here is one the unit suite has
+ * already rejected, and a screen missing for any other reason trips the arm above
+ * first. It is therefore a **second tripwire on one defect rather than a claim of
+ * its own**, kept because ADR-0114 §8 asks the *build* to prove the declaration
+ * and because the sentence it prints names the tile where the other names the
+ * install. What it is emphatically not is a gate nobody has tried to break: the
+ * two failing cases in `tests/unit/facet-checks.test.ts` hand it a shell the
+ * registry could not hold, which is the only way to reach it.
+ *
+ * **A face that draws no Tracked Domain is gated by nothing**, which is Settings:
+ * it is jar-wide, so the root holds `SettingsView` and Rations holds
+ * `FoodSettingsSheet` and there is no module both shells could be held to. That
+ * is the surface ADR-0083 §10 declined to gate, and it is declared with an empty
+ * domain list rather than excused here — so the passing message says *6 of its 7
+ * declared faces* rather than all seven. A gate that counted the seventh would be
+ * claiming a proof it never attempted, which is the one failure ADR-0083 is about.
  *
  * What no domain owns is **counted, not passed in silence**. `SettingsView` and
  * the ledger, log and storage blocks are the jar-wide surface, and which Facet
@@ -145,13 +186,34 @@ export function checkViewContainment(
   const expected = screensOf(facet.id);
   const missing = expected.filter((screen) => !reached.includes(screen));
 
-  if (crossings.length === 0 && missing.length === 0) {
+  // **Per face, not per screen**, because the count in the message is a count of
+  // tiles: a face may draw two Tracked Domains without drawing two screens, which
+  // Agenda does. `judged` is the faces this arm can say anything about at all —
+  // one drawing no domain is unjudged rather than proved — and the order is the
+  // roster's, because a reader fixing this is looking for which tile lies.
+  const faces = facesOf(facet);
+  const judged = faces
+    .map((face) => ({ face, screens: screensOfFace(face) }))
+    .filter(({ screens }) => screens.length > 0);
+  const undrawable = judged
+    .map(({ face, screens }) => ({
+      face,
+      absent: screens.filter((screen) => !reached.includes(screen)),
+    }))
+    .filter(({ absent }) => absent.length > 0);
+
+  if (
+    crossings.length === 0 &&
+    missing.length === 0 &&
+    undrawable.length === 0
+  ) {
     return {
       ok: true,
       message:
         `${facet.name} reaches ${reached.length} view module` +
         `${reached.length === 1 ? "" : "s"} from ${bundle.entryChunk}, all ` +
-        `${expected.length} of its screens and nothing another domain owns ` +
+        `${expected.length} of its screens and ${judged.length} of its ` +
+        `${faces.length} declared faces, and nothing another domain owns ` +
         `(${unowned} jar-wide, unjudged)`,
     };
   }
@@ -171,6 +233,20 @@ export function checkViewContainment(
         `${missing.length === 1 ? "" : "s"} its declared domains imply, so the ` +
         `install opens on nothing:\n` +
         missing.map((m) => `    − ${m}`).join("\n")
+    );
+  }
+  if (undrawable.length > 0) {
+    lines.push(
+      `${facet.name}: its switcher declares ${undrawable.length} face` +
+        `${undrawable.length === 1 ? "" : "s"} whose screen its built entry ` +
+        `cannot reach, so the tile would open onto nothing (ADR-0114 §8). ` +
+        `Either the face belongs to another shell's roster, or this Facet is ` +
+        `missing the Tracked Domain that draws it:\n` +
+        undrawable
+          .flatMap(({ face, absent }) =>
+            absent.map((screen) => `    − ${screen} (${face.name})`)
+          )
+          .join("\n")
     );
   }
   return { ok: false, message: lines.join("\n  ") };

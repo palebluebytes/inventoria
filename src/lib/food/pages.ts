@@ -1,4 +1,4 @@
-import { facetOf } from "../facets/registry";
+import { faceOf, facetOf } from "../facets/registry";
 import { watchAtLeast } from "../ui/breakpoints";
 
 /**
@@ -65,16 +65,23 @@ export function iconIdOf(page: Page): string {
  * What a page's control is called — its accessible name in the header, and the
  * name the legend gives the same mark.
  *
- * Settings is **read off the registry**, which is where the surface it opens
- * reads its own title (ADR-0080 §7, §8): the control and the screen it opens
- * were two hand-typed copies of one Facet's name, and one string is correct in
- * both. It is qualified rather than plain "Settings" because the same surface
- * opens from the root's Food tab, one tab away from the root's own Settings.
+ * **Both names that exist on a roster are read off it**, which is where each
+ * surface reads its own title. Settings came first (ADR-0080 §7, §8): the control
+ * and the screen it opens were two hand-typed copies of one Facet's name, and one
+ * string is correct in both. It is qualified rather than plain "Settings" because
+ * the same surface opens from the root's Food tab, one tab away from the root's
+ * own Settings, so the qualifier is this call site's and not the roster's.
+ *
+ * Recipes joined it at #528, when Recipes became a **face** with one canonical
+ * name (ADR-0114 §3): the same word was spelled here and in the face roster, and
+ * a switcher tile beside a header control saying different things is the defect
+ * that record's §3 exists to prevent. Reports is not on either roster — it is one
+ * of Rations' pages and nothing else — so it stays spelled here.
  */
 export function pageLabel(page: Page): string {
   switch (page) {
     case "recipes":
-      return "Recipes";
+      return faceOf("recipes").name;
     case "reports":
       return "Reports";
     case "settings":

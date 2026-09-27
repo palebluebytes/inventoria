@@ -3,6 +3,9 @@ import { existsSync, readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
+  FACES,
+  faceOf,
+  facesOf,
   FACETS,
   type ContentDomainId,
   TRACKED_DOMAINS,
@@ -17,6 +20,7 @@ import {
   precacheBandOf,
   screenOf,
   screensOf,
+  screensOfFace,
   storagePrefixesOf,
   VIEWS_ROOT,
 } from "../../src/lib/facets/registry";
@@ -353,6 +357,215 @@ describe("what the Facet gates read off the registry (ADR-0083 §4)", () => {
     // the cleanup rule nor the navigation denylist is written against `root`.
     expect(nestedFacetsOf("root").map((f) => f.id)).toEqual(["food"]);
     expect(nestedFacetsOf("food")).toEqual([]);
+  });
+});
+
+// #528, ADR-0114. The face roster: the other list in this module, authored
+// rather than derived, and the one every ticket in that arc reads. What a test
+// can hold it to is the coherence its two directions owe each other — a face
+// draws a domain, a shell declares a face — because the drawing itself is a
+// presentation choice no gate can infer (ADR-0114 §1).
+describe("the face roster (ADR-0114 §2)", () => {
+  const publicPath = (served: string) =>
+    fileURLToPath(new URL(`../../public${served}`, import.meta.url));
+
+  it("holds the seven faces in the one fixed order, Settings last", () => {
+    // ADR-0114 §2. The order is the roster's, not the grid's: the grid pins
+    // Settings to the last column rather than trusting a list to end there, and
+    // this is the list it would otherwise be trusting.
+    expect(FACES.map((face) => face.id)).toEqual([
+      "rations",
+      "recipes",
+      "media",
+      "items",
+      "agenda",
+      "notes",
+      "settings",
+    ]);
+    expect(FACES.at(-1)!.id).toBe("settings");
+  });
+
+  it("names each face once, and never with a retired title", () => {
+    // ADR-0114 §3. `Media Tracker`, `Physical Digital Twins` and
+    // `Notes & Checklist` are the three titles a switcher retires by putting
+    // every name beside every other. #533 is where the `<h1>`s follow.
+    expect(FACES.map((face) => face.name)).toEqual([
+      "Rations",
+      "Recipes",
+      "Media",
+      "Items",
+      "Agenda",
+      "Notes",
+      "Settings",
+    ]);
+  });
+
+  it("names a mark that is there, for every face", () => {
+    // The registry header's own rule, and the reason `Facet.icons` waited for
+    // #302: a path to a file that is not there is the lie this module refuses.
+    for (const face of FACES) {
+      expect({
+        face: face.id,
+        mark: face.mark,
+        served: existsSync(publicPath(face.mark)),
+      }).toEqual({ face: face.id, mark: face.mark, served: true });
+    }
+  });
+
+  it("draws only content domains, and lets a face draw two or none", () => {
+    // ADR-0114 §1: a face is not one-to-one with a Tracked Domain in either
+    // direction. Agenda draws two, Rations and Recipes both draw food, and
+    // Settings draws none at all, being jar-wide — which is why this roster is
+    // authored beside `FACETS` rather than derived from the domain list.
+    const content = new Set(TRACKED_DOMAINS.filter((d) => d.views.length > 0));
+    for (const face of FACES) {
+      for (const id of face.domains) {
+        const domain = TRACKED_DOMAINS.find((d) => d.id === id);
+        expect({ face: face.id, id, content: content.has(domain!) }).toEqual({
+          face: face.id,
+          id,
+          content: true,
+        });
+      }
+    }
+    expect(faceOf("agenda").domains).toEqual(["habits", "calendar"]);
+    expect(faceOf("recipes").domains).toEqual(faceOf("rations").domains);
+    expect(faceOf("settings").domains).toEqual([]);
+  });
+
+  it("takes Agenda's two domains as the one screen they share", () => {
+    // The same deduplication `screensOf` does for a Facet, and for the same
+    // reason: habits and calendar events both draw through `AgendaView`, so a
+    // gate counting one screen per domain would never be satisfiable.
+    expect(screensOfFace(faceOf("agenda"))).toEqual([
+      "src/lib/views/AgendaView.svelte",
+    ]);
+    expect(screensOfFace(faceOf("rations"))).toEqual([
+      "src/lib/views/FoodView.svelte",
+    ]);
+    expect(screensOfFace(faceOf("settings"))).toEqual([]);
+  });
+
+  it("marks only a face that is a Facet as installable", () => {
+    // ADR-0114 §1 and §4: Facet-hood is a sparse property of a face, declared
+    // rather than derived, because there is no field either roster could read off
+    // the other. So the flag is held to the only coherence there is — an
+    // installable face is one of the two on `FACETS`, by its canonical name — and
+    // Recipes is `false` on purpose, being a face whose promotion is a domain
+    // split rather than a flag.
+    //
+    // **This is a staleness guard and not a derivation**, which is the whole
+    // reason the field is stored (ADR-0080 §8 forbids a stored conclusion, and
+    // that field's comment answers the rule). The shared name is a coincidence of
+    // today's roster: deriving through it would mean renaming what Rations calls
+    // itself on a home screen quietly made a face uninstallable, where this fails
+    // loudly on the day the two rosters disagree.
+    const installs = new Set<string>(FACETS.map((facet) => facet.name));
+    for (const face of FACES) {
+      expect({ face: face.id, installable: face.installable }).toEqual({
+        face: face.id,
+        installable: installs.has(face.name),
+      });
+    }
+    expect(faceOf("rations").installable).toBe(true);
+    expect(faceOf("recipes").installable).toBe(false);
+    // The root is a Facet and not a face: its mark means the app rather than
+    // any one of its screens (ADR-0114 §6), so it is on one roster only.
+    expect(FACES.map((face) => face.name)).not.toContain(facetOf("root").name);
+  });
+
+  it("ships Rations and Settings, and says the other five are beta", () => {
+    // ADR-0114 §11, and the one place the badge is decided. Settings is exempt
+    // although it is not Rations: its contents are the oldest surfaces in the
+    // app, and a badge that is visibly wrong once teaches people to ignore it
+    // everywhere. #534 is where both renderings read this field.
+    expect(
+      FACES.filter((face) => face.maturity === "shipped").map((f) => f.id)
+    ).toEqual(["rations", "settings"]);
+    expect(
+      FACES.filter((face) => face.maturity === "beta").map((f) => f.id)
+    ).toEqual(["recipes", "media", "items", "agenda", "notes"]);
+  });
+});
+
+// The join between the two rosters, which is the half `pnpm check:facets` proves
+// against a build. What is here is what can be known without one.
+describe("the faces a shell declares (ADR-0114 §8)", () => {
+  it("declares seven on the root and three in Rations", () => {
+    expect(facesOf(facetOf("root")).map((face) => face.id)).toEqual([
+      "rations",
+      "recipes",
+      "media",
+      "items",
+      "agenda",
+      "notes",
+      "settings",
+    ]);
+    expect(facesOf(facetOf("food")).map((face) => face.id)).toEqual([
+      "rations",
+      "recipes",
+      "settings",
+    ]);
+  });
+
+  it("reads a shell's roster in the roster's order, not the shell's", () => {
+    // ADR-0114 §2's order is fixed once, and a Facet's own array is a
+    // membership list rather than a second ordering: a shell that declared its
+    // faces backwards would still draw them in the one order, and Settings
+    // would still be last. Each Facet's roster is then a *prefix* of the root's,
+    // which is the property §8 leans on.
+    const order = FACES.map((face) => face.id);
+    for (const facet of FACETS) {
+      const declared = facesOf(facet).map((face) => face.id);
+      expect([facet.id, declared]).toEqual([
+        facet.id,
+        order.filter((id) => declared.includes(id)),
+      ]);
+    }
+  });
+
+  it("declares no face a shell cannot draw", () => {
+    // The claim `checkViewContainment` proves against the built entry, asserted
+    // here against the declarations alone — so the copy-paste that would give
+    // Rations the root's seven fails at `pnpm test:unit` rather than waiting for
+    // a `dist/`. A face's domains must be the Facet's, or its screen is not in
+    // that build and the tile opens onto nothing.
+    for (const facet of FACETS) {
+      const held = new Set<string>(facet.domains);
+      for (const face of facesOf(facet)) {
+        expect([
+          facet.id,
+          face.id,
+          face.domains.every((d) => held.has(d)),
+        ]).toEqual([facet.id, face.id, true]);
+      }
+      // Every screen the declared faces imply is one the Facet's own domains
+      // already imply, which is what makes the gate's new arm a reading of the
+      // same number rather than a second population (ADR-0083 §6).
+      const screens = new Set(screensOf(facet.id));
+      for (const face of facesOf(facet))
+        for (const screen of screensOfFace(face))
+          expect([facet.id, face.id, screens.has(screen)]).toEqual([
+            facet.id,
+            face.id,
+            true,
+          ]);
+    }
+  });
+
+  it("gives every face a shell, and Settings every one of them", () => {
+    // ADR-0114 §10: Settings is in every Facet's roster and is never hideable,
+    // which is the whole of "a door in the same place everywhere". And a face on
+    // the roster that no shell declares would be a name with no way to it —
+    // unreachable rather than merely unfinished.
+    for (const face of FACES) {
+      const shells = FACETS.filter((facet) =>
+        facesOf(facet).includes(face)
+      ).map((facet) => facet.id);
+      expect([face.id, shells.length > 0]).toEqual([face.id, true]);
+      if (face.id === "settings")
+        expect(shells).toEqual(FACETS.map((facet) => facet.id));
+    }
   });
 });
 
