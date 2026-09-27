@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { waitForDbReady } from "./support/shell";
 
 /**
  * Reactive UI Layer — E2E tests
@@ -11,17 +12,6 @@ test.describe("Reactive store — live updates without page reload", () => {
   test.beforeEach(async ({ page }) => {
     page.on("pageerror", (err) => console.error("PAGE ERROR:", err.message));
   });
-
-  /** Wait until the app has finished initialising the DB worker */
-  async function waitForDbReady(page: import("@playwright/test").Page) {
-    await page.waitForFunction(
-      () => {
-        const badge = document.querySelector(".db-badge");
-        return badge?.textContent?.includes("DB Ready");
-      },
-      { timeout: 10000 }
-    );
-  }
 
   test("food twin appears in query results after append, without reload", async ({
     page,

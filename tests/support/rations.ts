@@ -6,18 +6,18 @@ import { BREAKPOINTS } from "../../src/lib/ui/breakpoints";
  * sweep it (#348).
  *
  * Two specs asking the same two questions about the same Facet, and both answers
- * carry an argument that should be written once: what says this app is ready
- * when it has no `.db-badge`, and what "above the shell breakpoint" means when
- * the number belongs to `lib/ui/breakpoints.ts`.
+ * carry an argument that should be written once: what says the day has been read
+ * from the ledger, and what "above the shell breakpoint" means when the number
+ * belongs to `lib/ui/breakpoints.ts`.
  */
 
 /**
  * Opens the day and waits for the ledger to have answered for it.
  *
- * **A positive marker first, then the absence.** The root's `waitForDbReady`
- * waits for the Sidebar's badge to *say* "DB Ready"; Rations has no sidebar to
- * put one in (ADR-0078 §1), so readiness is read off the day itself — each meal
- * draws a skeleton row until the day is known. But `goto` resolves on `load`,
+ * **A positive marker first, then the absence.** This is a stronger wait than
+ * `waitForDbReady`'s, and it survives it rather than duplicating it: that helper
+ * says the ledger is open, and this says the day has been *read from* it — each
+ * meal draws a skeleton row until it is known. But `goto` resolves on `load`,
  * before Svelte has mounted anything, and "no skeletons" is true of an empty
  * document as well as of a read day. Waiting for a meal section to exist first
  * is what tells the two apart: without it a boot failure photographs a blank

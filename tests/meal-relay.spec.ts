@@ -1,5 +1,6 @@
 /// <reference types="node" />
 import { test, expect, type Page } from "@playwright/test";
+import { waitForDbReady } from "./support/shell";
 import type { MealType } from "../src/lib/food/meal-type";
 import { openWayIn } from "./support/ways-in";
 
@@ -118,15 +119,6 @@ async function serveUsdaCorpus(page: Page) {
       }),
     });
   });
-}
-
-async function waitForDbReady(page: Page) {
-  await page.waitForFunction(
-    () =>
-      document.querySelector(".db-badge")?.textContent?.includes("DB Ready") ===
-      true,
-    { timeout: 15_000 }
-  );
 }
 
 /** Logs 100g of a mock food into a meal on the day the week strip is showing. */

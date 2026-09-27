@@ -255,6 +255,15 @@ describe("a sheet over a sheet replaces it on a phone (§7)", () => {
  *   §3's whole argument is that below the sheet breakpoint it belongs on the
  *   band's bottom edge because that edge is where the hand is.
  *
+ *   `FaceSwitcher` is the fifth, and it is the reason this roster is worth
+ *   keeping. ADR-0114 §6 builds the face panel on `Modal` precisely so that
+ *   ADR-0100's gate is never engaged — the dialog shell, the backdrop, the
+ *   `inert` and the focus trap are all the primitive's — and what is left to the
+ *   caller is the card's POSITION, which is the one thing about this surface
+ *   that is not a centred card: it is top-anchored, under the pinned header,
+ *   at every width. The `translate(-50%, -50%)` the sweep above refuses is
+ *   absent here for the same reason it is absent from `SelectionBar`.
+ *
  *   `MealPicker` is the fourth and the odd one: its panel is `popover="auto"`,
  *   so the BROWSER pins it — a popover is in the top layer and the UA stylesheet
  *   already gives it `position: fixed`. The declaration is written out anyway,
@@ -267,6 +276,7 @@ describe("a sheet over a sheet replaces it on a phone (§7)", () => {
  *   viewport (#453).
  */
 const PINNED_OUTSIDE_THE_PRIMITIVE = [
+  "src/lib/layout/FaceSwitcher.svelte",
   "src/lib/views/food/LabelPhotoReader.svelte",
   "src/lib/views/food/MealPicker.svelte",
   "src/lib/views/food/SelectionBar.svelte",

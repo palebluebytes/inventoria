@@ -121,6 +121,7 @@
     onReceiveClose,
     hasPages = false,
     shell,
+    page = $bindable(null),
   }: {
     dbReady: boolean;
     /**
@@ -161,6 +162,29 @@
      * runs in (ADR-0108 §1).
      */
     shell: FacetId;
+    /**
+     * Which page is open, or `null` for the day (ADR-0091 §5).
+     *
+     * **One variable, not two booleans**, and that is what makes the shape
+     * legal. As sheets they could never both be open — a sheet covers the
+     * screen and neither has a door to the other — but as pages the header is
+     * standing navigation, so Recipes is one click away from Settings. Two
+     * booleans would let both be true and draw both pages down the column; a
+     * single opening makes "a page replaces a page" free rather than something
+     * an effect has to keep tidying up.
+     *
+     * It is a prop rather than local state because two of the three openings
+     * are also **faces**, and a shell's switcher has to be able to reach them
+     * (ADR-0114 §4, §10). Rations binds it so a switcher tile lands on the
+     * opening the header's control already opens, rather than on a second one
+     * beside it — one opening, two controls, which is the state this arc is in
+     * until Recipes and Settings finish leaving `PAGES`
+     * ([#532](https://github.com/palebluebytes/inventoria/issues/532)). The root
+     * binds nothing and gets the `null` default: it has no pages at any width
+     * and reaches the recipe library as a face of its own. Unbound this is
+     * exactly the local state it was.
+     */
+    page?: Page | null;
   } = $props();
 
   // ── Receiving a meal ─────────────────────────────────────────────────────
@@ -194,23 +218,14 @@
 
   // ── Settings and Recipes: one state, two shapes ───────────────────────────
   //
-  // Which of Rations' pages is open, or null for the day (ADR-0091 §5). The
-  // header's gear opens the Facet's one named, full-height settings surface
-  // (ADR-0080 §7) and its pot opens the recipe library; **what those two
-  // surfaces are** is the only thing the width decides. Above the shell
-  // breakpoint they are pages shown instead of the day, below it they are the
-  // sheets they have always been, and it is the same surface either way —
-  // `BottomSheet`'s `inline` renders the same header and body into the page's
-  // flow rather than growing a second copy (#341).
-  //
-  // **One variable, not two booleans**, and that is what makes the shape legal.
-  // As sheets they could never both be open — a sheet covers the screen and
-  // neither has a door to the other — but as pages the header is standing
-  // navigation, so Recipes is one click away from Settings. Two booleans would
-  // let both be true and draw both pages down the column; a single opening
-  // makes "a page replaces a page" free rather than something an effect has to
-  // keep tidying up.
-  let page = $state<Page | null>(null);
+  // The opening itself is `page`, and it is a **prop** — the argument for its
+  // shape is on the declaration above. The header's gear opens the Facet's one
+  // named, full-height settings surface (ADR-0080 §7) and its pot opens the
+  // recipe library; **what those two surfaces are** is the only thing the width
+  // decides. Above the shell breakpoint they are pages shown instead of the
+  // day, below it they are the sheets they have always been, and it is the same
+  // surface either way — `BottomSheet`'s `inline` renders the same header and
+  // body into the page's flow rather than growing a second copy (#341).
 
   // Whether a page may be shown at all: this shell has them and the window is
   // wide enough for one. It starts false and the watcher corrects it, so a

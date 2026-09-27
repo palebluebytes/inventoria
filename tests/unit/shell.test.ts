@@ -120,27 +120,35 @@ describe("Rations' own box, which no picture defends", () => {
     expect(decl(appRule(".main"), "overflow-y")).toBe("auto");
   });
 
-  it("reserves all four safe areas, where the root reserves three", () => {
-    // ADR-0089 §2 and ADR-0078 §1, which only make sense together. The root
-    // hands the bottom inset to its nav, because the nav is the thing at the
-    // foot of the screen and reserves the home indicator itself. Rations has no
-    // nav — that absence is the whole shape of the Facet — so nothing stands
-    // between this box and the indicator, and the fourth inset is its own.
+  it("reserves all four safe areas, and so does the root now", () => {
+    // ADR-0089 §2 and ADR-0078 §1 used to make these two shells disagree about
+    // one edge: the root handed the bottom inset to its nav, because the nav was
+    // the thing at the foot of the screen and reserved the home indicator
+    // itself, while Rations had no nav and took the fourth inset as its own.
+    // That disagreement was named here rather than left looking like the drift
+    // the shared `.main` rule was written to end.
     //
-    // Two shells that disagree about one edge is precisely the drift the shared
-    // `.main` rule was written to end, so the disagreement that IS intended is
-    // named here rather than left looking like the one that was not.
-    const rations = decl(ruleOf(RATIONS_SHELL, ".rations"), "padding");
-    for (const side of ["top", "right", "bottom", "left"]) {
-      expect(rations).toContain(`env(safe-area-inset-${side}, 0px)`);
+    // **It is over.** ADR-0114 §5 deletes the nav and moves the shell's chrome
+    // to the top of every face, so nothing stands between either box and the
+    // indicator and the last row of whichever face is open would otherwise sit
+    // under it. The two shells now agree on every edge, which is why this reads
+    // as one loop over one shorthand instead of two readings of one rule.
+    for (const shell of [RATIONS_SHELL, APP_SHELL]) {
+      const box = ruleOf(shell, shell === APP_SHELL ? ".app" : ".rations");
+      const padding = decl(box, "padding");
+      for (const side of ["top", "right", "bottom", "left"]) {
+        expect({ shell, side, padding }).toEqual({
+          shell,
+          side,
+          padding: expect.stringContaining(`env(safe-area-inset-${side}, 0px)`),
+        });
+      }
+      // The shorthand and nothing beside it: a longhand left over from the
+      // three-inset reading would silently win against one of the four above.
+      for (const side of ["top", "right", "bottom", "left"]) {
+        expect(decl(box, `padding-${side}`)).toBeUndefined();
+      }
     }
-
-    const root = ruleOf(APP_SHELL, ".app");
-    expect(decl(root, "padding-top")).toBe("env(safe-area-inset-top, 0px)");
-    expect(decl(root, "padding-right")).toBe("env(safe-area-inset-right, 0px)");
-    expect(decl(root, "padding-left")).toBe("env(safe-area-inset-left, 0px)");
-    expect(decl(root, "padding-bottom")).toBeUndefined();
-    expect(decl(root, "padding")).toBeUndefined();
   });
 });
 

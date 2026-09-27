@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { goToFace, waitForDbReady } from "./support/shell";
 
 test("OPFS Persistence Test survival across page reload", async ({ page }) => {
   // Capture page console logs
@@ -21,16 +22,10 @@ test("OPFS Persistence Test survival across page reload", async ({ page }) => {
   await page.goto("/");
 
   // Switch to the Settings tab so harness elements become visible
-  await page.locator(".nav-item", { hasText: "Settings" }).click();
+  await goToFace(page, "Settings");
 
   // Wait for the DB connection to be fully ready
-  await page.waitForFunction(
-    () => {
-      const badge = document.querySelector(".db-badge");
-      return badge?.textContent?.includes("DB Ready");
-    },
-    { timeout: 10000 }
-  );
+  await waitForDbReady(page);
 
   // Enable Developer / Testing Mode
   const devToggle = page.locator("#dev-mode-toggle");

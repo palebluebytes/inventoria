@@ -1,12 +1,14 @@
 <script lang="ts">
   import { onDestroy, onMount } from "svelte";
   import { dbClient } from "./lib/db/db.client";
-  import Sidebar from "./lib/layout/Sidebar.svelte";
+  import FaceHeader from "./lib/layout/FaceHeader.svelte";
   import FoodView from "./lib/views/FoodView.svelte";
   import MediaView from "./lib/views/MediaView.svelte";
   import AgendaView from "./lib/views/AgendaView.svelte";
   import SettingsView from "./lib/views/SettingsView.svelte";
   import ItemsView from "./lib/views/ItemsView.svelte";
+  import RecipeLibrarySheet from "./lib/views/food/RecipeLibrarySheet.svelte";
+  import Badge from "./lib/ui/Badge.svelte";
   import ReloadPrompt from "./lib/ui/ReloadPrompt.svelte";
   import FacetExit from "./lib/layout/FacetExit.svelte";
   import CarriedDeletionNotice from "./lib/views/CarriedDeletionNotice.svelte";
@@ -19,7 +21,13 @@
   import { openAppWake } from "./lib/p2p/wake-errand";
   import { watchCarriedDeletions } from "./lib/stores/carried-deletion-notice";
   import type { OpenWake } from "./lib/p2p/wake-cadence";
-  import { facetOf, type Facet } from "./lib/facets/registry";
+  import {
+    faceOf,
+    facesOf,
+    facetOf,
+    type Facet,
+    type FaceId,
+  } from "./lib/facets/registry";
 
   /**
    * Which Facet this is, handed in by the entry point that mounted it
@@ -113,7 +121,7 @@
         const params = new URLSearchParams(window.location.search);
         const sharedUrl = params.get("url") || params.get("text") || "";
         if (sharedUrl) {
-          activeTab = "items";
+          face = "items";
         }
       }
 
@@ -147,14 +155,20 @@
   });
 
   // ── Navigation ───────────────────────────────────────────────────────────
-  type Tab = "food" | "agenda" | "media" | "items" | "notes" | "settings";
-  let activeTab = $state<Tab>("food");
+  //
+  // **Six tabs became seven faces** (ADR-0114 §2). The state is a `FaceId` off
+  // the roster rather than a union written here, so the switcher, the header's
+  // title and this ladder cannot disagree about what the app holds — and a face
+  // added to the registry is a compile error here until it has a screen.
+  //
+  // `rations` is still the landing, and that is the one thing this ticket does
+  // not change: [#530](https://github.com/palebluebytes/inventoria/issues/530)
+  // makes the landing the grid itself, which is where the switcher's own mark
+  // gets somewhere to go.
+  let face = $state<FaceId>("rations");
 
-  // The tab bar's measured height, published as `--shell-floor` below. Zero
-  // until the aside has been laid out, which is the same value Rations keeps
-  // permanently — so nothing pinned to the band's bottom edge is ever offset by
-  // a number nobody measured.
-  let navFloor = $state(0);
+  /** The seven, in the roster's fixed order — never this shell's own. */
+  const faces = $derived(facesOf(facet));
 
   /**
    * The other Facet, named here only so the root can offer it (ADR-0078 §4).
@@ -182,21 +196,22 @@
     <BottomSheetDemo />
   {/await}
 {:else}
-  <!-- `--nav-box` is the nav's MEASURED height, and the stylesheet below turns
-       it into `--shell-floor`: how much of the band's bottom edge this shell's
-       own chrome takes, so a surface pinned to that edge can clear it
-       (`src/app.css` declares the 0 that Rations keeps). Measured rather than
-       restated — the nav is `--tap-min` plus two paddings plus a safe-area inset
-       the device picks, and a sum of those written anywhere else is the copy
-       that goes stale.
-
-       **Two names, because an inline style outranks every selector.** Writing
-       the floor itself here would win against the `@media` rule that zeroes it
-       above 768, and the bar would clear a rail that is not on the bottom edge
-       at all. So the measurement comes in under its own name and the derivation
-       stays in the stylesheet, where one rule can beat another. -->
-  <div class="app" style="--nav-box: {navFloor}px">
-    <Sidebar bind:activeTab {dbReady} {dbError} bind:height={navFloor} />
+  <!-- `data-db` is the ledger's state, and it is a **test hook rather than a
+       drawing** (ADR-0114 §9). The Sidebar's badge used to say "DB Ready" in
+       words, and fifteen end-to-end specs read those words to know the app had
+       opened; that badge is deleted, because a permanent green label is a
+       developer's affordance charging the user for it. The affordance itself is
+       real, so it moves to an attribute nobody sees — the same bargain
+       `window.dbClient` and `SettingsView`'s always-rendered tree already strike
+       in this file. It survives #530, which takes the day off the landing
+       screen: the shell knows whether the ledger is open whatever it is
+       drawing. -->
+  <div class="app" data-db={dbError ? "error" : dbReady ? "ready" : "opening"}>
+    <!-- The app's only navigation, at the top of every face (ADR-0114 §5). It
+         publishes its own measured height as `--shell-ceiling` on `<html>`,
+         which is what the panel it drops reads — the deleted `Sidebar` published
+         a floor from the other edge and for the same reason. -->
+    <FaceHeader face={faceOf(face)} {faces} onPick={(id) => (face = id)} />
 
     <main class="main">
       <!-- The capped, centred column, and the whole of why it is a box of its
@@ -205,11 +220,26 @@
            instead of at the edge of the window (`src/app.css`, ADR-0091 §2 as
            amended). The wrapper takes the cap; the scroll stays outside it. -->
       <div class="shell-column">
-        <!-- Above every tab, because the act it reports is about the jar rather
+        <!-- Above every face, because the act it reports is about the jar rather
              than about whichever screen happens to be open (ADR-0096 §12). -->
         <CarriedDeletionNotice />
 
-        {#if activeTab === "food"}
+        <!-- **Error only** (ADR-0114 §9), which is what `Rations.svelte` already
+             does and for the reason written beside it: a screen that silently
+             never becomes ready is the one failure a user cannot read off the
+             page. `● DB Ready` and `○ Connecting…` went with the `Sidebar` that
+             carried them — a permanent green badge is a developer's affordance
+             charging the user for it. Where the line sits on the landing screen
+             is [#530](https://github.com/palebluebytes/inventoria/issues/530)'s;
+             that it is error-only everywhere is settled here, because the box
+             that drew the other two states is gone in this change. -->
+        {#if dbError}
+          <Badge class="w-full justify-center" variant="error">
+            ✕ DB Error — {dbError}
+          </Badge>
+        {/if}
+
+        {#if face === "rations"}
           <!-- No `receiveLink`: a meal arrives at Rations and nowhere else
                (ADR-0084 §5), so there is none for this shell to hand down. The
                Scan way in still reads a meal code, and FoodView owns that one
@@ -224,19 +254,39 @@
           <FacetExit facet={rations} />
         {/if}
 
-        {#if activeTab === "media"}
+        <!-- Recipes is a face rather than one of Rations' pages (ADR-0114 §4),
+             so the root reaches the library directly instead of through a
+             header control it does not have. `inline` is the same prop the page
+             form passes: one surface, two hosts (#337).
+
+             It is **not** a Facet, and the reason is a gate rather than a
+             preference: `recipe:` is owned by the `food` domain, and
+             `check:facets` holds a Facet to reaching every screen of every
+             domain it holds, so a recipes-only Facet holding `food` is
+             unbuildable. `selectedDate` is inert on this surface — nothing it
+             can reach puts food on a day — and `onClose` has nothing to close,
+             because a face is left by choosing another. -->
+        {#if face === "recipes"}
+          <RecipeLibrarySheet
+            selectedDate={new Date()}
+            inline
+            onClose={() => {}}
+          />
+        {/if}
+
+        {#if face === "media"}
           <MediaView {dbReady} />
         {/if}
 
-        {#if activeTab === "items"}
+        {#if face === "items"}
           <ItemsView {dbReady} />
         {/if}
 
-        {#if activeTab === "agenda"}
+        {#if face === "agenda"}
           <AgendaView {dbReady} />
         {/if}
 
-        {#if activeTab === "notes"}
+        {#if face === "notes"}
           {#await import("./lib/views/NotesView.svelte") then mod}
             {@const NotesView = mod.default}
             <NotesView {dbReady} />
@@ -244,12 +294,12 @@
         {/if}
 
         <!-- Settings — always rendered so Playwright can find the harness elements.
-             That is also why it is handed the active-tab signal rather than
-             reading a mount: it mounts once per page load and never again, so
-             anything on it that must be fresh when it is looked at has to be told
-             when it is being looked at (#290). -->
-        <div hidden={activeTab !== "settings"}>
-          <SettingsView {dbReady} shown={activeTab === "settings"} />
+             That is also why it is handed the shown signal rather than reading a
+             mount: it mounts once per page load and never again, so anything on
+             it that must be fresh when it is looked at has to be told when it is
+             being looked at (#290). -->
+        <div hidden={face !== "settings"}>
+          <SettingsView {dbReady} shown={face === "settings"} />
         </div>
       </div>
     </main>
@@ -260,39 +310,28 @@
 
 <style>
   .app {
-    /* The nav IS this shell's floor below 768 — it is a flex item at the foot of
-       a `100svh` box — so it takes exactly its own height off the band's bottom
-       edge. `src/app.css` declares the token and the 0 a shell without one
-       keeps. */
-    --shell-floor: var(--nav-box, 0px);
     display: flex;
-    flex-direction: column-reverse;
+    flex-direction: column;
     height: 100svh;
     /* `100svh` and no `var(--vv-h)`: the shell is not a consumer of the visible
        band (ADR-0089 §4). The nav is not something you use while typing, and
        making it chase the keyboard means it competes with every focused field
        on the page for space. Do not "fix" this. */
     background: var(--bg-base);
-    /* Three of the four safe areas, because `viewport-fit=cover` moved the
-       layout viewport's origin under the notch and this box starts at its top
-       corner (ADR-0089 §2). The fourth is the nav's: it is the thing at the
-       foot of the screen and reserves the home indicator itself, so reserving
-       it here too would double the gap. */
-    padding-top: env(safe-area-inset-top, 0px);
-    padding-right: env(safe-area-inset-right, 0px);
-    padding-left: env(safe-area-inset-left, 0px);
+    /* **All four now, where this box used to reserve three** (ADR-0089 §2, as
+       amended by ADR-0114 §5). The fourth used to be the nav's: it stood at the
+       foot of the screen and reserved the home indicator itself, so reserving it
+       here too would have doubled the gap. The nav is deleted, nothing stands
+       between this box and the indicator, and the last row of whichever face is
+       open would otherwise sit under it — which is exactly the reading
+       `.rations` has always had, and the two shells now agree on every edge. */
+    padding: env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px)
+      env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px);
   }
 
   /* `.main` is not here either — it is one rule in `src/app.css`, shared with
-     Rations' shell (ADR-0091 §2). What stays is the Sidebar's flip, which is
-     this shell's own shape and nobody else's. */
-  @media (min-width: 768px) {
-    .app {
-      flex-direction: row;
-      /* The aside is a left rail up here, not the app's floor, so it takes none
-         of the band's bottom edge. Zeroed rather than left reporting a column's
-         height, so the property means what its name says at every width. */
-      --shell-floor: 0px;
-    }
-  }
+     Rations' shell (ADR-0091 §2). Nor is there a width query left in this file:
+     the `Sidebar`'s flip from a bottom bar to a left rail was the only shape
+     this shell changed at 768, and the header it was replaced by is one row at
+     every width (ADR-0114 §6). */
 </style>

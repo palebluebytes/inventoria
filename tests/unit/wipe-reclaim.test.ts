@@ -112,8 +112,11 @@ describe("the wipe attempts the reclaim and reports what happened", () => {
 });
 
 describe("the storage readout is told when its screen is looked at", () => {
-  it("takes the root's active tab, threaded through Settings", () => {
-    expect(APP).toMatch(/<SettingsView[^>]*shown=\{activeTab === "settings"\}/);
+  it("takes the root's current face, threaded through Settings", () => {
+    // It was `activeTab === "settings"` until ADR-0114 §2 made the root's six
+    // tabs seven faces off the registry's roster; the signal is the same one and
+    // the state it reads is now a `FaceId`.
+    expect(APP).toMatch(/<SettingsView[^>]*shown=\{face === "settings"\}/);
     expect(SETTINGS).toMatch(/<StorageStatus[^>]*\{shown\}/);
   });
 

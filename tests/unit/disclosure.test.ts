@@ -222,6 +222,12 @@ describe("the disclosure census", () => {
       elementsOf(file).some((el) => el.tag === "#Disclosure")
     ).sort();
     expect(wearing).toEqual([
+      // The sixth, and it is a use rather than a port: ADR-0114 §5 makes the
+      // face switcher's logo a disclosure, because the primitive owns a trigger
+      // and not a region and that is this shape exactly. It is also the first
+      // caller to draw its own mark *beside* the default caret rather than
+      // instead of it, which is what the `mark` snippet's second parameter is.
+      "src/lib/layout/FaceSwitcher.svelte",
       "src/lib/views/EndingLine.svelte",
       "src/lib/views/FoodView.svelte",
       "src/lib/views/food/AllergenSafetyBlock.svelte",

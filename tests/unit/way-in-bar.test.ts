@@ -9,6 +9,8 @@
  * CSS rather than of any rendered pixel.
  */
 import { describe, it, expect, vi, afterEach } from "vitest";
+import { readFileSync, readdirSync } from "node:fs";
+import { join } from "node:path";
 import { render } from "svelte/server";
 import { decl, ruleOf, rulesOf, styleOf } from "./support/stylesheet";
 import { BREAKPOINTS } from "../../src/lib/ui/breakpoints";
@@ -22,11 +24,20 @@ import WayInBar from "../../src/lib/views/food/WayInBar.svelte";
 import WayInRail from "../../src/lib/views/food/WayInRail.svelte";
 
 const BAR = "src/lib/views/food/WayInBar.svelte";
-const NAV = "src/lib/layout/Sidebar.svelte";
 const PICKER = "src/lib/views/food/MealPicker.svelte";
 const RAIL = "src/lib/views/food/WayInRail.svelte";
 const WIDE = `@media (min-width: ${BREAKPOINTS.sheet}px)`;
 const CALM = "@media (prefers-reduced-motion: reduce)";
+
+/** Every `.svelte` file under a directory, for the negative sweep below. */
+const svelteFiles = (dir: string): string[] =>
+  readdirSync(dir, { withFileTypes: true }).flatMap((e) =>
+    e.isDirectory()
+      ? svelteFiles(join(dir, e.name))
+      : e.name.endsWith(".svelte")
+        ? [join(dir, e.name)]
+        : []
+  );
 
 const allPast: Record<MealType, boolean> = {
   breakfast: true,
@@ -205,12 +216,32 @@ describe("nothing pinned at the foot sits flush against the system's buttons", (
     expect(decl(ruleOf(BAR, ".way-in-bar"), "padding-bottom")).toBe(FLOOR);
   });
 
-  it("floors the root shell's nav the same way, because it shares that edge", () => {
-    // The two surfaces that can be the last thing above the system's buttons,
-    // held to one rule. In the root shell the bar stands on `--shell-floor`,
-    // which is this nav's measured height — so there the NAV is what touches
-    // the buttons, and fixing the bar alone would leave the tab bar flush.
-    expect(decl(ruleOf(NAV, ".sidebar"), "padding-bottom")).toBe(FLOOR);
+  it("no longer shares the edge with a shell, in either Facet", () => {
+    // This used to name a second box: the root's `Sidebar` shared the edge —
+    // the bar stood on `--shell-floor`, which was that nav's measured height,
+    // so there the NAV was what touched the system's buttons and flooring the
+    // bar alone would have left the tab bar flush. ADR-0114 §5 deletes it and
+    // moves the shell's chrome to the top of every face.
+    //
+    // So the claim inverts: neither shell puts anything on this edge at all,
+    // and the property that used to carry one is gone from the whole tree. A
+    // shell that grew a bottom bar again would be a surface nobody has held to
+    // the floor above.
+    for (const shell of ["src/App.svelte", "src/Rations.svelte"]) {
+      const low = rulesOf(styleOf(shell)).filter(
+        (r) => decl(r, "bottom") !== undefined
+      );
+      expect({ shell, low }).toEqual({ shell, low: [] });
+    }
+
+    // Read off the stylesheets, which `styleOf` strips comments from: the
+    // property's obituary is written in this bar's own rule, and a sweep of raw
+    // source would convict the sentence recording that it is gone.
+    const floored = svelteFiles("src")
+      .filter((file) => readFileSync(file, "utf8").includes("<style>"))
+      .filter((file) => styleOf(file).includes("--shell-floor"));
+    expect(floored).toEqual([]);
+    expect(readFileSync("src/app.css", "utf8")).not.toContain("--shell-floor:");
   });
 
   it("gives the reserve up while folded, like every other part of the box", () => {
@@ -221,18 +252,25 @@ describe("nothing pinned at the foot sits flush against the system's buttons", (
 });
 
 describe("the bar is anchored at the edge the hand is on (§3)", () => {
-  it("writes one anchor, and it is the band minus the shell's own floor", () => {
+  it("writes one anchor, and it is the band's own bottom edge", () => {
     // `SelectionBar`'s rule read one surface across: a second `bottom` — under a
     // breakpoint, on a child, anywhere — means the bar has started deriving a
     // geometry instead of consuming one.
+    //
+    // **The second term is gone and this is a re-measurement** (ADR-0114 §5).
+    // It read `calc(var(--vv-bottom) + var(--shell-floor))`, and the floor was
+    // the root `Sidebar`'s measured height — 0 in Rations, which never had one.
+    // The nav is deleted, the shell's chrome is at the top in both Facets, and
+    // this edge is the band's own in both. What replaced the floor is
+    // `--shell-ceiling`, and nothing pinned low reads it: the sweep below is
+    // what says so.
     const anchors = rulesOf(styleOf(BAR))
       .filter((r) => decl(r, "bottom") !== undefined)
       .map((r) => `${r.at ?? "every width"} — ${r.selectors.join(", ")}`);
 
     expect(anchors).toEqual(["every width — .way-in-bar"]);
-    expect(decl(ruleOf(BAR, ".way-in-bar"), "bottom")).toBe(
-      "calc(var(--vv-bottom) + var(--shell-floor))"
-    );
+    expect(decl(ruleOf(BAR, ".way-in-bar"), "bottom")).toBe("var(--vv-bottom)");
+    expect(styleOf(BAR)).not.toContain("--shell-ceiling");
   });
 
   it("adds no breakpoint of its own", () => {

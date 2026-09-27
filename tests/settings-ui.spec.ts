@@ -1,12 +1,6 @@
 import { test, expect } from "@playwright/test";
+import { goToFace, waitForDbReady } from "./support/shell";
 import { settled } from "./support/sheet";
-
-async function waitForDbReady(page: import("@playwright/test").Page) {
-  await page.waitForFunction(() => {
-    const badge = document.querySelector(".db-badge");
-    return badge?.textContent?.includes("DB Ready");
-  });
-}
 
 test.describe("Media settings — API key reveal toggle", () => {
   test.beforeEach(async ({ page }) => {
@@ -20,7 +14,7 @@ test.describe("Media settings — API key reveal toggle", () => {
     // §4 commissioned. The Settings tab has no credentials on it at all: the
     // scraper proxy beside this key was deleted rather than moved, so the API
     // Credentials card dissolved with them.
-    await page.locator(".nav-item", { hasText: "Media" }).click();
+    await goToFace(page, "Media");
     await page.locator("#media-settings-btn").click();
     await expect(
       page.getByRole("heading", { name: "Media settings" })
@@ -142,7 +136,7 @@ test.describe("Settings — the jar-wide ledger card", () => {
     });
     await page.goto("/?mem=1");
     await waitForDbReady(page);
-    await page.locator(".nav-item", { hasText: "Settings" }).click();
+    await goToFace(page, "Settings");
     // The screen's first card, now that the one above it has dissolved.
     await expect(
       page.getByRole("heading", { name: "Database Ledger" })

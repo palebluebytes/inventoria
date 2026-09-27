@@ -2,7 +2,23 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <!-- The app's own mark, the triquetra (ADR-0114 §12). It replaces
+         `/favicon.svg`, which first appears in a pre-commit-hooks commit with no
+         author and no licence and which nothing in this repository can trace: a
+         mark that is about to be the trigger on every screen cannot be the one
+         mark nobody can license. Same pair of sizes and the same reasons as
+         `food/index.html`'s — the 32 is where a browser looks for a tab favicon
+         and the 180 where iOS looks for a Home Screen clip, and on the 180 the
+         ground is an opaque disc because iOS fills a clip's transparency with
+         black. Neither is a manifest icon; the three the manifest enumerates are
+         in the Facet registry. -->
+    <link
+      rel="icon"
+      type="image/png"
+      sizes="32x32"
+      href="/icons/inventoria-32.png"
+    />
+    <link rel="apple-touch-icon" href="/icons/inventoria-180.png" />
     <!-- `viewport-fit=cover` is what makes `env(safe-area-inset-*)` non-zero:
          without it the layout viewport stops at the safe area and every inset
          is zero by definition, which is why the six rules already in the tree

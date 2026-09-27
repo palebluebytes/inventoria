@@ -1,5 +1,6 @@
 /// <reference types="node" />
 import { test, expect } from "@playwright/test";
+import { goToFace } from "./support/shell";
 import {
   addHabit,
   habitShows,
@@ -97,7 +98,7 @@ test.describe("a sleeping peer converges", () => {
       await second.goto("/");
       await waitForDbReady(second);
 
-      await second.locator(".nav-item", { hasText: "Agenda" }).click();
+      await goToFace(second, "Agenda");
       await expect(habitShows(second, habit)).toBeVisible({ timeout: 60_000 });
 
       // ── And the pairing is still one pairing, not a broken one ───────────

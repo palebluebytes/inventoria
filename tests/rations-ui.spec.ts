@@ -27,27 +27,43 @@ test.describe("Rations, the food Facet's own entry point", () => {
     ).toBeVisible();
   });
 
-  test("there is no tab bar, because there is nowhere else to go", async ({
+  test("the switcher offers three faces, and every one is inside this Facet", async ({
     page,
   }) => {
-    // ADR-0078 §2 as a test rather than only as a build rule. The sidebar is
-    // the only place a cross-Facet link would ever get authored — six tabs
-    // minus five is not a tab bar.
+    // **ADR-0078 §2 is overturned and §1 is not**, which is the whole of what
+    // this test now says. It used to assert an empty tab bar — "there is no tab
+    // bar, because there is nowhere else to go" — on the strength of a sidebar
+    // being the only place a cross-Facet link would ever get authored.
+    // ADR-0114 §8 gives Rations a switcher and keeps §1 as the *mechanism*: the
+    // roster is a build-time declaration held to what this bundle reaches, so a
+    // face whose screens are absent cannot be offered, and nothing is suppressed
+    // at runtime.
     //
-    // Rations grew pages above the shell breakpoint (ADR-0091 §5), and this
-    // project's viewport is above it, so "one Tracked Domain, one screen" is no
-    // longer why there is no nav. What ADR-0078 defends is unchanged and is what
-    // is asserted here: every page is Rations' own, so a way *out* stays
-    // unexpressible. Navigation between them is the header's icons, which are
-    // not `.nav-item`s and never leave the Facet.
-    await expect(page.locator(".nav-item")).toHaveCount(0);
-    await expect(page.locator(".sidebar")).toHaveCount(0);
+    // So the assertion is the roster's membership rather than its absence. Three
+    // tiles — Rations, Recipes and Settings — and no fourth: a Media tile here
+    // would mean a screen from another Facet had been pulled into this build,
+    // which is the regression ADR-0077's 4.23 MB saving rests on.
+    await page.locator('button[aria-controls="face-switcher-panel"]').click();
+    const panel = page.locator("#face-switcher-panel");
+    await expect(panel).toBeVisible();
+    await expect(panel.locator(".face-tile")).toHaveText([
+      "Rations",
+      "Recipes",
+      "Settings",
+    ]);
+
+    // The app's own mark is a drawing here and a control on the root (§6): home
+    // is the root's landing grid, which is at `/` and outside this Facet's
+    // scope, so a link to it would eject an install into a browser tab.
+    await expect(panel.locator("button.face-masthead")).toHaveCount(0);
+    await expect(panel.locator(".face-masthead")).toHaveCount(1);
   });
 
   test("the gear opens the food screen's own settings, not the root's", async ({
     page,
   }) => {
-    // The root reaches its Settings tab through `.nav-item`; there is none here.
+    // The root reaches its Settings face through the switcher; so does this
+    // shell, and the gear is the *other* way in — Rations' own settings page.
     // What a Rations user has instead is the surface the food screen already
     // carried (ADR-0078 §2).
     //

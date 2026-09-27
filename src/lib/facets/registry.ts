@@ -133,9 +133,19 @@ export interface Facet {
    * its own service worker can precache them: that set is the five files and is
    * #306's.
    *
-   * Every entry sits **inside the Facet's own scope**, which is not a style
-   * rule — a service worker scoped to `/food/` cannot precache a URL above it
-   * (`docs/icon-provenance.md`).
+   * Every entry sits **inside the Facet's own scope**, and the reason is the
+   * install rather than the precache. A manifest describes an application whose
+   * `scope` is a prefix, so an icon named from outside it is describing a
+   * different app's asset; and an icon URL is the one thing here an OS fetches
+   * *without* a controlled client, so nothing guarantees a service worker is
+   * even consulted for it.
+   *
+   * **It is not because a worker cannot cache above its scope** — that claim
+   * stood in `docs/icon-provenance.md` and here, and ADR-0114 §12's amendment
+   * records it as refuted by what already ships: scope decides which clients a
+   * worker controls, not which URLs it may store, and 25 of Rations' 36
+   * precached URLs sit above `/food/`. The face marks are declared from `/icons/`
+   * in both `precache` lists on the strength of that.
    */
   readonly icons: readonly ManifestIcon[];
   readonly domains: readonly string[];
@@ -284,11 +294,25 @@ export const FACETS = [
     description: "Local-first item and habit tracking",
     themeColor: "#863bff",
     backgroundColor: "#000000",
-    // One file, and `sizes` says two because an SVG is every size. The mark's
-    // own provenance is unrecorded and `docs/icon-provenance.md` says so
-    // rather than implying a clearance; #302's subject was Rations.
+    // The triquetra (ADR-0114 §12), cut with the tin's own recipe and carrying
+    // the same author and the same licence. It replaces `/favicon.svg`, whose
+    // provenance `docs/icon-provenance.md` recorded as untraceable rather than
+    // implying a clearance — #302's subject was Rations, and this mark is now
+    // the trigger on every screen, which is what made the gap worth closing.
+    //
+    // Three, in Rations' shape: an `any` at 512 and at 192, and a maskable 512
+    // whose art is re-laid inside Android's safe circle. The 32 and the 180 are
+    // `index.html`'s `<link>`s and are deliberately not here — a manifest that
+    // listed them would be claiming they are install marks.
     icons: [
-      { src: "/favicon.svg", sizes: "192x192 512x512", type: "image/svg+xml" },
+      { src: "/icons/inventoria-512.png", sizes: "512x512", type: "image/png" },
+      { src: "/icons/inventoria-192.png", sizes: "192x192", type: "image/png" },
+      {
+        src: "/icons/inventoria-maskable-512.png",
+        sizes: "512x512",
+        type: "image/png",
+        purpose: "maskable",
+      },
     ],
     domains: ["food", "media", "items", "habits", "calendar", "notes"],
     // **All seven** (ADR-0114 §8). The root holds every content domain, so every
@@ -304,10 +328,17 @@ export const FACETS = [
     ],
     precache: [
       ...JAR_PRECACHE,
-      // The mark its own manifest enumerates. `includeManifestIcons` puts it in
-      // the precache anyway, after every transform; naming it here is what stops
-      // the roster and the plugin from disagreeing about the same file.
-      "favicon.svg",
+      // Its own mark, at every size the manifest and `index.html` name, plus the
+      // CC BY 3.0 clause 4(a) notice the drawing's licence asks to travel with
+      // every copy of it — the same declaration Rations makes one line of scope
+      // down (ADR-0114 §12).
+      "icons/inventoria-*.png",
+      // **The seven face marks**, because this shell's switcher draws all seven
+      // (§8) and a switcher whose tiles are blank offline is an install that
+      // cannot navigate. One file each at 256; the five-file ladder is owed only
+      // where something is installable.
+      "icons/faces/*-256.png",
+      "icons/CREDITS.txt",
       // **The search index, and neither of the other two USDA artifacts**
       // (ADR-0077 §5). Food is this Facet's landing screen, so the index is what
       // the user is looking at before they do anything, and a cold offline
@@ -413,7 +444,37 @@ export const FACETS = [
     // **The manifest did not collapse**, checked rather than assumed for the
     // reason a floor exists at all (ADR-0083 §3): the build emits 31 URLs and
     // `usda/search-index.json` is among them.
-    precacheBytes: 8_618_886,
+    //
+    // **Re-measured at #529**, which deleted the `Sidebar`, gave every face a
+    // pinned header and swapped the app's mark. Build to build against this
+    // branch's tip (`2e6732b0`), which precaches **8,633,475 B over 31 URLs** —
+    // and note that is 14,589 B above the line this comment used to hold, so
+    // that much is drift from #527, #528 and #531, none of which re-measured. It
+    // is left attributed rather than folded in: #528's roster is one shared
+    // module and Rations gained the same 14,592 B from it.
+    //
+    // **+254,749 B (+248.8 KiB, +2.95%), 31 URLs to 43**, and all but 3,802 B of
+    // it is files rather than code:
+    //
+    // | what                        | urls |   bytes |
+    // | --------------------------- | ---: | ------: |
+    // | `icons/faces/*-256.png`     |    7 | 164,530 |
+    // | `icons/inventoria-*.png`    |    5 |  93,697 |
+    // | `icons/CREDITS.txt`         |    1 |   2,242 |
+    // | `favicon.svg`, gone         |   -1 |  -9,522 |
+    // | the header, panel and grid  |      |   3,802 |
+    //
+    // The seven marks are the switcher's, and this shell draws all seven
+    // (ADR-0114 §8): a cold offline install whose tiles were blank is an install
+    // that cannot navigate. The five `inventoria-*.png` and the notice beside
+    // them are §12's swap — the triquetra in, `/favicon.svg` out, because a mark
+    // nothing in the repository can trace cannot be the trigger on every screen.
+    //
+    // **The manifest did not collapse**, checked rather than assumed: the build
+    // emits 43 URLs and `usda/search-index.json` is still among them. It leaves
+    // at [#535](https://github.com/palebluebytes/inventoria/issues/535), which is
+    // the next commit to move this number and the one that moves it *down*.
+    precacheBytes: 8_888_224,
     status: "built",
   },
   {
@@ -475,6 +536,24 @@ export const FACETS = [
       // travel with every copy of it (`docs/icon-provenance.md`).
       "food/icons/rations-*.png",
       "food/icons/CREDITS.txt",
+      // **The three faces this shell holds, and the app's mark above them**
+      // (ADR-0114 §8). They serve from `/icons/`, which is above this Facet's
+      // scope, and that is not the obstacle `docs/icon-provenance.md` expected
+      // it to be: a service worker's scope decides which **clients** it
+      // controls, not which URLs it may cache, and this precache has always held
+      // `assets/`, `fonts/` and `usda/` — 25 of its 36 URLs sit above `/food/`.
+      // So the marks are named here rather than copied under `public/food/`, and
+      // `Face.mark` stays one served URL with one cut output behind it.
+      //
+      // Only three, where the root names seven: a precache is per Facet and this
+      // one draws the faces this build holds. The clause 4(a) notice travels
+      // with them, so the root's `CREDITS.txt` comes too — the copy is a copy
+      // whichever install made it.
+      "icons/faces/rations-256.png",
+      "icons/faces/recipes-256.png",
+      "icons/faces/settings-256.png",
+      "icons/inventoria-192.png",
+      "icons/CREDITS.txt",
     ],
     // Re-measured at #346, which gave Rations its third page. Build to build,
     // not against the figure this line used to hold: HEAD already weighed
@@ -557,7 +636,33 @@ export const FACETS = [
     //
     // **The manifest did not collapse.** The build emits 36 URLs, and both USDA
     // artifacts and all three WASM binaries are among them.
-    precacheBytes: 7_124_621,
+    //
+    // **Re-measured at #529**, which gave Rations a switcher (ADR-0114 §8,
+    // overturning ADR-0078 §2). Build to build against this branch's tip
+    // (`2e6732b0`), which precaches **7,139,213 B over 36 URLs** — 14,592 B
+    // above the line this comment used to hold, which is #528's shared roster
+    // module and is left attributed rather than folded in, exactly as on the
+    // root.
+    //
+    // **+104,579 B (+102.1 KiB, +1.47%), 36 URLs to 41**:
+    //
+    // | what                                   | urls |  bytes |
+    // | -------------------------------------- | ---: | -----: |
+    // | the three faces this shell holds       |    3 | 81,201 |
+    // | `icons/inventoria-192.png`             |    1 | 14,482 |
+    // | `icons/CREDITS.txt`                    |    1 |  2,242 |
+    // | the header, panel and grid             |      |  6,654 |
+    //
+    // **Three marks and not seven**, which is the whole of what a per-Facet
+    // precache buys here: Media, Items, Agenda and Notes are not in this build
+    // and their tiles are not in this switcher. The app's own mark comes too,
+    // because the panel's masthead draws it in both shells — as a control on the
+    // root and as a drawing here, since home is the root's landing grid and that
+    // is outside this scope.
+    //
+    // **The manifest did not collapse**: 41 URLs, and all three USDA artifacts
+    // are still among them (ADR-0077 §4).
+    precacheBytes: 7_243_792,
     // Installability is definitional (ADR-0076 §1) and #305 is where Rations
     // gets a manifest of its own, so this is the ticket that flips it.
     status: "built",
@@ -792,8 +897,20 @@ export const FACES = [
  */
 export type FaceId = (typeof FACES)[number]["id"];
 
+/**
+ * A member of {@link FACES}, which is a narrower thing than a {@link Face}.
+ *
+ * `Face.id` is declared `string` because the interface is written above the
+ * roster and cannot refer to it; the roster's own members carry literal ids. The
+ * two lookups below hand this back rather than `Face` so a caller can do the one
+ * thing a switcher exists to do — pass a face's id to something that takes a
+ * {@link FaceId} — without a cast. Nothing is widened: every `RosteredFace` is a
+ * `Face`, which is what `satisfies` above already proves.
+ */
+export type RosteredFace = (typeof FACES)[number];
+
 /** The face a {@link FaceId} names. */
-export function faceOf(id: FaceId): Face {
+export function faceOf(id: FaceId): RosteredFace {
   const face = FACES.find((f) => f.id === id);
   // Unreachable while `id` is typed, and a throw rather than a `!` so the day
   // someone widens the parameter the failure says what happened.
@@ -824,7 +941,7 @@ export function faceOf(id: FaceId): Face {
  * — its one non-app caller is a `checks.ts` rule, and a rule that raises instead
  * of returning a verdict exits the gate with a stack trace where a claim belongs.
  */
-export function facesOf(facet: Facet): Face[] {
+export function facesOf(facet: Facet): RosteredFace[] {
   const declared: readonly string[] = facet.faces;
   return FACES.filter((face) => declared.includes(face.id));
 }

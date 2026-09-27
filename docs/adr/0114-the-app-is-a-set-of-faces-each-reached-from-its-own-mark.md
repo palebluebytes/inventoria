@@ -404,3 +404,52 @@ strength of ADR-0078 §7's forcing — anything a standalone Rations user needs 
 Rations — and that forcing has only ever been read as a constraint on _settings_. A Rations-only
 person who starts keeping notes has no route to them and no signal that they exist, which is the
 first question to ask when this ships.
+
+## Amendment, 2026-09-27: four precisions from building the shell
+
+[#529](https://github.com/palebluebytes/inventoria/issues/529) built §5's header, §6's panel
+and §7's grid. Four things this record decided in the abstract came back different, and each
+is written here rather than edited into the section above, because the argument is what
+changed.
+
+**1. The face marks needed neither a copy nor an inline, because the rule they were working
+around does not exist.** §12 left the question open and `docs/icon-provenance.md` set out two
+answers: copy Rations' three under `public/food/icons/faces/`, or inline the set so the module
+graph precaches it. Both were answers to "a service worker scoped to `/food/` cannot precache
+a URL above it", and **that premise is false**. Scope decides which _clients_ a worker
+controls, not which URLs it may store or answer for. Rations' own precache at `2e6732b0` held
+36 URLs and **25 of them sat above `/food/`** — every `assets/*` chunk, both USDA artifacts and
+`fonts/OFL.txt` — and `pnpm check:offline` boots that install with the network off. The rule
+had been contradicted by what ships since the second Facet existed. So each Facet names the
+marks where they already are, `Face.mark` stays one served URL with one cut output behind it,
+and no file is committed twice. The false reason stood in two places and both now carry the
+real one: that page's section, and `Facet.icons`' doc comment, where an icon sits inside its
+Facet's scope because a manifest describes an app whose scope is a prefix and because an OS
+fetches an install icon with no controlled client in the picture at all.
+
+**2. The triquetra is a control only where home is inside the shell's own scope.** §6 has
+tapping it go home to §9's landing grid, "the one destination no face can offer". Under
+Rations that destination is `/`, which is outside the Facet — a link there would eject an
+install into a browser tab, which is exactly the crossing ADR-0078 §1 makes unexpressible and
+§8 promises the switcher is not. So `FaceSwitcher`'s `onHome` is **optional**, and its absence
+is the decision rather than an omission: Rations' masthead is a drawing. The root's is a
+control, and [#530](https://github.com/palebluebytes/inventoria/issues/530) is what hands it a
+destination, since the grid it goes home to is that ticket's.
+
+**3. "The default caret kept" was not expressible, and the primitive gained a parameter rather
+than a prop.** §5 asks for the face's mark _and_ `ui/Disclosure`'s drawn caret. That component
+renders `mark` **or** its caret and then a string `title`, so a caller could have the logo or
+the affordance and not both. Copying the caret's path into the switcher was the obvious way out
+and is the failure ADR-0068 calls _the way a copy fails_. What shipped instead is one extra
+argument: the `mark` snippet is handed the caret it is replacing, so a caller can still render
+what the hole used to hold. ADR-0100 §3's brake is about _axes_ and no axis was added — every
+existing caller declares one parameter and an argument a snippet does not name is inert.
+
+**4. Two consequences of deleting the `Sidebar` that §5 did not price.** The root's shell
+reserved three safe areas and handed the bottom to its nav (ADR-0089 §2); with no nav it
+reserves all four, which is the reading Rations has always had, so the two shells now agree on
+every edge. And §9's retired `● DB Ready` badge was load-bearing for the **suite**: fifteen
+end-to-end specs waited on those words. Readiness is now `data-db` on each shell's own box — a
+hook nobody sees, the same bargain `window.dbClient` already strikes — and `tests/support/shell.ts`
+holds it, along with the switcher's two-step navigation, so the next change to either is one
+file rather than fifteen.

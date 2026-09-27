@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { goToFace, waitForDbReady } from "./support/shell";
 
 test("Habits UI - create habit blueprint, log execution, view details, and edit version chain", async ({
   page,
@@ -13,16 +14,10 @@ test("Habits UI - create habit blueprint, log execution, view details, and edit 
   await page.goto("/?mem=1");
 
   // Wait for the DB connection to be fully ready
-  await page.waitForFunction(
-    () => {
-      const badge = document.querySelector(".db-badge");
-      return badge?.textContent?.includes("DB Ready");
-    },
-    { timeout: 10000 }
-  );
+  await waitForDbReady(page);
 
   // Switch to the Agenda tab
-  await page.locator(".nav-item", { hasText: "Agenda" }).click();
+  await goToFace(page, "Agenda");
 
   // Open Add Habit screen via inline add row button
   await page

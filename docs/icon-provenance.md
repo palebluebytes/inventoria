@@ -351,21 +351,37 @@ this.** `Worm Gear` is the lightest of the three and was chosen over its sibling
 on other grounds: assembled at tile size it is the only one whose silhouette
 still reads as a gear.
 
-### They live at `/icons/faces/`, and Rations cannot precache them
+### They live at `/icons/faces/`, and both Facets precache them
 
-The section above is why this matters. The set serves from `/icons/faces/…`,
-which is **above** `/food/`, and a service worker scoped to `/food/` cannot
-precache a URL above it. So Rations' switcher — which ADR-0114 §8 gives Rations,
-Recipes and Settings — would fetch three of its own marks over the network, on
-the one Facet whose record is about precaching its own weight.
+The set serves from `/icons/faces/…`, which is **above** `/food/`. This section
+used to say that a service worker scoped to `/food/` therefore could not
+precache them, and set out two ways around it: a copy of Rations' three under
+`public/food/icons/faces/`, or inlining the marks into the bundle. Neither was
+needed, because **the premise was false.**
 
-**This is not resolved here.** The options are a copy of those three under
-`public/food/icons/faces/`, paying the bytes twice the way ADR-0077 §1 already
-accepts for everything else a second Facet installs, or inlining the marks into
-the bundle where the module graph precaches them for free. Which one belongs to
-the ticket that builds the switcher, because it turns on how the roster reads a
-mark. It is written down here so the first person to test Rations offline finds a
-known question instead of a bug.
+A service worker's scope decides which **clients** it controls, not which URLs
+it may store or answer for. A page at `/food/index.html` is inside the scope; the
+requests that page then makes are seen by the worker's `fetch` handler whatever
+their path. Checked against the build rather than reasoned about:
+`.facets/bundle-metadata.json` at `2e6732b0` records Rations precaching 36 URLs,
+of which **25 sit above `/food/`** — every `assets/*` chunk, both
+`usda/*` artifacts and `fonts/OFL.txt` — and `pnpm check:offline` boots that
+install with the network off and zero pre-mount requests. The rule has been
+contradicted by what ships since the second Facet existed.
+
+So [#529](https://github.com/palebluebytes/inventoria/issues/529) resolved it by
+declaring the marks where they already are. The root names
+`icons/faces/*-256.png` and Rations names the three faces it holds plus the app's
+mark, in each Facet's own `precache` list in `src/lib/facets/registry.ts`. One
+cut output per face, one served URL in `Face.mark`, and no second copy of a file
+in the repository. The bytes are still paid twice **on the device**, because a
+precache `Cache` is named after `registration.scope` — that is ADR-0077 §1's
+accounting and it is unchanged by any of this.
+
+`Facet.icons`' own doc comment carried the same false reason and now carries the
+real one: a manifest icon sits inside its Facet's scope because a manifest
+describes an app whose scope is a prefix, and because an OS fetches an install
+icon with no controlled client in the picture at all.
 
 ## What the manifest takes, and what it leaves
 

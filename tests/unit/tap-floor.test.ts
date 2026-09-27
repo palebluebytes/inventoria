@@ -1043,7 +1043,15 @@ describe("the floor, swept", () => {
     // standing beside "Makes" (#432). Both sides wrote 131 for reasons that do
     // not overlap, so the text merged clean at a figure neither of them meant;
     // the two added boxes were read off the sweep rather than arithmetic.
-    expect(how).toEqual({ declared: 135, drawn: 25, sanctioned: 6 });
+    //
+    // ADR-0114 §5 moves it to 136 at a net of one, which is three movements
+    // that mostly cancel: the root's `Sidebar` is deleted and takes `.nav-item`
+    // with it; `FaceGrid`'s `.face-tile` replaces it as the app's navigation;
+    // and `FaceSwitcher`'s `.face-masthead` is new. The masthead is the box this
+    // sweep earned its keep on — it was written as a plain row around a 36px
+    // mark and stood 21.6px, which nothing on screen would have shown, because
+    // it is not a control until #530 hands it an `onHome`.
+    expect(how).toEqual({ declared: 136, drawn: 25, sanctioned: 6 });
     // Every box lands in exactly one column. Without this the two figures above
     // could both be right while a box fell out of the sweep between them.
     expect(how.declared + how.drawn + how.sanctioned).toBe(SWEEP.groups.size);

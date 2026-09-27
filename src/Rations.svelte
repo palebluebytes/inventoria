@@ -2,17 +2,24 @@
   import { onDestroy, onMount } from "svelte";
   import { dbClient } from "./lib/db/db.client";
   import { runStartupErrands } from "./lib/facets/startup";
-  import type { Facet } from "./lib/facets/registry";
+  import {
+    faceOf,
+    facesOf,
+    type Facet,
+    type FaceId,
+  } from "./lib/facets/registry";
   import {
     takeCodeHandover,
     takeReceiveLink,
     type ReceiveOpening,
   } from "./lib/p2p/receive-link";
   import { isIosSafariTab } from "./lib/p2p/safari-tab";
+  import type { Page } from "./lib/food/pages";
   import { openAppWake } from "./lib/p2p/wake-errand";
   import type { OpenWake } from "./lib/p2p/wake-cadence";
   import { watchCarriedDeletions } from "./lib/stores/carried-deletion-notice";
   import Badge from "./lib/ui/Badge.svelte";
+  import FaceHeader from "./lib/layout/FaceHeader.svelte";
   import FoodView from "./lib/views/FoodView.svelte";
   import CodeHandover from "./lib/views/food/CodeHandover.svelte";
   import ReloadPrompt from "./lib/ui/ReloadPrompt.svelte";
@@ -27,10 +34,20 @@
 
   // ── The whole of Rations' chrome ──────────────────────────────────────────
   //
-  // There is no Sidebar and no tab bar, and that is the decision rather than an
-  // omission (ADR-0078 §1–2). A cross-Facet link is not forbidden here — it is
-  // **unexpressible**, because the screen it would point at is not in this
-  // build. The chrome is the food screen itself and the gear it already carries.
+  // **Rations has a switcher now** (ADR-0114 §8, overturning ADR-0078 §2). What
+  // survives of that record is §1, and it survives *as the mechanism*: this
+  // shell declares three faces — Rations, Recipes and Settings — and
+  // `check:facets` holds that declaration to what this build actually reaches,
+  // so a cross-Facet link is still **unexpressible** rather than suppressed.
+  // There is no `display-mode` test anywhere, and there is nothing to hide at
+  // runtime: the other four faces' screens are not in this bundle.
+  //
+  // The app's own mark in the panel is a **drawing** here and a control on the
+  // root, which is the same rule seen from the other side. §6 sends the
+  // triquetra home to the root's landing grid, and that grid is at `/` — outside
+  // this Facet's scope, so a link there would eject an install into a browser
+  // tab. `FaceSwitcher`'s `onHome` is optional for exactly this, and Rations
+  // hands none.
   //
   // **One Tracked Domain no longer means one screen** (ADR-0091 §5). Above the
   // shell breakpoint Rations has pages — Settings, Recipes and Reports — and the
@@ -39,10 +56,6 @@
   // rule this file is built on is untouched, and a link to a screen outside this
   // build is still unexpressible. Below the breakpoint there are no pages and the
   // icons open sheets, which is the shape this comment used to describe wholesale.
-  //
-  // Nothing tests `display-mode` (ADR-0078 §5): a visitor in a browser tab and a
-  // visitor in an install get the same app, because two behaviours would be two
-  // things to build and two things to prove.
 
   // ── A meal, arriving by link ──────────────────────────────────────────────
   //
@@ -67,6 +80,31 @@
   // Rations' own precached entry, served 200 as an asset (#312), so the hole is
   // avoided by never leaving it. Do not give receive an HTML entry of its own.
   let receiveLink = $state<ReceiveOpening | null>(null);
+
+  // ── The three faces this shell holds ──────────────────────────────────────
+  //
+  // Two of them are the food screen's own pages today (ADR-0091 §5), so the
+  // switcher drives `FoodView`'s opening rather than mounting anything of its
+  // own: a tile and a header control that opened two different surfaces would be
+  // two doors to one thing. `page` is bound for that, and the day is `null`.
+  //
+  // Reports is a page and **not** a face, so it maps back to Rations: a reader
+  // on the Reports page is still standing on the Rations face, and the tile that
+  // is inverted says so.
+  const faces = $derived(facesOf(facet));
+  let page = $state<Page | null>(null);
+  let face = $derived<FaceId>(
+    page === "recipes"
+      ? "recipes"
+      : page === "settings"
+        ? "settings"
+        : "rations"
+  );
+
+  /** A tile's landing, in the one state the food screen already has. */
+  function showFace(id: FaceId) {
+    page = id === "recipes" ? "recipes" : id === "settings" ? "settings" : null;
+  }
 
   // ── The one case that never opens the ledger ──────────────────────────────
   //
@@ -242,7 +280,21 @@
        store. -->
   <CodeHandover opening={handover} {origin} />
 {:else}
-  <div class="rations">
+  <!-- The same hook the root's `.app` carries, for the same reason: readiness is
+       a fact the suite needs and not a thing to draw (ADR-0114 §9). Rations
+       never had a badge to read, so `tests/support/rations.ts` read the day's
+       skeletons instead — one signal for both shells is what this replaces. -->
+  <div
+    class="rations"
+    data-db={dbError ? "error" : dbReady ? "ready" : "opening"}
+  >
+    <!-- The same pinned header every face wears (ADR-0114 §5). Rations drew none
+         at all until now — its chrome was the food screen's own title row — and
+         that row is still there below this one until
+         [#533](https://github.com/palebluebytes/inventoria/issues/533) folds the
+         faces' titles into this box. -->
+    <FaceHeader face={faceOf(face)} {faces} onPick={showFace} />
+
     <main class="main">
       <!-- The capped, centred column, and the whole of why it is a box of its
            own: `.main` is the scroll container, and a cap on the scroll
@@ -251,9 +303,13 @@
            amended). The wrapper takes the cap; the scroll stays outside it. -->
       <div class="shell-column">
         {#if dbError}
-          <!-- The root reports this in the Sidebar's footer badge. Rations has no
-               sidebar to put it in, and a food screen that silently never becomes
-               ready is the one failure a user cannot read off the page. -->
+          <!-- **Error only**, and it is now what both shells do (ADR-0114 §9).
+               The root used to report three states in the Sidebar's footer
+               badge; that box is deleted, and `● DB Ready` went with it. The
+               argument was always this one: a food screen that silently never
+               becomes ready is the one failure a user cannot read off the page,
+               and a permanent green badge is a developer's affordance charging
+               the user for it. -->
           <Badge class="w-full justify-center" variant="error">
             ✕ DB Error — {dbError}
           </Badge>
@@ -277,6 +333,7 @@
           {receiveLink}
           hasPages
           shell="food"
+          bind:page
           onReceiveClose={() => (receiveLink = null)}
         />
       </div>

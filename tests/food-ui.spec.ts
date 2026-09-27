@@ -1,5 +1,6 @@
 /// <reference types="node" />
 import { test, expect } from "@playwright/test";
+import { goToFace, waitForDbReady } from "./support/shell";
 import type { MealType } from "../src/lib/food/meal-type";
 import { openWayIn, selectMeal, wayInControl } from "./support/ways-in";
 
@@ -165,16 +166,6 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     page.on("pageerror", (err) => console.error("PAGE ERROR:", err.message));
   });
 
-  async function waitForDbReady(page: import("@playwright/test").Page) {
-    await page.waitForFunction(
-      () => {
-        const badge = document.querySelector(".db-badge");
-        return badge?.textContent?.includes("DB Ready");
-      },
-      { timeout: 10000 }
-    );
-  }
-
   // Open Rations settings (the top-right gear) — the Facet's one named,
   // full-height surface (ADR-0080 §7): the OFF credentials, the contribution
   // default, the nutrition-target editor that used to live on the global
@@ -203,7 +194,7 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     // computation check, not a display-preference one. Rounding itself is
     // covered by the unit tests. USDA needs nothing here — its corpus is
     // bundled, so there is no key to enter (ADR-0047 §1).
-    await page.locator(".nav-item", { hasText: "Food" }).click();
+    await goToFace(page, "Rations");
     await openFoodSettings(page);
     await page.locator("#round-nutrition-toggle").uncheck();
     await closeFoodSettings(page);
@@ -362,9 +353,9 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     await expect(toggle).toHaveAttribute("aria-expanded", "false");
 
     // Leave the food screen entirely and come back: a fresh DailyDashboard.
-    await page.locator(".nav-item", { hasText: "Media" }).click();
+    await goToFace(page, "Media");
     await expect(page.locator(".aggregates-body")).toHaveCount(0);
-    await page.locator(".nav-item", { hasText: "Food" }).click();
+    await goToFace(page, "Rations");
 
     await expect(
       page.getByRole("button", { name: "Nutrition", exact: true })

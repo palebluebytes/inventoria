@@ -16,14 +16,14 @@
  */
 import { expect, test, type Page } from "@playwright/test";
 
-export async function waitForDbReady(page: Page) {
-  await page.waitForFunction(
-    () =>
-      document.querySelector(".db-badge")?.textContent?.includes("DB Ready") ===
-      true,
-    { timeout: 15_000 }
-  );
-}
+/**
+ * Re-exported rather than written again: this module's callers import their
+ * whole two-device vocabulary from here, and the readiness signal is the
+ * shell's (ADR-0114 §9) rather than a second device's. `tests/support/shell.ts`
+ * carries the argument for why it is an attribute and no longer a badge's words.
+ */
+export { waitForDbReady } from "./shell";
+import { goToFace } from "./shell";
 
 /**
  * The options the two contexts are built with.
@@ -49,7 +49,7 @@ export function projectContextOptions() {
 
 /** Opens the root Facet's Settings, where pairing lives (ADR-0084 §6). */
 export async function openSettings(page: Page) {
-  await page.locator(".nav-item", { hasText: "Settings" }).click();
+  await goToFace(page, "Settings");
   await expect(
     page.getByRole("heading", { name: "Paired devices" })
   ).toBeVisible();
@@ -64,7 +64,7 @@ export async function openSettings(page: Page) {
  * closure.
  */
 export async function addHabit(page: Page, name: string) {
-  await page.locator(".nav-item", { hasText: "Agenda" }).click();
+  await goToFace(page, "Agenda");
   await page
     .locator("section:has-text('HABITS')")
     .locator("button", { hasText: "+ ADD HABIT" })

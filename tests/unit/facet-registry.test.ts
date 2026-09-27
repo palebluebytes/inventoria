@@ -236,8 +236,13 @@ describe("what a Facet says about its entry point (ADR-0076 §6)", () => {
     // manifest enumerates; the `any`-purpose mark still leads it, and every
     // entry being a real file is asserted in facet-manifest.test.ts against the
     // manifest that names them.
+    //
+    // The root's was `/favicon.svg` until ADR-0114 §12, whose whole argument was
+    // that a mark nothing in the repository can trace cannot be the trigger on
+    // every screen. It is now the triquetra, cut with the tin's own recipe and
+    // carrying the same author and the same licence.
     const marks: [FacetId, string][] = [
-      ["root", "/favicon.svg"],
+      ["root", "/icons/inventoria-512.png"],
       ["food", "/food/icons/rations-512.png"],
     ];
     for (const [id, path] of marks) {

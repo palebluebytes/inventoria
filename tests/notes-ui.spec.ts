@@ -1,11 +1,5 @@
 import { test, expect } from "@playwright/test";
-
-async function waitForDbReady(page: import("@playwright/test").Page) {
-  await page.waitForFunction(() => {
-    const badge = document.querySelector(".db-badge");
-    return badge?.textContent?.includes("DB Ready");
-  });
-}
+import { goToFace, waitForDbReady } from "./support/shell";
 
 test.describe("Notes & Checklist (Loro CRDT)", () => {
   test.beforeEach(async ({ page }) => {
@@ -15,7 +9,7 @@ test.describe("Notes & Checklist (Loro CRDT)", () => {
     // `?mem=1` forces an in-memory DB so OPFS writes don't fail in CI.
     await page.goto("/?mem=1");
     await waitForDbReady(page);
-    await page.locator(".nav-item", { hasText: "Notes" }).click();
+    await goToFace(page, "Notes");
   });
 
   test("adds and completes a checklist item", async ({ page }) => {

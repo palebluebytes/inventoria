@@ -20,10 +20,15 @@
  *
  * A **Back stop** is anything that answers Back rather than letting it leave:
  *
- * - `sheet` — an open `BottomSheet`. Only these are asked "am I the top one",
- *   because only these are replaced by the one above them.
+ * - `sheet` — an overlay Back dismisses. `BottomSheet` was the only one when
+ *   this was written and the wording said so; ADR-0114 §6's face switcher is a
+ *   top-anchored panel on the same `Modal` and takes the same stop, which is
+ *   what makes the name a shape rather than a component. Only these are asked
+ *   "am I the top one", because only these are replaced by the one above them.
  * - `mode` — a state that has taken the ordinary way off a screen away, which
- *   today is a live Selection covering the tab bar.
+ *   today is a live Selection covering the foot of the screen. It covered the
+ *   root's tab bar until ADR-0114 §5 deleted it; what a Selection takes away is
+ *   the day's own controls, and that is unchanged by which chrome is where.
  *
  * ## The bookkeeping
  *

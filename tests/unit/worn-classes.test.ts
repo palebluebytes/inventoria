@@ -19,7 +19,11 @@
  *    file's sheet reaches another file's box, and the app uses it heavily —
  *    `.mt-4` is declared this way, in two unrelated views.
  * 4. **A Playwright spec selecting by it.** A class is not only a hook for a
- *    rule; `.db-badge` is how eleven specs wait for the ledger to come up. The
+ *    rule; `.add-habit-sheet` is how the visual catalogue un-pins a sheet it is
+ *    photographing, and it draws nothing of its own. (`.db-badge` was this
+ *    docblock's example, and it was how eleven specs waited for the ledger to
+ *    come up; ADR-0114 §9 deleted the badge and readiness moved to a `data-db`
+ *    attribute — `tests/support/shell.ts` carries why.) The
  *    disease here is a name that is load-bearing for *nothing*, and one a spec
  *    steers by is load-bearing. Only the specs and their helpers count, because
  *    only they select out of a live DOM — a unit test naming a class in a string
@@ -211,14 +215,20 @@ describe("class names worn in src/ markup", () => {
     // which of the four it lost rather than emptying the sweep quietly.
     expect(APP.has("main")).toBe(true);
     expect(GLOBAL.has("mt-4")).toBe(true);
-    expect(SELECTED_BY_SPECS.has("db-badge")).toBe(true);
+    expect(SELECTED_BY_SPECS.has("add-habit-sheet")).toBe(true);
   });
 
-  it("keeps fifteen names alive on reach 4 alone", () => {
+  it("keeps fourteen names alive on reach 4 alone", () => {
     // What ADR-0097 §1's fourth reach is worth, priced rather than asserted:
     // the names no rule reaches that a spec steers by. Requiring a rule for
     // every worn name — the alternative the record refuses — convicts exactly
     // these, and the figure is pinned because the record quotes it.
+    //
+    // Fifteen until ADR-0114 §5, which deleted the box wearing `.db-badge` —
+    // the name this docblock used as its example of the fourth reach, and the
+    // one eleven specs waited on. Nothing replaced it in this column: readiness
+    // is an attribute now rather than a class, which is a reach this sweep does
+    // not count and does not need to.
     const specOnly = WORN.filter(
       (w) =>
         !APP.has(w.name) &&
@@ -227,7 +237,7 @@ describe("class names worn in src/ markup", () => {
         SELECTED_BY_SPECS.has(w.name)
     ).map((w) => w.name);
 
-    expect(new Set(specOnly).size).toBe(15);
+    expect(new Set(specOnly).size).toBe(14);
   });
 
   it("does not credit a caller's scoped rule to a class it hands a component", () => {

@@ -642,7 +642,8 @@ beside the timeline, and `--measure-wide` (88rem) in Rations alone above the
 **widest breakpoint**, where it spends it on a second one. The shell breakpoint
 is `breakpoints.ts`'s `shell`, 1180px; the widest is its `wide`, 1440px. Those
 are two of the app's three shape breakpoints: 768 carries the overlay's shape and
-the root's Sidebar flip. See ADR-0091 §2 and §8, and ADR-0101's Amendment.
+the **Switcher** panel's width. It carried the root's Sidebar flip too until
+ADR-0114 §5 deleted that box. See ADR-0091 §2 and §8, and ADR-0101's Amendment.
 _Avoid_: Layout, container, wrapper, page (which is the surface inside the shell),
 frame (spent on the brutalist edge/elevation tokens)
 
@@ -655,9 +656,9 @@ centred, but two tokens, because they answer to two different contents. The word
 is the pair; each one keeps its own name. Left is what you do to the day and
 right is what the day came to, which is why the ways in take the side a reader
 starts from. See ADR-0101's Amendment.
-_Avoid_: Sidebar, column (which is any of the three), gutter (the shell's own
-padding), Rail for the left one (`WayInRail` is already the five ways in
-themselves)
+_Avoid_: Sidebar (the root had one and no longer does, ADR-0114 §5), column
+(which is any of the three), gutter (the shell's own padding), Rail for the left
+one (`WayInRail` is already the five ways in themselves)
 
 **Rail**:
 The second region Rations' shell opens above the shell breakpoint, to the right of
@@ -667,8 +668,8 @@ which is why it takes the right and the timeline keeps the reading edge. It is d
 pinning wants the rail held as one unit and its blocks are siblings of the
 timeline rather than children of a rail, so a pinned rail is a rail with a real
 element and that is the trigger to reopen it. See ADR-0091 §2 and §4.
-_Avoid_: Sidebar (the root's navigation is a Sidebar and this navigates nothing),
-aside, panel, right column
+_Avoid_: Sidebar (the root's navigation was one until ADR-0114 §5 and this
+navigates nothing either way), aside, panel, right column
 
 **Month calendar**:
 The rail's top block (`views/food/MonthCalendar.svelte`), and the week strip

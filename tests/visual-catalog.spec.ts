@@ -1,22 +1,9 @@
 /// <reference types="node" />
 import { test, expect } from "@playwright/test";
+import { goToFace, waitForDbReady } from "./support/shell";
 import { PAGES, iconIdOf, pageLabel } from "../src/lib/food/pages";
 import { hasPagesAt, openRationsDay } from "./support/rations";
 import { openWayIn } from "./support/ways-in";
-
-/** Shared by the two catalogues that photograph the **root** Facet: nothing is
- *  worth capturing until the ledger has answered, and every screen there reads
- *  from it. Rations' own catalogue at the bottom of this file reads readiness
- *  off the day instead, because this badge is in a sidebar it does not have. */
-async function waitForDbReady(page: import("@playwright/test").Page) {
-  await page.waitForFunction(
-    () => {
-      const badge = document.querySelector(".db-badge");
-      return badge?.textContent?.includes("DB Ready");
-    },
-    { timeout: 10000 }
-  );
-}
 
 /**
  * The bundled USDA corpus (ADR-0047), served as a fixture.
@@ -107,8 +94,13 @@ const NO_MOTION = `
 `;
 
 /**
- * The root Facet's shell, flattened for a full-page capture: the app box, the
- * scroll container inside it, and the Sidebar that is pinned beside them.
+ * The root Facet's shell, flattened for a full-page capture: the app box and the
+ * scroll container inside it.
+ *
+ * The `Sidebar` rule that used to be here went with the box (ADR-0114 §5). Its
+ * replacement needs no flattening: the pinned header is a flex item above
+ * `.main` rather than a `position: fixed` band, so it is photographed where it
+ * stands.
  */
 const ROOT_SHELL_FLAT = `
   .app {
@@ -119,17 +111,13 @@ const ROOT_SHELL_FLAT = `
     overflow-y: visible !important;
     height: auto !important;
   }
-  .sidebar {
-    position: static !important;
-  }
   /* The day's Way-in bar is position:fixed below 768 (ADR-0101 S3), and a
      fixed box in a full-page capture is rendered once at the viewport's top
      whatever the page's height — so left pinned it would be photographed lying
      across the meters rather than at the foot of the screen. Un-pinned it falls
      into the slot it already occupies above 768, at the head of the day, which
-     is a stable place and a true one. The same device as .sidebar above and
-     .add-habit-sheet below, for the same reason. (No backticks -- template
-     literal.) */
+     is a stable place and a true one. The same device as .add-habit-sheet
+     below, for the same reason. (No backticks -- template literal.) */
   .way-in-bar {
     position: static !important;
   }
@@ -163,10 +151,12 @@ const ROOT_SHELL_FLAT = `
 /**
  * Rations' shell, flattened the same way (#348).
  *
- * Its own selectors rather than the root's: there is no `.sidebar` here and the
- * outer box is `.rations` (ADR-0078 §1), so reusing the block above would be two
- * dead rules and one missing one. `.main` is the same shared rule in both
- * (ADR-0091 §2), and is the scroll box `tests/unit/shell.test.ts` holds it as.
+ * Its own selectors rather than the root's: the outer box is `.rations` rather
+ * than `.app`, so reusing the block above would be one dead rule and one missing
+ * one. `.main` is the same shared rule in both (ADR-0091 §2), and is the scroll
+ * box `tests/unit/shell.test.ts` holds it as. The two shells wear the same
+ * pinned header now (ADR-0114 §5), and neither block flattens it: it is a flex
+ * item above the scroll box rather than a fixed band.
  */
 const RATIONS_SHELL_FLAT = `
   /* The shell is one viewport tall with the scroll inside it, which a full-page
@@ -437,7 +427,7 @@ test.describe("Visual Catalog Generator", () => {
     // is the only key left to give: the scraper proxy field was deleted rather
     // than moved, and USDA's corpus is bundled so food search has no key to be
     // given (ADR-0047 §1).
-    await page.locator(".nav-item", { hasText: "Media" }).click();
+    await goToFace(page, "Media");
     await page.locator("#media-settings-btn").click();
     const tmdbField = page.locator("#tmdb-api-key");
     await tmdbField.fill("test-tmdb-key");
@@ -450,7 +440,7 @@ test.describe("Visual Catalog Generator", () => {
   }
 
   async function resetDatabase(page: import("@playwright/test").Page) {
-    await page.locator(".nav-item", { hasText: "Settings" }).click();
+    await goToFace(page, "Settings");
     const devToggle = page.locator("#dev-mode-toggle");
     await devToggle.check();
     const resetBtn = page.locator("#reset-test-btn");
@@ -571,31 +561,25 @@ test.describe("Visual Catalog Generator", () => {
    * putting it back on top of one of the seven would mean a roster failure
    * masking that screen's capture — the coupling the split exists to remove.
    */
-  test("the sidebar offers exactly the screens this catalogue photographs", async ({
+  test("the switcher offers exactly the screens this catalogue photographs", async ({
     page,
   }) => {
     await boot(page);
 
-    const EXPECTED_SCREENS = [
-      "food",
-      "media",
-      "items",
-      "agenda",
-      "notes",
-      "settings",
-    ];
-    const navItems = await page.locator(".sidebar nav .nav-item").all();
-    const discoveredScreens: string[] = [];
-    for (const item of navItems) {
-      const text = await item.innerText();
-      const cleaned = text
-        .replace(/[^a-zA-Z0-9\s]/g, "")
-        .replace(/\s+/g, " ")
-        .toLowerCase()
-        .trim();
-      discoveredScreens.push(cleaned);
-    }
-    expect(discoveredScreens.sort()).toEqual(EXPECTED_SCREENS.sort());
+    // It read the Sidebar's six tabs until ADR-0114 §5 deleted them. Seven now,
+    // because Recipes became a face of its own (§4), and read off the switcher's
+    // tiles in the roster's fixed order rather than sorted: §7 refuses a grid
+    // that re-sorts, so the ORDER is part of what this assertion is for.
+    await page.locator('button[aria-controls="face-switcher-panel"]').click();
+    await expect(page.locator("#face-switcher-panel .face-tile")).toHaveText([
+      "Rations",
+      "Recipes",
+      "Media",
+      "Items",
+      "Agenda",
+      "Notes",
+      "Settings",
+    ]);
   });
 
   test("the food dashboard, holding a logged breakfast", async ({ page }) => {
@@ -603,7 +587,7 @@ test.describe("Visual Catalog Generator", () => {
     await boot(page);
 
     // Log a breakfast item via the direct sheet.
-    await page.locator(".nav-item", { hasText: "Food" }).click();
+    await goToFace(page, "Rations");
     await openWayIn(page, "breakfast", "search");
     await page.locator("#food-search-input").fill("banana");
     await page.locator(".result-item", { hasText: "Mock Banana" }).click();
@@ -619,7 +603,7 @@ test.describe("Visual Catalog Generator", () => {
   test("the add-habit sheet, part-filled", async ({ page }) => {
     test.slow();
     await boot(page);
-    await page.locator(".nav-item", { hasText: "Agenda" }).click();
+    await goToFace(page, "Agenda");
 
     await page
       .locator("section:has-text('HABITS')")
@@ -639,7 +623,7 @@ test.describe("Visual Catalog Generator", () => {
     await boot(page);
 
     // Add blueprints & log executions.
-    await page.locator(".nav-item", { hasText: "Agenda" }).click();
+    await goToFace(page, "Agenda");
 
     // General Daily - Logged (Read Philosophy)
     await page
@@ -836,7 +820,7 @@ test.describe("Visual Catalog Generator", () => {
     // `setupApiKeys` happens to leave the app on Media, because that is where
     // the gear holding the TMDB key lives. Say it rather than inherit it: this
     // test photographs Media whatever that helper does next.
-    await page.locator(".nav-item", { hasText: "Media" }).click();
+    await goToFace(page, "Media");
 
     // Add Movie
     await page
@@ -881,7 +865,7 @@ test.describe("Visual Catalog Generator", () => {
     await boot(page);
 
     // Add a Wanted item by hand.
-    await page.locator(".nav-item", { hasText: "Items" }).click();
+    await goToFace(page, "Items");
     await page.locator("button", { hasText: "Create Manual Entry" }).click();
     await page.locator("#manual-name").fill("Manual Keychron K2");
     await page.locator("#manual-brand").fill("Keychron");
@@ -910,7 +894,7 @@ test.describe("Visual Catalog Generator", () => {
     test.slow();
     await boot(page);
 
-    await page.locator(".nav-item", { hasText: "Notes" }).click();
+    await goToFace(page, "Notes");
     const checklistInput = page.getByTestId("new-item-input");
     await checklistInput.fill("Buy groceries");
     await checklistInput.press("Enter");
@@ -938,7 +922,7 @@ test.describe("Visual Catalog Generator", () => {
     await boot(page);
     await resetDatabase(page);
 
-    await page.locator(".nav-item", { hasText: "Settings" }).click();
+    await goToFace(page, "Settings");
     await takeFullPageScreenshot(page, "settings-page.png", ROOT_SHELL_FLAT);
   });
 });

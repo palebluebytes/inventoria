@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { goToFace, waitForDbReady } from "./support/shell";
 
 test("Physical Digital Twins UI - manual create, scrape, status toggling, and web share target", async ({
   page,
@@ -51,13 +52,7 @@ test("Physical Digital Twins UI - manual create, scrape, status toggling, and we
   await page.goto("/?mem=1");
 
   // Wait for DB ready
-  await page.waitForFunction(
-    () => {
-      const badge = document.querySelector(".db-badge");
-      return badge?.textContent?.includes("DB Ready");
-    },
-    { timeout: 10000 }
-  );
+  await waitForDbReady(page);
 
   // Nothing to configure first. The scraper proxy this screen fetches through
   // is the app's own and always has a working value (ADR-0070); the Settings
@@ -65,7 +60,7 @@ test("Physical Digital Twins UI - manual create, scrape, status toggling, and we
   // beside it moved to the Media screen and is no business of this one.
 
   // Click on the Items tab in Sidebar
-  await page.locator(".nav-item", { hasText: "Items" }).click();
+  await goToFace(page, "Items");
 
   // Open manual entry form
   await page.locator("button", { hasText: "Create Manual Entry" }).click();
@@ -158,13 +153,7 @@ test("Physical Digital Twins UI - manual create, scrape, status toggling, and we
   await page.goto("/?url=https%3A%2F%2Fexample.com%2Fproducts%2Flamp&mem=1");
 
   // Wait for DB ready
-  await page.waitForFunction(
-    () => {
-      const badge = document.querySelector(".db-badge");
-      return badge?.textContent?.includes("DB Ready");
-    },
-    { timeout: 10000 }
-  );
+  await waitForDbReady(page);
 
   // App should automatically switch to Items view
   const mainHeader = page.locator("header.page-header h1").first();

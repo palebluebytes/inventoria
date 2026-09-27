@@ -251,9 +251,9 @@
     border-top: 1px solid var(--bg-input);
   }
 
-  :global(.w-full) {
-    width: 100%;
-  }
+  /* `.w-full` is `src/app.css`'s since ADR-0114 §5 deleted the box that used to
+     declare it beside this one. `.text-xs` stays here: nothing outside this card
+     writes it. */
   :global(.text-xs) {
     font-size: var(--step-n2);
   }

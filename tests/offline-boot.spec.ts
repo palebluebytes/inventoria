@@ -42,9 +42,11 @@ test("the app starts with the network off", async ({ page, context }) => {
   await expect(page.locator(".app")).toBeVisible();
 
   // Notes is lazily imported, so this also asserts the bound on the damage:
-  // a screen that has nothing to do with the CRDT renders regardless.
+  // the shell's own navigation renders regardless, and with it a route to every
+  // face that has nothing to do with the CRDT. It was a `.nav-item` until
+  // ADR-0114 §5 replaced the tab bar with the pinned header's trigger.
   await expect(
-    page.locator(".nav-item", { hasText: "Settings" })
+    page.locator('button[aria-controls="face-switcher-panel"]')
   ).toBeVisible();
 
   // Scoped to the failure mode rather than asserting an empty array, so an
@@ -106,9 +108,14 @@ test("Rations starts with the network off, beside an installed root", async ({
 
   await expect(page).toHaveTitle("Rations");
   await expect(page.locator(".rations")).toBeVisible();
-  // ADR-0078 §2 offline as well as online: the shell has no tab bar to fall back
-  // to, so a food screen that did not render is a blank install.
-  await expect(page.locator(".nav-item")).toHaveCount(0);
+  // ADR-0078 §1 offline as well as online: what Rations' switcher can offer is
+  // three faces inside `/food/` (ADR-0114 §8), so a food screen that did not
+  // render is a blank install with nowhere to go. §2's "no tab bar" was what
+  // this line used to read; the roster's membership is the claim that survives.
+  await expect(page.locator(".face-tile")).toHaveCount(0);
+  await expect(
+    page.locator('button[aria-controls="face-switcher-panel"]')
+  ).toBeVisible();
 
   // The page is served by **Rations'** worker, not by the root's. Longest scope
   // prefix wins per client, and this is the assertion that says so.

@@ -155,24 +155,25 @@
     position: fixed;
     left: 0;
     right: 0;
-    /* The band's bottom edge, MINUS whatever the shell's own chrome already has
-       of it (ADR-0089 §1, §3; ADR-0101 §3 as amended). `--vv-bottom` is
-       `SelectionBar`'s one declaration for its reason — a surface pinned over
-       the page consumes the band rather than deriving a geometry of its own, and
-       this bar has no scrolling region to give up, so it writes `bottom` and
-       nothing else.
+    /* The band's bottom edge (ADR-0089 §1, §3; ADR-0101 §3 as amended).
+       `--vv-bottom` is `SelectionBar`'s one declaration for its reason — a
+       surface pinned over the page consumes the band rather than deriving a
+       geometry of its own, and this bar has no scrolling region to give up, so
+       it writes `bottom` and nothing else.
 
-       `--shell-floor` is the second term and it is not a second geometry: it is
-       0 in Rations, which has no tab bar (ADR-0078 §1) and is the Facet ADR-0101
-       was drawn on, and it is `App.svelte`'s measured nav height in the root
-       shell, where a bar on the band's edge would otherwise stand behind the tab
-       bar and lose its lower half. A Selection bar may cover that nav because a
-       Selection is a mode you leave; this bar is permanent and may not.
+       **The second term is gone, and it is a re-measurement rather than a
+       simplification** (ADR-0114 §5). It used to be `+ var(--shell-floor)`: 0 in
+       Rations, which had no tab bar (ADR-0078 §1) and is the Facet ADR-0101 was
+       drawn on, and the root's measured nav height, where a bar on the band's
+       edge would otherwise have stood behind the tab bar and lost its lower
+       half. The nav is deleted and every face wears a pinned header instead, so
+       the shell's chrome is at the TOP in both Facets and this edge is the
+       band's own in both. What the header publishes is `--shell-ceiling`, and
+       nothing pinned low reads it.
 
-       Both are `var()` with no fallback here, which is `src/app.css`'s point in
-       declaring both on `:root`: this rule is correct before any measurement has
-       run, and in a shell that never takes one. */
-    bottom: calc(var(--vv-bottom) + var(--shell-floor));
+       `var()` with no fallback, which is `src/app.css`'s point in declaring it
+       on `:root`: this rule is correct before any measurement has run. */
+    bottom: var(--vv-bottom);
     /* Under the Sidebar's 100 and under a Selection's 900: this is a tool on the
        page, not a mode that owns the foot of the screen. A Selection covers it,
        which is right — a Selection has its own verbs and adding is not one of

@@ -1,5 +1,6 @@
 /// <reference types="node" />
 import { test, expect } from "@playwright/test";
+import { goToFace } from "./support/shell";
 import {
   addHabit,
   habitShows,
@@ -60,7 +61,7 @@ test.describe("a first sync across two devices", () => {
       await waitForDbReady(second);
 
       // Its ledger really is empty of this fact before the act.
-      await second.locator(".nav-item", { hasText: "Agenda" }).click();
+      await goToFace(second, "Agenda");
       await expect(habitShows(second, habit)).toHaveCount(0);
 
       await pairDevices(first, second, {
@@ -73,7 +74,7 @@ test.describe("a first sync across two devices", () => {
       });
 
       // ── The ledger crossed ───────────────────────────────────────────────
-      await second.locator(".nav-item", { hasText: "Agenda" }).click();
+      await goToFace(second, "Agenda");
       await expect(habitShows(second, habit)).toBeVisible({ timeout: 30_000 });
 
       // ── And a row exists on both, which is what completing writes ────────

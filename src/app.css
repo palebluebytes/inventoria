@@ -185,20 +185,32 @@
   --vv-top: 0px;
   --vv-bottom: 0px;
 
-  /* How much of the band's bottom edge the SHELL's own chrome already occupies.
-     Zero here and overridden by the shell that has some: `App.svelte`'s tab bar
-     is a flex item at the foot of a `100svh` box below 768, so a surface pinned
-     to the band's bottom edge lands behind it. Rations has no tab bar and never
-     writes this (ADR-0078 §1), so its surfaces sit on the band's edge itself.
+  /* How much of the band's TOP edge the SHELL's own chrome already occupies.
+     Zero here and overwritten at runtime by `lib/layout/shell-ceiling.ts`, which
+     sets it as an inline property on `<html>` from the pinned header's measured
+     height — an inline declaration beats this rule, so this is the pre-layout
+     default rather than a dead value.
+
+     **It replaces `--shell-floor`, and the swap is ADR-0114 §5.** That property
+     was the same idea at the opposite edge: the root's tab bar was a flex item
+     at the foot of a `100svh` box, so a surface pinned to the band's bottom
+     landed behind it, and Rations — which had no tab bar (ADR-0078 §1) — kept
+     the 0. The tab bar is deleted and every face wears a pinned header instead,
+     so the shell's chrome is at the top in both Facets and nothing takes the
+     bottom edge from anybody. `WayInBar` was the floor's one reader and now sits
+     on the band's own edge.
+
+     **On `<html>` rather than on the shell's box**, because the switcher panel
+     is portalled to the end of `<body>` and is not a descendant of either shell
+     — the same reason `--vv-*` above are published there.
 
      Declared here rather than left to a fallback at each call site, for
-     `--vv-*`'s reason directly above: a consumer writes `var(--shell-floor)`
-     bare and is correct in the shell that has no floor, before any measurement
-     has run, and in a third shell nobody has written yet. The shell MEASURES its
-     nav rather than restating it — a sum of `--tap-min`, two paddings and a
-     safe-area inset is a second copy of the nav's geometry, and the copy is what
-     goes stale (ADR-0101 §3, as amended). */
-  --shell-floor: 0px;
+     `--vv-*`'s reason directly above: a consumer writes `var(--shell-ceiling)`
+     bare and is correct before any measurement has run, and in a third shell
+     nobody has written yet. The header MEASURES itself rather than restating a
+     sum — a tap floor plus two paddings plus a safe-area inset written out
+     anywhere else is the copy that goes stale (ADR-0089 §2). */
+  --shell-ceiling: 0px;
 
   /* Elevation — solid un-blurred offset; 3 steps. Each is written as a smaller
      offset plus a 1px spread (1+1, 3+1, 7+1) rather than a flush 2/4/8, so the
@@ -409,6 +421,23 @@ body {
   .rations .shell-column {
     max-width: var(--measure-wide);
   }
+}
+
+/* ── The two Badge utilities the shells share ────────────────────────────────
+ * A full-width, centred `ui/Badge`, which is the shape a DB-error line takes in
+ * both shells (ADR-0114 §9).
+ *
+ * Here rather than in either shell because both write it and the box that used
+ * to declare it — the root's deleted `Sidebar` — was in one of them. A
+ * `:global()` inside a component only ships where that component does, so
+ * Rations' error badge was reaching for a rule that was never in its bundle.
+ * `MediaCard` declared `.w-full` a second time for its own buttons and now
+ * reads this one. */
+.w-full {
+  width: 100%;
+}
+.justify-center {
+  justify-content: center;
 }
 
 /* ── The caption over a control ──────────────────────────────────────────────

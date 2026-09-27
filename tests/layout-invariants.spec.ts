@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { goToFace, waitForDbReady } from "./support/shell";
 import {
   PAGES,
   iconIdOf,
@@ -24,7 +25,24 @@ import { hasPagesAt, openRationsDay } from "./support/rations";
 // here run above 1280, which is where the defect ADR-0091 was written about
 // only becomes visible.
 
-const TABS = ["Food", "Media", "Items", "Agenda", "Notes", "Settings"];
+/**
+ * The root's faces, by their one canonical name (ADR-0114 §3).
+ *
+ * It was six tab labels, `Food` among them; the face is called **Rations**
+ * everywhere now, and Recipes joined the roster as a face of its own. Written
+ * out rather than read off `FACES` on purpose: this sweep's job is to notice
+ * that a screen it never looked at has appeared, and a roster it derived from
+ * the app would silently grow with the app.
+ */
+const FACES = [
+  "Rations",
+  "Recipes",
+  "Media",
+  "Items",
+  "Agenda",
+  "Notes",
+  "Settings",
+];
 
 /**
  * The width the defect was reported at (#337): a 1920px monitor, where Rations
@@ -38,13 +56,6 @@ const TABS = ["Food", "Media", "Items", "Agenda", "Notes", "Settings"];
  * third time to answer a question about layout.
  */
 const WIDE_DESKTOP = { width: 1920, height: 1080 };
-
-async function waitForDbReady(page: import("@playwright/test").Page) {
-  await page.waitForFunction(() => {
-    const badge = document.querySelector(".db-badge");
-    return badge?.textContent?.includes("DB Ready");
-  });
-}
 
 /**
  * Returns visible elements whose box extends past the viewport's left/right
@@ -173,7 +184,7 @@ async function expectNoOverflow(
 }
 
 /**
- * The root Facet's six tabs.
+ * The root Facet's seven faces.
  *
  * A function rather than a `describe` of its own, because the same sweep runs at
  * two widths and the only difference between the runs is the viewport the
@@ -185,10 +196,10 @@ function sweepTheRoot() {
     await waitForDbReady(page);
   });
 
-  for (const tab of TABS) {
-    test(`${tab} keeps all content within the viewport`, async ({ page }) => {
-      await page.locator(".nav-item", { hasText: tab }).click();
-      await expectNoOverflow(page, tab);
+  for (const face of FACES) {
+    test(`${face} keeps all content within the viewport`, async ({ page }) => {
+      await goToFace(page, face);
+      await expectNoOverflow(page, face);
     });
   }
 }

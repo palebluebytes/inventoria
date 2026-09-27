@@ -109,7 +109,7 @@ function heightPx(rule: Rule): number {
 
 const round = (n: number) => Math.round(n * 10) / 10;
 
-const SIDEBAR = "src/lib/layout/Sidebar.svelte";
+const FACE_GRID = "src/lib/layout/FaceGrid.svelte";
 const STAGER = "src/lib/views/food/FoodStager.svelte";
 const AMOUNT_FIELD = "src/lib/views/food/AmountField.svelte";
 
@@ -136,52 +136,44 @@ describe("the floor itself", () => {
   });
 });
 
-describe("the six nav items", () => {
-  const item = ruleOf(SIDEBAR, ".nav-item");
-  const icon = ruleOf(SIDEBAR, ".nav-item .nav-icon");
+describe("the switcher's tiles", () => {
+  const tile = ruleOf(FACE_GRID, ".face-tile");
 
-  it("is six, each drawn from the one `.nav-item` box", () => {
-    // What lets one measurement stand for all six: the nav is a loop over one
-    // list, emitting one class, and every item is `flex: 1`. A seventh tab, or
-    // a tab given a box of its own, would make the figure below a claim about
-    // only some of them — so the shape of the loop is asserted, not assumed.
-    const markup = readFileSync(SIDEBAR, "utf8").replace(
+  it("is one box, whatever the roster's length", () => {
+    // What lets one measurement stand for every tile: the grid is a loop over
+    // the roster it is handed, emitting one class. This replaced the root's
+    // six nav items, which were a loop over a list written in that file — the
+    // roster moved to `src/lib/facets/registry.ts` at #528, so what is read
+    // here is the loop rather than the count (ADR-0114 §2, §7).
+    const markup = readFileSync(FACE_GRID, "utf8").replace(
       /<style>[\s\S]*?<\/style>/,
       ""
     );
-    const tabs = markup.match(/\{\s*id:\s*"[a-z]+"/g) ?? [];
 
-    expect(tabs).toHaveLength(6);
-    expect(markup.match(/class="nav-item/g)).toHaveLength(1);
-    expect(decl(item, "flex")).toBe("1");
+    expect(markup).toMatch(/\{#each faces as face \(face\.id\)\}/);
+    expect(markup.match(/class="face-tile/g)).toHaveLength(1);
   });
 
-  it("stands 68.4px tall, comfortably over the floor", () => {
-    const label = fontSizePx(item);
-    // `1.4em` against the item's own type step, not against the root's.
-    const glyph = label * Number(decl(icon, "font-size")!.replace("em", ""));
-    const height =
-      2 * borderPx(item) +
-      2 * paddingYPx(item) +
-      glyph * ROOT_LINE_HEIGHT +
-      lengthPx(decl(item, "gap")!) +
-      label * ROOT_LINE_HEIGHT;
-
-    expect(round(height)).toBe(68.4);
-    expect(height).toBeGreaterThanOrEqual(TAP_MIN);
+  it("is floored at `--tap-min` on both axes", () => {
+    // A tile is a mark with a word under it, so its drawn height is an image's
+    // intrinsic size and not something a stylesheet can be read for — which is
+    // exactly the blind spot `tap-floor.test.ts`'s `narrowness()` has and why
+    // ADR-0098 §3 puts the floor on both axes rather than on the one that can
+    // be derived. The declared floor is therefore the whole of what is provable
+    // here, and it is declared for that reason.
+    expect(declaredFloorPx(tile)).toBe(TAP_MIN);
+    expect(lengthPx(decl(tile, "min-width")!)).toBe(TAP_MIN);
   });
 
-  it("says so as well as reaching it", () => {
-    // It used to reach 68.4 on padding alone and declare nothing, which #332
-    // recorded as a fact about the box. That is no longer enough: `.nav-item`
-    // is re-padded and re-stepped under `@media (min-width: 768px)`, so its
-    // arithmetic here is the phone's reading and nothing above the breakpoint
-    // could be derived from it at all. The declared floor holds under both,
-    // which is ADR-0093 §4's corollary — a box that already clears the floor
-    // may still need to say so, because a true thing that cannot be shown is
-    // not yet proved — and is what lets `tap-floor.test.ts` read this box
-    // instead of declining it (ADR-0098 §4).
-    expect(declaredFloorPx(item)).toBe(TAP_MIN);
+  it("fills its column rather than shrinking to the word inside it", () => {
+    // Two faces in one row whose names are four letters and seven would
+    // otherwise stand two different widths, and the shorter one would be the
+    // smaller target. `width: 100%` against a `1fr` track is what makes every
+    // tile the same box.
+    expect(decl(tile, "width")).toBe("100%");
+    expect(decl(ruleOf(FACE_GRID, ".face-grid"), "grid-template-columns")).toBe(
+      "repeat(4, 1fr)"
+    );
   });
 });
 

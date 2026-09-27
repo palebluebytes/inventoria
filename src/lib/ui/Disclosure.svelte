@@ -56,6 +56,15 @@
   // swapped, so the word beside it cannot shift sideways and there is something
   // to interpolate between.
   //
+  // **The caret is handed to a caller that replaces it**, which is how the face
+  // switcher's trigger draws a logo *and* the caret without a second copy of the
+  // path (ADR-0114 §5). The `mark` snippet takes the open state and the default
+  // caret, so a caller filling the hole can still render what the hole used to
+  // hold. It is a second parameter rather than a second prop on purpose: a prop
+  // would be a new axis, and ADR-0100 §3's brake is about axes. Every existing
+  // caller declares one parameter and is untouched — an extra argument to a
+  // snippet that does not name it is inert.
+  //
   // **The cap-height repair lives here.** Epilogue's ascent is 0.79em against a
   // 0.7375em cap height, so the caps of an all-caps title sit 0.091em above the
   // centre of their own box, and flex centring — which aligns boxes — put the
@@ -72,10 +81,12 @@
     /** The label beside the mark, where there is one. Both ⓘ sites and
      *  `FoodView`'s icon carry an `aria-label` instead and draw no text. */
     title?: string;
-    /** Overrides the caret. Takes the open state, so a mark may turn. `null`
-     *  is "no mark", which `EndingLine` uses because its label *is* the mark:
-     *  the words flip between Show and Hide. */
-    mark?: Snippet<[boolean]> | null;
+    /** Overrides the caret. Takes the open state, so a mark may turn, and the
+     *  caret it is replacing, so a caller may draw its own mark *beside* the
+     *  default rather than instead of it. `null` is "no mark", which
+     *  `EndingLine` uses because its label *is* the mark: the words flip
+     *  between Show and Hide. */
+    mark?: Snippet<[boolean, Snippet<[boolean]>]> | null;
     class?: string;
   } & Omit<HTMLButtonAttributes, "class" | "onclick" | "type">;
 
@@ -109,7 +120,7 @@
   aria-controls={controls}
   onclick={onToggle}
 >
-  {#if mark !== null}{@render (mark ?? caret)(open)}{/if}
+  {#if mark !== null}{@render (mark ?? caret)(open, caret)}{/if}
   {#if title}<span class="disclosure-title">{title}</span>{/if}
 </button>
 

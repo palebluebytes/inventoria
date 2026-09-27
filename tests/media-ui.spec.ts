@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { goToFace, waitForDbReady } from "./support/shell";
 
 test("Media Library UI - search, save, and log engagement for books and movies", async ({
   page,
@@ -87,20 +88,14 @@ test("Media Library UI - search, save, and log engagement for books and movies",
   await page.goto("/?mem=1");
 
   // Wait for DB ready
-  await page.waitForFunction(
-    () => {
-      const badge = document.querySelector(".db-badge");
-      return badge?.textContent?.includes("DB Ready");
-    },
-    { timeout: 10000 }
-  );
+  await waitForDbReady(page);
 
   // The TMDB key lives on the Media screen's own gear (ADR-0080 §4): a setting
   // sits beside the thing it configures, and the app's Settings tab has no
   // credentials on it at all now. The scraper proxy needs nothing here — the
   // app has served its own since ADR-0070 and the field that overrode it was
   // deleted with the card.
-  await page.locator(".nav-item", { hasText: "Media" }).click();
+  await goToFace(page, "Media");
   await page.locator("#media-settings-btn").click();
   const tmdbField = page.locator("#tmdb-api-key");
   await tmdbField.fill("test-tmdb-key");
