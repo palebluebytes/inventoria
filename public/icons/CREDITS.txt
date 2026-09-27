@@ -1,0 +1,54 @@
+Inventoria face marks
+=====================
+
+Each face of the app carries a mark, and each mark is somebody's work. CC BY 3.0
+clause 4(a) asks that the author, the title, the source and the licence travel
+with every copy, and that a derivative say it is one. This file is that notice,
+and it ships to /icons/CREDITS.txt beside the images it describes -- the same
+route public/fonts/OFL.txt takes for the typeface and public/food/icons/CREDITS.txt
+takes for the Rations install icons.
+
+All eight are licensed under the Creative Commons Attribution License (CC BY 3.0).
+    https://creativecommons.org/licenses/by/3.0/
+
+Inventoria, the app's own mark
+    "Triquetra" by Michael Senkow, from the Noun Project.
+    https://thenounproject.com/icon/triquetra-73068/
+
+Rations
+    "anchovy tin" by Michael Senkow, from the Noun Project.
+    https://thenounproject.com/icon/anchovy-tin-7864233/
+
+Recipes
+    "morter and pestle" by Michael Senkow, from the Noun Project.
+    https://thenounproject.com/icon/morter-and-pestle-7864224/
+
+Media
+    "phonograph" by Hey Rabbit, from the Noun Project.
+    https://thenounproject.com/icon/gramophone-4152292/
+
+Items
+    "chest" by James Smith, from the Noun Project.
+    https://thenounproject.com/icon/treasure-chest-1071070/
+
+Agenda
+    "desk calendar" by Maria Zamchy, from the Noun Project.
+    https://thenounproject.com/icon/calendar-1672371/
+
+Notes
+    "Notebook" by Maria Zamchy, from the Noun Project.
+    https://thenounproject.com/icon/notebook-1672370/
+
+Settings
+    "Worm Gear" by Michael Senkow, from the Noun Project.
+    https://thenounproject.com/icon/worm-gear-172710/
+
+Changes: in every case the black line art was scaled to 86% of a square canvas
+and centred, and the ground was kept only where the drawing encloses it and
+cleared to transparency outside. The face marks were then re-rendered at 256
+pixels square. The Inventoria mark, which is also an install icon, was re-rendered
+at 512, 192, 180 and 32 pixels square, plus a maskable variant with the art
+re-laid inside Android's safe circle; on the 180 the ground is an opaque disc and
+on the maskable it fills the canvas. No line was redrawn in any of them.
+
+docs/icon-provenance.md carries the full derivation and the measurements.
