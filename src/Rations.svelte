@@ -355,10 +355,12 @@
     flex-direction: column;
     height: 100svh;
     background: var(--bg-base);
-    /* All four, unlike the root's `.app`, which hands the bottom to its nav
-       (ADR-0089 §2). Rations has no nav — that is ADR-0078 §1 — so nothing
-       stands between this box and the home indicator, and the food screen's
-       last row would sit under it. */
+    /* All four, and the root's `.app` now agrees on every edge (ADR-0089 §2, as
+       amended by ADR-0114 §5). It used to hand the bottom inset to its nav,
+       which stood at the foot of the screen and reserved the home indicator
+       itself; that nav is deleted. Nothing stands between either box and the
+       indicator, and the last row of whatever is open would otherwise sit under
+       it. `tests/unit/shell.test.ts` reads the pair as one loop. */
     padding: env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px)
       env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px);
   }

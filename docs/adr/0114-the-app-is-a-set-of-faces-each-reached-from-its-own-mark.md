@@ -453,3 +453,42 @@ end-to-end specs waited on those words. Readiness is now `data-db` on each shell
 hook nobody sees, the same bargain `window.dbClient` already strikes — and `tests/support/shell.ts`
 holds it, along with the switcher's two-step navigation, so the next change to either is one
 file rather than fifteen.
+
+## Amendment, 2026-09-27: the landing screen, as built
+
+[#530](https://github.com/palebluebytes/inventoria/issues/530) built §9. The screen is what the
+section describes — the grid the panel holds, rendered inline in the shell's own column, with no
+header line above it and no tile inverted — and three things it did not say are settled here.
+
+**1. An arrival is not the zero state, so it is read before the ledger rather than after it.**
+§9 makes "no face" the state the app opens in, and the root has exactly one open that is not
+that: a Web Share Target hand-off, which mints an acquisition twin on the Items face
+(ADR-0084 §3, §4). That read sat after `await init`, where it was invisible while the landing
+_was_ food and is a visible flash of the grid now. It moved to component initialisation, off the
+same `window.location.search` the dev demo hatch already reads and behind the same guard, so a
+shared URL opens on Items and nothing else does.
+
+**2. The boot win is measurable, and the measurement is a comparison rather than a clock.**
+§9 claims the grid "renders before the ledger opens and must not subscribe to a ledger store".
+Both halves are now held by `tests/unit/landing-screen.test.ts`: `FaceGrid`'s whole import list
+is the registry, which is a build-time constant (ADR-0076 §6), and the root's shell renders seven
+tiles under a harness with no ledger in it at all — while the same harness on the share-target
+URL renders **nothing**, because every face mounts a view that subscribes to one. A shell that
+draws the grid and a shell that draws nothing is the sharpest available statement of what the
+landing screen costs, and no timing was needed to get it.
+
+**3. "Nothing above it" was taken literally, and the app's wordmark is now drawn in one place
+only.** The panel is the triquetra and the wordmark, then the grid (§6); the landing screen is
+the grid alone. So the app's own name appears nowhere on the screen the app opens on, and that
+screen carries no `<h1>` — the header's title is the only one in the document and there is no
+header here. This is the section's own sentence honoured rather than a preference, and it is
+written down because it is the half of §9 somebody may want back: the masthead is already drawn
+both ways for §6's sake, a control where home is in scope and a drawing where it is not, so
+adding it above the landing grid would cost a component extraction and nothing else.
+
+**What it cost the suite, which is the same shape #529 found.** The root's front door moved, so
+sixty-two specs that opened on food now open on the grid. They go through one helper —
+`openRootFace(page, name)` in `tests/support/shell.ts`, the goto, the tile and the readiness wait
+in that order — and `goToFace` reads which host is up rather than assuming the panel, because a
+reload puts a spec back on the landing. The ledger wait comes last on purpose: the face is reached
+before the database answers, which is §9's claim stated as the order of two lines.

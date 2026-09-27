@@ -2,6 +2,7 @@
   import { onDestroy, onMount } from "svelte";
   import { dbClient } from "./lib/db/db.client";
   import FaceHeader from "./lib/layout/FaceHeader.svelte";
+  import FaceGrid from "./lib/layout/FaceGrid.svelte";
   import FoodView from "./lib/views/FoodView.svelte";
   import MediaView from "./lib/views/MediaView.svelte";
   import AgendaView from "./lib/views/AgendaView.svelte";
@@ -116,15 +117,6 @@
       await initPromise;
       dbReady = true;
 
-      // Handle Web Share Target redirection
-      if (typeof window !== "undefined") {
-        const params = new URLSearchParams(window.location.search);
-        const sharedUrl = params.get("url") || params.get("text") || "";
-        if (sharedUrl) {
-          face = "items";
-        }
-      }
-
       // The Wake (ADR-0096 §3): every paired device is collected from and
       // deposited to, on this open of the root Facet and then as often as there
       // is reason to — a deposit whenever the ledger grows, a collection no
@@ -161,11 +153,31 @@
   // title and this ladder cannot disagree about what the app holds — and a face
   // added to the registry is a compile error here until it has a screen.
   //
-  // `rations` is still the landing, and that is the one thing this ticket does
-  // not change: [#530](https://github.com/palebluebytes/inventoria/issues/530)
-  // makes the landing the grid itself, which is where the switcher's own mark
-  // gets somewhere to go.
-  let face = $state<FaceId>("rations");
+  // **`null` is the landing screen, and it is the zero state** (§9): the root
+  // stopped defaulting to food, so the app opens on the grid of faces and no
+  // tile is inverted there because none of them is where you are. The type is
+  // what carries that — a `FaceId` with a default could not express "no face" —
+  // and it is why the header is conditional below rather than always drawn.
+  //
+  // **An arrival is not the zero state**, so it is read here rather than in
+  // `onMount`. A Web Share Target open mints an acquisition twin on the Items
+  // face (ADR-0084 §3, §4), and it used to set this after the ledger answered,
+  // which was invisible while the landing was food and is a flash of the grid
+  // now. Synchronous, off the same `window.location.search` the demo hatch above
+  // reads, and behind the same guard for the same reason: both shells are
+  // server-rendered in the unit tier.
+  const shared =
+    typeof window !== "undefined"
+      ? new URLSearchParams(window.location.search)
+      : null;
+  let face = $state<FaceId | null>(
+    shared?.get("url") || shared?.get("text") ? "items" : null
+  );
+
+  /** A tile's landing, and the header's. The panel closes itself (§6). */
+  function show(id: FaceId) {
+    face = id;
+  }
 
   /** The seven, in the roster's fixed order — never this shell's own. */
   const faces = $derived(facesOf(facet));
@@ -203,15 +215,32 @@
        developer's affordance charging the user for it. The affordance itself is
        real, so it moves to an attribute nobody sees — the same bargain
        `window.dbClient` and `SettingsView`'s always-rendered tree already strike
-       in this file. It survives #530, which takes the day off the landing
-       screen: the shell knows whether the ledger is open whatever it is
-       drawing. -->
+       in this file. It is on the shell's own box rather than on a face, which is
+       what makes it survive the landing screen: the shell knows whether the
+       ledger is open whatever it is drawing, and on the grid it is drawing
+       something that never asked. -->
   <div class="app" data-db={dbError ? "error" : dbReady ? "ready" : "opening"}>
     <!-- The app's only navigation, at the top of every face (ADR-0114 §5). It
          publishes its own measured height as `--shell-ceiling` on `<html>`,
          which is what the panel it drops reads — the deleted `Sidebar` published
-         a floor from the other edge and for the same reason. -->
-    <FaceHeader face={faceOf(face)} {faces} onPick={(id) => (face = id)} />
+         a floor from the other edge and for the same reason.
+
+         **On a face, and only on a face** (§9). The landing screen has no header
+         line, because the grid it draws *is* the switcher and a trigger there
+         would open a panel holding the screen you are already looking at.
+
+         `onHome` is the hole this ticket fills: the panel's triquetra is the way
+         back to the landing, which is the one destination no face can offer and
+         the reason that prop exists at all. Rations still hands none — under
+         `/food/` home is `/`, outside the Facet (ADR-0078 §1). -->
+    {#if face !== null}
+      <FaceHeader
+        face={faceOf(face)}
+        {faces}
+        onPick={show}
+        onHome={() => (face = null)}
+      />
+    {/if}
 
     <main class="main">
       <!-- The capped, centred column, and the whole of why it is a box of its
@@ -229,14 +258,36 @@
              never becomes ready is the one failure a user cannot read off the
              page. `● DB Ready` and `○ Connecting…` went with the `Sidebar` that
              carried them — a permanent green badge is a developer's affordance
-             charging the user for it. Where the line sits on the landing screen
-             is [#530](https://github.com/palebluebytes/inventoria/issues/530)'s;
-             that it is error-only everywhere is settled here, because the box
-             that drew the other two states is gone in this change. -->
+             charging the user for it.
+
+             **At the top of the column, everywhere, and that includes the
+             landing screen**: it is inside the column rather than inside any
+             face, so a ledger that never opens is readable on the grid as well
+             as on the seven screens behind it. The landing does not otherwise
+             care whether the ledger is open — it draws the roster and nothing
+             from it — so this line is the only thing the boot can put there. -->
         {#if dbError}
           <Badge class="w-full justify-center" variant="error">
             ✕ DB Error — {dbError}
           </Badge>
+        {/if}
+
+        <!-- **The landing screen** (ADR-0114 §9): the same grid the panel holds,
+             rendered inline, with nothing above it. One component and two hosts,
+             the shape `BottomSheet`'s `inline` prop already has under Rations and
+             the reason ADR-0095 gives for reaching a shared look by reference.
+
+             No `current`: the grid *is* where you are here, so no tile is
+             inverted and the default `null` is the claim rather than an omission.
+
+             **It paints before the ledger answers.** The roster is a build-time
+             constant (ADR-0076 §6) and this grid subscribes to no store, so the
+             first thing the app draws no longer waits on OPFS, SQLite's WASM or a
+             worker at all. That is a real boot win and it is only real while
+             nothing here reads the ledger — which is what `FaceGrid`'s props are
+             for, and what the offline arm of `pnpm check:offline` keeps honest. -->
+        {#if face === null}
+          <FaceGrid {faces} onPick={show} />
         {/if}
 
         {#if face === "rations"}
@@ -246,11 +297,15 @@
                end to end. -->
           <FoodView {dbReady} shell="root" onReceiveClose={() => {}} />
           <!-- Under the screen rather than in the header, because ADR-0078 §4
-               keeps the Food tab otherwise unchanged: same screen, same
-               components, no pointer. Turning the tab itself into one would
-               reopen ADR-0077 §5, which kept `usda/search-index.json` in the
-               root's precache precisely because food is the root's landing
-               screen. -->
+               keeps the Rations face otherwise unchanged: same screen, same
+               components, no pointer.
+
+               ADR-0077 §5 kept `usda/search-index.json` in the root's precache
+               "precisely because food is the root's landing screen", and as of
+               this change it is not. The premise is gone; dropping the file and
+               warming it on entering this face is
+               [#535](https://github.com/palebluebytes/inventoria/issues/535),
+               where the two `precacheBytes` are re-measured with it. -->
           <FacetExit facet={rations} />
         {/if}
 

@@ -59,7 +59,7 @@ test("Physical Digital Twins UI - manual create, scrape, status toggling, and we
   // field that used to override it was deleted at ADR-0080 §4, and the TMDB key
   // beside it moved to the Media screen and is no business of this one.
 
-  // Click on the Items tab in Sidebar
+  // Land on the Items face, from the landing grid the root opens on
   await goToFace(page, "Items");
 
   // Open manual entry form

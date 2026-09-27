@@ -1,6 +1,6 @@
 /// <reference types="node" />
 import { test, expect } from "@playwright/test";
-import { goToFace, waitForDbReady } from "./support/shell";
+import { goToFace, openRootFace, waitForDbReady } from "./support/shell";
 import type { MealType } from "../src/lib/food/meal-type";
 import { openWayIn, selectMeal, wayInControl } from "./support/ways-in";
 
@@ -264,8 +264,7 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
   test("loads the calorie tracker dashboard with initial empty target progress", async ({
     page,
   }) => {
-    await page.goto("/?mem=1");
-    await waitForDbReady(page);
+    await openRootFace(page, "Rations");
 
     // Verify page header
     const dashboardTitle = page.getByRole("heading", {
@@ -304,6 +303,11 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     // `commit` rather than the default `load`: the held WASM request is part of
     // the page's load, so waiting for it would deadlock the navigation itself.
     await page.goto("/?mem=1", { waitUntil: "commit" });
+    // The landing screen, reached and left again with SQLite's WASM still held
+    // (ADR-0114 §9). `openRootFace` is not used because it waits for the ledger,
+    // which is the one thing this test holds open — and the tile being tappable
+    // at all is the boot win that record claims, rather than an incidental.
+    await goToFace(page, "Rations");
 
     // The day is unread, so the meals must not claim to be empty and the bars
     // must not show figures nobody has read.
@@ -340,8 +344,7 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
   // in-memory ledger on reload but leaves localStorage alone, so the reload below
   // is the genuine article rather than a stand-in for one.
   test("the nutrition panel remembers being folded shut", async ({ page }) => {
-    await page.goto("/?mem=1");
-    await waitForDbReady(page);
+    await openRootFace(page, "Rations");
 
     const bars = page.locator(".aggregates-body");
     const toggle = page.getByRole("button", { name: "Nutrition", exact: true });
@@ -365,7 +368,13 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     // And across a real refresh. The assertion is deliberately made BEFORE
     // waiting for the database: the fold must be right in the first frame, not
     // once the ledger wakes up, which is the whole reason it does not live there.
+    //
+    // A refresh lands on the landing screen, so the face is re-entered on the
+    // way back in (ADR-0114 §9) — and it is re-entered *before* the ledger
+    // answers, so what the assertion below reads is still the first frame of the
+    // day rather than a screen that waited.
     await page.reload();
+    await goToFace(page, "Rations");
     await expect(
       page.getByRole("button", { name: "Nutrition", exact: true })
     ).toHaveAttribute("aria-expanded", "false");
@@ -375,14 +384,14 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     await waitForDbReady(page);
     await page.getByRole("button", { name: "Nutrition", exact: true }).click();
     await page.reload();
+    await goToFace(page, "Rations");
     await expect(page.locator(".aggregates-body")).toBeVisible();
   });
 
   test("the Today button appears off-today and snaps the strip back", async ({
     page,
   }) => {
-    await page.goto("/?mem=1");
-    await waitForDbReady(page);
+    await openRootFace(page, "Rations");
 
     const header = page.locator(".dashboard-header h2");
     const todayHeader = (await header.textContent())?.trim() ?? "";
@@ -406,8 +415,7 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
   test("opens the log sheet directly and logs a USDA food", async ({
     page,
   }) => {
-    await page.goto("/?mem=1");
-    await waitForDbReady(page);
+    await openRootFace(page, "Rations");
     await setupApiKeys(page);
 
     // The header carries one control per way into the meal and no `+`
@@ -458,8 +466,7 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     // searched half: the results are internal async state with no prop behind
     // them. So the mark that says "this one won" is proved here, in the one
     // place both lists are real.
-    await page.goto("/?mem=1");
-    await waitForDbReady(page);
+    await openRootFace(page, "Rations");
     await setupApiKeys(page);
 
     // Log a food, so this meal has a Recent to offer.
@@ -491,8 +498,7 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
   test("copies a past meal wholesale into the day being viewed (ADR-0058)", async ({
     page,
   }) => {
-    await page.goto("/?mem=1");
-    await waitForDbReady(page);
+    await openRootFace(page, "Rations");
     await setupApiKeys(page);
 
     const copyBreakfast = wayInControl(page, "breakfast", "past");
@@ -545,8 +551,7 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
   test("expands a staged food's full nutrient breakdown, scaled and omitting absent fields (#30)", async ({
     page,
   }) => {
-    await page.goto("/?mem=1");
-    await waitForDbReady(page);
+    await openRootFace(page, "Rations");
     await setupApiKeys(page);
 
     // Stage Mock Banana — it carries two micronutrients (calcium + iron) but no
@@ -583,8 +588,7 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
   test("reveals the day's full nutrient breakdown on tap, totalling every logged food and omitting absent nutrients (#31)", async ({
     page,
   }) => {
-    await page.goto("/?mem=1");
-    await waitForDbReady(page);
+    await openRootFace(page, "Rations");
     await setupApiKeys(page);
 
     // Log two bananas (each carries calcium + iron, but no fibre/sodium) and one
@@ -634,8 +638,7 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
   test("a visible micronutrient fills against its baked target (#40)", async ({
     page,
   }) => {
-    await page.goto("/?mem=1");
-    await waitForDbReady(page);
+    await openRootFace(page, "Rations");
     await setupApiKeys(page);
 
     // Make Calcium a visible meter — the default selection is the three macros
@@ -662,8 +665,7 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
   test("calories are a trackable macro, toggleable like any other", async ({
     page,
   }) => {
-    await page.goto("/?mem=1");
-    await waitForDbReady(page);
+    await openRootFace(page, "Rations");
     await logUsdaFood(page, "breakfast", "banana", "Mock Banana", "100");
 
     // On by default, and every existing install stays that way: the preference
@@ -701,8 +703,7 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
   test("a custom macro target overrides the baked default on the dashboard (#41)", async ({
     page,
   }) => {
-    await page.goto("/?mem=1");
-    await waitForDbReady(page);
+    await openRootFace(page, "Rations");
 
     // Protein reaches toward the baked 125 g by default.
     const protein = page.locator(".macro-item.protein");
@@ -725,8 +726,7 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
   test("the reset control restores a target to its baked default and disables itself (#41)", async ({
     page,
   }) => {
-    await page.goto("/?mem=1");
-    await waitForDbReady(page);
+    await openRootFace(page, "Rations");
 
     await openFoodSettings(page);
     const proteinTarget = page.locator('input[data-target="protein"]');
@@ -752,8 +752,7 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
   test("entering 0 opts a nutrient out: a hidden hint and no dashboard bar (#41)", async ({
     page,
   }) => {
-    await page.goto("/?mem=1");
-    await waitForDbReady(page);
+    await openRootFace(page, "Rations");
     await setupApiKeys(page);
 
     // Make Calcium a visible meter, then opt its target out with a 0.
@@ -779,8 +778,7 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
   test("customising a target tracks that nutrient; the two prefs stay per-nutrient (#41)", async ({
     page,
   }) => {
-    await page.goto("/?mem=1");
-    await waitForDbReady(page);
+    await openRootFace(page, "Rations");
 
     await openFoodSettings(page);
 
@@ -805,8 +803,7 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
   test("the calculator applies a personalized energy/macro set as the new defaults (#45)", async ({
     page,
   }) => {
-    await page.goto("/?mem=1");
-    await waitForDbReady(page);
+    await openRootFace(page, "Rations");
 
     // Protein reaches toward the baked 125 g before the calculator ever runs.
     await expect(page.locator(".macro-item.protein")).toContainText("/ 125 g");
@@ -861,8 +858,7 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
   test("a stay-under limit override saves and resets to its baked cap (#43)", async ({
     page,
   }) => {
-    await page.goto("/?mem=1");
-    await waitForDbReady(page);
+    await openRootFace(page, "Rations");
 
     await openFoodSettings(page);
     const satFat = page.locator('input[data-limit="saturated_fat_content"]');
@@ -892,8 +888,7 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
   test("an info button opens the sourced rationale for a section (#46)", async ({
     page,
   }) => {
-    await page.goto("/?mem=1");
-    await waitForDbReady(page);
+    await openRootFace(page, "Rations");
 
     await openFoodSettings(page);
 
@@ -918,8 +913,7 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
   test("stages a food's household portions as amount-picker presets (ADR-0030)", async ({
     page,
   }) => {
-    await page.goto("/?mem=1");
-    await waitForDbReady(page);
+    await openRootFace(page, "Rations");
     await setupApiKeys(page);
 
     // Stage a food WITH portions — they came bundled with the row, so selecting
@@ -960,8 +954,7 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
   test("a food without portions renders the amount picker unchanged", async ({
     page,
   }) => {
-    await page.goto("/?mem=1");
-    await waitForDbReady(page);
+    await openRootFace(page, "Rations");
     await setupApiKeys(page);
 
     // Stage a food whose bundled row carries no portions.
@@ -987,8 +980,7 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
       if (req.url().includes("/usda/search-index.json")) indexFetches++;
     });
 
-    await page.goto("/?mem=1");
-    await waitForDbReady(page);
+    await openRootFace(page, "Rations");
     await setupApiKeys(page);
 
     await openWayIn(page, "breakfast", "search");
@@ -1005,8 +997,7 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
   });
 
   test("removes a logged food via the card's ✕ button", async ({ page }) => {
-    await page.goto("/?mem=1");
-    await waitForDbReady(page);
+    await openRootFace(page, "Rations");
     await setupApiKeys(page);
 
     await logUsdaFood(page, "breakfast", "banana", "Mock Banana", "150");
@@ -1030,8 +1021,7 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
   });
 
   test("edits a logged food's amount by tapping its card", async ({ page }) => {
-    await page.goto("/?mem=1");
-    await waitForDbReady(page);
+    await openRootFace(page, "Rations");
     await setupApiKeys(page);
 
     await logUsdaFood(page, "breakfast", "banana", "Mock Banana", "150"); // 133.5
@@ -1077,8 +1067,7 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
   });
 
   test("logs a custom food with macros and a photo", async ({ page }) => {
-    await page.goto("/?mem=1");
-    await waitForDbReady(page);
+    await openRootFace(page, "Rations");
 
     // Open the sheet for lunch, switch to the Custom method, then pick the
     // "Quick estimate" intent. Per ADR-0035 the Custom tab is now an intent
@@ -1116,8 +1105,7 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
   test("opens the label form from the chooser's fourth tile and offers the food in that meal's Recent (#318)", async ({
     page,
   }) => {
-    await page.goto("/?mem=1");
-    await waitForDbReady(page);
+    await openRootFace(page, "Rations");
 
     // ADR-0087's motivating case: a packaged food with a complete printed panel
     // and no barcode anywhere on screen (a webshop granola). Before this door
@@ -1189,8 +1177,7 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
   test("captures a full-panel custom food from the Read-along form (#57)", async ({
     page,
   }) => {
-    await page.goto("/?mem=1");
-    await waitForDbReady(page);
+    await openRootFace(page, "Rations");
 
     // The Read-along full-panel form is reached via a barcode door now (ADR-0035
     // §2: the direct-log Custom tab is the intent chooser; the label form lives on
@@ -1311,8 +1298,7 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
       });
     });
 
-    await page.goto("/?mem=1");
-    await waitForDbReady(page);
+    await openRootFace(page, "Rations");
 
     await openWayIn(page, "lunch", "scan");
     await page.locator("#barcode-input").fill(BUSY_CODE);
@@ -1352,8 +1338,7 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
   test("captures multiple label photos, reads across them, removes one, and mirrors the first (#58)", async ({
     page,
   }) => {
-    await page.goto("/?mem=1");
-    await waitForDbReady(page);
+    await openRootFace(page, "Rations");
 
     // Reach the Read-along form via the "missing" barcode door (ADR-0035 §2).
     const MISSING_CODE = "0000000000024";
@@ -1467,8 +1452,7 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
       });
     });
 
-    await page.goto("/?mem=1");
-    await waitForDbReady(page);
+    await openRootFace(page, "Rations");
 
     // Scan the poor barcode (typed, since headless has no camera).
     await openWayIn(page, "breakfast", "scan");
@@ -1575,8 +1559,7 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
       });
     });
 
-    await page.goto("/?mem=1");
-    await waitForDbReady(page);
+    await openRootFace(page, "Rations");
 
     await openWayIn(page, "lunch", "scan");
     await page.locator("#barcode-input").fill(OIL_CODE);
@@ -1654,8 +1637,7 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
       });
     });
 
-    await page.goto("/?mem=1");
-    await waitForDbReady(page);
+    await openRootFace(page, "Rations");
     await openWayIn(page, "lunch", "scan");
     await page.locator("#barcode-input").fill(SIZED);
     await page.locator("#barcode-input").press("Enter");
@@ -1707,8 +1689,7 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
       });
     });
 
-    await page.goto("/?mem=1");
-    await waitForDbReady(page);
+    await openRootFace(page, "Rations");
     await openWayIn(page, "lunch", "scan");
     await page.locator("#barcode-input").fill(OIL);
     await page.locator("#barcode-input").press("Enter");
@@ -1789,8 +1770,7 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
       });
     });
 
-    await page.goto("/?mem=1");
-    await waitForDbReady(page);
+    await openRootFace(page, "Rations");
     await openWayIn(page, "lunch", "scan");
     await page.locator("#barcode-input").fill(SOLID);
     await page.locator("#barcode-input").press("Enter");
@@ -1837,8 +1817,7 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
       });
     });
 
-    await page.goto("/?mem=1");
-    await waitForDbReady(page);
+    await openRootFace(page, "Rations");
     await openWayIn(page, "lunch", "scan");
     await page.locator("#barcode-input").fill(code);
     await page.locator("#barcode-input").press("Enter");
@@ -1937,8 +1916,7 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
       });
     });
 
-    await page.goto("/?mem=1");
-    await waitForDbReady(page);
+    await openRootFace(page, "Rations");
     await openWayIn(page, "lunch", "scan");
     await page.locator("#barcode-input").fill(CAN);
     await page.locator("#barcode-input").press("Enter");
@@ -2066,8 +2044,7 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
   test("moves the selected foods to another meal, and lets them go", async ({
     page,
   }) => {
-    await page.goto("/?mem=1");
-    await waitForDbReady(page);
+    await openRootFace(page, "Rations");
     await setupApiKeys(page);
 
     const dinnerSection = await selectTwo(page);
@@ -2091,8 +2068,7 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
   test("previews a scale on the rows before it writes anything", async ({
     page,
   }) => {
-    await page.goto("/?mem=1");
-    await waitForDbReady(page);
+    await openRootFace(page, "Rations");
     await setupApiKeys(page);
 
     const dinnerSection = await selectTwo(page);
@@ -2138,8 +2114,7 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
   test("the count opens the Selection's panel, where the way out is", async ({
     page,
   }) => {
-    await page.goto("/?mem=1");
-    await waitForDbReady(page);
+    await openRootFace(page, "Rations");
     await setupApiKeys(page);
 
     await selectTwo(page);
@@ -2168,8 +2143,7 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
   test("a panel closed without handing over keeps the Selection", async ({
     page,
   }) => {
-    await page.goto("/?mem=1");
-    await waitForDbReady(page);
+    await openRootFace(page, "Rations");
     await setupApiKeys(page);
 
     const dinnerSection = await selectTwo(page);
@@ -2185,8 +2159,7 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
   });
 
   test("the ✕ leaves the Selection", async ({ page }) => {
-    await page.goto("/?mem=1");
-    await waitForDbReady(page);
+    await openRootFace(page, "Rations");
     await setupApiKeys(page);
 
     await selectTwo(page);
@@ -2196,8 +2169,7 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
   });
 
   test("builds a recipe that replaces the selected foods", async ({ page }) => {
-    await page.goto("/?mem=1");
-    await waitForDbReady(page);
+    await openRootFace(page, "Rations");
     await setupApiKeys(page);
 
     const dinnerSection = await selectTwoAndBuild(page);
@@ -2225,8 +2197,7 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
   test("folds two logs of one food into a single ingredient", async ({
     page,
   }) => {
-    await page.goto("/?mem=1");
-    await waitForDbReady(page);
+    await openRootFace(page, "Rations");
     await setupApiKeys(page);
 
     await logUsdaFood(page, "dinner", "oats", "Mock Oats", "50"); // 189.5 kcal
@@ -2267,8 +2238,7 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
   test("keeps an ingredient logged when removed from the recipe", async ({
     page,
   }) => {
-    await page.goto("/?mem=1");
-    await waitForDbReady(page);
+    await openRootFace(page, "Rations");
     await setupApiKeys(page);
 
     const dinnerSection = await selectTwoAndBuild(page);
@@ -2305,8 +2275,7 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
   test("servings control drives live per-serving totals and freezes them on save", async ({
     page,
   }) => {
-    await page.goto("/?mem=1");
-    await waitForDbReady(page);
+    await openRootFace(page, "Rations");
     await setupApiKeys(page);
 
     const dinnerSection = await selectTwoAndBuild(page);
@@ -2355,8 +2324,7 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
   test("editing an ingredient amount re-derives per-serving totals live and freezes them on save", async ({
     page,
   }) => {
-    await page.goto("/?mem=1");
-    await waitForDbReady(page);
+    await openRootFace(page, "Rations");
     await setupApiKeys(page);
 
     const dinnerSection = await selectTwoAndBuild(page);
@@ -2415,8 +2383,7 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
   test("the add-ingredient back button returns to the recipe builder", async ({
     page,
   }) => {
-    await page.goto("/?mem=1");
-    await waitForDbReady(page);
+    await openRootFace(page, "Rations");
     await setupApiKeys(page);
 
     await selectTwoAndBuild(page);
@@ -2438,8 +2405,7 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
   test("sets an ingredient amount with the quantity control and adds it", async ({
     page,
   }) => {
-    await page.goto("/?mem=1");
-    await waitForDbReady(page);
+    await openRootFace(page, "Rations");
     await setupApiKeys(page);
 
     // Recipe builder open, seeded with oats 50 g (189.5) + banana 150 g (133.5) = 323.
@@ -2483,8 +2449,7 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
   test("re-adding a food already in the recipe merges into its row (issue #14)", async ({
     page,
   }) => {
-    await page.goto("/?mem=1");
-    await waitForDbReady(page);
+    await openRootFace(page, "Rations");
     await setupApiKeys(page);
 
     // Recipe builder open, seeded with oats 50 g + banana 150 g = 323 kcal.
@@ -2542,8 +2507,7 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
   test("instantiates a saved recipe into a day, diverging for that occasion (additive)", async ({
     page,
   }) => {
-    await page.goto("/?mem=1");
-    await waitForDbReady(page);
+    await openRootFace(page, "Rations");
     await setupApiKeys(page);
 
     const dinnerSection = await buildDinnerCombo(page);
@@ -2586,8 +2550,7 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
   test("says how many servings the occasion was, fractions included", async ({
     page,
   }) => {
-    await page.goto("/?mem=1");
-    await waitForDbReady(page);
+    await openRootFace(page, "Rations");
     await setupApiKeys(page);
 
     await buildDinnerCombo(page);
@@ -2629,8 +2592,7 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
   test("sizes an occasion by what the batch weighed, and freezes what it was a fraction of", async ({
     page,
   }) => {
-    await page.goto("/?mem=1");
-    await waitForDbReady(page);
+    await openRootFace(page, "Rations");
     await setupApiKeys(page);
 
     // Build the recipe and say what the finished dish came to. 400 g is not the
@@ -2696,8 +2658,7 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
   test("never writes an occasion's batch weight back onto the template (ADR-0106 §3)", async ({
     page,
   }) => {
-    await page.goto("/?mem=1");
-    await waitForDbReady(page);
+    await openRootFace(page, "Rations");
     await setupApiKeys(page);
 
     const dinnerSection = await selectTwoAndBuild(page);
@@ -2722,8 +2683,7 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
   test("corrects a past instantiation in the day, one act, keeping its id", async ({
     page,
   }) => {
-    await page.goto("/?mem=1");
-    await waitForDbReady(page);
+    await openRootFace(page, "Rations");
     await setupApiKeys(page);
 
     const dinnerSection = await buildDinnerCombo(page);
@@ -2796,8 +2756,7 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
   test("defines a Recipe Twin from scratch, logging one serving onto the day (ADR-0022 amended)", async ({
     page,
   }) => {
-    await page.goto("/?mem=1");
-    await waitForDbReady(page);
+    await openRootFace(page, "Rations");
     await setupApiKeys(page);
 
     // Open the log sheet's Recipe browser and start a brand-new template.
@@ -2837,8 +2796,7 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
   test("the recipe library writes a template and logs nothing", async ({
     page,
   }) => {
-    await page.goto("/?mem=1");
-    await waitForDbReady(page);
+    await openRootFace(page, "Rations");
     await setupApiKeys(page);
 
     await expect(page.locator(".macro-item.calories .macro-now")).toHaveText(
@@ -2891,8 +2849,7 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
   test("the recipe library opens a saved recipe to review and amend", async ({
     page,
   }) => {
-    await page.goto("/?mem=1");
-    await waitForDbReady(page);
+    await openRootFace(page, "Rations");
     await setupApiKeys(page);
 
     // A recipe logged onto the day from the dashboard, so there is one to review
@@ -2931,8 +2888,7 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
   test("edits a template so future instantiations re-seed while past ones stay frozen", async ({
     page,
   }) => {
-    await page.goto("/?mem=1");
-    await waitForDbReady(page);
+    await openRootFace(page, "Rations");
     await setupApiKeys(page);
 
     // One logged instantiation of Dinner Combo (323) already sits in dinner.
@@ -2997,8 +2953,7 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
   test("configurable visible nutrients: fibre by default, toggling updates the summary (#29)", async ({
     page,
   }) => {
-    await page.goto("/?mem=1");
-    await waitForDbReady(page);
+    await openRootFace(page, "Rations");
 
     // By default (no user setting) the dashboard summary shows Protein/Fat/Carbs
     // AND a Fibre meter — the calorie ring stays always-on.
@@ -3035,8 +2990,7 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
   test("shows a per-meal macro subtotal that sums just that section on one line", async ({
     page,
   }) => {
-    await page.goto("/?mem=1");
-    await waitForDbReady(page);
+    await openRootFace(page, "Rations");
     await setupApiKeys(page);
 
     // Empty section: no subtotal, just the empty-state prompt.
@@ -3068,8 +3022,7 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
   test("opens the meal's own panel from its name and from its figures", async ({
     page,
   }) => {
-    await page.goto("/?mem=1");
-    await waitForDbReady(page);
+    await openRootFace(page, "Rations");
     await setupApiKeys(page);
     // A breakfast a week back before today's, so the header shows all five
     // ways in: `past` is absent rather than disabled when there is no past
@@ -3120,8 +3073,7 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
   test("the meal's panel shows what the meal carries, and no reading of a day", async ({
     page,
   }) => {
-    await page.goto("/?mem=1");
-    await waitForDbReady(page);
+    await openRootFace(page, "Rations");
     await setupApiKeys(page);
     // One banana: macros, 5 mg calcium and 0.26 mg iron, and nothing else.
     await logUsdaFood(page, "breakfast", "banana", "Mock Banana", "100");
@@ -3160,8 +3112,7 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
   test("an empty meal still opens its panel, with the way out unusable", async ({
     page,
   }) => {
-    await page.goto("/?mem=1");
-    await waitForDbReady(page);
+    await openRootFace(page, "Rations");
     await setupApiKeys(page);
 
     // No subtotal line exists on an empty meal, which is why the name is the
@@ -3191,8 +3142,7 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     // the whole of its five minutes.
     await page.routeWebSocket(/\/api\/relay/, () => {});
 
-    await page.goto("/?mem=1");
-    await waitForDbReady(page);
+    await openRootFace(page, "Rations");
     await setupApiKeys(page);
     await logUsdaFood(page, "breakfast", "banana", "Mock Banana", "100");
 

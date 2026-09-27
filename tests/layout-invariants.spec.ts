@@ -196,6 +196,17 @@ function sweepTheRoot() {
     await waitForDbReady(page);
   });
 
+  // The screen the root opens on, and the one surface in this sweep that is not
+  // a face (ADR-0114 §9). It earns its own test because its shape is the one
+  // thing in the app that does not respond to width: `FaceGrid` is four fixed
+  // columns at every viewport, deliberately, so the Pixel 5 project is where a
+  // seven-tile grid would overflow if a name or a mark ever outgrew its column.
+  test("the landing grid keeps all content within the viewport", async ({
+    page,
+  }) => {
+    await expectNoOverflow(page, "the landing grid");
+  });
+
   for (const face of FACES) {
     test(`${face} keeps all content within the viewport`, async ({ page }) => {
       await goToFace(page, face);

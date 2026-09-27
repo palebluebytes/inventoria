@@ -567,11 +567,15 @@ test.describe("Visual Catalog Generator", () => {
     await boot(page);
 
     // It read the Sidebar's six tabs until ADR-0114 §5 deleted them. Seven now,
-    // because Recipes became a face of its own (§4), and read off the switcher's
-    // tiles in the roster's fixed order rather than sorted: §7 refuses a grid
-    // that re-sorts, so the ORDER is part of what this assertion is for.
-    await page.locator('button[aria-controls="face-switcher-panel"]').click();
-    await expect(page.locator("#face-switcher-panel .face-tile")).toHaveText([
+    // because Recipes became a face of its own (§4), and read in the roster's
+    // fixed order rather than sorted: §7 refuses a grid that re-sorts, so the
+    // ORDER is part of what this assertion is for.
+    //
+    // Read off the **landing screen**, which is where `boot` now leaves the page:
+    // §9 stops the root landing on food and opens it on this grid, so there is no
+    // trigger here to press and the switcher is simply the screen. The tiles are
+    // the same component the panel holds, and the test below photographs them.
+    await expect(page.locator(".main .face-tile")).toHaveText([
       "Rations",
       "Recipes",
       "Media",
@@ -580,6 +584,19 @@ test.describe("Visual Catalog Generator", () => {
       "Notes",
       "Settings",
     ]);
+  });
+
+  /**
+   * The screen the app opens on (ADR-0114 §9), and the eighth capture here.
+   *
+   * It is the cheapest shot in the file — no seeding, no sheet, nothing to log —
+   * and the one the other seven are reached through, so a grid that broke would
+   * otherwise be visible only as seven failures further down. `boot` leaves the
+   * page exactly here, which is the whole of the setup.
+   */
+  test("the landing screen, the grid of every face", async ({ page }) => {
+    await boot(page);
+    await takeFullPageScreenshot(page, "landing-screen.png", ROOT_SHELL_FLAT);
   });
 
   test("the food dashboard, holding a logged breakfast", async ({ page }) => {
@@ -1035,7 +1052,10 @@ test.describe("Visual Catalog — the surfaces a meal opens", () => {
    *  day it is offering, so a live clock would restale that baseline nightly. */
   async function openFood(page: import("@playwright/test").Page) {
     await page.clock.install({ time: new Date("2026-06-05T08:30:00Z") });
+    // The root opens on the landing grid now (ADR-0114 §9), so the food screen
+    // is one tile away rather than where the app starts.
     await page.goto("/?mem=1");
+    await goToFace(page, "Rations");
     await waitForDbReady(page);
   }
 

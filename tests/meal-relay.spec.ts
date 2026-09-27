@@ -1,6 +1,6 @@
 /// <reference types="node" />
 import { test, expect, type Page } from "@playwright/test";
-import { waitForDbReady } from "./support/shell";
+import { openRootFace } from "./support/shell";
 import type { MealType } from "../src/lib/food/meal-type";
 import { openWayIn } from "./support/ways-in";
 
@@ -218,8 +218,7 @@ test.describe("a meal crossing a real relay", () => {
       // tell those two rules apart is for the days to differ.
       const sender = await senderContext.newPage();
       await serveUsdaCorpus(sender);
-      await sender.goto("/?mem=1");
-      await waitForDbReady(sender);
+      await openRootFace(sender, "Rations");
       await sender.getByRole("button", { name: "Previous Week" }).click();
       await logMockFood(sender, "breakfast", "Mock Banana");
 
@@ -330,8 +329,7 @@ test.describe("a meal crossing a real relay", () => {
       // recipient's own and the two meals are unmistakably two.
       const sender = await senderContext.newPage();
       await serveUsdaCorpus(sender);
-      await sender.goto("/?mem=1");
-      await waitForDbReady(sender);
+      await openRootFace(sender, "Rations");
       await sender.getByRole("button", { name: "Previous Week" }).click();
       await logMockFood(sender, "breakfast", "Mock Banana");
       await logMockFood(sender, "dinner", "Mock Oats");

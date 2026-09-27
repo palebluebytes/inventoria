@@ -41,13 +41,22 @@ test("the app starts with the network off", async ({ page, context }) => {
   await expect(page).toHaveTitle("Inventoria — Local-first Ledger");
   await expect(page.locator(".app")).toBeVisible();
 
-  // Notes is lazily imported, so this also asserts the bound on the damage:
-  // the shell's own navigation renders regardless, and with it a route to every
-  // face that has nothing to do with the CRDT. It was a `.nav-item` until
-  // ADR-0114 §5 replaced the tab bar with the pinned header's trigger.
-  await expect(
-    page.locator('button[aria-controls="face-switcher-panel"]')
-  ).toBeVisible();
+  // Notes is lazily imported, so this also asserts the bound on the damage: the
+  // shell's own navigation renders regardless, and with it a route to every face
+  // that has nothing to do with the CRDT. It was a `.nav-item` until ADR-0114 §5
+  // replaced the tab bar with the pinned header's trigger, and it is now the
+  // landing screen's own grid: §9 opens the root on all seven routes rather than
+  // on a control that offers them, so what proves the bound is the set itself.
+  //
+  // It is also the strongest reading of §9's boot win available anywhere in the
+  // suite — the grid is drawn from a build-time roster and subscribes to nothing,
+  // so here it paints with the network off and before the ledger has answered.
+  //
+  // Seven, written out rather than read off the registry, for the reason
+  // `layout-invariants.spec.ts` writes its own roster out: a count derived from
+  // the app would grow with the app and stop noticing anything.
+  await expect(page.locator(".main .face-grid")).toBeVisible();
+  await expect(page.locator(".main .face-tile")).toHaveCount(7);
 
   // Scoped to the failure mode rather than asserting an empty array, so an
   // unrelated console error in another feature cannot make this spec flap.

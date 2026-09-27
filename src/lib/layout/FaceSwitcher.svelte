@@ -50,9 +50,9 @@
      * promises the switcher is not. So Rations hands no `onHome` and its
      * masthead is a drawing rather than a control.
      *
-     * The root's landing screen is
-     * [#530](https://github.com/palebluebytes/inventoria/issues/530)'s, so the
-     * root hands none yet either. This prop is the hole that ticket fills.
+     * The root hands one: its landing screen is the grid with no face open
+     * (§9), which is inside its own scope, so the mark is a control there and
+     * the one thing it can do is the one thing no tile does.
      */
     onHome?: () => void;
   } = $props();

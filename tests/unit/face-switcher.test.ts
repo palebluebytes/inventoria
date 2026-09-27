@@ -25,6 +25,7 @@ import {
 import { FACES, facesOf, facetOf } from "../../src/lib/facets/registry";
 import FaceGrid from "../../src/lib/layout/FaceGrid.svelte";
 import FaceHeader from "../../src/lib/layout/FaceHeader.svelte";
+import { tileNames } from "./support/faces";
 
 const HEADER = "src/lib/layout/FaceHeader.svelte";
 const SWITCHER = "src/lib/layout/FaceSwitcher.svelte";
@@ -42,10 +43,6 @@ const grid = (current: string | null = null) =>
       onPick: () => {},
     } as never,
   }).body;
-
-/** Every tile's visible name, in the order the grid emitted them. */
-const tileNames = (body: string): string[] =>
-  [...body.matchAll(/class="face-name[^"]*">([^<]+)</g)].map((m) => m[1]);
 
 describe("the grid is the roster, drawn in the roster's order", () => {
   it("draws one tile per face the shell declares, and no more", () => {
