@@ -261,9 +261,20 @@ works with the network off.** Both halves are checkable, the second by the gate 
 exists. Without a stated criterion the badge is permanent by accident, which is the failure
 mode of every beta label that outlives its product.
 
-It draws twice from one component (ADR-0095): a horizontal band across the lower third of the
-switcher tile, ink ground and paper caps; and the same `Badge` beside the title in the face's
-own header, where a band across a tap-sized mark would be four illegible pixels.
+It draws twice from one component (ADR-0095): a horizontal band **directly under** the
+switcher tile's mark, full tile width, ink ground and paper caps, above the face's name; and
+the same `Badge` beside the title in the face's own header, where a band across a tap-sized
+mark would be four illegible pixels.
+
+**Under the mark, not across it, and that was decided by assembling it.** The band began as a
+band _across the tile's lower third_, which is defensible against one mark and wrong against
+the set: five of the seven faces carry it, so five of seven tiles would be marks with their
+bottom third painted out — and the bottom third is where these particular drawings keep the
+part that identifies them. Rendered, Media lost the phonograph's base and became an
+unreadable shell, Recipes lost the mortar's bowl, Items lost the chest's body. A badge that
+destroys the mark it is qualifying defeats the point of commissioning marks at all. Moving it
+down one row costs 14 px of tile height and keeps every drawing whole, with no loss of
+loudness: same rectangle, same ink ground, same caps.
 
 ### 12. The marks are one hand where they can be, and the app's mark is the exception
 
@@ -272,11 +283,38 @@ author, title, source and licence, and the cut is its recipe, unchanged.
 
 Senkow's Noun Project portfolio was enumerated in full on 2026-09-27 — 260 icons, every one
 `CREATIVECOMMONS` / `A_1` — and the engraved well is **fifteen foods and three gears**. Media,
-storage, calendar and notes are absent from it entirely. So: Recipes takes
-`morter and pestle` **7864224**; Settings takes one of the 2015 gears, **172708 / 172709 /
-172710**, after a 32px check, because they measure 0.10–0.13 ink against the tin's 0.198; and
-Media, Items, Agenda and Notes come from other hands, chosen by eye for the style rather than
-found by keyword.
+storage, calendar and notes are absent from it entirely. So four of the seven come from other
+hands, chosen by eye for the style rather than found by keyword. The roster, every licence
+read per icon from `iconDetail` rather than inferred from a page:
+
+| face        | mark              |      id | author         |
+| ----------- | ----------------- | ------: | -------------- |
+| Rations     | anchovy tin       | 7864233 | Michael Senkow |
+| Recipes     | morter and pestle | 7864224 | Michael Senkow |
+| Media       | phonograph        | 4152292 | Hey Rabbit     |
+| Items       | chest             | 1071070 | James Smith    |
+| Agenda      | desk calendar     | 1672371 | Maria Zamchy   |
+| Notes       | Notebook          | 1672370 | Maria Zamchy   |
+| Settings    | Worm Gear         |  172710 | Michael Senkow |
+| _(the app)_ | Triquetra         |   73068 | Michael Senkow |
+
+Agenda and Notes are the same author and consecutive ids, drawn as a pair, which is as close
+to one hand as the subjects allow. Items is a chest rather than the basket that matched the
+tin's weave best: the tile two places to its left is a sardine tin, and a picnic basket beside
+one reads as more food. Notes is a notebook rather than the open book that was the best
+engraving found, because the media domain owns `olid:` and tracks books, so the drawing would
+have named the wrong face.
+
+**Two measured properties of this set, recorded because neither is fixable by choosing
+differently.** Every mark from another hand is lighter than the house pair — the tin and the
+mortar hold 0.24 ink at tile size against the best stranger's 0.17, so the four read thinner
+in the grid. And **all three gears fail the reachability cut**: their paper measures negative
+and `spiral gear` encloses nothing at all, because the hatching never closes a region and a
+flood fill from the canvas edge leaks through every stroke. That is fatal for an install icon,
+which iOS composites onto `background_color`, and harmless for a switcher mark, which is drawn
+on the app's own paper. `Worm Gear` is chosen over its two siblings on the opposite ground
+from the numbers: it is the lightest of the three and the only one whose silhouette still
+reads as a gear when small.
 
 The root's mark is `triquetra` **73068** — the same author and the same licence as the tin,
 verified against the API rather than inferred, ink fraction 0.1935 to the tin's 0.1978, 19
@@ -347,13 +385,18 @@ two objections are answered rather than reopened. And a second nav: the switcher
 navigation at every width, so adding a rail or a tab bar beside it is a decision that has to
 overturn this record.
 
-**What was not verified.** Whether the four strangers' marks in §12 can be found at all in the
-tin's style is unknown at the time of writing; the contact sheet is
-[#531](https://github.com/palebluebytes/inventoria/issues/531)'s, and if four honest matches do
-not exist, the fallback is the one §12 already names as the alternative house style rather than
-four near-misses. And the three engraved gears' legibility at 32px is measured as a risk, not as
-a failure: the tin is already recorded as collapsing at 16, and the gears carry finer hatching
-per stroke with less ink.
+**What was not verified, and has since been.** This record originally left §12's four strangers'
+marks unfound, with the fallback named in case four honest matches did not exist. They were
+found on [#531](https://github.com/palebluebytes/inventoria/issues/531): ~27,000 icons pooled
+across the four subjects, scored on ink fraction and an edge-per-ink ratio that separates
+hatching from a flat glyph, and inspected as contact sheets. **Agenda yielded exactly one
+honest match out of ~4,400 calendar icons**, which is the thinnest the set gets and the place a
+future reader should look first if the grid stops reading as one hand.
+
+**What is still unverified.** Whether these seven read as one set _in the app_, at tile size,
+against the app's own paper, on a phone. The grid was assembled and judged as a static page,
+which is what moved the BETA band in §11 — and that is the same class of finding that only
+appears once something is rendered. Expect at least one more.
 
 **What this record does not know about, and should.** Whether a person who installs only Rations
 ever wants the faces the root holds. §8 gives them Recipes and Settings and nothing else, on the
