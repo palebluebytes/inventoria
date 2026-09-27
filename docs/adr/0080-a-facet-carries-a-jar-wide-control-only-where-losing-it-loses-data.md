@@ -9,6 +9,7 @@
 **Amended by:** [ADR-0084](0084-a-hand-off-belongs-to-the-facet-that-owns-what-it-carries.md) §6 (§9's reasoning reached _pairing_ and its conclusion wrote _p2p_: meal send and receive belong to Rations under that record's §1, and only own-device convergence stays root-only)  
 **Amended by:** [ADR-0086](0086-an-entity-has-exactly-one-owner-and-the-owner-is-a-tracked-domain.md) §2 (§5's "two log-export consents, not one" dissolves into two device settings: neither entity recorded an act, so there is no consent to count per Facet)  
 **Amended by:** [ADR-0105](0105-a-pairing-is-scoped-to-the-facet-its-act-ran-in.md) (§9's _a food-only user therefore has no p2p at all_ is now false in both halves, because a lane scoped to a Facet's own domains passes clause (b) where a jar-wide pairing failed it; §2's table gains a Paired devices row)
+**Amended by:** [ADR-0114](0114-the-app-is-a-set-of-faces-each-reached-from-its-own-mark.md) §10 (§2's split table relocates into a Settings face carried by every Facet; the rule this record states is unrevised, and §7's one named surface keeps its name and loses two sections to the move)
 
 ## Context
 

@@ -3,6 +3,7 @@
 **Status:** Accepted  
 **Date:** 2026-09-13  
 **Amends:** [ADR-0038](0038-named-brutalist-frame-tokens.md) (the elevation tokens gain a companion each — how far the shadow reaches past the element — because the recipe as tokenized says what the shadow looks like and nothing about what it costs in layout)  
+**Amended by:** [ADR-0114](0114-the-app-is-a-set-of-faces-each-reached-from-its-own-mark.md) §5 (the pinned shell header is a box that covers, so it takes the shadow this record reserves; nothing else joins the reservation)  
 **Implemented:** [#416](https://github.com/palebluebytes/inventoria/issues/416) — `src/app.css` (§1, beside the shadows), `src/lib/ui/Row.svelte` (§3), `src/lib/views/food/WayInRail.svelte` (§2's grid cell), and `tests/unit/shadow-reach.test.ts`, which is the guard Consequences asked for: the derivation is asserted from `--shadow-N` rather than restated
 
 ## Context

@@ -5,6 +5,7 @@
 **Amended by:** [ADR-0084](0084-a-hand-off-belongs-to-the-facet-that-owns-what-it-carries.md) (§6's count of the entry points is corrected at this record's foot; §6's exclusivity itself stands unrevised)  
 **Amended by:** [ADR-0091](0091-rations-widens-into-two-regions-and-grows-pages.md) §5 (one Tracked Domain stopped implying one screen; the no-way-_out_ rule is untouched)  
 **Amended by:** [ADR-0101](0101-the-ways-into-a-day-are-one-bar-anchored-where-the-hand-is.md) §7 (Rations gains a permanent pinned surface; §1's no-way-_out_ rule is untouched, because the bar links nowhere)
+**Amended by:** [ADR-0114](0114-the-app-is-a-set-of-faces-each-reached-from-its-own-mark.md) §8 (§2's "Rations has no tab bar" is overturned: Rations gains a switcher. §1's no-way-**out** rule is untouched, because each shell's roster is declared from its own build and a crossing stays unexpressible)
 
 ## Context
 
