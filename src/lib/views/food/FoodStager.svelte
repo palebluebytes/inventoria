@@ -43,6 +43,7 @@
     type FoodDensity,
   } from "../../food/density";
   import { withPairing, PAIRING_CLEARED } from "../../food/pairing";
+  import { curatedPairingOffer } from "../../food/curated-pairing-offer";
   import {
     amountDefaults,
     basisUnit,
@@ -3151,9 +3152,16 @@
 {#if pairingOpen && staged}
   <!-- The pairing act (ADR-0113 §§1, 9), opened off the staged card's own mark.
        The sheet only ever hands back an id: what it means for this food is
-       `stageFoodPairing`'s, and the write is the commit's. -->
+       `stageFoodPairing`'s, and the write is the commit's.
+
+       `curatedPairingOffer`'s rules are its own (§14); what this host owes it is
+       the right twin, and the staged payload is one on both arms — a barcode
+       already in the ledger stages FROM its local twin, so a live pairing and a
+       cleared one both travel here, and one scanned for the first time carries
+       neither, which is exactly the pack the table is for. -->
   <PackPairingSheet
     packName={staged.name}
+    curated={curatedPairingOffer(staged.payload)}
     onAccept={stageFoodPairing}
     onClose={() => (pairingOpen = false)}
   />

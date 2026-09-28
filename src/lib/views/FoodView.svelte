@@ -19,6 +19,7 @@
     type ConsumptionEvent,
   } from "../stores/calorie.store";
   import { withPairing, PAIRING_CLEARED } from "../food/pairing";
+  import { curatedPairingOffer } from "../food/curated-pairing-offer";
   import {
     scaleAmount,
     parseScaleFactor,
@@ -1487,9 +1488,18 @@
   {@const ae = amountEdit}
   <!-- The pairing act over an already-logged pack (ADR-0113 §§1, 9). Opened
        from the card's own mark, over the amount sheet, the same seam the source
-       explainer uses. -->
+       explainer uses.
+
+       The Curated pairing is decided HERE and not in the sheet (§14), because it
+       is a question about the twin: the offer is withheld from a pack already
+       carrying somebody's own pairing, which wins over a prior, and from one
+       whose pairing was cleared, which is a refusal of the proposal rather than
+       of the food. `ae.payload` is the resolved twin and `pairFood` mirrors each
+       act onto it, so a pack cleared from the card behind this sheet is not
+       offered the row again when it reopens. -->
   <PackPairingSheet
     packName={ae.name}
+    curated={curatedPairingOffer(ae.payload)}
     onAccept={(reference) => void pairFood(ae, reference)}
     onClose={() => (pairingOpen = false)}
   />

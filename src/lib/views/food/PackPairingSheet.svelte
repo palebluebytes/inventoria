@@ -23,6 +23,15 @@
     ArtifactUnreachableError,
     needsNetworkLine,
   } from "../../food/bundled-artifact";
+  import {
+    curatedPairingName,
+    curatedPick,
+    declaredStateLabel,
+    declaredStateOf,
+    preselect,
+    type PairingPick,
+  } from "../../food/curated-pairing-offer";
+  import type { CuratedPairing } from "../../food/curated-pairings";
 
   // **The pairing act** (ADR-0113 §§1, 2 and 9): a person searches the corpus
   // this app already ships, reads a reference food's own description, and says
@@ -41,9 +50,27 @@
   //
   // **Pre-selecting is allowed; pre-accepting is not** (§2). A tap arms the
   // button and writes nothing; the button is the act. That is the same shape the
-  // Density Class question takes for the same reason, and it is the shape a
-  // Curated pairing will land in (§14) — that one pre-selects, and the confirm
-  // under it is what keeps it from having accepted anything.
+  // Density Class question takes for the same reason, and it is the shape the
+  // **Curated pairing** below lands in (§14): it pre-selects, and the confirm
+  // under it is the whole of what keeps it from having accepted anything.
+  //
+  // **A Curated pairing is a prior and not a proposer** (§§9, 14). It contradicts
+  // nothing above: it names no candidate this screen worked out, it is one
+  // hand-authored row somebody committed with a `ground` a reviewer read, and it
+  // shows the two things §14 will not let it imply — the **USDA row's own
+  // description**, which is §9's condition on every pairing surface, and the
+  // **Declared state** the row asserts, which is the segmented control above the
+  // box moving to the answer rather than the row keeping it to itself. One
+  // explicit act takes both, and either is a tap from being changed.
+  //
+  // **It is never a fallback.** The row shows wherever there is one, beside a
+  // working search rather than behind its failure: showing a curated claim only
+  // when nothing else was found hides it exactly where it is load-bearing.
+  //
+  // What decides whether a row is offered at all is not here — it is the host's,
+  // through `curatedPairingOffer`, because it is a question about the twin: a
+  // pack carrying a live pairing keeps it, and one whose pairing was cleared is
+  // never re-offered.
   //
   // **A Curated stand-in is not a candidate.** The shipped search folds one in
   // where the corpus has a coverage hole (ADR-0046 §1), and it is a specific OFF
@@ -64,11 +91,23 @@
   // Storing the question beside the answer would keep the question.
   let {
     packName,
+    curated,
     onAccept,
     onClose,
   }: {
     /** The pack this pairing is about, named in the lede. */
     packName: string;
+    /**
+     * The Curated pairing this pack is offered, absent where the table has
+     * nothing to say about it (§14).
+     *
+     * The host decides, through `curatedPairingOffer`, because whether a row is
+     * offered is a question about the twin rather than about the screen: a live
+     * `food/pairing` wins over the table and a cleared one is never re-offered.
+     * What this sheet owes a row it is handed is the two things §14 says it
+     * shows rather than implies.
+     */
+    curated?: CuratedPairing;
     /**
      * The person accepted a reference food for this pack. The write is the
      * host's: a pack already in the ledger takes a datom, a staged one carries
@@ -81,13 +120,28 @@
 
   let query = $state("");
   let results = $state<FoodResult[]>([]);
-  let chosen = $state<FoodResult | null>(null);
+  let chosen = $state<PairingPick | undefined>(undefined);
   let searching = $state(false);
   let error = $state("");
   /** The query the rows on screen answered, so a stale list never reads as this one's. */
   let answered = $state("");
-  /** The pack in this person's hand, as they have said it is (§11). */
-  let declared = $state<DeclaredState>(DECLARED_STATE_DEFAULT);
+  /**
+   * The pack in this person's hand, as they have said it is (§11) — or as a
+   * curated row says it is, until they say otherwise.
+   *
+   * A row asserting a Pairing target IS the assertion that the pack is cooked
+   * (§14), so a sheet that showed the row under the default would be showing a
+   * cooked claim beside a list of Reference foods. It opens at the row's state
+   * and the control says so; the default is still where a pack with no row
+   * starts, which is what keeps the question a widening act.
+   */
+  // svelte-ignore state_referenced_locally
+  // The initial value is what is wanted: the sheet is mounted per opening, and
+  // after that the declaration is the person's. A derived would put the row's
+  // state back the moment they moved off it.
+  let declared = $state<DeclaredState>(
+    curated ? declaredStateOf(curated) : DECLARED_STATE_DEFAULT
+  );
   /**
    * What the box is searching, said in the box rather than left to be inferred
    * from the control above it. A cooked record is not a **Reference food**
@@ -96,6 +150,57 @@
   let searchLabel = $derived(
     declared === "cooked" ? "Search cooked foods" : "Search reference foods"
   );
+
+  /**
+   * The curated row's USDA description, once the set its `set` names has been
+   * asked for it (§9).
+   *
+   * Resolved rather than carried on the row, and the row is not shown until it
+   * answers. §14 says a Curated pairing SHOWS the description rather than
+   * implying it, and the table holds the pack's own name and a `ground` written
+   * for a reviewer — neither of which is the USDA record's words. A row whose id
+   * has left the set it names is the standing hazard the quarterly job exists
+   * for, and the honest surface for one is no offer at all rather than an id.
+   */
+  let curatedName = $state<string | undefined>(undefined);
+  $effect(() => {
+    const row = curated;
+    if (!row) return;
+    let live = true;
+    void curatedPairingName(row).then((name) => {
+      if (live) curatedName = name;
+    });
+    return () => {
+      live = false;
+    };
+  });
+
+  /**
+   * The curated row as something pickable, or absent where there is nothing to
+   * offer right now. Every clause behind it is `curatedPick`'s, in the module
+   * that holds the rest of §14 — this is the reading of it under what is on
+   * screen at this moment.
+   */
+  let offered = $derived(curatedPick(curated, curatedName, declared));
+
+  /** The words the row's Declared state is read under, from §11's own list. */
+  let curatedStateLabel = $derived(
+    curated ? declaredStateLabel(declaredStateOf(curated)) : ""
+  );
+
+  /**
+   * Arms the button with the offer, the moment there is one (§2).
+   *
+   * **Arming, never accepting**: this sets what the button would write and
+   * writes nothing, and the button under it is the whole act. **And never
+   * overruling**: `preselect` hands back what is already picked where anything
+   * is, which matters because the description is resolved out of an artifact —
+   * the offer can appear a fetch after this sheet opened, by which time somebody
+   * may have typed a query and tapped a row of their own.
+   */
+  $effect(() => {
+    chosen = preselect(chosen, offered);
+  });
 
   let debounceTimer: ReturnType<typeof setTimeout>;
   $effect(() => {
@@ -176,7 +281,7 @@
    * watching for. The effect above re-runs and answers the new question.
    */
   function redeclare() {
-    chosen = null;
+    chosen = undefined;
     results = [];
     answered = "";
     error = "";
@@ -193,6 +298,31 @@
     Which USDA food describes what is in <strong>{packName}</strong>? Its
     figures fill only what this label leaves out, and the pack stays the food.
   </p>
+
+  {#if offered}
+    <!-- The Curated pairing (§14). It sits above the box, not behind it: a
+         fallback-only treatment hides the curated claim exactly where it is
+         load-bearing. The row carries the two things §14 will not let it imply —
+         the USDA record's own description as its title, and the Declared state
+         it asserts as its second line, which is also the state the control below
+         is set to. Nothing here writes; the footer button is the act. -->
+    <section class="pp-curated" data-testid="curated-pairing">
+      <h3 class="pp-curated-head">Already matched by hand</h3>
+      <Row
+        title={offered.name}
+        subtitle="The pack, {curatedStateLabel.toLowerCase()}"
+        selected={chosen?.entity === offered.entity}
+        data-testid="curated-pairing-row"
+        data-reference={offered.entity}
+        onclick={() => (chosen = offered)}
+      />
+      <p class="pp-curated-note">
+        Somebody paired this barcode with that USDA food. Read its description
+        against what is in your hand — it is a suggestion, and nothing is
+        written until you tap below.
+      </p>
+    </section>
+  {/if}
 
   <!-- The Declared state (§11): one question about the pack, two values, and
        the only route to a Pairing target. It sits above the box because it says
@@ -232,7 +362,7 @@
             selected={chosen?.entity === food.entity}
             data-testid="pairing-result"
             data-reference={food.entity}
-            onclick={() => (chosen = food)}
+            onclick={() => (chosen = { entity: food.entity, name: food.name })}
           />
         </li>
       {/each}
@@ -244,7 +374,7 @@
          row above arms it and asserts nothing. -->
     <Button
       variant="primary"
-      disabled={chosen === null}
+      disabled={chosen === undefined}
       data-testid="pairing-accept"
       onclick={accept}
     >
@@ -263,6 +393,24 @@
   .pp-hint {
     margin-top: var(--space-xs);
     font-size: var(--step-n1);
+    color: var(--text-secondary);
+  }
+
+  .pp-curated {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2xs);
+    margin-bottom: var(--space-s);
+  }
+
+  .pp-curated-head {
+    font-size: var(--step-n1);
+    font-weight: 600;
+    color: var(--text-secondary);
+  }
+
+  .pp-curated-note {
+    font-size: var(--step-n2);
     color: var(--text-secondary);
   }
 

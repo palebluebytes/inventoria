@@ -131,8 +131,12 @@ describe("the search a person drives (§§2, 9)", () => {
   it("starts where a person already stands, so the question is a widening act", () => {
     // Defaulting to as-bought is what keeps the twins that already pair behaving
     // exactly as they do today, and what keeps the second artifact's fetch off
-    // the common path.
-    expect(SHEET).toMatch(/\$state<DeclaredState>\(DECLARED_STATE_DEFAULT\)/);
+    // the common path. A pack carrying a Curated pairing is the one exception
+    // and it is not a third value: the row asserts a state (§14), so the sheet
+    // opens at it with the control saying so.
+    expect(SHEET).toMatch(
+      /\$state<DeclaredState>\(\s*curated \? declaredStateOf\(curated\) : DECLARED_STATE_DEFAULT\s*\)/
+    );
   });
 
   it("searches the set that declaration names, and only it", () => {
@@ -161,7 +165,7 @@ describe("the search a person drives (§§2, 9)", () => {
     // refuse, in the window the next search takes to settle.
     expect(SHEET).toMatch(/onValueChange=\{redeclare\}/);
     expect(SHEET).toMatch(
-      /function redeclare\(\) \{\s*chosen = null;\s*results = \[\];\s*answered = "";\s*error = "";\s*\}/
+      /function redeclare\(\) \{\s*chosen = undefined;\s*results = \[\];\s*answered = "";\s*error = "";\s*\}/
     );
   });
 
@@ -173,14 +177,20 @@ describe("the search a person drives (§§2, 9)", () => {
     //
     // The whole import list rather than a search for words a proposer might
     // use: a screen that reaches only these modules has nowhere to get a
-    // candidate from except the query somebody typed, and one more import is
-    // what a reviewer has to see. The three the Declared state added are the
-    // two corpora's partition, the control that asks the question, and the
-    // sentence a device with no network is owed for the artifact it has to
-    // fetch to answer it — none of which can name a food.
+    // candidate from except the query somebody typed or a row somebody
+    // committed, and one more import is what a reviewer has to see. The three
+    // the Declared state added are the two corpora's partition, the control that
+    // asks the question, and the sentence a device with no network is owed for
+    // the artifact it has to fetch to answer it. The two the Curated pairing
+    // added are a hand-authored TABLE and the module that reads it — a row per
+    // barcode with a `ground` a reviewer read, which is the opposite of a thing
+    // that works a candidate out (§14). None of the five can name a food this
+    // screen was not handed.
     const imports = [...SHEET.matchAll(/from "([^"]+)"/g)].map((m) => m[1]);
     expect([...new Set(imports)].sort()).toEqual([
       "../../food/bundled-artifact",
+      "../../food/curated-pairing-offer",
+      "../../food/curated-pairings",
       "../../food/food-search",
       "../../food/pairing",
       "../../food/pairing-targets",
@@ -213,10 +223,109 @@ describe("the search a person drives (§§2, 9)", () => {
   it("accepts nothing until a person has picked a reference food", () => {
     // Pre-selecting is allowed; pre-accepting is not (§2). A row tap sets
     // `chosen` and writes nothing; the button under it is the whole act.
-    expect(SHEET).toMatch(/onclick=\{\(\) => \(chosen = food\)\}/);
-    expect(SHEET).toMatch(/disabled=\{chosen === null\}/);
+    expect(SHEET).toMatch(
+      /onclick=\{\(\) => \(chosen = \{ entity: food\.entity, name: food\.name \}\)\}/
+    );
+    expect(SHEET).toMatch(/disabled=\{chosen === undefined\}/);
     expect(SHEET).toMatch(
       /function accept\(\) \{\s*if \(!chosen\) return;\s*onAccept\(chosen\.entity\);/
+    );
+  });
+});
+
+/**
+ * The Curated pairing at the surface (ADR-0113 §14).
+ *
+ * The table itself is `curated-pairings.test.ts`'s and when a row is offered at
+ * all is `curated-pairing-offer.test.ts`'s. What is asserted here is the
+ * screen's half: that a row shows the two things §14 says it shows rather than
+ * implies, that one act takes both, and that it is not hidden behind a failed
+ * search.
+ *
+ * Source rather than render, for the reason the file already reads source: the
+ * sheet sits on a portalled dialog that emits nothing through Svelte's SSR path,
+ * and the description is resolved in an effect, which a server render never
+ * runs.
+ */
+describe("the Curated pairing a seeded barcode is offered (§14)", () => {
+  const SHEET = readCode("src/lib/views/food/PackPairingSheet.svelte");
+  const VIEW = readCode("src/lib/views/FoodView.svelte");
+  const STAGER = readCode("src/lib/views/food/FoodStager.svelte");
+
+  it("shows the USDA row's own description, which is §9's condition", () => {
+    // The table holds the PACK's name and a `ground` written for a reviewer, and
+    // neither is the USDA record's words. The row's title is the description
+    // `curatedPairingName` resolved out of the set the row names, and the sheet
+    // has nothing else to put there.
+    expect(SHEET).toMatch(/title=\{offered\.name\}/);
+    expect(SHEET).toMatch(/curatedPairingName\(row\)/);
+  });
+
+  it("shows the Declared state the row asserts, rather than implying it", () => {
+    // Two carriers, and both are the row's: the second line of the row itself,
+    // and the control above the box, which opens at the state the row asserts.
+    // Either is a tap from being changed.
+    expect(SHEET).toMatch(/subtitle="The pack, \{curatedStateLabel/);
+    expect(SHEET).toMatch(/declaredStateLabel\(declaredStateOf\(curated\)\)/);
+    expect(SHEET).toMatch(
+      /curated \? declaredStateOf\(curated\) : DECLARED_STATE_DEFAULT/
+    );
+  });
+
+  it("pre-selects and never pre-accepts", () => {
+    // §2, and the whole of what makes a pre-selected row safe. The effect arms
+    // what the button WOULD write, through `preselect`, whose rule — an offer
+    // never displaces a pick somebody made — is asserted behaviourally in
+    // `curated-pairing-offer.test.ts`. The button is still the only thing that
+    // calls `onAccept`, and it is still the same button a typed search arms.
+    expect(SHEET).toMatch(
+      /\$effect\(\(\) => \{\s*chosen = preselect\(chosen, offered\);\s*\}\);/
+    );
+    expect(SHEET.match(/onAccept\(/g)).toHaveLength(1);
+    expect(SHEET).toMatch(
+      /function accept\(\) \{\s*if \(!chosen\) return;\s*onAccept\(chosen\.entity\);/
+    );
+  });
+
+  it("takes both with one act", () => {
+    // The state and the row are accepted together because the id IS the state
+    // (§11): what the button writes is one `fdc:` id, minted from the row by
+    // `curatedPick`, and there is no second confirmation for the declaration.
+    expect(SHEET).toMatch(/curatedPick\(curated, curatedName, declared\)/);
+    expect(SHEET).not.toMatch(/onAccept\([^)]*declared/);
+  });
+
+  it("is never a fallback: the row is shown beside the search, not behind it", () => {
+    // Showing a curated claim only where nothing else was found hides it exactly
+    // where it is load-bearing. The block's condition names the offer alone —
+    // nothing about whether a search ran, answered, or failed.
+    const block = /\{#if offered\}([^]*?)\{\/if\}/.exec(SHEET);
+    expect(block).not.toBeNull();
+    expect(block![1]).not.toMatch(/results|answered|error|searching/);
+    // And it sits ahead of the box rather than under the list.
+    expect(SHEET.indexOf("{#if offered}")).toBeLessThan(
+      SHEET.indexOf('data-testid="pairing-search"')
+    );
+  });
+
+  it("decides none of §14 itself", () => {
+    // Every rule about when a row is offered, and what it is once offered, lives
+    // in `curated-pairing-offer.ts` where it is testable. This screen draws what
+    // it is handed — so the withdrawal rule, the description condition and the
+    // keying are asserted there, not against this markup.
+    expect(SHEET).not.toMatch(/"pairing-target"|CURATED_PAIRINGS|\.gtin\b/);
+    expect(SHEET).not.toMatch(/declared === declaredStateOf/);
+  });
+
+  it("leaves the offer to the host, which is the one that can see the twin", () => {
+    // Whether a row is offered is a question about the twin and not the screen:
+    // a live `food/pairing` wins over the table and a cleared one is never
+    // re-offered. Both hosts ask the same predicate of the payload they hold —
+    // the resolved twin on the logged path, the staged payload on the staging
+    // one, which stages FROM the local twin where there is one.
+    expect(VIEW).toMatch(/curated=\{curatedPairingOffer\(ae\.payload\)\}/);
+    expect(STAGER).toMatch(
+      /curated=\{curatedPairingOffer\(staged\.payload\)\}/
     );
   });
 });
