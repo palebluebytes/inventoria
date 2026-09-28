@@ -1,7 +1,7 @@
 import { test, expect } from "@playwright/test";
-import { goToFace, waitForDbReady } from "./support/shell";
+import { faceTitle, goToFace, waitForDbReady } from "./support/shell";
 
-test("Physical Digital Twins UI - manual create, scrape, status toggling, and web share target", async ({
+test("Items UI - manual create, scrape, status toggling, and web share target", async ({
   page,
 }) => {
   // Capture page console logs for debugging
@@ -156,6 +156,5 @@ test("Physical Digital Twins UI - manual create, scrape, status toggling, and we
   await waitForDbReady(page);
 
   // App should automatically switch to Items view
-  const mainHeader = page.locator("header.page-header h1").first();
-  await expect(mainHeader).toHaveText("Physical Digital Twins");
+  await expect(faceTitle(page)).toHaveText("Items");
 });

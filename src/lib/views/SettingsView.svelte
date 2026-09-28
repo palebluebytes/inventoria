@@ -143,11 +143,6 @@
   }
 </script>
 
-<header class="page-header">
-  <h1>Settings</h1>
-  <p>Manage the database ledger, local logs, and developer tests.</p>
-</header>
-
 <Card>
   <div class="card-header">
     <h2>Database Ledger</h2>
@@ -281,18 +276,6 @@
 </Card>
 
 <style>
-  .page-header {
-    margin-bottom: var(--space-m);
-    animation: fadeIn 0.4s ease-out;
-  }
-  h1 {
-    font-size: var(--step-2);
-    font-weight: 900;
-    color: var(--text-primary);
-    margin-bottom: var(--space-3xs);
-    letter-spacing: -0.02em;
-    text-transform: uppercase;
-  }
   h2 {
     font-size: var(--step-1);
     font-weight: 800;
@@ -405,15 +388,6 @@
   }
   .mt-4 {
     margin-top: var(--space-m);
-  }
-
-  @keyframes fadeIn {
-    from {
-      opacity: 0;
-    }
-    to {
-      opacity: 1;
-    }
   }
 
   @keyframes pulse {

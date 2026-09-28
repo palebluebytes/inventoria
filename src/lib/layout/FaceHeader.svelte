@@ -1,6 +1,6 @@
 <script lang="ts">
-  import type { Snippet } from "svelte";
   import FaceSwitcher from "./FaceSwitcher.svelte";
+  import { faceActions } from "./face-actions";
   import { clearShellCeiling, publishShellCeiling } from "./shell-ceiling";
   import type { FaceId, RosteredFace } from "../facets/registry";
 
@@ -21,17 +21,14 @@
   // this tree entirely.
   //
   // The maturity badge beside the title is
-  // [#534](https://github.com/palebluebytes/inventoria/issues/534)'s, and the
-  // five unfinished faces' own headers are
-  // [#533](https://github.com/palebluebytes/inventoria/issues/533)'s. This is the
-  // box both land in.
+  // [#534](https://github.com/palebluebytes/inventoria/issues/534)'s. This is the
+  // box it lands in.
 
   let {
     face,
     faces,
     onPick,
     onHome,
-    actions,
   }: {
     /** The face being looked at: its mark is the trigger, its name the title. */
     face: RosteredFace;
@@ -40,14 +37,6 @@
     onPick: (id: FaceId) => void;
     /** See `FaceSwitcher` — absent means the app's mark is a drawing. */
     onHome?: () => void;
-    /**
-     * The face's own controls, drawn after the title.
-     *
-     * A snippet rather than a roster, because there is nothing general about
-     * them: the food screen carries four, Notes carries a search field, and the
-     * landing screen carries none. What the header owns is where they sit.
-     */
-    actions?: Snippet;
   } = $props();
 
   /**
@@ -73,8 +62,14 @@
        one string, which is what retires `Media Tracker`, `Physical Digital
        Twins` and `Notes & Checklist`. -->
   <h1 class="face-title">{face.name}</h1>
-  {#if actions}
-    <div class="face-actions">{@render actions()}</div>
+  <!-- The face's own controls, published from inside the scroll box by
+       `face-actions.ts` rather than handed down as a prop. The header is above
+       `.main` and every face mounts inside it, so the shell is the only box that
+       could have passed them and it is the wrong owner: Media's gear opens a
+       sheet over `MediaView`'s state, and the food screen's four read a page and
+       a date that exist nowhere else. What this box owns is where they sit. -->
+  {#if $faceActions}
+    <div class="face-actions">{@render $faceActions()}</div>
   {/if}
 </header>
 

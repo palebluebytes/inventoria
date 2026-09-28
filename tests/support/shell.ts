@@ -120,3 +120,21 @@ export async function openRootFace(
   await goToFace(page, name);
   await waitForDbReady(page);
 }
+
+/**
+ * The face you are standing on, read off the shell's pinned header.
+ *
+ * **One `<h1>`, and it is the shell's** (ADR-0114 §3, §5). Until #533 each face
+ * drew a title of its own inside its `.page-header`, so a spec asking which
+ * screen it was on matched `header.page-header h1` and got a string the face
+ * spelled for itself — `Physical Digital Twins` where the tile said `Items`.
+ * Those rows are deleted and the name is the roster's, so this reads the same
+ * string the tile, the trigger's accessible name and `goToFace` use.
+ *
+ * Scoped to `.face-header` rather than to a bare heading role, because a face's
+ * screen may hold a heading with the same word on it — Rations' food screen
+ * already draws an `<h1>` of its own under this one.
+ */
+export function faceTitle(page: Page) {
+  return page.locator(".face-header h1");
+}

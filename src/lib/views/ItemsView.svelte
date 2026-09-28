@@ -87,14 +87,6 @@
   }
 </script>
 
-<header class="page-header">
-  <h1>Physical Digital Twins</h1>
-  <p>
-    Track your physical belongings and wanted list offline via append-only
-    ledger.
-  </p>
-</header>
-
 <!-- Share Target / Scraper Panel -->
 <ItemImportPanel bind:showManualForm />
 
@@ -212,19 +204,6 @@
 <ItemEditModal bind:editingItem bind:showEditModal />
 
 <style>
-  .page-header {
-    margin-bottom: var(--space-m);
-    border-bottom: var(--edge);
-    padding-bottom: var(--space-s);
-  }
-  h1 {
-    font-size: var(--step-2);
-    font-weight: 700;
-    color: var(--text-primary);
-    margin-bottom: var(--space-3xs);
-    letter-spacing: -0.05em;
-    text-transform: uppercase;
-  }
   p {
     color: var(--text-secondary);
     font-size: var(--step-n1);

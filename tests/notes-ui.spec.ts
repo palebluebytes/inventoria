@@ -1,7 +1,7 @@
 import { test, expect } from "@playwright/test";
-import { goToFace, waitForDbReady } from "./support/shell";
+import { faceTitle, goToFace, waitForDbReady } from "./support/shell";
 
-test.describe("Notes & Checklist (Loro CRDT)", () => {
+test.describe("Notes (Loro CRDT)", () => {
   test.beforeEach(async ({ page }) => {
     page.on("console", (msg) => {
       console.log(`[BROWSER CONSOLE - ${msg.type()}]:`, msg.text());
@@ -13,9 +13,7 @@ test.describe("Notes & Checklist (Loro CRDT)", () => {
   });
 
   test("adds and completes a checklist item", async ({ page }) => {
-    await expect(
-      page.getByRole("heading", { name: "Notes & Checklist" })
-    ).toBeVisible();
+    await expect(faceTitle(page)).toHaveText("Notes");
 
     const input = page.getByTestId("new-item-input");
     await input.fill("Write the report");

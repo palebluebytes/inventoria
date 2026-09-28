@@ -1,7 +1,15 @@
 <script lang="ts">
-  // The agenda's date header: a monospace ASCII box with the selected day and
+  // The agenda's date bar: a monospace ASCII box with the selected day and
   // prev/next-day arrows. Presentational — the caller owns the current date and
   // reacts to the two navigation callbacks.
+  //
+  // **It said `DAILY AGENDA` above the date until the face took a header**
+  // (ADR-0114 §3). This box is the fourth thing that was calling a face by a
+  // name of its own, alongside the three titles §3 names by hand — the record
+  // reads "`AgendaView` has no header at all and gains one", which was true of
+  // the `.page-header` idiom and never of this box. The name is the roster's
+  // now, drawn once in the pinned header above; what is left here is the job
+  // this bar actually has, which is moving a day.
   let {
     dateLabel,
     onPrev,
@@ -15,7 +23,7 @@
 
 <header class="agenda-view-header">
   <div class="agenda-ascii-box">
-    <div class="agenda-ascii-title-container">
+    <div class="agenda-ascii-row">
       <button
         type="button"
         class="nav-arrow"
@@ -24,10 +32,7 @@
       >
         &lt;
       </button>
-      <div class="agenda-ascii-center">
-        <div class="agenda-ascii-title">DAILY AGENDA</div>
-        <div class="agenda-ascii-date">{dateLabel.toUpperCase()}</div>
-      </div>
+      <div class="agenda-ascii-date">{dateLabel.toUpperCase()}</div>
       <button
         type="button"
         class="nav-arrow"
@@ -54,7 +59,7 @@
     text-align: center;
   }
 
-  .agenda-ascii-title-container {
+  .agenda-ascii-row {
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -75,23 +80,12 @@
     color: var(--paper);
   }
 
-  .agenda-ascii-center {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-  }
-
-  .agenda-ascii-title {
+  /* The date is what the box is for now, so it takes the weight the retired
+     title carried and sits on the row's centre line rather than under it. */
+  .agenda-ascii-date {
     font-size: var(--step-0);
     font-weight: 900;
     color: var(--paper);
-  }
-
-  .agenda-ascii-date {
-    font-size: var(--step-n2);
-    font-weight: 700;
-    color: var(--text-muted);
-    margin-top: var(--space-3xs);
   }
 
   @keyframes fadeIn {

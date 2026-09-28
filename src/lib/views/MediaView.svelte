@@ -7,8 +7,15 @@
   import MediaIngestModal from "./media/MediaIngestModal.svelte";
   import MediaEngagementModal from "./media/MediaEngagementModal.svelte";
   import MediaSettingsSheet from "./media/MediaSettingsSheet.svelte";
+  import { publishFaceActions } from "../layout/face-actions";
 
   let { dbReady }: { dbReady: boolean } = $props();
+
+  // The gear goes to the shell's pinned header for as long as this face is up
+  // (ADR-0114 §5). The same one-line shape `FaceHeader` uses to publish and
+  // clear `--shell-ceiling`: the effect runs after the template has been
+  // created, so the snippet below is bound by the time this reads it.
+  $effect(() => publishFaceActions(headerActions));
 
   // Active media type filter
   let activeMediaType = $state<"movie" | "tv" | "book">("movie");
@@ -88,27 +95,29 @@
   </svg>
 {/snippet}
 
-<header class="page-header">
-  <!-- Title and gear share a row of their own, so they keep a centre line
-       whatever the blurb below does — the same header shape `FoodView` uses,
-       which is the one ADR-0080 §4 pointed at when it commissioned this. -->
-  <div class="header-bar">
-    <h1>Media Tracker</h1>
-    <button
-      type="button"
-      class="header-icon-btn"
-      id="media-settings-btn"
-      aria-label="Media settings"
-      onclick={() => (settingsOpen = true)}
-    >
-      {@render settingsMark()}
-    </button>
-  </div>
-  <p>
-    Track your movies, TV shows, and books. Search databases and manage your
-    backlog locally.
-  </p>
-</header>
+<!-- This face's one header control, drawn by the shell's pinned header
+     (ADR-0114 §5). The button, its class and its state stay here: it is this
+     screen's settings surface that it opens, ADR-0080 §4's "a setting lives
+     beside the thing it configures", and the header is a box on the other side
+     of the scroll container rather than a parent. `face-actions.ts` is what
+     carries it across.
+
+     `Media Tracker` and the blurb under it went with the title row. The name is
+     the roster's now (§3), drawn once in the header above this screen, and the
+     BETA band is the honest statement about a face whose contents are
+     unfinished — a permanent paragraph saying what the screen is for is the
+     same developer's affordance §9 deleted `● DB Ready` for. -->
+{#snippet headerActions()}
+  <button
+    type="button"
+    class="header-icon-btn"
+    id="media-settings-btn"
+    aria-label="Media settings"
+    onclick={() => (settingsOpen = true)}
+  >
+    {@render settingsMark()}
+  </button>
+{/snippet}
 
 <!-- Media Type Tab Selector (Desktop & Mobile) -->
 <div
@@ -275,22 +284,10 @@
 {/if}
 
 <style>
-  .page-header {
-    margin-bottom: var(--space-m);
-    animation: fadeIn 0.4s ease-out;
-    border-bottom: var(--edge);
-    padding-bottom: var(--space-s);
-  }
-  /* `center` is what puts the title's centre line through the gear: the word
-     and the icon square are different heights, and top-aligning them leaves the
-     icon sitting low against it. */
-  .header-bar {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: var(--space-s);
-  }
-  /* The gear, bare (no box) and opposite the title, sized like FoodView's. */
+  /* The gear, bare (no box), sized like FoodView's. It is drawn in the shell's
+     header now and styled from here anyway: Svelte stamps the scope class in
+     the file the markup was written in, so a snippet handed to another box
+     keeps the rules of the component it belongs to. */
   .header-icon-btn {
     flex: 0 0 auto;
     display: flex;
@@ -320,20 +317,6 @@
   .header-icon-btn:focus-visible {
     outline: 2px solid var(--ink);
     outline-offset: 2px;
-  }
-  h1 {
-    font-size: var(--step-2);
-    font-weight: 700;
-    color: var(--text-primary);
-    margin-bottom: var(--space-3xs);
-    letter-spacing: -0.05em;
-    text-transform: uppercase;
-    /* Centring the boxes is not centring the letters: an all-caps word has no
-       descenders, so trimming the box to the cap-height/baseline block makes
-       the box the letters and the row centres what the eye sees. Chromium and
-       Safari honour this; anywhere else it is ignored (same as FoodView). */
-    text-box-trim: trim-both;
-    text-box-edge: cap alphabetic;
   }
   p {
     color: var(--text-secondary);
@@ -465,14 +448,5 @@
   .mobile-tabs .tab-btn.active {
     background: var(--ink);
     color: var(--paper);
-  }
-
-  @keyframes fadeIn {
-    from {
-      opacity: 0;
-    }
-    to {
-      opacity: 1;
-    }
   }
 </style>

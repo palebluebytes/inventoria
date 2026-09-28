@@ -557,3 +557,54 @@ in the row as well, which makes **three** sites where §11 counts two;
 [#534](https://github.com/palebluebytes/inventoria/issues/534) folds it in when it builds the one
 component. A row that said nothing about maturity would ask somebody to decide whether to keep
 Media without telling them Media is unfinished.
+
+## Amendment, 2026-09-28: the five faces' headers, as built
+
+[#533](https://github.com/palebluebytes/inventoria/issues/533) built the rest of §3 and the
+last clause of §5. The scope line above calls it "their header and nothing more", which held:
+no face's contents changed. What it got wrong is arithmetic, and one sentence of §5 turned out
+to have no way to be true.
+
+**1. The five in the scope line and the five that had headers are different sets.** The scope
+line means the five §11 calls unfinished — Media, Items, Agenda, Notes and Recipes. The five
+that drew a title of their own are Media, Items, Notes, **Settings** and Agenda. Settings is
+`shipped` and had a `.page-header` anyway, because it is the oldest surface in the app;
+Recipes never had one, because it is `RecipeLibrarySheet` and its way in is
+[#536](https://github.com/palebluebytes/inventoria/issues/536). Nothing follows from this
+except that the two fives are not the same five, and the ticket's is the one that was built.
+
+**2. `AgendaView` was not headerless, and §3's three retired titles were four.** §3 reads
+"`AgendaView` has no header at all and gains one". That is true of the `.page-header` idiom and
+false of the screen: `views/habits/AgendaHeader.svelte` drew **DAILY AGENDA** above the selected
+date, inside an ASCII box with the day arrows. So the face had a name of its own, in a fourth
+spelling, and the record missed it by looking for the shape the other four used. The title line
+is gone and the box keeps the job it actually has, which is moving a day; the date takes the
+weight the title was carrying.
+
+**3. A face's controls cannot be handed down, so they are published up.** §5 ends "then the
+face's own actions", and the header `#529` built took them as a snippet prop. That prop had no
+honest caller. The header is a flex item **above** `.main` and every face mounts **inside** it,
+so the only component that could have passed a snippet is the shell — and the shell is the
+wrong owner: Media's gear opens a sheet over `MediaView`'s state, and the food screen's four
+read a page, a date and a disclosure that exist nowhere else. Passing them from `App.svelte`
+means moving a face's state into the box that holds all seven.
+
+So the prop is deleted and `layout/face-actions.ts` replaces it: a face publishes a snippet, the
+header draws whatever is published, and the publication is taken back when the face unmounts.
+It is `layout/shell-ceiling.ts`'s shape — one box knows a thing the other box needs and neither
+is the other's parent — with a snippet where that module has a measured number. The teardown
+clears only what it published, so nothing depends on whether a departing face's cleanup runs
+before or after an arriving face's effect.
+
+**Svelte is what makes this cost nothing in styling.** The scope class is stamped at compile
+time in the file the markup was written in, so the gear keeps `MediaView`'s rules while being
+drawn inside the header. The button, its class, its id and its state all stay where they were;
+only where it is drawn changed.
+
+**4. The blurbs went with the titles, and that is §9's argument re-used.** Each of the four
+`.page-header` rows carried a paragraph under the title saying what the screen was for —
+"Track your movies, TV shows, and books", "A conflict-free scratchpad backed by a Loro CRDT".
+A permanent paragraph explaining an unfinished screen is the same bargain §9 struck against
+`● DB Ready`: a developer's affordance charging the user for the space. §11's band is the
+honest statement that these faces are unfinished, and the food screen already keeps its own
+blurb behind a disclosure rather than above the fold.
