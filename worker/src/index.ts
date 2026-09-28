@@ -10,6 +10,7 @@ import {
 } from "../../src/lib/ingestion/proxy-policy";
 import type { RelayNamespace } from "./relay";
 import { storeRequest, type StoreBucket } from "./store";
+import { modelRequest, type ModelBinding } from "./model";
 
 // The relay is a Durable Object defined in this script, so wrangler needs it
 // exported from the entry module (ADR-0072 §9: one Worker, two routes — a
@@ -45,10 +46,34 @@ const RELAY_PATH = "/api/relay";
  */
 const STORE_PATH = "/api/store";
 
+/**
+ * The model route's path, under `/api/*` with the other three (ADR-0115 §2).
+ *
+ * #62 proposed a bare `/extract-label`, which is a fourth strike against a spec
+ * written a year before today's tree: every live route on this script is
+ * `/api/*`, and a path that is not says the route was designed somewhere else.
+ *
+ * The task is named in the **body** rather than here or in the query, unlike
+ * `?room=` and `?key=` above, and that departure is deliberate: the pinned
+ * key-set test covers the body, so a query parameter would put the one
+ * discriminant that selects a prompt *outside* the one test enforcing the
+ * closed list — and a task is not an **address** the way a room id or a deposit
+ * key is (ADR-0115 §5.1).
+ */
+const MODEL_PATH = "/api/model";
+
 /** The bindings this script is deployed with; see `wrangler.toml`. */
 export interface WorkerEnv {
   RELAY: RelayNamespace;
   STORE: StoreBucket;
+  AI: ModelBinding;
+  /**
+   * The operator's key, set with `wrangler secret put` and never in
+   * `wrangler.toml` (ADR-0115 §4.3). Optional because an unset secret is a real
+   * deployment state and the route refuses everything in it, rather than
+   * opening because a binding happened to be missing.
+   */
+  MODEL_ROUTE_KEY?: string;
 }
 
 function errorResponse(message: string, status: number): Response {
@@ -150,6 +175,14 @@ export default {
     // that has a switch, Workers Traces, turned off.
     if (pathname === STORE_PATH) {
       return storeRequest(request, env.STORE, searchParams.get("key"));
+    }
+
+    // The only route on this script whose body the Worker can read, and the
+    // app's single readable egress (ADR-0115 §1). The secret is read off the
+    // environment here and the question is the module's, the way the store's
+    // address is read off the query here and the deposit is the module's.
+    if (pathname === MODEL_PATH) {
+      return modelRequest(request, env.AI, env.MODEL_ROUTE_KEY);
     }
 
     if (pathname !== PROXY_PATH) {

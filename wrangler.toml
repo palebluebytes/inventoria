@@ -80,6 +80,16 @@ new_sqlite_classes = ["Relay"]
 # **`jurisdiction = "eu"` is a decision rather than a deployment detail**, which
 # is why ADR-0096 §15 states it in the record and not as an implementation note
 # — it is a claim the bar sentence makes about where sealed personal data rests.
+#
+# **It is a claim about this bucket, and about nothing else on this script**
+# (ADR-0115 §1). The `[ai]` binding below sends a readable kitchen photograph to
+# a GPU whose location Cloudflare declines to constrain: Workers AI is
+# `✘ Not compatible` with Regional Services, and no documentation promises EU
+# inference stays in the EU. The store's promise concerns *sealed data at rest
+# indefinitely*; that is a materially different exposure from *readable data in
+# flight for one inference*, and the promise does not generalise across the two.
+# This note is here because the record alone is not what the next maintainer
+# reads, and a posture stated as a whole is one a reader will carry across.
 # A jurisdictional bucket is a distinct namespace: every `wrangler r2 bucket`
 # command against it needs `-J eu`, and one run without it addresses a
 # different, empty bucket of the same name.
@@ -135,3 +145,24 @@ invocation_logs = false
 # described how to record traces that are not being recorded.
 [observability.traces]
 enabled = false
+
+# Workers AI, for the model route (ADR-0115 §2 and §7). One table, one key: the
+# binding accepts no `gateway` or `gateway_id` field and `[observability]` has
+# no AI sub-block, so the gateway that carries `collect_logs: false` is **not
+# expressible in configuration at all**. It is an account-side resource plus a
+# per-call object in `worker/src/model.ts`, whose exported constant is the only
+# place in this repo either can be pinned.
+#
+# `scripts/worker-config-check.mjs` is deliberately **not** given a fifth claim
+# over this. `readScalars` absorbs an unknown table, so the four existing claims
+# pass untouched — and neither candidate claim earns its place: *exactly one AI
+# binding* would be cargo-culting the store's clause, which exists because the
+# account genuinely holds other buckets, and `binding = "AI"` is a gate crying
+# wolf, since the route fails loudly on its first request without it. The gate's
+# own header reserves it for claims not reachable from a test of the code.
+#
+# What is **not** here and must never be: `MODEL_ROUTE_KEY`. It is a secret, set
+# with `wrangler secret put` (ADR-0115 §4.3); `docs/how-to-operate-the-model-route.md`
+# carries the minting, the verification and the rotation.
+[ai]
+binding = "AI"

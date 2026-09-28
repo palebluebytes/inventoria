@@ -56,6 +56,7 @@ import {
   RoomFailedError,
   type RelayDial,
 } from "../../src/lib/p2p/relay-room";
+import { refusingModel } from "./support/model-binding";
 
 // ---------------------------------------------------------------------------
 // One meal to send
@@ -416,6 +417,8 @@ describe("the wire the client speaks is the relay's own", () => {
     url.searchParams.set(RELAY_ROOM_PARAM, code.room);
     const rooms: string[] = [];
     const env: WorkerEnv = {
+      // A send never asks a model either; the binding that throws says so.
+      AI: refusingModel(),
       RELAY: {
         idFromName: (name) => {
           rooms.push(name);
