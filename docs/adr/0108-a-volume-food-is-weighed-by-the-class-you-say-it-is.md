@@ -638,8 +638,8 @@ still pinned, and the gate still proves them.
 It reads: a per-food density "would be better than a class", and the way to get one
 is a model. Both halves fail against the corpus this record is measured over.
 
-**Better is available without a model.** Of the 627 corpus foods that state a
-density, 513 sit outside all five classes — but 325 of those sit below 0.85 g/ml,
+**Better is available without a model.** Of the 626 corpus foods that state a
+density, 512 sit outside all five classes — but 324 of those sit below 0.85 g/ml,
 which is the packing density of a heaped solid (freeze-dried chives at 0.0135,
 swiss chard at 0.1522) and must never convert anything. The 0.85–1.60 band above
 them is mayonnaise, cottage cheese, peanut butter, tahini, tofu, miso and table
@@ -732,10 +732,10 @@ and four have drifted through a corpus regeneration in silence:
 
 | claim                                      | stated | artifact holds |
 | ------------------------------------------ | ------ | -------------- |
-| §12, "USDA foods that carry one"           | 896    | 627            |
-| `density-class.ts:10`, volume portions     | 942    | 933            |
-| `density-class.ts:10`, foods carrying one  | 636    | 627            |
-| `density-class.ts:94`, foods in the corpus | 2,437  | 2,418          |
+| §12, "USDA foods that carry one"           | 896    | 626            |
+| `density-class.ts:10`, volume portions     | 942    | 932            |
+| `density-class.ts:10`, foods carrying one  | 636    | 626            |
+| `density-class.ts:94`, foods in the corpus | 2,437  | 2,023          |
 
 §12's 896 is the **schema-8** number: the 2026-09-14 re-pin amendment moved every
 figure it touched to schema 9 and never reached §12, which nothing had built. The
@@ -747,6 +747,19 @@ a gate that failed on them would train a reader to edit a number until the build
 went green — which is the opposite of what the figure check does, where a moved
 number means a decision is owed. A check nobody believes is worse than no check, so
 the counts are described as descriptive and left that way.
+
+**They moved again before this branch merged, which is the argument's own evidence.**
+The figures above were measured against the artifact on 2026-09-17 and were correct
+that day. Merging `main` on 2026-09-28 brought
+[#186](https://github.com/palebluebytes/inventoria/issues/186)'s consolidation, which
+takes the shipped corpus from 2,418 foods to **2,023** — and of the 395 rows it
+removes, exactly **one** stated a density, so 627 volume-portion foods become 626, 933
+portions become 932, and §12's own breakdown moves from 513/325 to 512/324. The food
+lost sat below 0.85 g/ml, a packing density that was never going to convert anything,
+so a 16% smaller corpus cost the five class figures nothing and
+`scripts/density-class-check.mjs` stayed green throughout. Eleven days and one merge
+were enough to move four counts: that is the regeneration this section predicted,
+arriving on schedule, and it is why they are narration rather than a gate.
 
 ### Consequences
 
