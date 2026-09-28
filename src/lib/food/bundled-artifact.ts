@@ -75,3 +75,41 @@ export function needsNetworkLine(
 ): string {
   return `${error.subject} needs a network here — it isn’t kept on this device. ${recovery}`;
 }
+
+/**
+ * The Search index's own URL, spelled once for the two readers that must agree.
+ *
+ * `usda-corpus.ts` fetches it and `vite.config.ts` matches it: as of ADR-0114
+ * §13 the root does not precache this file, so a runtime rule is the only thing
+ * standing between a search and the network, and a rule whose pattern had
+ * drifted off the fetch would fail **silently and expensively** — every search
+ * of every session going to the origin, with nothing red anywhere.
+ *
+ * `src/lib/facets/registry.ts` spells it a third time, in Rations' `precache`
+ * declaration, and that one is left as a literal beside the other declarations:
+ * a typo there drops ~960 KB out of one manifest, which is what
+ * {@link Facet.precacheBytes}'s floor exists to catch (ADR-0083 §3). The pair
+ * below has no such floor under it, which is why it is the pair that is shared.
+ */
+export const SEARCH_INDEX_URL = "/usda/search-index.json";
+
+/**
+ * The runtime `Cache` a Facet keeps the Search index in, for the Facets that do
+ * not precache it (ADR-0114 §13).
+ *
+ * **Named per Facet, unlike `external-image-cache`.** `cacheNames.getRuntimeName`
+ * returns a user-supplied name verbatim with no scope suffix (ADR-0077 §7), so a
+ * fixed name here would be one store with two `ExpirationPlugin` instances
+ * keeping independent bookkeeping over it — the hazard that record accepts for
+ * images, where the failure is a re-fetchable miss. It is not worth accepting for
+ * a ~800 KB file on the path of a search, and nothing is bought by sharing: the
+ * Facet that holds the file in its precache never writes here.
+ *
+ * Three readers, which is why it is a function rather than a literal in the
+ * config: `vite.config.ts` declares the rule, `src/lib/facets/checks.ts` proves
+ * the rule reached the emitted service worker, and the name is the only thing in
+ * the built file that is unique to the rule — the URL appears in the *precache*
+ * manifest of the Facet that does keep it.
+ */
+export const searchIndexCacheOf = (facetId: string): string =>
+  `usda-search-index-${facetId}`;

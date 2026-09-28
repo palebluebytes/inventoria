@@ -305,10 +305,12 @@
 
                ADR-0077 §5 kept `usda/search-index.json` in the root's precache
                "precisely because food is the root's landing screen", and as of
-               this change it is not. The premise is gone; dropping the file and
-               warming it on entering this face is
-               [#535](https://github.com/palebluebytes/inventoria/issues/535),
-               where the two `precacheBytes` are re-measured with it. -->
+               #530 it is not. [#535](https://github.com/palebluebytes/inventoria/issues/535)
+               took the file out with the premise (ADR-0114 §13): this shell holds
+               none of the three USDA artifacts now, and the warm that used to run
+               on every boot from `runStartupErrands` runs from this screen's own
+               `onMount` instead — so mounting the Rations face *is* what fetches
+               the search index here. -->
           <FoodView {dbReady} shell="root" onReceiveClose={() => {}} />
         {/if}
 

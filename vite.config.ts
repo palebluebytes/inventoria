@@ -25,6 +25,10 @@ import {
   withOwnManifestLink,
 } from "./src/lib/facets/manifest";
 import {
+  SEARCH_INDEX_URL,
+  searchIndexCacheOf,
+} from "./src/lib/food/bundled-artifact";
+import {
   bundleFor,
   precacheUrlsFor,
   FACET_BUNDLE_METADATA_PATH,
@@ -576,6 +580,65 @@ const facetPwa = (facet: Facet) => {
       // bumps `precache-v2`.
       cleanupOutdatedCaches: nestedScopesOf(facet).length === 0,
       runtimeCaching: [
+        // **The Search index, for whichever Facet gave up precaching it**
+        // (ADR-0114 §13). Derived rather than written as `isRoot`, because the
+        // condition that earns this rule is exactly "this Facet does not hold
+        // the file": Rations precaches it and ADR-0047 §11 binds that Facet to
+        // keeping it, so a rule there would be a route the precache answers
+        // first and a reader would have to work out that it is dead.
+        //
+        // `CacheFirst`, so a search that has the file never touches the network
+        // again — the corpus is a generated artifact and a session reads it once,
+        // which is the opposite of the freshness-sensitive shape
+        // `StaleWhileRevalidate` is for, and revalidating ~800 KB per session is
+        // the cost this whole clause exists to avoid.
+        //
+        // **The `maxAgeSeconds` is load-bearing, and the precache is why.** A
+        // precache entry carries a revision, so a deploy that regenerated the
+        // corpus replaced it; a runtime cache on a stable URL has no such
+        // mechanism, and with no expiry a device that cached the index once would
+        // keep those rows for the life of the install, however many times the
+        // corpus was rebuilt under it. 30 days is the same ceiling the image
+        // cache below uses, and it is a bound on staleness rather than a
+        // prediction of the release cadence.
+        //
+        // The cache's name is `searchIndexCacheOf`'s rather than a literal here,
+        // and why it is per Facet and shared with the gate is on that function.
+        //
+        // **A string pattern and not a function, and that is not a style
+        // preference.** `workbox-build` emits a string `urlPattern` through
+        // `JSON.stringify` and a function one through `Function.prototype
+        // .toString()`, so a function may close over *nothing*: written as
+        // `({ url }) => url.pathname === SEARCH_INDEX_URL`, this shipped a service
+        // worker whose route read `e.pathname===SEARCH_INDEX_URL` with that
+        // identifier bound to nothing — a `ReferenceError` thrown inside workbox's
+        // matcher on the first request the router tried it against. It built
+        // clean, the gate below passed on the cache name, and only reading
+        // `dist/sw.js` found it. The image rule two entries down is a function and
+        // is safe because it closes over nothing but its own argument.
+        //
+        // A string is an **exact `url.href` match** against
+        // `new URL(pattern, location.href)` (`workbox-routing/registerRoute.js`),
+        // which is what the leading slash buys: resolved against the worker's own
+        // location it is the same URL from `/sw.js` and from `/food/sw.js`.
+        ...(facet.precache.includes(SEARCH_INDEX_URL.replace(/^\//, ""))
+          ? []
+          : [
+              {
+                urlPattern: SEARCH_INDEX_URL,
+                handler: "CacheFirst" as const,
+                options: {
+                  cacheName: searchIndexCacheOf(facet.id),
+                  expiration: {
+                    maxEntries: 1,
+                    maxAgeSeconds: 30 * 24 * 60 * 60, // 30 days
+                  },
+                  // Same-origin, so there is no opaque `0` to allow: a `0` here
+                  // would be a cross-origin response this rule cannot receive.
+                  cacheableResponse: { statuses: [200] },
+                },
+              },
+            ]),
         {
           // **Genuinely shared between the Facets, and the one place they do not
           // duplicate bytes** (ADR-0077 §7): `getRuntimeName` returns a

@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { untrack } from "svelte";
+  import { onMount, untrack } from "svelte";
   import type { FacetId } from "../facets/registry";
   import { createQueryStore } from "../stores/datoms.store";
   import { HLC_ORDER_DESC } from "../db/hlc";
@@ -75,6 +75,7 @@
     type IngredientSource,
   } from "../food/recipe-nutrition";
   import { readFoodDensity } from "../food/density";
+  import { warmUsdaCorpus } from "../food/usda-corpus";
   import type { NovaVerdict } from "../food/nova-verdict";
   import type { DietaryVerdict } from "../food/off-signals";
   import type { EntityPayload } from "../ingestion/ingest";
@@ -186,6 +187,25 @@
      */
     page?: Page | null;
   } = $props();
+
+  // ── The corpus this screen searches ───────────────────────────────────────
+  //
+  // **Entering the face is what warms the Search index** (ADR-0114 §13). It used
+  // to be an entry point's errand, which was right while food was the landing
+  // screen of both Facets; the root opens on the grid of faces now, so the warm
+  // moved to the screen that reads the file. On Rations this is still the first
+  // thing that mounts, so nothing about that Facet's boot changes; on the root it
+  // is the moment a tile or a deep link puts this screen on the display.
+  //
+  // `onMount` rather than an effect: this is once per mounting of the screen, and
+  // the root unmounts it on every switch away, so re-entering the face asks
+  // again — which costs nothing, because both loads are memoised on success.
+  //
+  // The root no longer precaches the index either, so on that Facet this is the
+  // fetch that populates the `CacheFirst` runtime cache `vite.config.ts`
+  // declares. It is a warm and not a wait: a search awaits the same promise and
+  // says its own thing when nothing answers (#307).
+  onMount(warmUsdaCorpus);
 
   // ── Receiving a meal ─────────────────────────────────────────────────────
   //

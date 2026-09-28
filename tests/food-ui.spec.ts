@@ -972,9 +972,12 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
   test("keeps the search results when returning from a staged food", async ({
     page,
   }) => {
-    // The Search index is fetched once at startup and every search runs over it
-    // in memory (ADR-0047 §2), so a return trip must re-fetch nothing — and the
-    // results must still be on screen without retyping the query.
+    // The Search index is fetched once when a face that searches food is opened
+    // — `FoodView`'s `onMount`, not the entry point's errands, since ADR-0114
+    // §13 — and every search runs over it in memory (ADR-0047 §2). So a return
+    // trip must re-fetch nothing, and the results must still be on screen
+    // without retyping the query. The listener is attached before the face is
+    // opened, so the warm's own fetch is the 1 this counts.
     let indexFetches = 0;
     page.on("request", (req) => {
       if (req.url().includes("/usda/search-index.json")) indexFetches++;

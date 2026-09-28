@@ -8,7 +8,7 @@ import {
   type NutritionInfo,
   type Portion,
 } from "./nutrition";
-import { ArtifactUnreachableError } from "./bundled-artifact";
+import { ArtifactUnreachableError, SEARCH_INDEX_URL } from "./bundled-artifact";
 import { buildRawProvenance, type MergedSource } from "./provenance";
 import {
   ADAPTER_VERSION,
@@ -934,18 +934,26 @@ export async function searchUsdaCorpus(
 // Loading
 // ---------------------------------------------------------------------------
 
-const SEARCH_INDEX_URL = "/usda/search-index.json";
+// `SEARCH_INDEX_URL` is imported rather than written here, because the root's
+// service worker matches the same string in `vite.config.ts` (ADR-0114 §13).
 const NUTRIENT_STORE_URL = "/usda/nutrient-store.json";
 
 /**
  * Fetches one bundled artifact, keeping the two ways it can fail apart.
  *
- * **Nothing answered at all** is an offline user (#307). ADR-0077 §5 takes the
- * Nutrient store out of Inventoria's precache — it is read when a food is
- * staged, seconds after launch, where the Search index is what the user is
- * looking at before they do anything — so a cold offline root reaches this with
- * no network and nothing cached, and the caller is handed something it can turn
- * into a sentence naming the network.
+ * **Nothing answered at all** is an offline user (#307). The root precaches
+ * **none of the three** USDA artifacts now: ADR-0077 §5 took the Nutrient store
+ * and the scanner out because each is read in answer to an action, and ADR-0114
+ * §13 took the Search index out too, because the premise that kept it — food
+ * being the root's landing screen — is gone. So a cold offline root reaches this
+ * with no network and nothing cached, on *both* artifacts rather than one, and
+ * the caller is handed something it can turn into a sentence naming the network.
+ *
+ * What replaces the precache is a `CacheFirst` runtime rule on the Search index
+ * (`vite.config.ts`), warmed when a face that can search food is opened. It
+ * narrows the case to an install that has never been online — the first online
+ * search keeps the file, and every later one is served from that cache — but it
+ * does not remove it, which is why the sentence still has to exist.
  *
  * **A response that is not `ok`** is the other one: the file is on the origin,
  * something served it, and its status is worth reading. That stays the plain
@@ -978,7 +986,7 @@ let loadedNutrients: Promise<NutrientStore> | null = null;
  * A SUCCESS is what is memoised: a failed load is forgotten so the next search
  * tries again. Caching the rejection would be worse than not caching at all —
  * the likeliest way this fetch fails is a service worker that has not taken
- * control yet during the startup warm (see {@link warmUsdaCorpus}), and a cached
+ * control yet during a face's warm (see {@link warmUsdaCorpus}), and a cached
  * rejection would answer every search for the rest of the session.
  */
 export function loadSearchCorpus(): Promise<SearchCorpus> {
@@ -1016,10 +1024,22 @@ export function loadNutrientStore(): Promise<NutrientStore> {
 
 /**
  * Warms both artifacts, on the schedule ADR-0047 §2 sets: the index now, because
- * the food screen is the app's first and a search must not wait on a fetch; the
- * nutrient store at idle, because its parse belongs nowhere near first paint.
- * Staging is what reads it, and a stage is several seconds of typing and choosing
- * away, so warming at idle is what makes it already parsed when that stage comes.
+ * a search must not wait on a fetch; the nutrient store at idle, because its
+ * parse belongs nowhere near first paint. Staging is what reads it, and a stage
+ * is several seconds of typing and choosing away, so warming at idle is what
+ * makes it already parsed when that stage comes.
+ *
+ * **Called when a face that can search food is opened, not at startup**
+ * (ADR-0114 §13). It was an entry point's errand while food was the landing
+ * screen of both Facets; the root lands on the grid of faces now, so a warm at
+ * boot would put a ~960 KB fetch and its parse on the path of a screen that
+ * reads neither. The callers are the two screens that mount a food search —
+ * `FoodView` and `RecipeLibrarySheet` — which is why the schedule is argued here
+ * and not twice over there.
+ *
+ * Calling it more than once costs nothing: both loads are memoised on success,
+ * so re-entering a face is a no-op rather than a second fetch, and on Rations,
+ * where the recipe library is one of the food screen's pages, both callers fire.
  *
  * Failures are swallowed deliberately — this is a warm-up, and the real search
  * and staging paths await the same promises and report their own errors.

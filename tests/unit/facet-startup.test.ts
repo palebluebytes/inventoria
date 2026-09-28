@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { readFileSync } from "node:fs";
 
 /**
  * The errands every Facet's entry point runs (#301).
@@ -9,17 +10,18 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
  * have opened the same OPFS ledger, never asked the browser to keep it, and
  * looked entirely healthy until the device ran short of disk (ADR-0065).
  *
- * The corpus warm, the retired-secret sweep and the visible band are stubbed
- * rather than run. None has a browser to reach here, and none is what this file
- * is about — the band's own geometry is `viewport-inset.test.ts`'s.
+ * The retired-secret sweep and the visible band are stubbed rather than run.
+ * Neither has a browser to reach here, and neither is what this file is about —
+ * the band's own geometry is `viewport-inset.test.ts`'s.
+ *
+ * **The USDA warm is no longer one of them** (ADR-0114 §13). It left this list
+ * when the root stopped landing on food: it belongs to the face that searches
+ * rather than to the entry that mounted the shell, so it is asserted where it is
+ * now called and the absence is asserted here.
  */
-const warmUsdaCorpus = vi.fn();
 const clearRetiredSecrets = vi.fn();
 const startViewportInset = vi.fn(() => () => {});
 
-vi.mock("../../src/lib/food/usda-corpus", () => ({
-  warmUsdaCorpus: () => warmUsdaCorpus(),
-}));
 vi.mock("../../src/lib/stores/secrets", () => ({
   clearRetiredSecrets: () => clearRetiredSecrets(),
 }));
@@ -39,7 +41,6 @@ async function loadStartup() {
 
 beforeEach(() => {
   vi.unstubAllGlobals();
-  warmUsdaCorpus.mockClear();
   clearRetiredSecrets.mockClear();
   startViewportInset.mockClear();
 });
@@ -68,9 +69,31 @@ describe("an entry point's startup errands (ADR-0065, #301)", () => {
     const { runStartupErrands } = await loadStartup();
     runStartupErrands();
 
-    expect(warmUsdaCorpus).toHaveBeenCalledTimes(1);
     expect(clearRetiredSecrets).toHaveBeenCalledTimes(1);
     expect(startViewportInset).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not warm the USDA artifacts, because a face does that now", async () => {
+    // ADR-0114 §13. The root lands on the grid of faces, so a warm here would
+    // fetch and parse ~812 KB of search index for a screen that reads neither it
+    // nor the nutrient store — and it would do it on the one paint this arc made
+    // independent of the ledger.
+    //
+    // **Read off the source, and a stub could not replace it.** The obvious shape
+    // — keep the `usda-corpus` mock and assert it was never called — is vacuous
+    // here in the way a deleted dependency always is: this module no longer
+    // imports that one, so the stub would stand in for nothing and the assertion
+    // would pass however the file were rewritten. What is left to assert is the
+    // text, and it is the import line that actually carries the claim: an errand
+    // is the Jar's or it is a face's, and a `../food/` edge in this file is the
+    // first half of it coming back.
+    vi.stubGlobal("navigator", { userAgent: "a browser from 2015" });
+    const { runStartupErrands } = await loadStartup();
+    runStartupErrands();
+
+    const source = readFileSync("src/lib/facets/startup.ts", "utf8");
+    expect(source).not.toMatch(/warmUsdaCorpus\(\)/);
+    expect(source).not.toMatch(/from "\.\.\/food\//);
   });
 
   it("returns rather than throwing where the browser answers nothing", async () => {

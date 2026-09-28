@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * The four Facet claims that need a build (ADR-0083 §8). Runs with
+ * The five Facet claims that need a build (ADR-0083 §8). Runs with
  * `pnpm check:facets`; also chained onto `pnpm build`, which is the only moment
  * there is a `dist/` to check.
  *
@@ -18,10 +18,14 @@
  *      because a crossing and a tree-shaken-away screen are both failures, and
  *      only one of them is caught by a subset check.
  *   3. **The outdated-cache cleanup** (§7). Off for the root, on for Rations,
- *      asserted on the emitted `sw.js`. The cheapest of the four and the only
+ *      asserted on the emitted `sw.js`. The cheapest of the five and the only
  *      one a dependency upgrade can break with no source change.
  *   4. **At most one share target** (ADR-0084 §8), over the rostered manifests.
  *      The declaration, and explicitly not that any browser registered it.
+ *   5. **The search index's runtime rule** (ADR-0114 §13). A Facet that gave up
+ *      precaching the file has a `CacheFirst` cache for it in its emitted
+ *      `sw.js`, and a Facet that precaches it has none. The only claim here whose
+ *      failure is *silent*: the app runs, and every search pays the origin.
  *
  * WHAT IT READS, AND WHY THAT IS ONE THING
  *
@@ -59,6 +63,7 @@ const {
   checkPrecacheBand,
   checkViewContainment,
   checkOutdatedCacheCleanup,
+  checkSearchIndexRoute,
   checkShareTargets,
 } = await load("src/lib/facets/checks.ts");
 
@@ -93,12 +98,14 @@ const report = (claim) => {
 for (const facet of FACETS) {
   report(checkPrecacheBand(facet, precacheOf(facet)));
   report(checkViewContainment(facet, bundleOf(facet)));
-  report(
-    checkOutdatedCacheCleanup(
-      facet,
-      emitted(facet, inScope(facet, "sw.js"), "service worker")
-    )
+  // One read of the service worker for the two claims that are about it.
+  const serviceWorker = emitted(
+    facet,
+    inScope(facet, "sw.js"),
+    "service worker"
   );
+  report(checkOutdatedCacheCleanup(facet, serviceWorker));
+  report(checkSearchIndexRoute(facet, serviceWorker));
 }
 
 report(

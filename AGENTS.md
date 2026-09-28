@@ -38,12 +38,15 @@ checks against, and this file deliberately does not restate it.
   a `dist/` and are therefore not in the roster above. `pnpm build` chains both
   gates that carry them, and each also runs alone against an existing build
   (`docs/adr/0083-a-gate-that-names-one-entry-point-proves-one-facet.md`):
-  - `pnpm check:facets` (`scripts/facet-checks.mjs`) carries four, one Facet at
+  - `pnpm check:facets` (`scripts/facet-checks.mjs`) carries five, one Facet at
     a time: its precache weighs what `src/lib/facets/registry.ts` declares
     within ±5%, every view module its built entry reaches belongs to a Tracked
     Domain it holds and every one of those domains' screens is reached, its
     service worker cleans up outdated caches only where nothing nests inside its
-    scope, and at most one rostered manifest declares a `share_target`.
+    scope, a Facet that has given up precaching the USDA search index keeps it in
+    a `CacheFirst` runtime cache instead and one that precaches it declares no
+    such rule (ADR-0114 §13), and at most one rostered manifest declares a
+    `share_target`.
   - `pnpm check:offline` (`scripts/offline-boot-check.mjs`) carries the fifth: a
     Facet must reach `mount()` with the network off (#125). It runs both its
     arms **once per Facet**, because the two precache manifests are different

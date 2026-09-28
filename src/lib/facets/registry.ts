@@ -339,15 +339,23 @@ export const FACETS = [
       // where something is installable.
       "icons/faces/*-256.png",
       "icons/CREDITS.txt",
-      // **The search index, and neither of the other two USDA artifacts**
-      // (ADR-0077 §5). Food is this Facet's landing screen, so the index is what
-      // the user is looking at before they do anything, and a cold offline
-      // install that opened on a search box finding nothing would read as "no
-      // such food" rather than "no data yet". The Nutrient store and the scanner
-      // are read several seconds later, in answer to an action, and #307 is why
-      // those two now say they need a network instead of failing like a broken
-      // build — `src/lib/food/bundled-artifact.ts`.
-      "usda/search-index.json",
+      // **And none of the three USDA artifacts** (ADR-0114 §13). ADR-0077 §5 kept
+      // the search index here on one premise — food was this Facet's landing
+      // screen, so the index was what the user was looking at before they did
+      // anything, and a cold offline install opening on a search box that found
+      // nothing would read as "no such food" rather than "no data yet". §9 makes
+      // the landing screen a grid of faces, so that sentence describes a screen
+      // nobody sees first, and 812,093 B of it left with the premise. (ADR-0114
+      // §13 says 981,462 B, which the corpus consolidation had already moved
+      // before this arc was charted — `precacheBytes` below carries the
+      // arithmetic.)
+      //
+      // What holds the promise up instead is a `CacheFirst` runtime rule in
+      // `vite.config.ts`, warmed when a face that can search food is opened
+      // rather than at boot. The remaining hole — an install that has never been
+      // online — is the one #307 already answers for the other two artifacts:
+      // `src/lib/food/bundled-artifact.ts` says the file needs a network rather
+      // than failing like a broken build.
     ],
     // Re-measured at #186, and it is the first time this number has gone DOWN.
     // Build to build as always: HEAD already weighed 8,585,132 B before #186
@@ -474,7 +482,33 @@ export const FACETS = [
     // emits 43 URLs and `usda/search-index.json` is still among them. It leaves
     // at [#535](https://github.com/palebluebytes/inventoria/issues/535), which is
     // the next commit to move this number and the one that moves it *down*.
-    precacheBytes: 8_888_224,
+    //
+    // **Re-measured at #535, and it is the drop that ticket exists to record**
+    // (ADR-0114 §13). Build to build against `815be3c9`, which precaches
+    // 8,889,122 B over 43 URLs: **−812,123 B (−793.1 KiB, −9.14%), 43 URLs to
+    // 42**. The floor fired on the way — 8,076,999 B against a floor of
+    // 8,443,813 B — which is the gate working rather than a fault, and it is the
+    // one direction ADR-0083 §3 built it to catch.
+    //
+    // **The manifest did not collapse; one declaration was deleted.** The
+    // difference is readable in the numbers rather than asserted: the only URL
+    // that left is `usda/search-index.json`, which weighs **812,093 B** on disk,
+    // and the remaining 30 B is code the same change took off *both* Facets. A
+    // collapsed derivation loses a set it cannot name and does not land 30 B from
+    // a single file.
+    //
+    // That file is **812,093 B and not the 981,462 B** #535 and ADR-0114 §13 both
+    // quote, and the quoted figure was **already stale when the arc was
+    // charted**: it is this comment's own ADR-0101-era paragraph, and the #186
+    // paragraph — which sits *above* that one, because this comment accretes by
+    // topic rather than by date — records the uncooked-corpus consolidation
+    // (ADR-0103, ADR-0104) taking the same file to 812,920 B. It has lost a
+    // further 827 B since. Recorded because a reader checking this drop against
+    // the ticket would otherwise find 169 KB unaccounted for and go looking for a
+    // second cause — and because it is the shape this file keeps producing: a
+    // number quoted out of one paragraph of a comment that a later paragraph of
+    // the same comment has already moved.
+    precacheBytes: 8_076_999,
     status: "built",
   },
   {
@@ -662,7 +696,22 @@ export const FACETS = [
     //
     // **The manifest did not collapse**: 41 URLs, and all three USDA artifacts
     // are still among them (ADR-0077 §4).
-    precacheBytes: 7_243_792,
+    //
+    // **Re-measured at #535, which took the search index out of the *root's*
+    // precache and leaves this one whole** (ADR-0114 §13, ADR-0077 §4). Build to
+    // build against `815be3c9`, which precaches 7,248,145 B over 41 URLs:
+    // **−30 B (−0.0004%)**, and that is the code the change touched rather than
+    // anything this Facet gave up. The same 30 B comes off the root, because what
+    // moved is one module both entries hold — the Search index's URL is a
+    // constant in `bundled-artifact.ts` now, so the service worker rule and the
+    // fetch cannot drift apart.
+    //
+    // It is re-declared anyway, and 30 B is 0.0004% of a ±5% band: the figure on
+    // this line was 4,353 B stale before this commit, and a Facet whose number is
+    // only moved when the number moves *interestingly* is a Facet whose floor is
+    // measuring an older tree every time. Both are taken from one build here, so
+    // the next reader knows which build both came from.
+    precacheBytes: 7_248_115,
     // Installability is definitional (ADR-0076 §1) and #305 is where Rations
     // gets a manifest of its own, so this is the ticket that flips it.
     status: "built",

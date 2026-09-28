@@ -2,6 +2,7 @@
 
 **Status:** Accepted  
 **Date:** 2026-08-31  
+**Amended by:** [ADR-0114](0114-the-app-is-a-set-of-faces-each-reached-from-its-own-mark.md) §13 (§5's one kept artifact goes too: the root precaches none of the three, because the landing screen that clause argues from is a grid of faces. §4's delegation, §3's completeness rule and §7's shared image cache are unrevised, and a `CacheFirst` runtime rule is what §5's promise rests on now)  
 **Implemented:** [#306](https://github.com/palebluebytes/inventoria/issues/306) — `src/lib/facets/precache.ts` derives each Facet's code half, the roster's `precache` field declares the rest, and `vite.config.ts` builds one `VitePWA` instance per Facet. The measured figures are in §1 and §5; the ones this record predicted are kept beside them. §5's other half is [#307](https://github.com/palebluebytes/inventoria/issues/307) — `src/lib/food/bundled-artifact.ts` carries the one sentence and the error that earns it, thrown by `fetchArtifact` in `src/lib/food/usda-corpus.ts` and by `getDetector` in `src/lib/food/barcode-scan.ts`, and shown on the staged card and the upload dropzone by `src/lib/views/food/FoodStager.svelte`.
 
 ## Context

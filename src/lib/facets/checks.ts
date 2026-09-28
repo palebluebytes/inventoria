@@ -1,6 +1,6 @@
 /**
- * The four claims `pnpm check:facets` carries, as rules rather than as a script
- * (ADR-0083 §3, §5, §7 and ADR-0084 §8).
+ * The five claims `pnpm check:facets` carries, as rules rather than as a script
+ * (ADR-0083 §3, §5, §7, ADR-0084 §8 and ADR-0114 §13).
  *
  * `scripts/facet-checks.mjs` does the reading — the build metadata artifact, the
  * emitted service workers, the emitted manifests — and hands what it read to
@@ -28,6 +28,7 @@ import {
   type Facet,
 } from "./registry";
 import type { FacetBundle, FacetPrecache } from "./precache";
+import { SEARCH_INDEX_URL, searchIndexCacheOf } from "../food/bundled-artifact";
 
 /** One claim's verdict, and the sentence a reader gets when it fails. */
 export interface Claim {
@@ -357,5 +358,96 @@ export function checkShareTargets(
       `to exactly one Facet (ADR-0084 §1), and two manifests declaring one at ` +
       `two scopes forward nothing to each other. Whichever is new was ` +
       `acquired by copying a manifest rather than by arguing ownership.`,
+  };
+}
+
+/**
+ * A Facet that does not precache the Search index has a runtime rule for it.
+ *
+ * **This is the half of ADR-0114 §13 nothing else can see.** The half that
+ * removed the file is watched from both sides — the `precache` declaration is a
+ * reviewable diff, and `checkPrecacheBand` above fails on the weight — but the
+ * `CacheFirst` rule that replaces it is a route in a generated file, and its
+ * failure mode is **silent and expensive rather than loud**: the app works, every
+ * search fetches ~800 KB from the origin, and offline search stops existing. A
+ * config edit, a `vite-plugin-pwa` major, or a `runtimeCaching` entry lost to a
+ * merge all land there with nothing red.
+ *
+ * Derived from the Facet's own declaration rather than named against `root`, for
+ * the reason `checkOutdatedCacheCleanup` gives: the condition is "this Facet gave
+ * the file up", and the day a third Facet does, the rule it owes is this one.
+ *
+ * **Two readings, because the first one alone passed a broken build.** The cache
+ * name says a rule was emitted; the quoted URL says the rule can match anything.
+ * `workbox-build` serialises a string `urlPattern` through `JSON.stringify` and a
+ * function one through `toString()`, so a function that referenced a constant in
+ * `vite.config.ts` shipped a route reading `url.pathname === SEARCH_INDEX_URL`
+ * with that identifier bound to nothing in the worker — a `ReferenceError` inside
+ * workbox's matcher, on a build where this claim was already green on the name.
+ * The pattern is a string now and the URL is in the file as a literal, which is
+ * what the second reading asserts.
+ *
+ * The URL is checked **only on the Facet that gave the file up**: the other one
+ * carries it in its precache manifest, so there it would prove nothing.
+ */
+export function checkSearchIndexRoute(
+  facet: Facet,
+  serviceWorker: string
+): Claim {
+  const precached = facet.precache.includes(
+    SEARCH_INDEX_URL.replace(/^\//, "")
+  );
+  const cacheName = searchIndexCacheOf(facet.id);
+  const named = serviceWorker.includes(cacheName);
+
+  if (precached) {
+    if (!named)
+      return {
+        ok: true,
+        message:
+          `${facet.name} precaches the search index, so its service worker ` +
+          `declares no runtime rule for it`,
+      };
+    return {
+      ok: false,
+      message:
+        `${facet.name} both precaches the search index and declares the ` +
+        `runtime cache ${cacheName} for it. The precache route answers first, ` +
+        `so the rule is dead code that reads as a live policy — and two ` +
+        `answers for one file is how a reader learns the wrong one. Drop the ` +
+        `runtimeCaching entry, or drop the precache declaration and say which ` +
+        `in the same commit.`,
+    };
+  }
+
+  if (!named)
+    return {
+      ok: false,
+      message:
+        `${facet.name} does not precache ${SEARCH_INDEX_URL} and its service ` +
+        `worker has no ${cacheName} either, so every food search on this Facet ` +
+        `goes to the origin and none of them works offline (ADR-0114 §13). ` +
+        `This fails nothing at runtime, which is why it is a gate: restore the ` +
+        `CacheFirst entry in vite.config.ts, or put the file back in this ` +
+        `Facet's precache and re-measure precacheBytes.`,
+    };
+
+  if (!serviceWorker.includes(JSON.stringify(SEARCH_INDEX_URL)))
+    return {
+      ok: false,
+      message:
+        `${facet.name} declares the runtime cache ${cacheName} but its service ` +
+        `worker does not contain ${SEARCH_INDEX_URL} as a literal, so the ` +
+        `route cannot match the file it is for. The usual cause is a function ` +
+        `\`urlPattern\` in vite.config.ts: workbox serialises one with ` +
+        `toString(), so anything it closes over is left as a free identifier ` +
+        `that throws inside the matcher. Use the string pattern.`,
+    };
+
+  return {
+    ok: true,
+    message:
+      `${facet.name} gives up precaching the search index and its service ` +
+      `worker keeps it at runtime instead, in ${cacheName}`,
   };
 }

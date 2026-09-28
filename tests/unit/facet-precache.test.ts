@@ -157,11 +157,18 @@ describe("what a Facet declares (ADR-0077 §3)", () => {
 
   it("has every Facet name a complete set rather than a subset of the root's", () => {
     // ADR-0076 §2 has Facets overlap rather than nest, so root-as-superset is
-    // not merely untidy — the two already declare different USDA artifacts, and
-    // a subset could not say so.
+    // not merely untidy — the two declare different USDA artifacts, and a subset
+    // could not say so.
+    //
+    // The shared example used to be `usda/search-index.json`, declared separately
+    // in each entry; ADR-0114 §13 took it out of the root, and what is left to
+    // overlap on is `JAR_PRECACHE`, which both entries spread. So the positive
+    // half below is now weaker than it reads — one constant in two lists — and
+    // the negatives are what carry the clause: the root names a set that is
+    // complete for the root and is **not** a prefix of Rations'.
     const root = facetOf("root").precache;
     const food = facetOf("food").precache;
-    for (const shared of ["assets/db.worker-*.js", "usda/search-index.json"]) {
+    for (const shared of ["assets/db.worker-*.js", "assets/sqlite3-*.wasm"]) {
       expect([root.includes(shared), food.includes(shared)]).toEqual([
         true,
         true,
@@ -180,13 +187,23 @@ describe("what a Facet declares (ADR-0077 §3)", () => {
         "assets/zxing_reader-*.wasm",
       ])
     );
-    // The root keeps the landing screen's artifact and gives up the two that
-    // are read in answer to an action (ADR-0077 §5). This roster is the whole of
-    // why Rations never shows #307's "needs a network" line: it holds the files,
-    // so neither path ever fetches one.
-    expect(facetOf("root").precache).not.toContain(
-      "assets/zxing_reader-*.wasm"
-    );
+    // **And the root none of the three** (ADR-0114 §13). ADR-0077 §5 gave up the
+    // two that are read in answer to an action and kept the search index because
+    // food was the root's landing screen; the landing screen is the grid of faces
+    // now, so the premise and the file went together. This roster is the whole of
+    // why Rations never shows #307's "needs a network" line and the root shows it
+    // on every one of the three: Rations holds the files, so no path there ever
+    // fetches one.
+    const rootPrecache = facetOf("root").precache;
+    for (const given_up of [
+      "usda/search-index.json",
+      "usda/nutrient-store.json",
+      "assets/zxing_reader-*.wasm",
+    ])
+      expect([given_up, rootPrecache.includes(given_up)]).toEqual([
+        given_up,
+        false,
+      ]);
   });
 });
 

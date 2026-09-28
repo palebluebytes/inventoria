@@ -4,11 +4,14 @@ import {
   checkPrecacheBand,
   checkViewContainment,
   checkOutdatedCacheCleanup,
+  checkSearchIndexRoute,
   checkShareTargets,
 } from "../../src/lib/facets/checks";
+import { searchIndexCacheOf } from "../../src/lib/food/bundled-artifact";
 import type { FacetBundle, FacetPrecache } from "../../src/lib/facets/precache";
 
-// #309. The four claims `pnpm check:facets` carries, checked where they can be
+// #309, and a fifth at #535. The claims `pnpm check:facets` carries, checked
+// where they can be
 // handed a build that does not exist. The script around them does the reading;
 // everything that can be wrong *silently* is here, because a gate whose rule is
 // wrong reports success over the thing it exists to catch — which is ADR-0083's
@@ -338,5 +341,68 @@ describe("at most one share target (ADR-0084 §8)", () => {
     expect(claim.ok).toBe(false);
     expect(claim.message).toContain("Inventoria");
     expect(claim.message).toContain("Rations");
+  });
+});
+
+describe("the search index's runtime rule (ADR-0114 §13)", () => {
+  // What the emitted worker looks like from each side. The root's precache no
+  // longer names the file, so its only copy of that URL is inside the rule;
+  // Rations' names it with a revision and has no rule at all.
+  const ROOT_CACHE = searchIndexCacheOf("root");
+  const FOOD_CACHE = searchIndexCacheOf("food");
+  const ROOTED = `s.registerRoute("/usda/search-index.json",new t.CacheFirst({cacheName:"${ROOT_CACHE}"}),"GET")`;
+  const PRECACHED =
+    's.precacheAndRoute([{"revision":"a","url":"/usda/search-index.json"}])';
+
+  it("passes the Facet that gave the file up and keeps it at runtime", () => {
+    const claim = checkSearchIndexRoute(ROOT, ROOTED);
+    expect(claim.ok).toBe(true);
+    expect(claim.message).toContain(ROOT_CACHE);
+  });
+
+  it("fails the Facet that gave it up with no rule, which nothing else catches", () => {
+    // The whole reason this claim exists. A build in this state installs, opens,
+    // searches and logs food — online. Every search is ~800 KB off the origin and
+    // offline search is gone, and no other gate in the roster is looking: the
+    // precache band passes, because the weight is exactly what the registry says
+    // it should be once the file is out.
+    const claim = checkSearchIndexRoute(ROOT, "s.precacheAndRoute([])");
+    expect(claim.ok).toBe(false);
+    expect(claim.message).toContain("Inventoria");
+    expect(claim.message).toContain("goes to the origin");
+  });
+
+  it("passes Rations, which precaches the file and owes no rule", () => {
+    const claim = checkSearchIndexRoute(FOOD, PRECACHED);
+    expect(claim.ok).toBe(true);
+  });
+
+  it("fails Rations for holding the file twice over", () => {
+    // Two answers for one file, the precache winning: the rule reads as live
+    // policy and is dead code. ADR-0047 §11 binds this Facet to the precache, so
+    // the rule is what goes.
+    const claim = checkSearchIndexRoute(FOOD, PRECACHED + ` "${FOOD_CACHE}"`);
+    expect(claim.ok).toBe(false);
+    expect(claim.message).toContain("Rations");
+    expect(claim.message).toContain("dead code");
+  });
+
+  it("looks for the cache name and not only for the URL", () => {
+    // The URL on its own proves nothing: Rations' precache manifest carries it,
+    // so a rule that looked for the path alone would pass every Facet that keeps
+    // the file and never fail the one case this claim is for.
+    expect(checkSearchIndexRoute(ROOT, PRECACHED).ok).toBe(false);
+  });
+
+  it("fails a rule whose pattern did not survive being serialised", () => {
+    // The build this claim shipped green over once. `workbox-build` stringifies a
+    // function `urlPattern`, so `({ url }) => url.pathname === SEARCH_INDEX_URL`
+    // emitted a matcher referring to an identifier that exists nowhere in the
+    // worker — a `ReferenceError` on the first request the router tried it
+    // against, with the cache name present and correct above it.
+    const leaked = `s.registerRoute(({url:e})=>e.pathname===SEARCH_INDEX_URL,new t.CacheFirst({cacheName:"${ROOT_CACHE}"}))`;
+    const claim = checkSearchIndexRoute(ROOT, leaked);
+    expect(claim.ok).toBe(false);
+    expect(claim.message).toContain("as a literal");
   });
 });

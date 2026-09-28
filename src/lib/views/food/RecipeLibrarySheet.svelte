@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { onMount } from "svelte";
   import { getLocalFoodTwin } from "../../stores/calorie.store";
   import BottomSheet from "../../ui/BottomSheet.svelte";
   import CommitButton from "./CommitButton.svelte";
@@ -7,6 +8,7 @@
   import RecipeList from "./RecipeList.svelte";
   import ImpromptuRecipeList from "./ImpromptuRecipeList.svelte";
   import { isImpromptuTwin } from "../../food/recipe-ingredient";
+  import { warmUsdaCorpus } from "../../food/usda-corpus";
   import type { MealType } from "../../food/meal-type";
 
   // The food screen's recipe library, opened from the header's recipe button.
@@ -36,6 +38,21 @@
     onClose: () => void;
     inline?: boolean;
   } = $props();
+
+  // **The second face that can search food, and §13 only counted the first.**
+  //
+  // ADR-0114 §13 warms the Search index "on entering the Rations face", which is
+  // `FoodView`'s `onMount` — but on the root, Recipes is a face of its own (§4)
+  // and mounts this surface with no food screen anywhere near it. Building or
+  // amending a recipe reaches `AddIngredientSheet`, which is `FoodStager`, which
+  // searches the corpus: so a reader who went straight to Recipes would have hit
+  // a ~960 KB fetch inside their first ingredient search.
+  //
+  // On Rations this fires as well as `FoodView`'s, because the library is one of
+  // that screen's pages. Both are no-ops after the first: the loads are memoised
+  // on success, and a failure is deliberately forgotten so the next search
+  // retries.
+  onMount(warmUsdaCorpus);
 
   type RecipeTwin = { entity: string; attributes: Record<string, any> };
   type View =

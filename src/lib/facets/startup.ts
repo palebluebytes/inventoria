@@ -16,15 +16,24 @@
  * `mountFacet` above it, where a throw would be read as "this shell cannot
  * start" and wipe the service worker and every cache over a layout measurement.
  *
- * Two things are deliberately **not** here. The receive link and the iOS code
+ * Three things are deliberately **not** here. The receive link and the iOS code
  * handover are the root's, because both are about a URL that arrives at `/`
  * (ADR-0074 §8, ADR-0082 §2) and a Facet does not forward a hand-off aimed at
- * the other (ADR-0078 §6). And the ledger is not opened here: that call has to
- * be made synchronously from the entry's own shell, before any child view
+ * the other (ADR-0078 §6). The ledger is not opened here: that call has to be
+ * made synchronously from the entry's own shell, before any child view
  * subscribes to a store, and moving it behind a function would put a tempting
  * `await` in front of it.
+ *
+ * And the **USDA warm left this list** (ADR-0114 §13). It qualified while food
+ * was the landing screen of both Facets, which is the sentence the comment on it
+ * used to open with; the root lands on the grid of faces now, so warming ~960 KB
+ * of search index here would be an errand run for a screen that never reads it.
+ * It belongs to the face that searches food rather than to the entry that
+ * mounted the shell, and `warmUsdaCorpus`'s own doc carries the schedule. This
+ * is the first member to leave, and what it leaves behind is the test of
+ * membership: an errand is the Jar's when a second entry point missing it would
+ * be a silent defect, and a warm nobody asked for is not one.
  */
-import { warmUsdaCorpus } from "../food/usda-corpus";
 import { clearRetiredSecrets } from "../stores/secrets";
 import { ensurePersistentStorage } from "../storage/persistent-storage";
 import { startViewportInset } from "../ui/viewport-inset";
@@ -38,14 +47,7 @@ import { startViewportInset } from "../ui/viewport-inset";
  * whose answer changes nothing about the load.
  */
 export function runStartupErrands(): void {
-  // Food is the landing screen of both Facets and its search reads the bundled
-  // corpus, so warm both artifacts here rather than on the first keystroke: the
-  // Search index straight away (~30 ms to fetch, parse and read into words), the
-  // Nutrient store at idle (~100 ms to parse, and nothing reads it until a food
-  // is staged) — ADR-0047 §2.
-  warmUsdaCorpus();
-  // Take the retired USDA API key off the device (ADR-0047 §1). Beside the warm
-  // because both are the same kind of startup errand, and on every entry
+  // Take the retired USDA API key off the device (ADR-0047 §1). On every entry
   // because the key is on the device rather than in a Facet.
   clearRetiredSecrets();
   // Ask the browser to keep the ledger rather than leaving it evictable

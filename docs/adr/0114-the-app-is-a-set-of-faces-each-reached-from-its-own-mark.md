@@ -7,7 +7,8 @@
 **Amends:** [ADR-0089](0089-a-pinned-surface-measures-the-visible-band.md) (§2's floor is published by a surface that no longer exists; a ceiling replaces it, and §7's Back stack gains a stop that is not a `BottomSheet`)  
 **Amends:** [ADR-0091](0091-rations-widens-into-two-regions-and-grows-pages.md) (§8's closed page roster loses Recipes to a face; §5's rule that a shell says what it can hold is unrevised and is generalised)  
 **Amends:** [ADR-0101](0101-the-ways-into-a-day-are-one-bar-anchored-where-the-hand-is.md) (§7's bar is no longer the only permanent pinned surface in Rations, and it is no longer the lowest thing the shell measures)  
-**Amends:** [ADR-0102](0102-a-drop-shadow-is-reserved-where-a-box-must-contain-or-cover-it.md) (the pinned header is a box that covers, so it takes the shadow that record reserves; nothing else is added to the reservation)
+**Amends:** [ADR-0102](0102-a-drop-shadow-is-reserved-where-a-box-must-contain-or-cover-it.md) (the pinned header is a box that covers, so it takes the shadow that record reserves; nothing else is added to the reservation)  
+**Amends:** [ADR-0077](0077-a-facet-precaches-its-own-weight.md) §5 (the one USDA artifact that record kept in the root leaves with the premise that kept it; the root now precaches none of the three, and §4, §3 and §7 are unrevised)
 
 ## Context
 
@@ -652,3 +653,70 @@ is worth saying, because §11's "directly under the mark" invites the reading th
 the same. The **14 px** that clause costs is the estimate the earlier geometry was priced at and
 this ticket did not re-measure it: the band's height is the primitive's own box, declared nowhere
 in this arc, so there is no second number to keep in step.
+
+## Amendment, 2026-09-28: the search index as built, and the second face that searches
+
+[#535](https://github.com/palebluebytes/inventoria/issues/535) built §13. The file is out of
+the root's precache, the `CacheFirst` rule is in its service worker, and the warm runs on
+entering a face rather than at boot. Six precisions, and the first is the one a reader of §13
+needs most.
+
+**1. §13's 981,462 B was already stale, and the drop is 812,123 B.** The file weighs
+**812,093 B**, not the figure §13 and the ticket both quote: that number came out of one
+paragraph of `precacheBytes`'s comment in `src/lib/facets/registry.ts`, and another paragraph
+of the same comment already recorded ADR-0103 and ADR-0104's consolidation taking it to
+812,920 B before this arc was charted. The root goes from **8,889,122 B over 43 URLs to
+8,076,999 B over 42** — not the "31 URLs to 30" §13 says, because #529 and #531 added eleven
+icon URLs after that clause was written. Rations loses **30 B**, which is code and not an
+artifact. Both figures are re-declared off one build, with the arithmetic that distinguishes
+a deleted declaration from a collapsed derivation, which is what §13 asked for.
+
+**2. The warm is two faces' and §13 counted one.** §13 warms "on entering the Rations face",
+and that was right about the food screen and blind to the other one: on the root, Recipes is a
+face of its own (§4), and a recipe reached through `AddIngredientSheet` mounts `FoodStager`,
+which searches the corpus. A reader who opened Recipes and nothing else would have met a
+~800 KB fetch inside their first ingredient search. So `warmUsdaCorpus()` is called from
+`FoodView`'s `onMount` **and** `RecipeLibrarySheet`'s, and the general rule the clause wanted
+is the one now written on the function: a face that can search food warms what it searches.
+On Rations both fire, because the library is one of the food screen's pages, and the second
+call costs nothing — the loads are memoised on success.
+
+**3. The warm left the Jar's errand list, which is the first member ever to.**
+`src/lib/facets/startup.ts` exists so a second entry point cannot miss an errand, and the
+warm qualified only while food was the landing screen of both Facets. What the departure
+leaves behind is the test of membership: an errand is the Jar's when a second entry point
+missing it would be a silent defect, and a fetch nobody asked for is not one.
+
+**4. A `urlPattern` function may close over nothing, and this shipped broken before it
+shipped.** `workbox-build` serialises a string `urlPattern` through `JSON.stringify` and a
+function one through `toString()`. Written the obvious way —
+`({ url }) => url.pathname === SEARCH_INDEX_URL`, reading the constant the app fetches through
+— it emitted a service worker whose route said `e.pathname===SEARCH_INDEX_URL` with that
+identifier bound to nothing: a `ReferenceError` raised inside workbox's matcher on the first
+request the router tried it against. The build was clean and every gate was green. It is a
+string pattern now, which workbox matches as an exact `url.href` against
+`new URL(pattern, location.href)`, so the leading slash is what makes one spelling right from
+`/sw.js` and from `/food/sw.js`.
+
+**5. The rule needed a gate, and the gate needed two readings.** §13's removal half is
+watched from both sides already — the declaration is a reviewable diff and ADR-0083 §3's floor
+fires on the weight, as it did here — and its replacement half was watched by nothing, with a
+failure that is silent and expensive rather than loud: the app runs, every search pays the
+origin, and offline search is gone. `pnpm check:facets` carries a fifth claim now
+(`checkSearchIndexRoute`), derived from each Facet's own `precache` declaration rather than
+named against the root. Its first form asserted the cache name alone and was **green over the
+broken build in §4**, so it asserts the URL as a literal in the file as well — on the Facet
+that gave the file up, since the other one carries it in its precache manifest and there it
+would prove nothing.
+
+**6. `maxAgeSeconds` is load-bearing, and the precache is why.** A precache entry carries a
+revision, so a deploy that regenerated the corpus replaced it. A runtime cache on a stable URL
+has no such mechanism: with no expiry, a device that cached the index once would hold those
+rows for the life of the install however many times the corpus was rebuilt under it. Thirty
+days is the ceiling the image cache already uses, and it bounds staleness rather than
+predicting a release cadence.
+
+**What was left alone.** A rule over `/usda/*.json` would have caught the Nutrient store too,
+and the root gave that up at ADR-0077 §5 — but 4 MB in a runtime cache is its own decision
+about what an install weighs after a week of use, and #307's sentence is the answer that
+record chose. §13 is about one file.
