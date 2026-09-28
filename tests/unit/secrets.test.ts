@@ -43,7 +43,9 @@ describe("secrets accessor", () => {
     setSecret("off_password", "hunter2");
     setSecret("tmdb_api_key", "T");
 
+    setSecret("model_route_key", "K");
     expect([...ls.store.keys()].sort()).toEqual([
+      "inventoria_secret_model_route_key",
       "inventoria_secret_off_password",
       "inventoria_secret_off_user_id",
       "inventoria_secret_tmdb_api_key",
@@ -87,6 +89,23 @@ describe("secrets accessor", () => {
     expect(getSecret("off_password")).toBe("");
   });
 
+  /**
+   * ADR-0115 §4.3, and the reason it is a test rather than a comment: *"be
+   * consistent with `tmdb_api_key`"* is the obvious wrong move, and
+   * `import.meta.env.VITE_*` is inlined into the bundle at build time. A dev's
+   * own TMDB key in their own build is theirs; a **shared operator secret**
+   * inlined ships to every visitor of the deployed site. This is the one secret
+   * where the fallback *is* the leak, so a future edit adding one fails here.
+   */
+  it("has no env fallback for the model route key, and must never get one", async () => {
+    stubLocalStorage();
+    vi.stubEnv("VITE_MODEL_ROUTE_KEY", "env-model-key");
+    vi.stubEnv("VITE_TMDB_API_KEY", "env-tmdb");
+    const { getSecret } = await freshModule(loadSecrets);
+
+    expect(getSecret("model_route_key")).toBe("");
+  });
+
   it("returns an empty string when neither localStorage nor env has a value", async () => {
     const [{ getSecret }] = await freshModuleWithStorage(loadSecrets);
 
@@ -108,6 +127,17 @@ describe("secrets accessor", () => {
     expect(get(secretsStore).tmdb_api_key).toBe("");
     setSecret("tmdb_api_key", "live-key");
     expect(get(secretsStore).tmdb_api_key).toBe("live-key");
+  });
+
+  // Both settings surfaces draw one module over this store, so a save on either
+  // has to show on the other without either knowing about it.
+  it("secretsStore reflects the model route key the same way", async () => {
+    const [{ secretsStore, setSecret }] =
+      await freshModuleWithStorage(loadSecrets);
+
+    expect(get(secretsStore).model_route_key).toBe("");
+    setSecret("model_route_key", "operator-secret");
+    expect(get(secretsStore).model_route_key).toBe("operator-secret");
   });
 });
 
