@@ -2,6 +2,7 @@
 
 **Status:** Accepted  
 **Date:** 2026-09-15  
+**Amended by:** [ADR-0111](0111-a-correction-is-another-datom-on-the-event-never-another-event.md) (the exclusion of corrections keeps its rule and changes its reason)  
 **Implemented:** [#440](https://github.com/palebluebytes/inventoria/issues/440) — `src/lib/food/reveal-logged.ts` (the arithmetic), `tests/unit/reveal-logged.test.ts` (the table), `src/lib/views/food/DailyDashboard.svelte` (the measuring and the scroll), `src/lib/views/FoodView.svelte` and the five sheets that report what they wrote
 
 ## Context
@@ -155,3 +156,29 @@ landed 181px down.
 it once it is there), a reveal for the row a Selection verb _changed_ rather than
 added, and any reveal on a day you are not looking at — logging onto another date
 is not something the ways in can currently do.
+
+## Amendment (ADR-0111 / #463): a correction still does not reveal, for a different reason
+
+This record excludes corrections from the reveal, and `DailyDashboard.svelte` gives
+the reason: "an amount edit, which retracts and replaces and **therefore** mints a
+fresh id for a row you were already looking at". ADR-0111 removes the premise. A
+correction now appends onto the event, so the id never changes.
+
+**The exclusion stands and the reason is replaced.** The right reason was never the
+fresh id — it is that **your attention is already on the row you just corrected**,
+and moving the page under a hand that has committed an edit is the thing these three
+rules exist to prevent. Rule 1 says as much for any row already inside the band; the
+exclusion says it for a row you are looking at whether or not the geometry agrees.
+
+**Note what would happen otherwise.** The reveal is keyed on a reported id appearing
+in `dayItems`, and after ADR-0111 the id is already there. A correction path that
+reported its id would fire the reveal _immediately_ rather than not at all — the
+failure mode inverts from "never" to "always", which is why this is worth an
+amendment rather than a comment.
+
+No behaviour changes: the correction paths report no ids today, and none should
+start.
+
+The tail's "not covered, and deliberately" list already named "a reveal for the row
+a Selection verb _changed_ rather than added". That entry is unaffected, and is now
+the same rule as this one rather than a neighbouring exception.

@@ -1,17 +1,8 @@
 <script lang="ts">
-  import { getLocalFoodTwin } from "../../stores/calorie.store";
   import {
+    recipePerServingNutrition,
     recipeTwinsStore,
-    seedRowsFromTemplate,
   } from "../../stores/recipe.store";
-  import {
-    toReferenceIngredient,
-    sourceFromIngredients,
-  } from "../../food/recipe-ingredient";
-  import {
-    deriveRecipeNutrition,
-    sanitizeYield,
-  } from "../../food/recipe-nutrition";
   import {
     roundFoodDisplay,
     type NutritionBreakdown,
@@ -26,10 +17,10 @@
   // each caller says what a pick means.
   //
   // What a row shows is not what a recipe stores. A twin holds bare ingredient
-  // refs (ADR-0021), so the per-serving figures are derived: fetch the twin,
-  // resolve its ingredients, run the shared `deriveRecipeNutrition`, exactly as
-  // the instantiation editor does. That is why the name appears at once and the
-  // macros line fills in behind it.
+  // refs (ADR-0021), so the per-serving figures are derived from the ledger by
+  // `recipePerServingNutrition`, exactly as the instantiation editor derives
+  // them. That is why the name appears at once and the macros line fills in
+  // behind it.
   let {
     onPick,
     emptyHint,
@@ -56,7 +47,26 @@
     return out;
   });
 
-  // Cached by entity (the `.has` guard) so re-opening the list doesn't refetch.
+  // Re-derived whole on every ledger change, and held by nothing in between
+  // (#488). This map used to be a cache keyed by entity, which is the one input
+  // to the figures that an edit leaves alone: amending a recipe's ingredients or
+  // its yield appended new datoms, the name above the macros updated from the
+  // store, and the macros line went on reporting what the recipe was worth when
+  // the list first rendered. The read it saved was never the one its comment
+  // claimed either — the map is component state, so re-opening the browser
+  // started it empty regardless.
+  //
+  // The map is replaced rather than filled in, so a row keeps its last figures
+  // until the new ones land instead of blanking. Rows resolve concurrently, and
+  // the effect reads nothing it writes, so a run settles rather than re-arming
+  // itself.
+  //
+  // It re-arms on ANY append, not only an edit of a recipe — a ledger store
+  // reloads on every invalidation, so logging a food while this is on screen
+  // re-derives the lot. That is affordable because of where the list is, not
+  // because the work is small: it is a handful of rows, and it is mounted only
+  // while somebody is looking at the recipe browser, which is not a surface the
+  // rest of the app writes underneath.
   let recipeNutrition = $state<Map<string, NutritionBreakdown | null>>(
     new Map()
   );
@@ -64,26 +74,11 @@
     const list = recipes;
     let cancelled = false;
     void (async () => {
-      const next = new Map(recipeNutrition);
-      let changed = false;
-      for (const r of list) {
-        if (next.has(r.entity)) continue;
-        let panel: NutritionBreakdown | null = null;
-        const twin = await getLocalFoodTwin(r.entity);
-        if (twin) {
-          const rows = await seedRowsFromTemplate(twin.attributes);
-          const refs = rows.map(toReferenceIngredient);
-          const resolve = (ref: string) => sourceFromIngredients(rows, ref);
-          const y = sanitizeYield(
-            (twin.attributes["recipe/yield"] as number) ?? 1
-          );
-          panel = deriveRecipeNutrition(refs, y, resolve);
-        }
-        if (cancelled) return;
-        next.set(r.entity, panel);
-        changed = true;
-      }
-      if (!cancelled && changed) recipeNutrition = next;
+      const panels = await Promise.all(
+        list.map((r) => recipePerServingNutrition(r.entity))
+      );
+      if (cancelled) return;
+      recipeNutrition = new Map(list.map((r, i) => [r.entity, panels[i]]));
     })();
     return () => {
       cancelled = true;

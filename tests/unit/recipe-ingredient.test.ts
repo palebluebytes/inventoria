@@ -4,6 +4,7 @@ import {
   nameFromIngredients,
   ingredientFromTwin,
   ingredientFromFood,
+  isImpromptuTwin,
   addOrMergeIngredient,
   parseLoggedQuantity,
   quantityLabel,
@@ -359,5 +360,52 @@ describe("quantityLabel", () => {
         unit,
       });
     }
+  });
+});
+
+// The absence of a name is the whole discriminant (ADR-0110 §1), asked of the
+// twin rather than of the event: since §3 an impromptu dish is labelled from
+// its own frozen snapshot, so a Consumption Event carries a label
+// indistinguishable from a typed name and cannot answer this.
+describe("isImpromptuTwin", () => {
+  const dressing = {
+    entity: "recipe:a1b2c3",
+    attributes: {
+      "recipe/ingredients": [{ ref: "fdc:olive_oil", amount: 30, unit: "g" }],
+      "recipe/yield": 1,
+    },
+  };
+
+  it("reads a twin with no name as one", () => {
+    expect(isImpromptuTwin(dressing)).toBe(true);
+  });
+
+  it("reads a twin that carries a name as a Recipe Twin", () => {
+    expect(
+      isImpromptuTwin({
+        ...dressing,
+        attributes: { ...dressing.attributes, "recipe/name": "House dressing" },
+      })
+    ).toBe(false);
+  });
+
+  // The library is `WHERE attribute = 'recipe/name'` and never reads the value,
+  // so a twin carrying an empty name is IN it. Reading that as nameless would
+  // put one twin in the library and on the screen that says it is not. No
+  // writer makes one — `saveRecipe` omits a blank name and `nameRecipe` refuses
+  // one — and this is what keeps the two readings agreeing if one ever arrives.
+  it("reads an empty name the way the library's query does", () => {
+    expect(
+      isImpromptuTwin({
+        ...dressing,
+        attributes: { ...dressing.attributes, "recipe/name": "" },
+      })
+    ).toBe(false);
+  });
+
+  // A twin that does not resolve is a different state — ADR-0110 §3 keeps
+  // `Unknown Food` for it — so it is not an Impromptu Recipe either.
+  it("is false for a twin that did not resolve", () => {
+    expect(isImpromptuTwin(null)).toBe(false);
   });
 });

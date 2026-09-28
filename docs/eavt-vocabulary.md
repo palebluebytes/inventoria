@@ -194,7 +194,7 @@ aubergine`, because several independent readers show a food's name and only one 
 - `density`: what kind of liquid the user says this food is, on a food published by
   volume. One atomic value naming which kind of answer it holds, so a class reads as
   `{ class: "oil" }` and a figure the user asserts reads as `{ g_per_ml: 1.2 }`
-  ([ADR-0108](adr/0108-a-volume-food-is-weighed-by-the-class-you-say-it-is.md) §4, as
+  ([ADR-0111](adr/0108-a-volume-food-is-weighed-by-the-class-you-say-it-is.md) §4, as
   amended). The figure is never stored beside the class: 0.92 is our reading of "this
   is an oil", and it resolves from the pinned table in `src/lib/food/density.ts` on
   every read, so a class figure that improves improves every food filed under it with
@@ -281,6 +281,20 @@ Nutrition panels on food-bearing twins (schema.org/NutritionInformation).
 Recipe twins (schema.org/Recipe).
 
 - `name`, `description`, `url`, `image`, `yield`.
+- `name` is **optional, and its absence is a value**
+  ([ADR-0110](adr/0110-an-impromptu-recipe-is-identified-by-its-ingredients-and-named-only-if-you-keep-it.md) §1).
+  A twin carrying one is a Recipe Twin and is in the recipe library, which is the query
+  `WHERE attribute = 'recipe/name'` and nothing else; one carrying none is an Impromptu
+  Recipe, a dish assembled on a day, labelled at render from its occasion's frozen
+  ingredient rows. So a writer with no name to write **omits the attribute** rather than
+  writing `""`: a blank would put the dish in the library while reading as a name-shaped
+  falsy value everywhere downstream. Appending a `name` later promotes the twin, reaching
+  every past occasion of it at once, and the entity id never moves. An Impromptu Recipe's
+  id is the one `recipe:` id that is **derived** rather than drawn: a digest of its sorted
+  ingredient `ref`s (§4), so assembling the same things again lands on the twin that
+  already exists instead of minting a rival holding the same facts. The refs alone go in:
+  amounts, units, yield and batch weight are the occasion, and are already frozen on the
+  event.
 - `instructions`: ordered HowToStep text.
 - `ingredients` **(reference)**: pure `{ ref, amount, unit }` references. Nutrition is
   derived, never stored.
@@ -379,9 +393,17 @@ Every logged Event.
 - `season`, `episode`, `review`, `pages_read`, `instrument_used`, `slot_id`,
   `metadata`.
 - `meal_type`: the **Meal Type**.
-- `replaced_by` **(reference)**: the correction link written when a logged event is
-  superseded, one `event:consume_` naming the `event:consume_` that corrected it
-  ([ADR-0022](adr/0022-recipe-instantiations-as-editable-snapshots.md)).
+- `replaced_by` **(reference)**: the **consumption link**, written when events are
+  consumed into one event, one `event:consume_` naming the `event:consume_` that
+  consumed it. Consolidating N logged foods into a recipe writes one onto each of
+  the N, all naming the same successor; that many-to-one shape is its only job.
+  **It is never written by a correction**, because a correction is another datom on
+  the event it corrects, so no id changes and there is nothing to link
+  ([ADR-0111](adr/0111-a-correction-is-another-datom-on-the-event-never-another-event.md),
+  which revises [ADR-0022](adr/0022-recipe-instantiations-as-editable-snapshots.md)).
+  The value is always an event and never a twin: a `recipe:` id here is a defect,
+  not a variant. Links written by corrections before ADR-0111 stay in the ledger and
+  stay readable.
 - `metrics`: the frozen breakdown scaled to the amount logged. The
   `{ calories, protein, fat, carbs }` headline plus every extra nutrient the food
   carried, each under its `nutrition/info` panel name such as `fiber_content` or

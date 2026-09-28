@@ -4,8 +4,8 @@
   import type { ConsumptionEvent } from "../../stores/calorie.store";
   import {
     logRecipeConsumption,
-    correctInstantiation,
-    seedRowFromRef,
+    correctOccasion,
+    seedOccasionRows,
     seedRowsFromTemplate,
   } from "../../stores/recipe.store";
   import {
@@ -38,8 +38,8 @@
   // twin). Either way the user tweaks amounts / adds / removes / adjusts yield,
   // then commit:
   //   • Instantiate → logs a Recipe Instantiation, retracts nothing (additive).
-  //   • Correct → appends a superseding instantiation and retracts the old
-  //     (retract-and-replace, ADR-0008).
+  //   • Correct → appends the re-derived snapshot onto the occasion it is
+  //     correcting; no id changes and nothing is retracted (ADR-0111 §1).
   // Its commit is driven by the host's shared dock: it exposes `requestSave` /
   // `saveReady`, mirroring ManualEntryFlow, and calls `onCommitted` on success.
   let {
@@ -162,22 +162,14 @@
   async function seed() {
     try {
       if (edit?.instantiation) {
-        const inst = edit.instantiation;
-        based_on = inst.based_on || edit.target || "";
+        based_on = edit.instantiation.based_on || edit.target || "";
         title = edit.foodName || "Recipe";
         seedWeightsFromEvent(edit);
-        const rows = await Promise.all(
-          inst.ingredients.map((r) =>
-            seedRowFromRef(r.ref, r.amount, r.unit, {
-              name: r.name,
-              calories: r.calories,
-              protein: r.protein,
-              fat: r.fat,
-              carbs: r.carbs,
-            })
-          )
-        );
-        openAtOneServing(rows, sanitizeYield(inst.yield || 1));
+        // The rows arrive already divided to one serving, so the yield the save
+        // commits at is 1 — `openAtOneServing`'s other half, which the shared
+        // read cannot set from here (`seedOccasionRows`).
+        recipeYield = 1;
+        ingredients = await seedOccasionRows(edit);
       } else if (template) {
         based_on = template.entity;
         title = template.attributes["recipe/name"] || "Recipe";
@@ -247,36 +239,37 @@
     status = "loading";
     error = "";
     try {
-      // Ingest each ingredient twin so it exists in the ledger (idempotent for
-      // ones that already do; needed for freshly-added custom ingredients).
-      for (const ing of ingredients) {
-        await dbClient.append(ingestEntity(ing.payload));
-      }
-      const refs = ingredients.map(toReferenceIngredient);
-      // Awaited here rather than read off the editor's own load, so a commit can
-      // never freeze a paired row's figures without the account of them: the
-      // rows and the envelopes are derived from one resolver (ADR-0113 §6).
-      // Nothing loads unless a row is actually paired.
-      const references = await referenceFoodsFor(ingredients);
-      const resolve = (ref: string) =>
-        sourceFromIngredients(ingredients, ref, references);
-      const resolveName = (ref: string) =>
-        nameFromIngredients(ingredients, ref);
       if (edit) {
-        // Correct: append a superseding instantiation, retract the old event.
-        await correctInstantiation(
+        // Correct: append the re-derived snapshot onto the occasion itself
+        // (ADR-0111 §1). It takes neither the meal nor the day — both are the
+        // event's own, and an append cannot move either. The ingest, the refs
+        // and the two resolvers are `correctOccasion`'s, shared with the fold
+        // the day opens on the same occasion (ADR-0022, amended 2026-09-17).
+        await correctOccasion(
           edit.id,
           based_on,
-          refs,
+          ingredients,
           yieldNum,
-          resolve,
-          resolveName,
-          meal_type,
-          selectedDate,
           occasionSize()
         );
         onCommitted();
       } else {
+        // Ingest each ingredient twin so it exists in the ledger (idempotent for
+        // ones that already do; needed for freshly-added custom ingredients).
+        for (const ing of ingredients) {
+          await dbClient.append(ingestEntity(ing.payload));
+        }
+        const refs = ingredients.map(toReferenceIngredient);
+        // Awaited here rather than read off the editor's own load, so a commit
+        // can never freeze a paired row's figures without the account of them:
+        // the rows and the envelopes are derived from one resolver (ADR-0113
+        // §6). Nothing loads unless a row is actually paired. The correction
+        // above asks the same question inside `correctOccasion`.
+        const references = await referenceFoodsFor(ingredients);
+        const resolve = (ref: string) =>
+          sourceFromIngredients(ingredients, ref, references);
+        const resolveName = (ref: string) =>
+          nameFromIngredients(ingredients, ref);
         // Instantiate: purely additive — log and retract nothing.
         const logged = await logRecipeConsumption(
           based_on,

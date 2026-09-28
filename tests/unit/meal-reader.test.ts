@@ -440,6 +440,31 @@ describe("a reference that does not resolve inside the payload", () => {
 
     expect(refusal(payload).lineNumber).toBe(2);
   });
+
+  /**
+   * The acceptance is the point, and it is why there is no ninth refusal
+   * (#427, ADR-0105's third Amendment).
+   *
+   * Completeness is recomputed from `referencesOf`, so an attribute holding an
+   * entity id that `referencesOf` does not read is invisible to the refusal
+   * above and lands on a twin verbatim. #427 proposed refusing exactly those
+   * the registry marks `(reference)`. This test is the argument against: the
+   * row below is indistinguishable in kind from a marked one and would still
+   * be accepted, so the rule would constrain nobody — our own builder cannot
+   * emit either, and a sender who is not our builder picks the unmarked name.
+   * The decision is taken at coining time instead, in `meal-payload.test.ts`.
+   *
+   * If a ninth refusal is ever added, this fails, and that is the wiring: it
+   * fails pointing at the argument rather than at a number.
+   */
+  it("accepts an unmarked attribute whose value never travelled", () => {
+    const payload = payloadOf(
+      ["event:consume_a"],
+      [...oneFoodMeal(), row("fdc:1", "food/derived_from", "fdc:never_sent")]
+    );
+
+    expect(readMealPayload(payload).rows).toHaveLength(4);
+  });
 });
 
 // ---------------------------------------------------------------------------

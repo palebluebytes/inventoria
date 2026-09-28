@@ -4,8 +4,8 @@
   import WayOutIcon from "./WayOutIcon.svelte";
   import SelectionVerbIcon from "./SelectionVerbIcon.svelte";
 
-  // The Selection bar (ADR-0088 §2): the strip a long-press raises at the foot
-  // of the Food screen. `✕ · [scale][move][hand off][recipe]`.
+  // The Selection bar (ADR-0088 §2, amended): the strip a long-press raises at
+  // the foot of the Food screen. `✕ · [scale][move][hand off][combine][recipe]`.
   //
   // Three rules here are load-bearing rather than stylistic:
   //
@@ -24,6 +24,13 @@
   //   and the hand-off is `WayOutIcon` verbatim for the same reason: a
   //   Selection's Way out is the day's Way out at a third scale (ADR-0084).
   //
+  //   The two dish verbs stand together, and the fifth mark is what tightened
+  //   the gaps. Combine and Recipe are one act reached two ways — one tap, or
+  //   the builder — so they sit adjacent with the builder last, under the thumb,
+  //   where it has always been. Five 48px targets no longer clear 360px at the
+  //   old `--space-2xs` gap; `.sb-verbs` below spends `--space-3xs` instead,
+  //   which buys 20px and touches no target (ADR-0088's 2026-09-17 amendment).
+  //
   // `tier` is the Scale expansion (§5). It renders above the main row so the ✕
   // and the verbs stay on screen while it is open.
   let {
@@ -34,6 +41,7 @@
     onHandOff,
     onScale,
     onMove,
+    onCombine,
     onRecipe,
     tier,
   }: {
@@ -51,6 +59,8 @@
     onHandOff: () => void;
     onScale: () => void;
     onMove: () => void;
+    /** One-tap Consolidate: no builder, no name (ADR-0110 §1). */
+    onCombine: () => void;
     onRecipe: () => void;
     tier?: Snippet;
   } = $props();
@@ -98,6 +108,18 @@
         aria-haspopup="dialog"
         aria-label="Hand over {subject}"
         onclick={onHandOff}><WayOutIcon /></button
+      >
+      <!-- Consolidate in one tap: the foods become one unnamed dish on the day,
+           which is the same act the builder beside it performs with a form in
+           front of it (ADR-0110 §4). It is not `primary`, because two green
+           marks side by side would be two recommendations where there is one
+           act; the builder keeps the weight it shipped with. -->
+      <button
+        type="button"
+        class="sb-verb"
+        data-testid="selection-combine"
+        aria-label="Combine {subject} into one dish"
+        onclick={onCombine}><SelectionVerbIcon kind="consolidate" /></button
       >
       <!-- The id is a shipped DOM contract: the recipe e2e locates it. -->
       <button
@@ -180,7 +202,16 @@
   .sb-verbs {
     display: flex;
     align-items: center;
-    gap: var(--space-2xs);
+    /* One step down from the bar's own `--space-2xs`, and the whole of what the
+       fifth verb cost. At the 360px floor — where one rem is 18px, since
+       `:root`'s own font-size is `--step-0` — the bar's padding leaves 319.5px
+       of content box, and the ✕ (a 48px target pulled 15.2px back into that
+       padding) plus five marks plus the gaps between them come to 303.2px at
+       this step and 323.4px at the last one, where `.sb-main`'s `flex-wrap`
+       would drop the verbs onto a second row. Gaps shrink, targets do not: 48px
+       is ADR-0089 §3's floor and no verb here is under it.
+       `selection-bar.test.ts` measures all three numbers out of this file. */
+    gap: var(--space-3xs);
     margin-left: auto;
   }
 

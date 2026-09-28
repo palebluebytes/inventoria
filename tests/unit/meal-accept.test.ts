@@ -424,6 +424,77 @@ describe("the recipient's own clock (ADR-0073 §7)", () => {
   });
 });
 
+/**
+ * Why this is asserted at all, when no attribute needs it today (#427).
+ *
+ * §5's re-mint is usually read as being about the *id*: a derived one, so a
+ * second accept absorbs rather than duplicates. It buys a second thing nothing
+ * stated, and a ticket was opened on the strength of the gap — a root's own
+ * datoms are **never written**. The rows are read, folded and re-logged through
+ * `copyPastMeal`'s fixed field set, so an attribute outside that set reaches the
+ * fold, reaches the re-log, and stops there.
+ *
+ * That is what makes the completeness refusal's blind spot unreachable from a
+ * meal. `referencesOf` does not read `event/replaced_by`, so a payload carrying
+ * one passes every guard the reader has — and then lands nothing, because the
+ * entity holding it is a root. The refusal has a hole and the re-mint covers it,
+ * which is a thing worth knowing about and a thing worth being told when it
+ * stops being true.
+ *
+ * **It is the field set that is load-bearing, and it is not obviously so.**
+ * Widening `copyPastMeal` to carry one more frozen field is an ordinary change
+ * to make for an ordinary reason, and it would reopen the hole silently. This
+ * fails instead.
+ */
+describe("a root's own rows never reach the ledger (ADR-0073 §5)", () => {
+  /** A meal whose root carries a reference the closure does not walk (#427). */
+  function mealWithDanglingLink(): ReceivedMealPayload {
+    const meal = oneFoodMeal();
+    return payloadOf(
+      [
+        ...meal.rows,
+        row("event:consume_src", "event/replaced_by", "event:consume_gone"),
+      ],
+      meal.roots
+    );
+  }
+
+  it("writes datoms for the twins and for nothing else", async () => {
+    const { seams, appended } = seamsOver();
+    await acceptMealPayload(mealWithDanglingLink(), VIEWED_DAY, seams);
+
+    const written = new Set(appended.flat().map((datom) => datom.entity));
+    expect([...written]).toEqual(["fdc:1001"]);
+  });
+
+  it("lands nothing under the root's id, nor under the id it is re-minted to", async () => {
+    const { seams, appended } = seamsOver();
+    await acceptMealPayload(mealWithDanglingLink(), VIEWED_DAY, seams);
+
+    expect(landedAttributes(appended, "event:consume_src")).toEqual({});
+    expect(
+      landedAttributes(appended, await receivedEventId("event:consume_src"))
+    ).toEqual({});
+  });
+
+  it("carries the unwalked reference as far as the re-log, and no further", async () => {
+    const { seams, appended, logged } = seamsOver();
+    await acceptMealPayload(mealWithDanglingLink(), VIEWED_DAY, seams);
+
+    // The fold does read it — this is the half that would look like a bug if
+    // the guarantee were mistaken for "the reader dropped it".
+    expect(logged[0].items[0].replaced_by).toBe("event:consume_gone");
+    // And the re-log's field set is where it dies. Named as an attribute rather
+    // than as a count, so widening the set fails here saying which one arrived.
+    expect(
+      appended
+        .flat()
+        .map((datom) => datom.attribute)
+        .filter((attribute) => attribute.startsWith("event/"))
+    ).toEqual([]);
+  });
+});
+
 describe("rebuilding what was left off the wire (ADR-0073 §3)", () => {
   it("rebuilds an fdc: twin's provenance from the bundle it already holds", async () => {
     const { seams, appended } = seamsOver();

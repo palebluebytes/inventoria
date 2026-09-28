@@ -20,6 +20,7 @@ import {
   rulesOf,
   decl,
   ruleOf,
+  tokenPx,
   bandFallbacksIn,
   viewportUnitsIn,
 } from "./support/stylesheet";
@@ -32,6 +33,7 @@ const props = {
   onHandOff: noop,
   onScale: noop,
   onMove: noop,
+  onCombine: noop,
   onRecipe: noop,
 };
 
@@ -51,24 +53,27 @@ describe("the Selection bar", () => {
 
   it("still names the size of the Selection to a screen reader", () => {
     // Nothing is drawn, so the count has to survive on the verbs themselves —
-    // otherwise the bar offers four unlabelled acts on an unstated number.
+    // otherwise the bar offers five unlabelled acts on an unstated number.
     const many = render(SelectionBar, { props }).body;
     const one = render(SelectionBar, { props: { ...props, count: 1 } }).body;
 
     expect(many).toContain('aria-label="Scale these 3 foods"');
     expect(many).toContain('aria-label="Hand over these 3 foods"');
+    expect(many).toContain('aria-label="Combine these 3 foods into one dish"');
     expect(one).toContain('aria-label="Scale this food"');
     expect(one).toContain('aria-label="Hand over this food"');
+    expect(one).toContain('aria-label="Combine this food into one dish"');
   });
 
   it("puts the ✕ ahead of the verbs", () => {
     const { body } = render(SelectionBar, { props });
-    const [dismiss, scale, move, handOff, recipe] = order(
+    const [dismiss, scale, move, handOff, combine, recipe] = order(
       body,
       "selection-dismiss",
       "selection-scale",
       "selection-move",
       "selection-hand-off",
+      "selection-combine",
       "selection-recipe"
     );
 
@@ -76,7 +81,10 @@ describe("the Selection bar", () => {
     expect(dismiss).toBeLessThan(scale);
     expect(scale).toBeLessThan(move);
     expect(move).toBeLessThan(handOff);
-    expect(handOff).toBeLessThan(recipe);
+    // The two consolidation verbs stand together, the builder last and under the
+    // thumb where it shipped (the Amendment of 2026-09-17).
+    expect(handOff).toBeLessThan(combine);
+    expect(combine).toBeLessThan(recipe);
   });
 
   it("carries the hand-off as a verb, opening the Selection's panel", () => {
@@ -94,13 +102,31 @@ describe("the Selection bar", () => {
   it("draws its verbs rather than writing them, and keeps no emoji", () => {
     const { body } = render(SelectionBar, { props });
 
-    // Four marks, two of them borrowed whole: WayInIcon's pot retired the 🍲,
+    // Five marks, two of them borrowed whole: WayInIcon's pot retired the 🍲,
     // and WayOutIcon is the day's Way out at a third scale.
     expect(body).not.toContain("🍲");
     expect(body).toMatch(/data-testid="selection-scale"[\s\S]*?<svg/);
     expect(body).toMatch(/data-testid="selection-move"[\s\S]*?<svg/);
     expect(body).toMatch(/data-testid="selection-hand-off"[\s\S]*?<svg/);
+    expect(body).toMatch(/data-testid="selection-combine"[\s\S]*?<svg/);
     expect(body).toMatch(/data-testid="selection-recipe"[\s\S]*?<svg/);
+  });
+
+  it("makes one recommendation, not two, of the act reached two ways", () => {
+    const { body } = render(SelectionBar, { props });
+
+    // Combine and the builder run the same sequence, so only one of them may
+    // carry the bar's single `primary` fill — and it stays on the mark that has
+    // held it since the bar shipped.
+    const primaries = [...body.matchAll(/data-testid="(selection-[a-z-]+)"/g)]
+      .map((m) => m[1])
+      .filter((id) =>
+        new RegExp(`class="[^"]*primary[^"]*"[^>]*data-testid="${id}"`).test(
+          body
+        )
+      );
+
+    expect(primaries).toEqual(["selection-recipe"]);
   });
 
   it("keeps `#build-recipe-btn`, which the recipe e2e locates by id", () => {
@@ -141,10 +167,10 @@ describe("the Selection bar", () => {
 });
 
 /**
- * The bar draws its four verbs from three different components, each carrying
+ * The bar draws its five verbs from three different components, each carrying
  * its own size. They sit in one row, so a mark drawn larger than its neighbours
- * reads as two verbs weighted above the other two — which is what shipped when
- * the hand-off joined a pair that had been alone.
+ * reads as a verb weighted above the others — which is what shipped when the
+ * hand-off joined a pair that had been alone.
  *
  * Read out of the `<style>` block only, and with CSS comments stripped, so a
  * sentence mentioning a size cannot satisfy or break this.
@@ -167,6 +193,67 @@ describe("the bar's verb marks", () => {
     ];
 
     expect(new Set(sizes).size).toBe(1);
+  });
+});
+
+/**
+ * The fifth verb has to fit (ADR-0088 §2, amended 2026-09-17).
+ *
+ * The finding that shaped §2 is a width one — labelled verbs do not fit at
+ * 360px — so a mark added to this row is an arithmetic claim before it is a
+ * design one. `.sb-main` wraps, which means the failure is not an overflow
+ * anybody would notice in a screenshot: the verbs drop onto a second row and the
+ * bar quietly doubles in height at the one width with the least to spare.
+ *
+ * Read from the file, so the numbers move when the CSS does.
+ */
+describe("the bar's verbs at the 360px floor", () => {
+  const FILE = "src/lib/views/food/SelectionBar.svelte";
+  const FLOOR = 360;
+  const MARKS = 5;
+
+  // Every token here is declared in rem, and `:root`'s own font-size is
+  // `--step-0` — so one rem at this width is `--step-0`'s floor (18px), not the
+  // initial 16px `tokenPx` resolves a `clamp()` against. `--tap-min` is a flat
+  // px and is read as it stands.
+  const REM = tokenPx("--step-0");
+  const fluid = (name: string) => (tokenPx(name) / 16) * REM;
+
+  /** What the bar's one row needs, against what the floor gives it. */
+  const measure = (verbGap: string) => {
+    const pad = fluid("--space-s");
+    const tap = tokenPx("--tap-min");
+    return {
+      available: FLOOR - 2 * pad,
+      // The ✕ is a full target pulled back into the bar's own padding, then the
+      // main gap, then the marks and the gaps between them.
+      needed:
+        tap -
+        (pad - fluid("--space-3xs")) +
+        fluid("--space-2xs") +
+        MARKS * tap +
+        (MARKS - 1) * fluid(verbGap),
+    };
+  };
+
+  it("spends the smaller step between the marks", () => {
+    const gap = decl(ruleOf(FILE, ".sb-verbs"), "gap");
+
+    expect(gap).toBe("var(--space-3xs)");
+  });
+
+  it("clears the floor at the gap it ships", () => {
+    const { available, needed } = measure("--space-3xs");
+
+    expect(needed).toBeLessThanOrEqual(available);
+  });
+
+  it("would not clear it at the step the bar used for four", () => {
+    // The tightening is what bought the verb, not a tidy-up alongside it: put
+    // the old gap back and the row no longer fits.
+    const { available, needed } = measure("--space-2xs");
+
+    expect(needed).toBeGreaterThan(available);
   });
 });
 

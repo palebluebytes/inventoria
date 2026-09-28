@@ -528,6 +528,14 @@ describe("the reference attributes the registry marks", () => {
    * instead of a sentence nothing checks, which is the failure ADR-0078 §8 is
    * about, one level up.
    *
+   * And admissible only where the **holder** is not a prefix a meal carries
+   * (#427, ADR-0105's third Amendment). A twin's rows land attribute-verbatim,
+   * so a marked-but-unwalked reference held by one would land on a recipient's
+   * ledger naming an entity their jar never held; a root's rows are re-minted
+   * and never land at all, which is why the criterion reads the holder and not
+   * the target. Both current entries clear it — `event:consume_` and `habit:`
+   * are neither of them twin prefixes.
+   *
    * Neither is a closure edge either: a meal crosses as it stands, not as the
    * corrections that produced it (ADR-0073 §1).
    */
@@ -598,6 +606,52 @@ describe("the reference attributes the registry marks", () => {
         ownerOfEntity(to)?.id,
         `${attribute} points out of its domain`
       ).toBe(holder?.id);
+    }
+  });
+
+  /**
+   * Targets a reference may name without the recipient needing a fact of it: an
+   * `fdc:` id is the name of a row in the corpus the app SHIPS, minted from that
+   * row (`mapIndexRowToPayload`) rather than from anything a device did. Every
+   * reader already knows it is not a ledger fact — `ledger-foods.ts` skips an
+   * `fdc:` target where it reads every other one — so a recipient resolves it
+   * against their own copy of the corpus, or fails to and loses a live panel
+   * widening rather than a fact the meal carried (ADR-0113 §7).
+   *
+   * It is a list rather than a predicate because the exemption is the thing to
+   * keep small: a second prefix arriving here is a claim that a reference can be
+   * resolved off the ledger, which is the claim below is about.
+   */
+  const RESOLVED_OFF_THE_LEDGER = ["fdc:"];
+
+  /**
+   * The criterion #427 settled on, and the reason there is no ninth receive
+   * refusal: the decision about a marked-but-unwalked reference is taken here,
+   * in this repo, at the moment somebody coins one — not months later on
+   * somebody else's device, where a rule keyed on the mark would refuse a
+   * marked dangling reference and accept an identical unmarked one
+   * (`meal-reader.test.ts` asserts that acceptance).
+   *
+   * **The criterion gained its one exemption where #427 met ADR-0113.** As
+   * written it asked only about the HOLDER, using "a meal carries this twin" as
+   * a proxy for "the target will be missing". The proxy is exact for a target
+   * that is a ledger entity and wrong for one that is not: both pairing
+   * attributes are held by a twin a meal carries and point at a corpus row, so
+   * the blunt form refuses a reference that cannot dangle. What it still refuses
+   * — and what makes the exemption narrow rather than a hole — is a named
+   * reference into the LEDGER from a carried twin, which is every case #427
+   * measured.
+   */
+  it("refuses a named reference held by a prefix a meal carries, unless its target is not a ledger fact", () => {
+    for (const [attribute, [from, to]] of Object.entries(
+      RESOLVES_IN_ITS_OWN_DOMAIN
+    )) {
+      if (!MEAL_TWIN_PREFIXES.some((prefix) => from.startsWith(prefix)))
+        continue;
+      expect(
+        RESOLVED_OFF_THE_LEDGER.some((prefix) => to.startsWith(prefix)),
+        `${attribute} is held by a twin a meal carries and names a ledger entity, so it would land dangling`
+      ).toBe(true);
     }
   });
 

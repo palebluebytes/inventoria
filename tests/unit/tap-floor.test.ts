@@ -977,6 +977,51 @@ describe("the floor, swept", () => {
    * the floor and a box declaring none reads as unbounded. So these two boxes
    * leaving the count is the smaller half of #390; the larger half is 69 call
    * sites gaining a floor this file was never able to check.
+   *
+   * It rose 133 → 135 at #462, by the Occasion fold's two action buttons —
+   * `LoggedRecipeFold`'s `button.fold-act` and the `.muted` one beside it,
+   * measured off the sweep rather than counted by hand. They are two keys and
+   * not one because this file keys a box by the element's own name, and the
+   * second wears a class the first does not.
+   *
+   * **Then the same ticket moved `drawn` 26 → 25 and left `declared` where it
+   * was, which is one box becoming shared and one box becoming honest.** The
+   * fold's "Add ingredient" took the dashed shape the recipe builder's has, and
+   * the two are now `AddIngredientButton` — so `IngredientListEditor`'s
+   * `button.add` leaves the sweep, the fold's `.fold-act.muted` key leaves with
+   * the class, and one key arrives at the new component. The arithmetic is
+   * −1 drawn, −1 declared, +1 declared.
+   *
+   * The box that left was `drawn` and the one that replaced it is `declared`,
+   * and that is the trade worth naming. The builder's add cleared the floor on
+   * `--space-s` padding around a bold line — true, and true only until somebody
+   * edits the padding. The shared one says `min-height: var(--tap-min)`, so the
+   * two surfaces that draw it cannot drift apart and neither can drift under the
+   * floor. `drawn` falling is this file's preferred direction.
+   *
+   * **Both figures then held across a third move in the same ticket, and the
+   * population under them did not.** The fold's remaining text control left the
+   * fold for the parent row, where it is the recipe mark that opens the occasion
+   * itself: `LoggedRecipeFold`'s `button.fold-act` out, `DailyDashboard`'s
+   * `button.occasion-btn` in, both `declared`, so 135 stayed 135. A total that
+   * does not move is not evidence that nothing did, which is the whole reason
+   * this file is swept rather than counted — the keys were diffed, not the
+   * number.
+   *
+   * **What did NOT arrive is the point of that ticket's second pass.** The
+   * fold's ingredient rows draw the day's own `FoodItemRow`, so they are counted
+   * once at `ui/Row` and never per call site. The first build drew its own line
+   * instead — an amount box in a button, a ✕ beside it — which would have put
+   * two more keys here wearing two more hand-written floors, in a file whose
+   * whole argument is that a copy is a fix that can be missed. A row shape
+   * borrowed is a box this sweep never has to keep level.
+   *
+   * A word on when it arrived, because it is the docblock's own warning made
+   * flesh a second time: these two boxes were invisible while
+   * `LoggedRecipeFold.svelte` was untracked, exactly as `DensityQuestion`'s
+   * `input.typed-num` was at #430. The suite passed at 133 with the fold on
+   * screen and its buttons unread. `trackedSvelteFiles` is the population, so a
+   * new control joins this census at `git add` and not before.
    */
   it("carries most of them on a declared floor, not on arithmetic", () => {
     const how = { declared: 0, drawn: 0, sanctioned: 0 };
@@ -999,12 +1044,19 @@ describe("the floor, swept", () => {
     // not overlap, so the text merged clean at a figure neither of them meant;
     // the two added boxes were read off the sweep rather than arithmetic.
     //
-    // 133 → 136 at #519, and these three are one box each on the Pack pairing
-    // line `FoodCard` draws under a scanned pack (ADR-0113 §1): `.pair`, the
-    // offer; `.paired`, the reference food it is paired with, which re-opens the
-    // search; and `.pairing-clear`, the ✕ beside it. All three declare the
-    // floor, and the ✕ declares the width too, because it holds a single mark.
-    expect(how).toEqual({ declared: 136, drawn: 26, sanctioned: 6 });
+    // **135 → 138 where #519 met #462**, and the two moves are disjoint: the
+    // Pack pairing line `FoodCard` draws under a scanned pack is three boxes
+    // (ADR-0113 §1) — `.pair`, the offer; `.paired`, the reference food it is
+    // paired with, which re-opens the search; and `.pairing-clear`, the ✕ beside
+    // it. All three declare the floor, and the ✕ declares the width too, because
+    // it holds a single mark. `drawn` stays where the Occasion fold left it: the
+    // pairing line draws no box on arithmetic.
+    //
+    // Re-measured rather than added. The two branches carried 136 and 135 over a
+    // shared 133, and 138 is what the sweep answers — which is the check worth
+    // having, because two disjoint moves summing is a claim about the keys and
+    // not about the total.
+    expect(how).toEqual({ declared: 138, drawn: 25, sanctioned: 6 });
     // Every box lands in exactly one column. Without this the two figures above
     // could both be right while a box fell out of the sweep between them.
     expect(how.declared + how.drawn + how.sanctioned).toBe(SWEEP.groups.size);

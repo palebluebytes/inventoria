@@ -38,7 +38,75 @@ function loggedFood(
   ];
 }
 
+/**
+ * A dish somebody consolidated without naming it (ADR-0110). Its twin carries
+ * ingredients and no `recipe/name`, and the event carries the frozen
+ * instantiation the label is read off.
+ */
+function loggedDish(
+  id: string,
+  twin: string,
+  names: string[],
+  calories: number,
+  time: number
+): LedgerRow[] {
+  return [
+    row(id, "event/type", "ConsumeAction", { time }),
+    row(id, "event/target", twin, { time }),
+    row(id, "event/quantity", "1 serving", { time }),
+    row(id, "event/meal_type", "dinner", { time }),
+    row(id, "event/metrics", { calories }, { time }),
+    row(
+      id,
+      "event/instantiation",
+      {
+        based_on: twin,
+        yield: 1,
+        ingredients: names.map((name, i) => ({
+          ref: `fdc:${2000 + i}`,
+          name,
+          amount: 10,
+          unit: "g",
+          calories: 10,
+        })),
+      },
+      { time }
+    ),
+    row(
+      twin,
+      "recipe/ingredients",
+      names.map((_, i) => ({ ref: `fdc:${2000 + i}`, amount: 10, unit: "g" })),
+      { time }
+    ),
+  ];
+}
+
 describe("a payload read as the meal it is", () => {
+  // ADR-0110 §6: an Impromptu Recipe has no name to lose on the wire, so the
+  // rule that discards a payload's lines for an entity the recipient already
+  // holds is free for it. What it must not do is arrive unreadable: the one
+  // narrowing between the panel and the day drops an item with no `foodName`,
+  // so a dish nobody named would be shown and then silently not landed.
+  it("lands a dish nobody named, labelled by its ingredients", () => {
+    const meals = readReceivedMeals(
+      payloadOf(
+        loggedDish(
+          "event:consume_d",
+          "recipe:deadbeef",
+          ["Olive oil", "Lemon", "Mustard"],
+          212,
+          EATEN_AT
+        ),
+        ["event:consume_d"]
+      )
+    );
+
+    expect(meals).toHaveLength(1);
+    expect(meals[0].items.map((item) => item.foodName)).toEqual([
+      "Olive oil, Lemon, Mustard",
+    ]);
+  });
+
   it("is the meal the sender logged, in the meal type they logged it in", () => {
     const meals = readReceivedMeals(
       payloadOf(

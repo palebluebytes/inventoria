@@ -3,7 +3,7 @@
 **Status:** Accepted  
 **Date:** 2026-09-02  
 **Amends:** [ADR-0074](0074-sending-is-the-meals-own-numbers-and-receiving-has-no-door.md) (§3's "the same control at two scales" becomes three: an arbitrary selection of logged foods gains a nutrition panel, and the Way out sits in it)  
-**Amended by:** [ADR-0101](0101-the-ways-into-a-day-are-one-bar-anchored-where-the-hand-is.md) §4 (§3's "owns the foot of the screen" becomes "owns one slot": the foot of the band on a phone, the head of the day's column above 768)  
+**Amended by:** [ADR-0101](0101-the-ways-into-a-day-are-one-bar-anchored-where-the-hand-is.md) §4 (§3's "owns the foot of the screen" becomes "owns one slot": the foot of the band on a phone, the head of the day's column above 768); [ADR-0111](0111-a-correction-is-another-datom-on-the-event-never-another-event.md) (§8's move stops being the exception, and the 2026-09-02 scaled-row amendment keeps one of its two reasons)  
 **Implemented:** #321, #322 `ed47e35` (`SelectionBar.svelte`, `ScaleTier.svelte`, `SelectionVerbIcon.svelte`, the Provisional figure in `FoodItemRow.svelte`), #323 `569c482` (`moveLoggedFoodsToMeal`, `MoveMealSheet.svelte`), #324 `faa7221` (`MealNutritionPanel` becomes `LoggedFoodsPanel`)
 
 ## Context
@@ -427,3 +427,86 @@ returned never said _which_ food failed, so no caller could act on the
 distinction. The genuine per-food case survives untouched, because it is not a
 failure: a food already at the destination is decided before the write and is
 reported as moved even when the append fails, since it was never part of it.
+
+## Amendment (ADR-0111 / #463): a move was the rule all along, and the release keeps one reason of two
+
+**§8 is right about what it did and wrong about why it was unusual.** It appends
+one `event/meal_type` datom onto the existing event, keeps the id, and says this
+"departs on purpose from every other edit in `calorie.store.ts`, which re-logs and
+retracts". After ADR-0111 every correction does what a move does, so a move is not a
+departure; it is the first instance of the rule.
+
+The line §8 drew — "a move corrects a fact about one event and re-derives no
+numbers" — was also not the line. Re-deriving numbers produces a new **value** for
+`event/metrics`, and storing a new value for an attribute is an append. Every other
+reason §8 gave for keeping the id held for an amount correction word for word, which
+is how #463 started. The real line is arity: 1 → 1 appends, and only N → 1
+consolidation mints an event, because it is the only act with no single entity to
+append onto.
+
+**The 2026-09-02 amendment "a scaled row lets go as its own write lands" keeps its
+rule and loses half its argument.** It gave two reasons for ending the Selection on
+a scale. The first — "the Selection it kept was of foods nobody picked", because "a
+scale is a retract-and-replace: every event in the Selection is retracted and a new
+one minted" — stops being true. After ADR-0111 nothing is retracted, no successor
+exists, and the events the person chose are still exactly the events they chose.
+
+**The second reason stands and is now load-bearing on its own:** applying and
+cancelling must not look identical, and the release is the acknowledgement that a
+write happened. So is the older reason CONTEXT.md states without reference to
+retraction at all — a Selection is the subject of a verb, and a verb that has run
+has no subject left.
+
+**Scale therefore keeps clearing.** Keeping it would make Scale the only verb that
+survives itself, and repeated scaling would compound in silence: `×2` twice is `×4`,
+with nothing on screen saying so. `scaleLoggedFoods` could now hand back the ids it
+wrote, since they are the ids it was given; it should still return a count, because
+nothing should want them.
+
+The narrowed rule from that amendment — "a verb that only re-files or copies the
+foods keeps the Selection; a verb that rewrites or consumes them ends it" — is
+unchanged, and its worked examples still land in the same places.
+
+## Amendment (2026-09-17): consolidating is one tap, and the bar carries five marks
+
+§2's shape becomes `✕ · [scale][move][hand off][combine][recipe]`. The new mark
+consolidates the Selection where it stands: the foods become one **Impromptu
+Recipe** on the day, with no sheet, no form and no name.
+
+**It is not a new verb.** Consolidate has been on this bar since §2 was written;
+what it lacked was a way to reach it without answering for a template first.
+ADR-0110 removed the thing that made the sheet compulsory — a twin with no name
+is complete, identified by its ingredients, and stays out of the library — so the
+builder now stands between the user and an act that no longer needs a decision
+from them. Both marks run the same sequence (`consolidateIntoRecipe`), and what
+the builder adds is fields rather than behaviour: a name if you want one, notes,
+steps, an image, a yield, a batch weight.
+
+**So the two stand together, and the builder keeps the weight.** Combine sits
+immediately left of Recipe, and only Recipe is `primary`. Two green marks side by
+side would be two recommendations where there is one act, and the mark under the
+thumb is the one that has been there since the bar shipped.
+
+**The fifth mark is paid for out of the gaps, not the targets.** At the 360px
+floor the bar's padding leaves 319.5px of content box; the `✕` (48px, pulled
+15.2px back into that padding) plus five 48px marks plus the gaps between them
+come to 323.4px at `--space-2xs` and 303.2px at `--space-3xs`. `.sb-verbs`
+therefore spends the smaller step. The alternative was `.sb-main`'s `flex-wrap`
+dropping the verbs onto a second row, which is the bar growing to two rows at the
+one width where the day has the least of them to spare. No target moves: 48px is
+ADR-0089 §3's floor and every verb here still meets it. The 2026-09-02
+amendment's arithmetic — "four marks and a `✕` measure 220px of the 360px floor
+before gaps" — was taken at the 44px target this app no longer uses, and is
+restated here at 48px rather than corrected there.
+
+**A failure keeps the Selection, and a repeat is safe.** The sequence is four
+appends and nothing rolls back, so a throw part-way leaves facts rather than a
+half-built dish, and the bar keeps its foods so the run can be repeated — which
+is §10's rule, unchanged. Running it again is not a second dish: the id is
+derived from the sorted ingredient refs (ADR-0110 §4), so the repeat lands on the
+same twin and logs a second occasion of it.
+
+**What it does not get is an undo.** Nothing in this app has one, and the
+recovery is the one the model already offers: the sources are retracted rather
+than deleted, the dish is a complete record of what was made, and a dish made by
+accident costs a name nobody types.
