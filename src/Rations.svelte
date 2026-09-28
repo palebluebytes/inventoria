@@ -5,9 +5,11 @@
   import {
     faceOf,
     facesOf,
+    shownFaces,
     type Facet,
     type FaceId,
   } from "./lib/facets/registry";
+  import { hiddenFaces } from "./lib/stores/device-settings";
   import {
     takeCodeHandover,
     takeReceiveLink,
@@ -91,7 +93,14 @@
   // Reports is a page and **not** a face, so it maps back to Rations: a reader
   // on the Reports page is still standing on the Rations face, and the tile that
   // is inverted says so.
-  const faces = $derived(facesOf(facet));
+  // **Minus what this device has hidden** (ADR-0114 §10), off the same one key
+  // the root reads: a face this person has tidied out of the grid is tidied out
+  // of both switchers, because the preference is about the device rather than
+  // about the install. Two of Rations' three are hideable — Settings is where
+  // hiding is undone — and hiding the face you are standing on is allowed and
+  // moves you nowhere, which is a consequence of `face` being derived from the
+  // page below rather than from this list.
+  const faces = $derived(shownFaces(facesOf(facet), $hiddenFaces));
   let page = $state<Page | null>(null);
   let face = $derived<FaceId>(
     page === "recipes"

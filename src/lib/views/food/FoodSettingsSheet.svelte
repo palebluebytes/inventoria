@@ -11,8 +11,7 @@
   import SecretField from "../../ui/SecretField.svelte";
   import NutritionTargetEditor from "./NutritionTargetEditor.svelte";
   import FoodDataSection from "./FoodDataSection.svelte";
-  import PairedDevicesSection from "../pairing/PairedDevicesSection.svelte";
-  import LogSettingsSection from "../logs/LogSettingsSection.svelte";
+  import JarSettings from "../settings/JarSettings.svelte";
   import ScanSessionsCard from "../logs/ScanSessionsCard.svelte";
   import { facetOf, type FacetId } from "../../facets/registry";
 
@@ -58,11 +57,11 @@
      * (ADR-0076 §6).
      *
      * The sheet is Rations' settings screen whichever shell draws it — the
-     * title below says so — but one control on it is not a fact about food, and
-     * that is the pairing surface: ADR-0108 §1 scopes a pairing to the Facet
-     * the act ran in, and an act performed in the root's Food tab ran in the
-     * root. So the card is drawn under Rations and nowhere else, and the root
-     * keeps the one pairing surface it already has on its own Settings screen.
+     * title below says so — but it is Rations' **Settings face** only under
+     * Rations. Under the root it is a page inside the Rations face, and an act
+     * performed there ran in the root (ADR-0108 §1), so the pairing surface and
+     * the visibility toggles belong to the root's own door. This prop is the
+     * whole of what says which; `JarSettings` draws the conclusion.
      */
     shell,
   }: {
@@ -204,50 +203,32 @@
        second enumeration of Facets. -->
   <FoodDataSection {dbReady} />
 
-  <!-- **Paired devices, entire** (ADR-0108 §10): the pairing act, the list, the
-       naming, the two-phase unpair and ADR-0096 §11's pending-revocation and
-       stopped-at-K states. It is the root's own module, reached by reference
-       rather than copied (ADR-0095) — ADR-0078 §1 permits exactly that, because
-       the rule binds *screens* and a shared component is not a crossing. Rations
-       gains a screen of its own and no link to the root's.
+  <!-- **The jar-wide half of this face** (ADR-0114 §10): the pairing surface,
+       the log card, the face-visibility toggles, and — where there is one to
+       offer — an install. One component, drawn here and on the root's own
+       Settings screen, because the two used to spell the same blocks out twice
+       with a Facet id the only difference between the copies.
 
-       It carries the Facet its acts run in as a literal (ADR-0076 §6), which is
-       the whole of what ADR-0108 §1 needs: a pairing carries the domains of the
-       Facet the act ran in, so a pairing made here is a food lane.
+       Everything above this line is Rations': the nutrition editor, the OFF
+       login, "Your data" and its Facet-scoped wipe stay on this sheet, because
+       ADR-0114 §10 moves the jar-wide blocks into the face and leaves the
+       food-specific settings where the gear already opens them.
 
-       **Which is why the root does not draw it.** This sheet is Rations'
-       screen, but the root draws the whole of it in its Food tab, and an act
-       performed there ran in the root — a Facet is an install (ADR-0076 §1) and
-       not a tab. Drawing the card under both shells would put two pairing
-       surfaces in one root document disagreeing about what a pairing means, and
-       §4 would have the food one silently re-scope a jar-wide lane the other
-       made. The rest of this sheet is unconditional because the rest of it is
-       about food's *data*, which is the same fact whoever is asking.
+       `shell` is threaded rather than sniffed, and it is the whole of why this
+       sheet is one surface under Rations and a *page* under the root: the root
+       draws it in its Rations face, where an act performed runs in the root
+       (ADR-0108 §1), so the pairing card and the visibility toggles belong to
+       the root's own door and not to this one. `JarSettings` judges that; this
+       sheet only says which shell it is in.
 
-       It sits directly under "Your data" because the wipe above it is the
-       control §8 is about: "Delete all my food data" takes food's rows and
-       food's `localStorage` and **unpairs nothing**, and the two being one
-       screen apart is what makes that legible rather than merely true. -->
-  {#if shell === "food"}
-    <PairedDevicesSection facetId="food" />
-  {/if}
-
-  <!-- What the barcode scan has been doing (ADR-0071 §6). Rations' surface and
-       not the root's, because the reading belongs to the domain that writes the
-       channel — the same clause (b) that puts the log card's export switch here
-       — and because a standing readout of one Facet's instrument on the jar's
-       own Settings screen is the shape ADR-0080 §6 deleted. It sits directly
-       above the log card the channel is listed in, so its Clear is one card
-       away from the numbers it zeroes. -->
-  <ScanSessionsCard />
-
-  <!-- Local logs, Rations' own (ADR-0080 §2). The same card the root draws,
-       narrowed to the channels food's domain writes and switched by Rations'
-       own export door — clause (b) of ADR-0080 §1: Rations writes the only
-       channel there is, so Rations governs its egress. Until this surface
-       existed that switch lived on a screen ADR-0078 §7 gives a Rations user no
-       way to reach, so it was off forever with nothing saying why. -->
-  <LogSettingsSection facetId="food" elevated />
+       The scan card rides the slot rather than the list, so it keeps its
+       adjacency (ADR-0071 §6): it sits directly above the log card its channel
+       is listed in, so its Clear is one card away from the numbers it zeroes. -->
+  <JarSettings facetId="food" {shell} elevated>
+    {#snippet interleave()}
+      <ScanSessionsCard />
+    {/snippet}
+  </JarSettings>
 </BottomSheet>
 
 <style>

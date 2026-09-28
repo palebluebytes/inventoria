@@ -91,9 +91,12 @@ export interface TrackedDomain {
    *   - **`src/lib/views/HabitsView.svelte` is named by nothing**, here or in
    *     `src/`. It is reachable from neither entry point, so it is in neither
    *     build and no domain claims it.
-   *   - **`SettingsView.svelte`, `views/ledger/`, `views/logs/` and
-   *     `views/storage/` are claimed by nobody**, and that is deliberate rather
-   *     than an omission. They are the jar-wide surface, and which Facet should
+   *   - **`SettingsView.svelte`, `views/settings/`, `views/ledger/`,
+   *     `views/logs/` and `views/storage/` are claimed by nobody**, and that is
+   *     deliberate rather than an omission. `views/settings/` is the newest of
+   *     them and the clearest case: `JarSettings.svelte` is the jar-wide half of
+   *     the Settings face (ADR-0114 §10), drawn by both shells, and a face that
+   *     draws no Tracked Domain cannot have an owner among them. They are the jar-wide surface, and which Facet should
    *     carry a block of it is ADR-0080 §1's judgement — which ADR-0083 §10
    *     declined to gate, because a check that half-checks a judgement reads as
    *     covered. The containment check counts what it did not judge and prints

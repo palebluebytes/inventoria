@@ -947,6 +947,64 @@ export function facesOf(facet: Facet): RosteredFace[] {
 }
 
 /**
+ * The face hiding is undone on, and therefore **the one face that cannot be
+ * hidden** (ADR-0114 §10).
+ *
+ * A named constant rather than a field on {@link Face}, and rather than a
+ * derivation. A field would re-record a conclusion whose reason is discarded,
+ * which is the rule {@link domainsOf} states below; and the two derivations
+ * available are both coincidences of today's roster — Settings is the only face
+ * with no domains and the only one that is not `installable` either, and neither
+ * of those is *why* it stays. The reason is that the toggles live on it, so
+ * hiding it would be the one setting in the app that cannot be taken back.
+ *
+ * It is read by {@link hideableFaces}, which offers the toggles, and by
+ * {@link shownFaces}, which honours them — so the rule is stated once and both
+ * halves of it agree by construction.
+ */
+export const UNHIDEABLE_FACE: FaceId = "settings";
+
+/**
+ * The faces a visibility section offers a toggle for: everything a shell holds
+ * except {@link UNHIDEABLE_FACE}.
+ *
+ * It takes a list rather than a Facet so it composes with {@link facesOf}
+ * without knowing which shell is asking — Rations offers two rows and the root
+ * six, off the same call.
+ */
+export function hideableFaces(faces: readonly RosteredFace[]): RosteredFace[] {
+  return faces.filter((face) => face.id !== UNHIDEABLE_FACE);
+}
+
+/**
+ * The faces a shell's switcher draws: what it holds, minus what this device has
+ * hidden (ADR-0114 §10).
+ *
+ * **Hiding is a drawing and never a reach.** A hidden face keeps its screen, its
+ * URL and its share target — §10's whole promise is that a deep link or a shared
+ * meal still lands — so this is called by the two hosts of `FaceGrid` and by
+ * nothing that routes.
+ *
+ * **{@link UNHIDEABLE_FACE} survives a stored value naming it**, which is the
+ * only defensive clause here and it is load-bearing: {@link hideableFaces} can
+ * never produce one, but `localStorage` is a text file a person can edit, and a
+ * jar whose Settings tile is gone is a jar with no way to put anything back.
+ *
+ * Pure, and it takes the hidden set rather than reading the store: the roster is
+ * a build-time constant (ADR-0076 §6) and this module must stay free of a
+ * `localStorage` read, both so the unit tier can exercise the rule directly and
+ * so `scripts/facet-checks.mjs` can import the registry under Node.
+ */
+export function shownFaces(
+  faces: readonly RosteredFace[],
+  hidden: readonly string[]
+): RosteredFace[] {
+  return faces.filter(
+    (face) => face.id === UNHIDEABLE_FACE || !hidden.includes(face.id)
+  );
+}
+
+/**
  * The Tracked Domains a Facet holds, or none if nothing on the roster is that
  * Facet.
  *

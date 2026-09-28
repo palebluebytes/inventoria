@@ -332,6 +332,12 @@ describe("what the Facet gates read off the registry (ADR-0083 §4)", () => {
     // by nothing in `src/` and is in neither build.
     for (const unowned of [
       "src/lib/views/SettingsView.svelte",
+      // The jar-wide half of the Settings face (ADR-0114 §10), drawn by both
+      // shells. It is the clearest case on this list rather than a new kind of
+      // gap: Settings draws no Tracked Domain at all, so there is no owner among
+      // them for a block of it to have.
+      "src/lib/views/settings/JarSettings.svelte",
+      "src/lib/views/settings/FaceVisibilitySection.svelte",
       "src/lib/views/ledger/LedgerExport.svelte",
       "src/lib/views/logs/LogReviewSheet.svelte",
       "src/lib/views/storage/StorageStatus.svelte",

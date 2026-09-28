@@ -20,7 +20,16 @@
    * Only the root may render this, and that is not a rule this component
    * enforces — it is a consequence of prefix matching (ADR-0078 §3). Every
    * other Facet's scope is inside the root's, so only the root can link to one
-   * without leaving its own.
+   * without leaving its own. `views/settings/JarSettings.svelte` enumerates the
+   * offer off `nestedFacetsOf()` for exactly that reason, so the rule is read
+   * out of the roster rather than written down against `root`.
+   *
+   * **It lives on the Settings face** (ADR-0114 §10), and the move is the
+   * wording's reason. It used to hang under the root's Rations screen, where
+   * "Open Rations" was an offer of a rival copy of itself made from inside the
+   * face that copy is of. What it says now is what a person gets — Rations as its
+   * own app — and the sentence under it still says where the tap goes, because a
+   * disguised exit is the trap ADR-0078 §4 exists to stop.
    */
   let { facet }: { facet: Facet } = $props();
 </script>
@@ -30,7 +39,7 @@
      component's rather than the Facet's is the label ADR-0078 §4 requires. -->
 <p class="facet-exit">
   <a href={facet.startUrl} target="_blank" rel="noopener">
-    Open {facet.name}
+    Get {facet.name} as its own app
   </a>
   <span class="note">
     {facet.description} Opens in a browser tab, where you can install it.

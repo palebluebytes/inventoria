@@ -5,7 +5,7 @@ import {
   type Readable,
   type Writable,
 } from "svelte/store";
-import type { FacetId } from "../facets/registry";
+import type { FaceId, FacetId } from "../facets/registry";
 import { DEFAULT_VISIBLE_NUTRIENTS } from "../food/nutrient-display";
 import { FOOD_DISPLAY_DECIMALS } from "../food/nutrition";
 import {
@@ -74,6 +74,14 @@ const LS_KEYS = {
   // the `food_` segment ADR-0079 §2's scoped wipe matches on. The log-export
   // doors are one per Facet and keep their own table below.
   food_off_contribute: "inventoria_pref_food_off_contribute",
+  // Which faces this device keeps out of the switcher (ADR-0114 §10). It carries
+  // no `food_` segment and no domain claims it (`facets/domains.ts`), so it is
+  // reached by **neither** wipe: the Facet-scoped one matches on a domain's
+  // prefixes, and the jar-wide one takes only what would otherwise make the wipe
+  // a lie (`lib/jar-wipe.ts`). That is the right answer for both — a switcher
+  // this device tidied is a preference, and a preference left behind is not a
+  // resurrection.
+  hidden_faces: "inventoria_pref_hidden_faces",
 } as const;
 
 // `localStorage` is absent under the Node unit runner (and can throw in a
@@ -135,6 +143,34 @@ function readVisibleNutrients(): string[] {
 }
 
 /**
+ * The faces this device keeps out of the switcher (ADR-0114 §10).
+ *
+ * **Absent means every face shows**, which is the opposite default to
+ * {@link readVisibleNutrients}' and for the opposite reason: an unset selection
+ * of meters is a choice nobody has made yet, while an unset hidden set is a
+ * claim that nothing is hidden. So this is the empty list, and a malformed store
+ * reads as one too — the failure a person can see is a face they hid coming
+ * back, and the failure they cannot is a face they never hid being gone.
+ *
+ * The ids are not validated against the roster. A face retired from `FACES`
+ * leaves a dead id in here that {@link shownFaces} never matches, and a sweep
+ * would be a migration written for a rename that has not happened.
+ */
+function readHiddenFaces(): string[] {
+  const raw = safeGet(LS_KEYS.hidden_faces);
+  if (raw === null) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed) && parsed.every((k) => typeof k === "string")) {
+      return parsed;
+    }
+  } catch {
+    /* malformed — nothing is hidden */
+  }
+  return [];
+}
+
+/**
  * The proxy this app serves itself, at the path its own Worker answers
  * (ADR-0070). It is the default rather than a suggestion in `.env.example`
  * because it is correct in both environments without anyone configuring it:
@@ -180,6 +216,7 @@ const caloriesTrackedPref = writable<boolean>(
   readBoolPref(LS_KEYS.calories_tracked)
 );
 const visible = writable<string[]>(readVisibleNutrients());
+const hiddenSet = writable<string[]>(readHiddenFaces());
 
 /** Reactive fold state for the dashboard's nutrition panel. */
 export const nutritionPanelOpen: Readable<boolean> = {
@@ -194,6 +231,20 @@ export const nutritionPanelOpen: Readable<boolean> = {
  */
 export const visibleNutrients: Readable<string[]> = {
   subscribe: visible.subscribe,
+};
+
+/**
+ * The face ids this device keeps out of the switcher (ADR-0114 §10), read by
+ * both shells and handed to `shownFaces()`.
+ *
+ * **It is read on the first paint of the screen whose whole content it
+ * decides**, which is the case ADR-0085 §1's timing argument is about: the
+ * root's landing screen *is* the grid, so a hidden set that arrived a frame late
+ * would draw the tiles and then take some away. `localStorage` is synchronous,
+ * so the first frame is right.
+ */
+export const hiddenFaces: Readable<string[]> = {
+  subscribe: hiddenSet.subscribe,
 };
 
 /**
@@ -255,6 +306,26 @@ export function setCaloriesTracked(tracked: boolean): void {
 export function setVisibleNutrients(keys: string[]): void {
   safeSet(LS_KEYS.visible_nutrients, JSON.stringify(keys));
   visible.set([...keys]);
+}
+
+/**
+ * Hides or shows one face in this device's switcher (ADR-0114 §10).
+ *
+ * **One face at a time, not a whole list**, because the section that calls it is
+ * a row of checkboxes and a setter taking the list would let a stale row
+ * overwrite a neighbour toggled a moment earlier — ADR-0031 §2's rule about a
+ * writer touching only what it owns, applied inside one key.
+ *
+ * It refuses nothing. `UNHIDEABLE_FACE` is kept out of the switcher's *reach* by
+ * `shownFaces()` rather than out of this store, so the guard sits where a
+ * hand-edited `localStorage` also passes through it — one place instead of two
+ * that have to agree.
+ */
+export function setFaceHidden(faceId: FaceId, hidden: boolean): void {
+  const next = readHiddenFaces().filter((id) => id !== faceId);
+  if (hidden) next.push(faceId);
+  safeSet(LS_KEYS.hidden_faces, JSON.stringify(next));
+  hiddenSet.set(next);
 }
 
 /** Records the whole-number calorie display toggle. */

@@ -492,3 +492,68 @@ sixty-two specs that opened on food now open on the grid. They go through one he
 in that order — and `goToFace` reads which host is up rather than assuming the panel, because a
 reload puts a spec back on the landing. The ledger wait comes last on purpose: the face is reached
 before the database answers, which is §9's claim stated as the order of two lines.
+
+## Amendment, 2026-09-28: the Settings face, as built
+
+[#532](https://github.com/palebluebytes/inventoria/issues/532) built §10, and it is the one
+ticket in this arc that moved shipped code rather than adding chrome. The split is what the
+section describes and ADR-0080 §2's table is unrevised, but §10's two lists read differently
+once you try to move something, and four of the things it settles came out derived where the
+section had written them down.
+
+**1. "Moving in" moved less than it reads, and the real move was the exit.** Of §10's list,
+`StorageStatus`, `LedgerExport` and `LedgerImport` were already on the surface that _became_ the
+root's Settings face, and Rations already drew the import and the persistence badge in "Your
+data". So that list is what the face **holds**, not a list of relocations. What actually moved is
+the sanctioned exit: it hung under the root's Rations screen, where "Open Rations" offered a rival
+copy of itself from inside the face that copy is of. It is on the Settings face now and reads
+_Get Rations as its own app_, with ADR-0078 §4's sentence about the browser tab underneath it
+unchanged.
+
+**2. The de-duplication is one component, and "one door everywhere" is one predicate.**
+`PairedDevicesSection` and `LogSettingsSection` each had two call sites whose whole difference was
+a Facet id and one `{#if}`, so the pair was a component waiting to be named:
+`views/settings/JarSettings.svelte`, drawn by the root's Settings screen and by Rations' settings
+sheet. It takes **both** the Facet whose settings these are and the Facet whose document is
+drawing them, because those differ exactly once — the root draws the whole of Rations' sheet
+inside its Rations face — and their equality is the whole judgement:
+
+> A surface scoped to the Facet you are standing in is that Facet's own settings door. The same
+> surface scoped to another Facet, drawn inside your shell, is that Facet's **page**.
+
+That one predicate settles what used to be a literal `shell === "food"` on the pairing card
+(ADR-0108 §1: an act performed in the root's Rations face ran in the root) and it settles the
+visibility toggles for the same reason, since a copy of them on a page belonging to another Facet
+would offer to hide three tiles out of a grid of seven.
+
+**3. The install offer is enumerated rather than gated, so no rule is written down against
+`root`.** `FacetExit`'s own header has always said that only the root may draw it and that this
+is a consequence of prefix matching (ADR-0078 §3) rather than a rule it enforces. The offer is now
+read off `nestedFacetsOf()`, which is that consequence as data: only a Facet containing another can
+link to it without leaving its own scope. The root offers Rations; Rations' own door and Rations'
+sheet-inside-the-root both come back empty on their own. A third Facet costs no edit.
+
+**4. A shared block still owed one adjacency, so it takes a slot.** ADR-0071 §6 puts Rations' scan
+readout _directly above_ the log card its channel is listed in, so its Clear is one card away from
+the numbers it zeroes — and a shared block holding both jar-wide cards in one order would have
+spent that. `JarSettings` renders a caller's snippet between them instead. One caller passes one
+thing, which is the right size for a slot: the alternative was re-deciding a placement that had
+already been argued.
+
+**5. The visibility toggles are on both shells, and ADR-0080 §4 is why — not §1.** Hiding is
+reversible and takes nothing away, so §1's two clauses would leave it at the root; §4's rule is the
+one that applies, because a setting lives beside the thing it configures and **each shell has a
+switcher of its own**. Rations offers two rows where the root offers six, off the same one key. The
+key is `inventoria_pref_hidden_faces`, and it is reached by **neither** wipe: no domain claims it,
+so the Facet-scoped wipe does not match it, and the jar-wide wipe takes only what would otherwise
+make the wipe a lie. A switcher somebody tidied is a preference, and a preference left behind is
+not a resurrection.
+
+**6. Two small things the primitives decided.** `ui/Checkbox` refuses an unnamed box on purpose,
+and a row already carrying the face's name on the left has no room for the name again on the right
+— so each row reads _Media … Show ☑_ and carries the fuller accessible name, which contains the
+visible word and is therefore allowed to (WCAG 2.5.3). And the BETA badge is drawn from `ui/Badge`
+in the row as well, which makes **three** sites where §11 counts two;
+[#534](https://github.com/palebluebytes/inventoria/issues/534) folds it in when it builds the one
+component. A row that said nothing about maturity would ask somebody to decide whether to keep
+Media without telling them Media is unfinished.

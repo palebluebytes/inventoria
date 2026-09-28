@@ -13,8 +13,7 @@
   import LedgerExport from "./ledger/LedgerExport.svelte";
   import LedgerImport from "./ledger/LedgerImport.svelte";
   import StorageStatus from "./storage/StorageStatus.svelte";
-  import LogSettingsSection from "./logs/LogSettingsSection.svelte";
-  import PairedDevicesSection from "./pairing/PairedDevicesSection.svelte";
+  import JarSettings from "./settings/JarSettings.svelte";
   import Button from "../ui/Button.svelte";
   import Alert from "../ui/Alert.svelte";
   import Badge from "../ui/Badge.svelte";
@@ -209,20 +208,22 @@
   <LedgerImport {dbReady} />
 </Card>
 
-<!-- Your own devices, and the act that pairs one (ADR-0096 §8). ADR-0084 §6 puts
-     the list here, and it expands in place rather than opening the Devices
-     screen ADR-0075 §4 used to name. It is **no longer here because a pairing
-     must carry the whole jar**: ADR-0105 §1 scopes a lane to the Facet the act
-     ran in, so this one says which Facet it is and the root's answer is the
-     whole jar. Rations draws this same module on its own settings sheet under
-     `facetId="food"` (#423), which is a shared component rather than a
-     crossing — ADR-0078 §1 binds screens. -->
-<PairedDevicesSection facetId="root" />
+<!-- **The jar-wide half of this face** (ADR-0114 §10), which both shells draw and
+     neither owns: the pairing surface, the log card, the face-visibility toggles
+     and the offer to install Rations. Its blocks used to be spelled out here and
+     again on Rations' settings sheet, with a Facet id the only difference between
+     the two copies.
 
-<!-- The jar-wide card: the root holds all six content domains, so it lists every
-     channel and its Review and Export is jar-wide (ADR-0080 §2). Its switch is
-     the root's own door and no longer the only one food's channel has. -->
-<LogSettingsSection facetId="root" />
+     `facetId` and `shell` are both `root` because this screen is the root's own
+     door. They part company once, on Rations' sheet, which the root draws inside
+     its Rations face — and that is the case the pairing surface turns on
+     (ADR-0108 §1).
+
+     The log card here is the jar-wide one: the root holds all six content
+     domains, so it lists every channel and its Review and Export is jar-wide
+     (ADR-0080 §2), switched by the root's own door — no longer the only one
+     food's channel has. -->
+<JarSettings facetId="root" shell="root" />
 
 <Card class="mt-4">
   <h2>Developer Options</h2>

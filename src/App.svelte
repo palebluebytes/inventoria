@@ -11,7 +11,6 @@
   import RecipeLibrarySheet from "./lib/views/food/RecipeLibrarySheet.svelte";
   import Badge from "./lib/ui/Badge.svelte";
   import ReloadPrompt from "./lib/ui/ReloadPrompt.svelte";
-  import FacetExit from "./lib/layout/FacetExit.svelte";
   import CarriedDeletionNotice from "./lib/views/CarriedDeletionNotice.svelte";
   // Notes is the only view whose CRDT (loro) carries a multi-megabyte WASM
   // payload. Importing it dynamically keeps that payload out of the entry chunk,
@@ -25,10 +24,11 @@
   import {
     faceOf,
     facesOf,
-    facetOf,
+    shownFaces,
     type Facet,
     type FaceId,
   } from "./lib/facets/registry";
+  import { hiddenFaces } from "./lib/stores/device-settings";
 
   /**
    * Which Facet this is, handed in by the entry point that mounted it
@@ -179,19 +179,20 @@
     face = id;
   }
 
-  /** The seven, in the roster's fixed order — never this shell's own. */
-  const faces = $derived(facesOf(facet));
-
   /**
-   * The other Facet, named here only so the root can offer it (ADR-0078 §4).
+   * The seven, in the roster's fixed order — never this shell's own — **minus
+   * whatever this device has hidden** (ADR-0114 §10).
    *
-   * This is data and not a screen, which is the whole of why it is allowed:
-   * ADR-0078 §1 binds what an entry point *mounts*, and reading the roster
-   * pulls no food-only module into this bundle. The link's target and label
-   * both come off the registry, so the root cannot advertise a name Rations has
-   * stopped answering to.
+   * One list for both hosts of the grid, which is what makes hiding mean one
+   * thing: the panel and the landing screen are the same component, and §9 makes
+   * the landing grid *the* switcher rather than a copy of it.
+   *
+   * It is a drawing and never a reach. Every face keeps its screen below, so a
+   * hidden face is still opened by a share target or a pick from the visibility
+   * section itself — and `shownFaces` will not drop Settings whatever the store
+   * says, because that row is where hiding is undone.
    */
-  const rations = facetOf("food");
+  const faces = $derived(shownFaces(facesOf(facet), $hiddenFaces));
 </script>
 
 <svelte:head>
@@ -295,10 +296,12 @@
                (ADR-0084 §5), so there is none for this shell to hand down. The
                Scan way in still reads a meal code, and FoodView owns that one
                end to end. -->
-          <FoodView {dbReady} shell="root" onReceiveClose={() => {}} />
-          <!-- Under the screen rather than in the header, because ADR-0078 §4
-               keeps the Rations face otherwise unchanged: same screen, same
-               components, no pointer.
+          <!-- **Nothing else** (ADR-0114 §10, ADR-0078 §4). The offer to install
+               Rations used to hang under this screen, which made the app
+               advertise a rival copy of itself from inside the face that copy is
+               of; it is on the Settings face now, enumerated off the roster by
+               `JarSettings`. What stays true here is that the face is otherwise
+               unchanged: same screen, same components, no pointer.
 
                ADR-0077 §5 kept `usda/search-index.json` in the root's precache
                "precisely because food is the root's landing screen", and as of
@@ -306,7 +309,7 @@
                warming it on entering this face is
                [#535](https://github.com/palebluebytes/inventoria/issues/535),
                where the two `precacheBytes` are re-measured with it. -->
-          <FacetExit facet={rations} />
+          <FoodView {dbReady} shell="root" onReceiveClose={() => {}} />
         {/if}
 
         <!-- Recipes is a face rather than one of Rations' pages (ADR-0114 §4),

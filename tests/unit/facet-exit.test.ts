@@ -27,9 +27,16 @@ describe("the door the root offers Rations through", () => {
     expect(body).toContain('rel="noopener"');
   });
 
-  it("says where the tap goes, because a disguised exit is the trap", () => {
+  it("offers what the person gets, and still says where the tap goes", () => {
+    // **Reworded at ADR-0114 §10**, and the move is the reason: this used to hang
+    // under the root's Rations screen, where "Open Rations" offered a rival copy
+    // of itself from inside the face that copy is of. It lives on the Settings
+    // face now, so the label can say what the tap is *for* — and the sentence
+    // under it still says where the tap goes, because a disguised exit is the
+    // trap ADR-0078 §4 exists to stop.
     const body = door("food");
-    expect(body).toContain("Open Rations");
+    expect(body).toContain("Get Rations as its own app");
+    expect(body).not.toContain("Open Rations");
     expect(body).toMatch(/opens in a browser tab/i);
   });
 
@@ -43,7 +50,7 @@ describe("the door the root offers Rations through", () => {
     // label above.
     const body = door("root");
     const root = facetOf("root");
-    expect(body).toContain(`Open ${root.name}`);
+    expect(body).toContain(`Get ${root.name} as its own app`);
     expect(body).toContain(root.description);
   });
 });
