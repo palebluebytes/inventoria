@@ -3,6 +3,7 @@ import {
   readReferenceFoodName,
   compileReferenceFoodQuery,
   compareRelevance,
+  bestOfNames,
   plainSiblingsOf,
   readRowRank,
   withoutStrayMentions,
@@ -337,18 +338,41 @@ describe("compileReferenceFoodQuery", () => {
     expect(rank("wine", "Alcoholic beverage, wine, table, red").tier).toBe(20);
   });
 
-  it("says whether the query reached the food's own name at all", () => {
+  it("says at which rung the query reached the food's own name", () => {
     // ADR-0062 §1. `Cheese, mozzarella, whole milk` matches `milk` as a whole
     // word, in a part naming what the cheese is MADE OF — where `Nuts, coconut
     // milk` and `Beverages, rice milk` are milks, because the food's own name
     // is the part the shelf label leads to.
-    expect(rank("milk", "Cheese, mozzarella, whole milk").named).toBe(false);
-    expect(rank("milk", "Yogurt, plain, whole milk").named).toBe(false);
-    expect(rank("milk", "Nuts, coconut milk, raw").named).toBe(true);
-    expect(rank("milk", "Beverages, rice milk, unsweetened").named).toBe(true);
+    //
+    // A RUNG rather than a flag, and 0 where no token reached the name (#465):
+    // a row is scored under every name it answers to, and the bar
+    // `withoutStrayMentions` sets is the rung a name actually reached. Carried
+    // as a boolean, that rung could only be read back off the row's best key,
+    // which is not necessarily the key of a name that reached anything.
+    expect(rank("milk", "Cheese, mozzarella, whole milk").named).toBe(0);
+    expect(rank("milk", "Yogurt, plain, whole milk").named).toBe(0);
+    expect(rank("milk", "Nuts, coconut milk, raw").named).toBe(20);
+    expect(rank("milk", "Beverages, rice milk, unsweetened").named).toBe(20);
     // A word matched in the shelf label is not matched past the name either, so
     // every cheese still answers to `cheese`.
-    expect(rank("cheese", "Cheese, mozzarella, whole milk").named).toBe(true);
+    expect(rank("cheese", "Cheese, mozzarella, whole milk").named).toBe(50);
+  });
+
+  it("names the rung THIS name reached, which is its own tier", () => {
+    // The property `bestOfNames` and `withoutStrayMentions` both rest on: for
+    // one name the two are the same reading of the same tokens, so a name that
+    // reached the food's own name part is named AT the rung it scored. Asked
+    // over every rung the ladder has rather than asserted in prose.
+    for (const [query, description] of [
+      ["grape", "Grapes, raw"], // 50 — the head phrase IS the query
+      ["grape", "Grape leaves, raw"], // 40 — a typed word IS a head word
+      ["pot", "Potatoes, raw"], // 30 — the head completes the query
+      ["coconut", "Nuts, coconut milk, raw"], // 20 — a whole word past a shelf
+      ["grap", "Grapefruit juice, raw"], // 10 — a mere prefix
+    ] as [string, string][]) {
+      const key = rank(query, description);
+      expect([description, key.named]).toEqual([description, key.tier]);
+    }
   });
 
   it("asks EVERY typed token, so one word on the name keeps the row", () => {
@@ -358,8 +382,8 @@ describe("compileReferenceFoodQuery", () => {
     // leads with the row it recorded (ADR-0049 §4).
     expect(
       rank("yogurt plain whole milk", "Yogurt, plain, whole milk").named
-    ).toBe(true);
-    expect(rank("whole milk", "Milk, whole, 3.7% milkfat").named).toBe(true);
+    ).toBe(50);
+    expect(rank("whole milk", "Milk, whole, 3.7% milkfat").named).toBe(50);
   });
 
   it("leaves the tier alone where a word lands past the food's name", () => {
@@ -369,19 +393,17 @@ describe("compileReferenceFoodQuery", () => {
     // field is `withoutStrayMentions` rather than the order.
     const cheese = rank("milk", "Cheese, mozzarella, whole milk");
     const coconut = rank("milk", "Nuts, coconut milk, raw");
-    expect([cheese.tier, cheese.named]).toEqual([20, false]);
-    expect([coconut.tier, coconut.named]).toEqual([20, true]);
+    expect([cheese.tier, cheese.named]).toEqual([20, 0]);
+    expect([coconut.tier, coconut.named]).toEqual([20, 20]);
   });
 
-  it("is false for every candidate where the query names no food at all", () => {
+  it("is 0 for every candidate where the query names no food at all", () => {
     // What the gate in `withoutStrayMentions` rests on: no row is NAMED `raw`, so
     // nothing about a bare `raw` distinguishes one row from another here and the
     // rule has nothing to fire on. An ungated cut would empty the query.
-    expect(rank("raw", "Bananas, raw").named).toBe(false);
-    expect(rank("raw", "Beef, ground, raw").named).toBe(false);
-    expect(rank("cooked", "Spinach, cooked, boiled, drained").named).toBe(
-      false
-    );
+    expect(rank("raw", "Bananas, raw").named).toBe(0);
+    expect(rank("raw", "Beef, ground, raw").named).toBe(0);
+    expect(rank("cooked", "Spinach, cooked, boiled, drained").named).toBe(0);
   });
 
   it("takes the FIRST word answering a token, by stem or by prefix", () => {
@@ -522,7 +544,7 @@ describe("compareRelevance", () => {
       recent: 0,
       frequent: 0,
       canonical: 0,
-      named: true,
+      named: 20,
       raw: 1,
       head: -1,
       accounted: 1,
@@ -542,7 +564,7 @@ describe("compareRelevance", () => {
       beats(
         {
           tier: 40,
-          named: false,
+          named: 0,
           raw: 0,
           head: -9,
           accounted: 0,
@@ -558,7 +580,7 @@ describe("compareRelevance", () => {
     // …and `named` is not one of them: ADR-0062 §1 decides retrieval, so two
     // keys differing only there tie, and `withoutStrayMentions` is what reads
     // the field. As a sorting key it moved 20 leads for nothing.
-    expect(beats({ named: true }, { named: false })).toBe(0);
+    expect(beats({ named: 20 }, { named: 0 })).toBe(0);
     // `canonical` beats every key after it: the hand-picked row wins while
     // being worse on all eight.
     expect(
@@ -676,7 +698,7 @@ describe("withoutStrayMentions", () => {
   // answers it changes are asserted in `usda-corpus.test.ts`; these pin the rule.
   const UNSCORED = {
     tier: 0,
-    named: false,
+    named: 0,
     raw: 0,
     head: 0,
     accounted: 0,
@@ -684,8 +706,12 @@ describe("withoutStrayMentions", () => {
     plain: 0,
     wholeness: 0,
   };
-  /** A result set as the two fields the rule reads: the rung, and the name. */
-  const scored = (rows: [string, number, boolean][]) =>
+  /**
+   * A result set as the two fields the rule reads: the rung a row scored, and
+   * the rung at which one of its names reached the food's own name part — 0
+   * where none did.
+   */
+  const scored = (rows: [string, number, number][]) =>
     rows.map(([description, tier, named]) => ({
       description,
       key: { ...UNSCORED, tier, named },
@@ -694,9 +720,9 @@ describe("withoutStrayMentions", () => {
   it("drops a row the query reaches only past the food's own name", () => {
     const kept = withoutStrayMentions(
       scored([
-        ["Milk, whole, 3.7% milkfat", 50, true],
-        ["Nuts, coconut milk, raw", 20, true],
-        ["Cheese, mozzarella, whole milk", 20, false],
+        ["Milk, whole, 3.7% milkfat", 50, 50],
+        ["Nuts, coconut milk, raw", 20, 20],
+        ["Cheese, mozzarella, whole milk", 20, 0],
       ])
     );
     expect(kept.map((r) => r.description)).toEqual([
@@ -709,8 +735,8 @@ describe("withoutStrayMentions", () => {
     // The gate, and the case an ungated rule empties: the bar is the best rung
     // any name reached, and with nothing named it is 0, which every row clears.
     const rows = scored([
-      ["Bananas, raw", 20, false],
-      ["Beef, ground, raw", 20, false],
+      ["Bananas, raw", 20, 0],
+      ["Beef, ground, raw", 20, 0],
     ]);
     expect(withoutStrayMentions(rows)).toEqual(rows);
   });
@@ -721,11 +747,33 @@ describe("withoutStrayMentions", () => {
     // rule takes every chili pepper out of the only word that reaches it.
     const kept = withoutStrayMentions(
       scored([
-        ["Spices, chili powder", 20, true],
-        ["Peppers, hot chili, red, raw", 20, false],
+        ["Spices, chili powder", 20, 20],
+        ["Peppers, hot chili, red, raw", 20, 0],
       ])
     );
     expect(kept).toHaveLength(2);
+  });
+
+  it("bars at the rung a NAME reached, not at the rung its row scored", () => {
+    // #465. A row is scored as the best of its names, and the two need not be
+    // the same name: `Seeds, sunflower seed, kernel` answers `kernel` past its
+    // own name, and the alias USDA filed it under, `Seeds, sunflower seed
+    // kernels, dried`, answers inside one. The row's key is the description's,
+    // and the rung it names at is the alias's.
+    //
+    // Read off the row's tier, a name reaching the name part at the whole-word
+    // rung would set the bar at the head rung the row happened to score, and
+    // take every row beneath it that the query names nothing of.
+    const kept = withoutStrayMentions(
+      scored([
+        ["Seeds, sunflower seed, kernel", 40, 20],
+        ["Corn, sweet, yellow and white kernels, fresh", 20, 0],
+      ])
+    );
+    expect(kept.map((r) => r.description)).toEqual([
+      "Seeds, sunflower seed, kernel",
+      "Corn, sweet, yellow and white kernels, fresh",
+    ]);
   });
 
   it("can never drop the row that leads, whatever the set", () => {
@@ -734,8 +782,8 @@ describe("withoutStrayMentions", () => {
     // lead is the one ADR-0055 §2 refuses.
     const kept = withoutStrayMentions(
       scored([
-        ["Peppers, ancho, dried", 20, false],
-        ["Fish, anchovy, european, raw", 10, true],
+        ["Peppers, ancho, dried", 20, 0],
+        ["Fish, anchovy, european, raw", 10, 10],
       ])
     );
     expect(kept.map((r) => r.description)).toEqual([
@@ -754,35 +802,93 @@ describe("withoutStrayMentions", () => {
   // If any case here goes red, that argument is gone with it and the derivation
   // starts minting keys that expand to nothing.
   it.each([
-    ["nothing named, one row", [["Cheese, mozzarella, whole milk", 20, false]]],
+    ["nothing named, one row", [["Cheese, mozzarella, whole milk", 20, 0]]],
     [
       "nothing named, several rows",
       [
-        ["Bananas, raw", 20, false],
-        ["Beef, ground, raw", 20, false],
+        ["Bananas, raw", 20, 0],
+        ["Beef, ground, raw", 20, 0],
       ],
     ],
     [
       "a named row far above an unnamed one",
       [
-        ["Milk, whole, 3.7% milkfat", 50, true],
-        ["Cheese, mozzarella, whole milk", 20, false],
+        ["Milk, whole, 3.7% milkfat", 50, 50],
+        ["Cheese, mozzarella, whole milk", 20, 0],
       ],
     ],
     [
       "the named row on the LOWEST rung in the set",
       [
-        ["Peppers, ancho, dried", 20, false],
-        ["Fish, anchovy, european, raw", 10, true],
+        ["Peppers, ancho, dried", 20, 0],
+        ["Fish, anchovy, european, raw", 10, 10],
       ],
     ],
-    ["one named row alone", [["Fish, milkfish, cooked, dry heat", 10, true]]],
-  ] as [string, [string, number, boolean][]][])(
+    ["one named row alone", [["Fish, milkfish, cooked, dry heat", 10, 10]]],
+  ] as [string, [string, number, number][]][])(
     "never empties a set: %s",
     (_case, rows) => {
       expect(withoutStrayMentions(scored(rows)).length).toBeGreaterThan(0);
     }
   );
+});
+
+describe("bestOfNames", () => {
+  // ADR-0050 §4: a row is scored as the best of the names it answers to, its own
+  // and the ones the twin merge discarded (#137). The one place that collapse is
+  // written — six instruments and this suite used to restate it, and a
+  // restatement is free to disagree with the app about `named` (#465).
+  const key = (fields: Partial<RelevanceKey>): RelevanceKey => ({
+    tier: 0,
+    named: 0,
+    head: 0,
+    accounted: 0,
+    position: 0,
+    plain: 0,
+    wholeness: 0,
+    recent: 0,
+    frequent: 0,
+    canonical: 0,
+    raw: 0,
+    plainSibling: 1,
+    designated: 1,
+    ...fields,
+  });
+
+  it("takes the best key, and says which name won it", () => {
+    const own = key({ tier: 20, named: 20, head: -4 });
+    const alias = key({ tier: 50, named: 50 });
+    expect(bestOfNames([own, alias])).toEqual({ key: alias, via: 1 });
+    // `via` 0 is the row's own name, which is what every row without an alias
+    // reports and what the caller reads to decide there is no alias to name.
+    expect(bestOfNames([alias, own]).via).toBe(0);
+  });
+
+  it("names at the best rung ANY name reached, not at the winner's", () => {
+    // #465, both directions. `compareRelevance` deliberately does not read
+    // `named` (ADR-0062 §1), so the name that wins the key is under no
+    // obligation to be a name that reached the food's own name part.
+    //
+    // The row the corpus has: the description answers `kernel` past the food's
+    // own name and wins the key on a later one; the alias answers inside it.
+    const described = key({ tier: 20, named: 0, head: -2 });
+    const filed = key({ tier: 20, named: 20, head: -9 });
+    expect(bestOfNames([described, filed])).toEqual({
+      key: { ...described, named: 20 },
+      via: 0,
+    });
+    // And the other way: a winning name that reached nothing must not lend its
+    // rung to the one that did, or the bar rises to a rung no name named at.
+    const higher = key({ tier: 40, named: 0 });
+    expect(bestOfNames([filed, higher]).key).toEqual({ ...higher, named: 20 });
+  });
+
+  it("leaves a row with one name exactly as that name scored", () => {
+    // 1,950 of the 2,023 rows that ship, where the loop is the whole cost of
+    // aliases and must not add one.
+    const only = key({ tier: 40, named: 40 });
+    expect(bestOfNames([only])).toEqual({ key: only, via: 0 });
+  });
 });
 
 // ADR-0055 §3 and §5: two keys that read a ROW rather than a name. The corpus

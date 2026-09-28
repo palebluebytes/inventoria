@@ -3,7 +3,13 @@ import { searchUsdaCorpus } from "./usda-corpus";
 import { curatedMatches } from "./curated-foods";
 import { byFrecency, type Frecency } from "./frecency";
 import { matchLedgerFoods, type LedgerFood } from "./ledger-foods";
-import { macrosFromNutrition, PER_100G, type NutritionInfo } from "./nutrition";
+import {
+  macrosFromNutrition,
+  nutritionFromMacros,
+  NUTRITION_INFO_ATTR,
+  PER_100G,
+  type NutritionInfo,
+} from "./nutrition";
 import { manualEntryIsReusable, type ManualEntry } from "./provenance";
 
 /**
@@ -40,17 +46,110 @@ export interface FoodResult {
  * off the panel through `parseBasisQuantity`.
  */
 export function mapPayloadToFoodResult(payload: EntityPayload): FoodResult {
-  const info = payload.attributes["nutrition/info"] as
-    | NutritionInfo
-    | undefined;
-  const macros = macrosFromNutrition(info);
+  return foodResult(payload, nameOf(payload), panelOf(payload));
+}
+
+// ── Reading a twin ───────────────────────────────────────────────────────────
+// `EntityPayload.attributes` is a `Record<string, any>`, so every read off it is
+// the boundary `CODING_STANDARDS.md` §3.2 says to guard once rather than doubt
+// repeatedly. These two are that one place, and they are also what makes "a twin
+// that does not carry this" a first-class answer instead of an `undefined` that
+// leaks past a field declared `string`.
+
+/**
+ * A twin's display name, or `""` where it carries none.
+ *
+ * A twin outside the `food/` namespace has no `food/name` at all, and that is
+ * not hypothetical: a `recipe:` twin is reachable from the "Your foods" block
+ * (ADR-0110 §2), and the `undefined` this used to yield rendered as a row with
+ * nothing in it that was still selectable (#485). Narrowed here so the render
+ * tail can ask a plain emptiness question (`searchList`) instead of re-doubting
+ * the type.
+ */
+function nameOf(payload: EntityPayload): string {
+  const name = payload.attributes["food/name"];
+  return typeof name === "string" ? name : "";
+}
+
+/**
+ * A twin's nutrition panel, or `undefined` where it carries none — a recipe,
+ * whose figures derive from the ingredient twins rather than being stored
+ * (ADR-0021), or a macro-only custom food.
+ */
+function panelOf(payload: EntityPayload): NutritionInfo | undefined {
+  return payload.attributes[NUTRITION_INFO_ATTR] as NutritionInfo | undefined;
+}
+
+/**
+ * The display shape, given the two things that decide it: what to call the food,
+ * and the reading its figures are quoted against. Both mappers below end here,
+ * so each is one line naming only the thing it answers differently.
+ */
+function foodResult(
+  payload: EntityPayload,
+  name: string,
+  panel: NutritionInfo | undefined
+): FoodResult {
   return {
     entity: payload.entity,
-    name: payload.attributes["food/name"],
-    ...macros,
-    basis: info?.serving_size ?? PER_100G,
+    name,
+    ...macrosFromNutrition(panel),
+    basis: panel?.serving_size ?? PER_100G,
     payload,
   };
+}
+
+/**
+ * Maps one food from THIS device's ledger into the same display shape, reading
+ * what the payload mapper above cannot see: the log the row was matched on.
+ *
+ * The "Your foods" block resolves its rows from two things, and needed both
+ * (#485). `mapPayloadToFoodResult` takes only the twin, so it could answer for
+ * a `recipe:` target only by reading attributes a recipe does not carry —
+ * `food/name` and `nutrition/info` — which is how a logged recipe became a
+ * nameless row of zeros. The fix is a second seam rather than a namespace test
+ * inside the first: what a ledger food knows extra is its LOG, and that is a
+ * parameter, not a branch.
+ *
+ * - **The name is the log's**, which is also the string the query matched
+ *   (`matchLedgerFoods`). A row that printed the twin's name could disagree
+ *   with what was typed to reach it.
+ * - **The reading is the twin's panel where it has one.** That is the reusable
+ *   figure, quoted against its own basis, and every scaler downstream divides
+ *   by it (#148). One occasion's frozen portion is not a substitute for it.
+ * - **Otherwise it is what that occasion froze**, against the quantity it was
+ *   logged at. A recipe stores no nutrition by design (ADR-0021) — its figures
+ *   derive from the ingredient twins — so the honest number for it is the one
+ *   the cook's own log recorded.
+ *
+ * The frozen reading is **never written onto the payload**, which is why it is
+ * assembled here and discarded. The staged payload is what the host ingests on
+ * commit (`ingestEntity`), so a synthesised `nutrition/info` would append a
+ * nutrition panel to the recipe twin and contradict ADR-0021 by the back door.
+ */
+export function mapLedgerFoodToResult(
+  food: LedgerFood,
+  payload: EntityPayload
+): FoodResult {
+  return foodResult(
+    payload,
+    food.name,
+    panelOf(payload) ?? frozenReading(food)
+  );
+}
+
+/**
+ * The reading one logged occasion froze, read back as a panel: `event/metrics`
+ * against the `event/quantity` they were scaled to (ADR-0022), through the
+ * documented inverse of the reader above it.
+ *
+ * Both halves or neither. A breakdown whose basis is missing is a figure with
+ * no "per", and quoting it against the per-100 g fallback would state a
+ * portion's calories as a reference food's.
+ */
+function frozenReading(food: LedgerFood): NutritionInfo | undefined {
+  if (!food.metrics || !food.quantity) return undefined;
+  return nutritionFromMacros(food.metrics, food.quantity);
 }
 
 // ── Found-but-poor: the poor-quality predicate (ADR-0034 §1) ─────────────────

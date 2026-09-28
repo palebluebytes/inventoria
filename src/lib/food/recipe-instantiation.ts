@@ -97,3 +97,30 @@ export function buildInstantiation(
     ...(weighed !== undefined ? { batch_weight: weighed } : {}),
   };
 }
+
+/**
+ * What to call a dish nobody named: its frozen ingredient rows, in the order
+ * they were cooked in — "Olive oil, Lemon, Mustard" (ADR-0110 §3).
+ *
+ * The snapshot is the right source because it already denormalizes a
+ * per-ingredient `name` for display resilience (ADR-0022 §2), so the label is
+ * per-occasion, survives the twin being renamed or deleted, and needs no second
+ * read. Names are joined exactly as they were frozen: they are what the
+ * ingredient twins say, and lowercasing the tail to make the list read as a
+ * sentence would quietly demote every brand and proper noun in it.
+ *
+ * **Nothing is stored.** A label written back to `recipe/name` would masquerade
+ * as authorship — editable, promotable, indistinguishable from a name you typed
+ * — and would put the dish in the library, which is the one place ADR-0110 §2
+ * keeps it out of.
+ *
+ * `undefined` where there is no snapshot, which is every plain food log: those
+ * have a twin to read a name off, and a nameless one is a row with nothing to
+ * show rather than a dish to describe (#485).
+ */
+export function labelFromInstantiation(
+  instantiation: Instantiation | undefined
+): string | undefined {
+  const names = instantiation?.ingredients.map((row) => row.name);
+  return names?.length ? names.join(", ") : undefined;
+}

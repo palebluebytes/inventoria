@@ -32,6 +32,13 @@
   "gold_set_amendments_note": "A pre-registered bar loses its point if the gold set can be edited to make a result look better, so every change to it is recorded here with its reason, and the reason has to be that the FOOD moved rather than that the SCORE did.",
   "gold_set_amendments": [
     {
+      "date": "2026-09-15",
+      "query": "pork, ham",
+      "what": "Human labels refreshed again. 2 of 56 were stale; no fdcId changed.",
+      "why": "ADR-0103 \u00a75's strip (#436) ships a collapsed group's survivor under its residual name, so fdc:167818 stopped saying `separable lean and fat` and fdc:167875 with it. Two rather than 2026-09-14's thirty-five, because the strip reaches 174 rows and only these two are gold.",
+      "not_a_goalpost_move": "C1 25/44 and C2 31/44 before the refresh and after it - the same pair the #435 amendment reported for the collapse itself. The bar ranks by fdcId and never reads a label."
+    },
+    {
       "date": "2026-09-14",
       "query": "(all)",
       "what": "Human labels refreshed against the names the rows ship under. 35 of 56 were stale; no fdcId changed.",
@@ -56,7 +63,7 @@
     {
       "query": "pork",
       "fdc_id": 167818,
-      "description": "Pork, fresh, loin, whole, separable lean and fat"
+      "description": "Pork, fresh, loin, whole"
     },
     {
       "query": "chicken",
@@ -73,7 +80,7 @@
     {
       "query": "ham",
       "fdc_id": 167875,
-      "description": "Pork, cured, ham, whole, separable lean and fat",
+      "description": "Pork, cured, ham, whole",
       "note": "Typing `ham` returns ONE row (Ham, sliced, restaurant) while `gammon` returns 88, because ADR-0062's stray-mention rule drops rows the typed word reaches only past the food's own name. The cured hams ship and are unreachable by their own word."
     },
     {

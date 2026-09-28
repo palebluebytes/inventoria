@@ -3,9 +3,9 @@
   "schema_version": 1,
   "ticket": "https://github.com/palebluebytes/inventoria/issues/192",
   "map": "https://github.com/palebluebytes/inventoria/issues/186",
-  "ruler": "sweepQueries over the shipped corpus — 2604 queries, pinned and used against both corpora",
+  "ruler": "sweepQueries over the shipped corpus — 2603 queries, pinned and used against both corpora",
   "corpora": {
-    "shipped": "public/usda/search-index.json sha256:08581f5afd159d3c"
+    "shipped": "public/usda/search-index.json sha256:d8c6535ea01bd2ff"
   },
   "gold_sets": {
     "143": "19 of 50 adjudicated heads carry verdict \"correct\" — the leads ADR-0055 §2 protects",
@@ -34,14 +34,14 @@
   "runs": [
     {
       "label": "shipped",
-      "rows": 2418,
-      "names": 2494,
-      "queries": 2604,
-      "answered": 2604,
+      "rows": 2037,
+      "names": 2113,
+      "queries": 2603,
+      "answered": 2603,
       "empty": 0,
       "plain_sibling": {
-        "carried": 421,
-        "derived": 421,
+        "carried": 235,
+        "derived": 235,
         "stale": 0
       },
       "gold_leads_held": 19,
@@ -140,7 +140,7 @@
             {
               "query": "and pork",
               "shipped": "Pork, fresh, spareribs, separable lean and fat",
-              "without": "Pork, cured, ham and water product, whole, boneless, separable lean only"
+              "without": "Pork, cured, ham and water product, whole, boneless"
             },
             {
               "query": "barley",
@@ -194,7 +194,7 @@
         },
         {
           "key": "accounted",
-          "moved": 8,
+          "moved": 10,
           "gold_leads_broken": 0,
           "c1_lost": 1,
           "examples": [
@@ -219,15 +219,15 @@
               "without": "Oil, corn and canola"
             },
             {
-              "query": "oat bread",
-              "shipped": "Bread, oatmeal",
-              "without": "Bread, oat bran"
+              "query": "loin lamb",
+              "shipped": "Lamb, loin",
+              "without": "Lamb, loin chop"
             }
           ]
         },
         {
           "key": "position",
-          "moved": 183,
+          "moved": 173,
           "gold_leads_broken": 0,
           "c1_lost": 0,
           "examples": [
@@ -260,7 +260,7 @@
         },
         {
           "key": "plainSibling",
-          "moved": 58,
+          "moved": 42,
           "gold_leads_broken": 0,
           "c1_lost": 0,
           "examples": [
@@ -285,9 +285,9 @@
               "without": "Pears, red anjou"
             },
             {
-              "query": "arm beef",
-              "shipped": "Beef, chuck, arm pot roast, separable lean and fat, trimmed to 1/8\" fat",
-              "without": "Beef, chuck, arm pot roast, separable lean and fat, trimmed to 1/8\" fat, choice"
+              "query": "bison",
+              "shipped": "Bison, ground",
+              "without": "Bison, ground, grass-fed"
             }
           ]
         },
@@ -326,13 +326,13 @@
         },
         {
           "key": "wholeness",
-          "moved": 8,
+          "moved": 10,
           "gold_leads_broken": 0,
           "c1_lost": 0,
           "examples": [
             {
               "query": "beef",
-              "shipped": "Beef, composite of trimmed retail cuts, separable lean and fat, trimmed to 1/8\" fat",
+              "shipped": "Beef, composite of trimmed retail cuts",
               "without": "Beef, retail cuts, separable fat"
             },
             {
@@ -342,7 +342,7 @@
             },
             {
               "query": "fresh lamb",
-              "shipped": "Lamb, fresh, composite of trimmed retail cuts, separable lean and fat, trimmed to 1/8\" fat",
+              "shipped": "Lamb, fresh, composite of trimmed retail cuts",
               "without": "Lamb, fresh, separable fat"
             },
             {
@@ -404,7 +404,7 @@
             {
               "query": "and pork",
               "shipped": "Pork, fresh, spareribs, separable lean and fat",
-              "without": "Pork, cured, ham and water product, whole, boneless, separable lean only"
+              "without": "Pork, cured, ham and water product, whole, boneless"
             },
             {
               "query": "barley",
@@ -425,13 +425,13 @@
         },
         {
           "key": "plain+wholeness",
-          "moved": 37,
+          "moved": 39,
           "gold_leads_broken": 0,
           "c1_lost": 1,
           "examples": [
             {
               "query": "beef",
-              "shipped": "Beef, composite of trimmed retail cuts, separable lean and fat, trimmed to 1/8\" fat",
+              "shipped": "Beef, composite of trimmed retail cuts",
               "without": "Beef, retail cuts, separable fat"
             },
             {
@@ -458,7 +458,7 @@
         },
         {
           "key": "head+accounted",
-          "moved": 28,
+          "moved": 30,
           "gold_leads_broken": 0,
           "c1_lost": 1,
           "examples": [
@@ -491,7 +491,7 @@
         },
         {
           "key": "plain+plainSibling",
-          "moved": 90,
+          "moved": 74,
           "gold_leads_broken": 0,
           "c1_lost": 1,
           "examples": [

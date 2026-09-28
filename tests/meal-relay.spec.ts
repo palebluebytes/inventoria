@@ -92,6 +92,7 @@ async function serveUsdaCorpus(page: Page) {
           source: "Inventoria, hand-written",
           expansions: {},
         },
+        state_qualifiers: [],
         foods: [MOCK_BANANA, MOCK_OATS],
       }),
     });

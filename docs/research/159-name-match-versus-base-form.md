@@ -228,3 +228,95 @@ A fresh pre-registration may still take it up, but it inherits a harder question
 ## 16. What #159 leaves standing
 
 `salmon` still leads with a 345 kcal smoked sockeye, and `almonds` with a 14.6 kcal almond milk against a 626 kcal nut. Both defects are real, both are measured, and neither has a mechanism that survives its own price.
+
+---
+
+## 17. Priced against use (2026-09-17)
+
+**Added after §§1–16, and it measures something none of them does.** Sixteen
+sections sweep the corpus: they ask what a mechanism does to 1,924 or 3,976
+machine-generated queries. This asks what the defect does to the only person
+known to use the app. The two exports it reads are the ones #464 established
+exist and are **not in the repo and never will be** — a search-log export written
+by Rations settings → Local Logs → Export, and a Facet-scoped ledger export
+(#241). What follows is the figures they yield, not the files.
+
+### The two populations
+
+| export                                         | span                    | population                                                                                    |
+| ---------------------------------------------- | ----------------------- | --------------------------------------------------------------------------------------------- |
+| search log, dial 5 (Noisy), channel version 2  | 2026-09-09 → 2026-09-16 | **22 readable sessions**, 4 unreadable, **21 distinct typed strings**                         |
+| Facet ledger, `schema_version` 1, 3,645 datoms | 2026-08-29 → 2026-09-13 | **375 consume events**, of which **168 name a `fdc:` row**, across **38 distinct USDA foods** |
+
+They overlap on five days, 2026-09-09 to 2026-09-13. The search log's last five
+sessions post-date the ledger export, so those queries have no recorded outcome
+here.
+
+### The benefit, measured at zero on both
+
+**Not one of §4's eight defect queries was typed** — not `almonds`, `salmon`,
+`trout`, `cranberry`, `hazelnuts`, `smelt`, `octopus` or `deer`, in any spelling
+or prefix, across 22 sessions.
+
+**Not one of the eight wrong leads was logged, and not one of the eight intended
+rows was logged either.** No almond row of any kind, no salmon, trout, cranberry,
+hazelnut, smelt, octopus or deer, in 168 USDA consume events over 38 distinct
+foods. The nearest approaches in the whole ledger are `Fish, tuna, fresh,
+bluefin, raw` and `Nuts, coconut meat, dried (desiccated), toasted`.
+
+So the defect's two halves are both unmet: the query that would trigger it was
+never asked, and the row it would fix was never eaten.
+
+**One of §2's own classifications is falsified by the same file.** Its eleven
+unadjudicable cases are called "bare adjectives nobody types as a food", and
+`blue` is one of them. It was typed, on 2026-09-11, and it produced a logged
+food. The adjective list was a guess about use written from the corpus, which is
+the class of claim this section exists to check.
+
+### The cost, measured at one, and it is traceable end to end
+
+Where the two exports overlap they pair to the minute, which is what makes a
+single case evidence rather than coincidence:
+
+```
+search 2026-09-11 07:23  'blue'    ->  ledger 2026-09-11 07:23  fdc:2346411  Blueberries, raw
+```
+
+**`blue` is in #164's `worse` set.** Its §9 classification lists it among the 34
+queries the per-row offset makes worse, and #159's own §3 already records `blue`
+→ Blueberries as a correct lead that the refused rung-30/20 swap would have cost.
+So the one query for which this project holds both a typed string and the food it
+produced is a query the surviving candidate breaks.
+
+### Four limits, because the conclusion rests on a null
+
+1. **One device, one user.** The ledger export is Facet-scoped and single-device;
+   the search log is this device's.
+2. **A null over 22 sessions is weak.** #464 recorded the same weakness on the
+   same population: this user types 3–6 characters and picks, so a query shape
+   the device never produced is not thereby a query shape nobody produces.
+3. **The two spans are not the same span.** The search log covers eight days and
+   the ledger sixteen, overlapping on five.
+4. **`blue` prices the mechanism that was measured, not every shape.** #164 swept
+   a **deny-list**: the offset applied corpus-wide with 30 rows hand-overridden.
+   An **allow-list** — the offset applied only to rows a human wrote down — would
+   leave `blue`, `butternut`, `pine` and `ginger` exactly as they are, and has
+   never been measured. §18 says what that leaves.
+
+## 18. What this closes, and the one thing it does not
+
+**The defect is real, reproduces on the shipped index, and is declined.** Not on
+the ground that it cannot be fixed — #164 showed a mechanism that reaches six of
+the eight — but on the ground that the mechanism's measured benefit against real
+use is zero and its measured cost against real use is one. That is the ceiling
+argument ADR-0042's #164 Amendment invited and could not yet make: a hand list is
+priced by what it buys, and here it buys nothing anyone has typed.
+
+**The allow-list is unpriced, not refuted.** Nothing above measures it, and this
+note declines to claim otherwise. It is unauthorised rather than closed, and the
+condition that would revive it is narrow and currently false: **one of §4's eight
+queries actually typed**, on a search-log export, by someone. Until then there is
+no ticket, no owner and no band.
+
+`salmon` still leads with a smoked sockeye and `almonds` with an almond milk
+against a whole nut. Both defects stand, on the record, deliberately.

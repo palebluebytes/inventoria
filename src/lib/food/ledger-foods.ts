@@ -1,4 +1,5 @@
 import type { ConsumptionEvent } from "./consumption-state";
+import type { NutritionBreakdown } from "./nutrition";
 import { stemOf, wordsOf } from "./reference-food-ranking";
 
 /**
@@ -35,6 +36,27 @@ export interface LedgerFood {
   name: string;
   /** When it was last logged, so a caller can order without a second fold. */
   time: number;
+  /**
+   * The macros that occasion froze — the log's `event/metrics`, scaled to the
+   * amount logged (ADR-0022).
+   *
+   * Carried because for some foods it is the ONLY honest reading there is: a
+   * recipe twin stores no nutrition by design (ADR-0021), since its figures
+   * derive from the ingredient twins, so a row resolved from the twin alone
+   * came back 0/0/0/0 (#485). A twin that does carry a panel is quoted against
+   * that instead — see `mapLedgerFoodToResult` — because a panel is the
+   * reusable reading and this is one occasion's portion of it.
+   *
+   * Absent on a log that froze none, which is a legacy shape rather than a
+   * zero: {@link ConsumptionEvent.metrics} is optional for the same reason.
+   */
+  metrics?: NutritionBreakdown;
+  /**
+   * The `event/quantity` those metrics are quoted against, spelled the one way
+   * ADR-0060 §4 spells a logged quantity — "1 serving", "160 g". The basis half
+   * of the reading above, and absent exactly where a log carries none.
+   */
+  quantity?: string;
 }
 
 /**
@@ -65,7 +87,15 @@ export function ledgerFoodsFromEvents(
     const name = event.foodName?.trim();
     if (!name) continue;
     seen.add(target);
-    foods.push({ target, name, time: event.time });
+    // The frozen reading comes from the SAME log the name did — the newest —
+    // or a row would print one occasion's name over another's figures.
+    foods.push({
+      target,
+      name,
+      time: event.time,
+      metrics: event.metrics,
+      quantity: event.quantity,
+    });
   }
   return foods;
 }

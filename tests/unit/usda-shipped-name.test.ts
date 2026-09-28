@@ -5,7 +5,10 @@ import {
   FORTIFICATION_QUALIFIERS,
   ORIGIN_QUALIFIERS,
   carriesOriginQualifier,
+  resolveCollapsedNames,
   resolveShippedNames,
+  resolveStorageNames,
+  stripStorageQualifier,
   stripDesignationTag,
   stripFortificationQualifier,
   stripNonNamingQualifiers,
@@ -19,6 +22,61 @@ import {
 // the whole reason the rule is positional rather than lexical — see ADR-0056 §2.
 
 describe("stripNonNamingQualifiers", () => {
+  // #407. Five archive rows weld a state word to something else instead of
+  // writing a comma, so the positional strip walked past them and they shipped
+  // as the only rows in 2,025 still saying `raw` or `uncooked` - a word no name
+  // carries, which made it unreachable from the search box. Two shapes, both
+  // bounded by a sweep of both archives.
+
+  it("strips a state word its trailing bracket had welded to it", () => {
+    // The bracket is not the food. `Nuts, coconut cream` is, and the head
+    // phrase was already carrying it - which is why the argument for keeping
+    // these whole is withdrawn rather than merely overruled.
+    for (const [description, shipped] of [
+      [
+        "Crustaceans, shrimp, mixed species, raw (may contain additives to retain moisture)",
+        "Crustaceans, shrimp, mixed species",
+      ],
+      [
+        "Nuts, coconut milk, raw (liquid expressed from grated meat and water)",
+        "Nuts, coconut milk",
+      ],
+      [
+        "Nuts, coconut cream, raw (liquid expressed from grated meat)",
+        "Nuts, coconut cream",
+      ],
+    ] as const)
+      expect(stripNonNamingQualifiers(description)).toBe(shipped);
+  });
+
+  it("strips a state word USDA welded to the end of a part", () => {
+    // Anchored to the end of a qualifier, where a state word can only be the
+    // state - not word-wise, which would reach `refrigerated dough`.
+    expect(
+      stripNonNamingQualifiers(
+        "Walrus, meat and subcutaneous fat raw (Alaska Native)"
+      )
+    ).toBe("Walrus, meat and subcutaneous fat (Alaska Native)");
+    expect(
+      stripNonNamingQualifiers(
+        "Beef, New Zealand, imported, variety meats and by-products, tripe uncooked, raw"
+      )
+    ).toBe("Beef, tripe");
+  });
+
+  it("leaves a bracket that names the food, and a state word inside a phrase", () => {
+    // The three counterexamples the rule is bounded by. `muktuk` and `fat free
+    // or skim` are names; tahini's `raw` is one word of a phrase about how the
+    // kernels were ground, not the state of the food, and it is the last
+    // genuine use of the word left in the corpus.
+    for (const description of [
+      "Whale, bowhead, skin and subcutaneous fat (muktuk) (Alaska Native)",
+      "Milk, nonfat, fluid, without added vitamin A and vitamin D (fat free or skim)",
+      "Seeds, sesame butter, tahini, from raw and stone ground kernels",
+    ])
+      expect(stripNonNamingQualifiers(description)).toBe(description);
+  });
+
   it("removes an origin word that occupies a whole qualifier part", () => {
     expect(
       stripNonNamingQualifiers(
@@ -737,5 +795,193 @@ describe("the rename stays out of the app's bundle", () => {
     // `usda-twin-ledger.ts` use: the corpus is renamed once, ahead of time, and
     // what ships is the finished names (ADR-0047 §4).
     expect(importersOf("usda-shipped-name")).toEqual([]);
+  });
+});
+
+describe("resolveCollapsedNames — ADR-0103 §5's strip", () => {
+  // §5 writes no strip of its own: it gives §1's positional strip a second
+  // roster, and licenses it only where a collapse has merged more than one row.
+  // So the rule lives here, beside the other three rosters and the one answer to
+  // "are these two rows one name", and the licence arrives from the pass that
+  // knows the groups.
+
+  const row = (fdcId: number, description: string, also?: string[]) => ({
+    fdcId,
+    description,
+    ...(also ? { also } : {}),
+  });
+
+  it("takes the segments the group collapsed on, and nothing else", () => {
+    const { renamed, tally } = resolveCollapsedNames(
+      [
+        row(
+          168627,
+          'Beef, flank, steak, separable lean and fat, trimmed to 0" fat, choice'
+        ),
+      ],
+      new Set([168627])
+    );
+    expect([...renamed]).toEqual([[168627, "Beef, flank, steak"]]);
+    expect(tally).toEqual({ stripped: 1, refused: 0 });
+  });
+
+  it("never touches the head phrase, however it reads", () => {
+    // ADR-0056 §2's position rule, inherited whole. The head is what the group
+    // is a group OF, so it is never a candidate — and `Choice` is a head phrase
+    // in nobody's corpus but is exactly the shape that would prove it.
+    const { renamed } = resolveCollapsedNames(
+      [row(1, "Choice, separable lean and fat")],
+      new Set([1])
+    );
+    expect(renamed.get(1)).toBe("Choice");
+  });
+
+  it("leaves an unlicensed row byte-for-byte alone", () => {
+    // `Quinoa, cooked` is the only quinoa USDA publishes: nothing collapsed onto
+    // it, so nothing is stripped and it ships — a true name over a true panel.
+    const unlicensed = [
+      row(1, 'Beef, flank, steak, trimmed to 0" fat, choice'),
+      row(2, "Quinoa, cooked"),
+    ];
+    const { renamed, tally } = resolveCollapsedNames(unlicensed, new Set());
+    expect([...renamed]).toEqual([]);
+    expect(tally).toEqual({ stripped: 0, refused: 0 });
+  });
+
+  it("refuses a strip into a name another row already answers to", () => {
+    // ADR-0062 §3 rather than ADR-0056 §4: no origin here says which row loses,
+    // so the rename is simply not made and nothing is dropped. An ugly name
+    // beats two foods filed under one.
+    const { renamed, tally } = resolveCollapsedNames(
+      [
+        row(1, "Beef, flank, steak, separable lean and fat"),
+        row(2, "Beef, flank, steak"),
+      ],
+      new Set([1])
+    );
+    expect([...renamed]).toEqual([]);
+    expect(tally).toEqual({ stripped: 0, refused: 1 });
+  });
+
+  it("asks freedom of aliases too, because an alias is a name", () => {
+    // `bestNameKey` ranks a query against an alias exactly as against a
+    // description, so a check reading only descriptions would call a name free
+    // while a second row still answered to it.
+    const { tally } = resolveCollapsedNames(
+      [
+        row(1, "Beef, flank, steak, separable lean and fat"),
+        row(2, "Beef, flank, bavette", ["Beef, flank, steaks"]),
+      ],
+      new Set([1])
+    );
+    expect(tally).toEqual({ stripped: 0, refused: 1 });
+  });
+
+  it("refuses both sides where two licensed rows want one name", () => {
+    // A candidate whose own proposal is refused keeps the name it has, so it
+    // still holds that name against everyone else. Counting only PROPOSED names
+    // would let two candidates step aside into each other.
+    const { renamed, tally } = resolveCollapsedNames(
+      [
+        row(1, 'Lamb, loin, separable lean and fat, trimmed to 1/4" fat'),
+        row(2, "Lamb, loin, separable lean and fat, choice"),
+      ],
+      new Set([1, 2])
+    );
+    expect([...renamed]).toEqual([]);
+    expect(tally).toEqual({ stripped: 0, refused: 2 });
+  });
+});
+
+describe("where a shop kept a food is not what the food is", () => {
+  // ADR-0104's 2026-09-15 Amendment. Every description is a real corpus row,
+  // read at the commit that added the rule, and the panel figures are the
+  // nutrient counts those rows actually carry.
+  const row = (fdcId: number, description: string, panelFields?: number) => ({
+    fdcId,
+    description,
+    ...(panelFields === undefined ? {} : { panelFields }),
+  });
+
+  it("takes a shelf word that occupies a whole segment", () => {
+    expect(
+      stripStorageQualifier("Oat milk, unsweetened, plain, refrigerated")
+    ).toBe("Oat milk, unsweetened, plain");
+    expect(
+      stripStorageQualifier("Soy milk, unsweetened, plain, shelf stable")
+    ).toBe("Soy milk, unsweetened, plain");
+  });
+
+  it("leaves a shelf word that is part of the food's name", () => {
+    // The five rows that make this rule positional rather than word-wise. The
+    // dough in the tube is the product, and fresh pasta is a different food from
+    // dry pasta with a different panel — a word-wise rule files two foods under
+    // one name here.
+    for (const description of [
+      "Biscuits, plain or buttermilk, refrigerated dough, higher fat",
+      "Biscuits, mixed grain, refrigerated dough",
+      "Pasta, fresh-refrigerated, plain, as purchased",
+      "Pasta, fresh-refrigerated, spinach, as purchased",
+    ] as const)
+      expect([description, stripStorageQualifier(description)]).toEqual([
+        description,
+        description,
+      ]);
+  });
+
+  it("keeps a gloss USDA welded to the stripped segment", () => {
+    // `stripFortificationQualifier`'s rule, for the same reason: USDA writes no
+    // comma before the bracket, so the gloss is a gloss on the FOOD.
+    expect(
+      stripStorageQualifier("Tortillas, flour, refrigerated (includes burrito)")
+    ).toBe("Tortillas, flour (includes burrito)");
+  });
+
+  it("lets the row that never had to change keep its name", () => {
+    // Rule 1's shape. The plain grated parmesan was never renamed, so it is
+    // holding the name it always had and is never in contention — even though
+    // the tiebreak below would have picked it anyway.
+    const { renamed, dropped } = resolveStorageNames([
+      row(325036, "Cheese, parmesan, grated", 115),
+      row(2259795, "Cheese, parmesan, grated, refrigerated", 52),
+    ]);
+    expect([...dropped]).toEqual([2259795]);
+    expect([...renamed]).toEqual([]);
+  });
+
+  it("gives the name to the fuller panel where every contender was renamed", () => {
+    // The case the tiebreak exists for, and it does not agree with "the
+    // refrigerated one loses": the refrigerated tortilla carries 135 nutrients
+    // and seven household portions against the shelf-stable row's 117 and two.
+    const { renamed, dropped } = resolveStorageNames([
+      row(167535, "Tortillas, ready-to-bake or -fry, flour, shelf stable", 117),
+      row(175037, "Tortillas, ready-to-bake or -fry, flour, refrigerated", 135),
+    ]);
+    expect([...dropped]).toEqual([167535]);
+    expect([...renamed]).toEqual([
+      [175037, "Tortillas, ready-to-bake or -fry, flour"],
+    ]);
+  });
+
+  it("renames a row nothing contests and drops nobody", () => {
+    // Four rows reach this shape in the corpus, and one of them is the only oat
+    // milk there is — which is why the chiller is a name rule and not a drop
+    // rule.
+    const { renamed, dropped } = resolveStorageNames([
+      row(2257046, "Oat milk, unsweetened, plain, refrigerated", 57),
+    ]);
+    expect([...dropped]).toEqual([]);
+    expect([...renamed]).toEqual([[2257046, "Oat milk, unsweetened, plain"]]);
+  });
+
+  it("never touches two rows that already shared a name", () => {
+    // Without this guard the rule reaches a collision belonging to neither row
+    // and deletes one of them for a reason that is not its own.
+    const { renamed, dropped } = resolveStorageNames([
+      row(1, "Cheese, brie", 40),
+      row(2, "Cheese, brie", 90),
+    ]);
+    expect([...dropped]).toEqual([]);
+    expect([...renamed]).toEqual([]);
   });
 });

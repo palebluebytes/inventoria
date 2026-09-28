@@ -100,6 +100,14 @@ export function readTaxonomyGroups(taxonomy) {
  *                   retrieves something. A group whose members all agree cannot
  *                   change an answer, whichever way they agree.
  *   DENY-LIST       drop the groups that name nothing a person types.
+ *   REACH FILTER    drop a key the query strip would have changed. The search
+ *                   strikes every spelling of the uncooked state out of a query
+ *                   BEFORE the fallback sees it (ADR-0049's #464 Amendment), so
+ *                   a key holding one of those words can never be typed at this
+ *                   map and is not a key. It is a filter of its own rather than
+ *                   a case of the effect filter, which asks only what a phrase
+ *                   RETRIEVES: `raw beef kidney` retrieves nothing, exactly as
+ *                   it always did, and is unreachable all the same.
  *   INVERT          miss -> the members that answer. Phrases, never `fdcId`s:
  *                   freezing rows here would pin the ranking #124 exists to
  *                   change, and a corpus refresh would silently redirect a key.
@@ -117,14 +125,19 @@ export function readTaxonomyGroups(taxonomy) {
  * diff needs.
  *
  * @param {{ tag: string, members: string[] }[]} groups
- * @param {{ denied: readonly string[], countMatches: (phrase: string) => number, corpusSize: number }} options
+ * @param {{ denied: readonly string[], countMatches: (phrase: string) => number, corpusSize: number, unreachable: (phrase: string) => boolean }} options
  */
-export function deriveVocabulary(groups, { denied, countMatches, corpusSize }) {
+export function deriveVocabulary(
+  groups,
+  { denied, countMatches, corpusSize, unreachable }
+) {
   const deniedTags = new Set(denied);
   const limit = VOCABULARY_TARGET_SHARE * corpusSize;
 
   let effective_groups = 0;
   let denied_groups = 0;
+  /** @type {string[]} */
+  const unreachable_keys = [];
   /** @type {Map<string, Set<string>>} */
   const inverted = new Map();
   for (const group of groups) {
@@ -136,9 +149,13 @@ export function deriveVocabulary(groups, { denied, countMatches, corpusSize }) {
       denied_groups++;
       continue;
     }
-    const misses = group.members.filter((_, at) => counts[at] === 0);
     const targets = group.members.filter((_, at) => counts[at] > 0);
+    const misses = group.members.filter((_, at) => counts[at] === 0);
     for (const key of misses) {
+      if (unreachable(key)) {
+        unreachable_keys.push(key);
+        continue;
+      }
       const reached = inverted.get(key) ?? new Set();
       for (const target of targets) reached.add(target);
       inverted.set(key, reached);
@@ -175,6 +192,7 @@ export function deriveVocabulary(groups, { denied, countMatches, corpusSize }) {
     effective_groups,
     denied_groups,
     dropped_targets,
+    unreachable_keys: [...new Set(unreachable_keys)].sort(),
     orphaned_keys: orphaned_keys.sort(),
     widest_target: widest ?? null,
     limit,
@@ -198,8 +216,9 @@ export function deriveVocabulary(groups, { denied, countMatches, corpusSize }) {
  *
  * @param {Record<string, string[]>} expansions
  * @param {(phrase: string) => number} countMatches
+ * @param {(phrase: string) => boolean} unreachable
  */
-export function assertVocabularyHolds(expansions, countMatches) {
+export function assertVocabularyHolds(expansions, countMatches, unreachable) {
   for (const [key, targets] of Object.entries(expansions)) {
     if (countMatches(key) !== 0)
       throw new Error(
@@ -207,6 +226,14 @@ export function assertVocabularyHolds(expansions, countMatches) {
       );
     if (!targets.some((target) => countMatches(target) > 0))
       throw new Error(`"${key}" expands to nothing that retrieves`);
+    // The third property, and the youngest: a key the query strip would have
+    // rewritten is never handed to the fallback, so shipping it would be a
+    // promise the search cannot keep (ADR-0049's #464 Amendment).
+    if (unreachable(key))
+      throw new Error(
+        `"${key}" holds a word the query strip removes and can never be typed ` +
+          "at the fallback"
+      );
   }
   return expansions;
 }
@@ -237,7 +264,9 @@ export function describeVocabulary(vocabulary) {
     `[${vocabulary.dropped_targets.map(describe).join(", ")}] and with them ` +
     `${vocabulary.orphaned_keys.length} keys ` +
     `[${vocabulary.orphaned_keys.join(", ")}]; widest kept ` +
-    `${vocabulary.widest_target ? describe(vocabulary.widest_target) : "none"}`
+    `${vocabulary.widest_target ? describe(vocabulary.widest_target) : "none"}\n` +
+    `  reach filter dropped ${vocabulary.unreachable_keys.length} keys the ` +
+    `query strip would have rewritten [${vocabulary.unreachable_keys.join(", ")}]`
   );
 }
 
@@ -479,15 +508,15 @@ export function assertLocalVocabularyHolds(
  * any object at all.
  *
  * @template Food
- * @template {{ foods: Food[], vocabulary: Record<string, string[]> }} Corpus
+ * @template {{ foods: Food[], vocabulary: Record<string, string[]>, state_qualifiers: string[][] }} Corpus
  * @param {object} index the finished search index, as it is about to be written
- * @param {{ buildSearchCorpus: (index: any) => { foods: Food[] }, searchIndexRows: (corpus: Corpus, query: string) => { hits: { row: { description: string } }[] } }} app
+ * @param {{ buildSearchCorpus: (index: any) => { foods: Food[], state_qualifiers: string[][] }, searchIndexRows: (corpus: Corpus, query: string) => { hits: { row: { description: string } }[] } }} app
  */
 export function leadingRowReader(index, app) {
-  const { foods } = app.buildSearchCorpus(index);
+  const { foods, state_qualifiers } = app.buildSearchCorpus(index);
   return (query, vocabulary) =>
-    app.searchIndexRows({ foods, vocabulary }, query).hits[0]?.row
-      .description ?? null;
+    app.searchIndexRows({ foods, vocabulary, state_qualifiers }, query).hits[0]
+      ?.row.description ?? null;
 }
 
 /**

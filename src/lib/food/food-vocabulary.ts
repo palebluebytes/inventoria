@@ -310,8 +310,11 @@ export interface LocalVocabularyEntry {
 export const LOCAL_VOCABULARY_CEILING = 20;
 
 /**
- * The eight everyday food names OFF's taxonomy does not carry, and USDA does —
- * seven British regionalisms (#141) and one spelling (ADR-0061 §5, #177).
+ * The seven everyday food names OFF's taxonomy does not carry, and USDA does —
+ * six British regionalisms (#141) and one spelling (ADR-0061 §5, #177).
+ *
+ * Was eight until `jacket potato` left: the corpus stopped carrying baked foods,
+ * so the key reached nothing and its own guard took it out.
  *
  * Ordered by key, as the derived map is, so an addition diffs as one entry.
  */
@@ -325,8 +328,8 @@ export const LOCAL_VOCABULARY: readonly LocalVocabularyEntry[] = [
   {
     key: "gammon",
     targets: ["pork cured ham whole"],
-    landsOn: "Pork, cured, ham, whole, separable lean and fat",
-    why: "The British name for cured leg of pork sold uncooked, to be cooked at home; the American register calls the same cut ham. Re-chosen when the corpus stopped carrying cooked foods: the bare `pork cured ham` then led with `Pork, cured, ham, patties`, the one formed product left standing once the 21 cooked patty rows went, and a patty is not a gammon. `whole` names the joint the word means.",
+    landsOn: "Pork, cured, ham, whole",
+    why: "The British name for cured leg of pork sold uncooked, to be cooked at home; the American register calls the same cut ham. Re-chosen when the corpus stopped carrying cooked foods: the bare `pork cured ham` then led with `Pork, cured, ham, patties`, the one formed product left standing once the 21 cooked patty rows went, and a patty is not a gammon. `whole` names the joint the word means. The row is the same record throughout — fdc:167875 — and lost `separable lean and fat` to ADR-0103 §5's strip (#436) rather than being re-chosen a second time.",
   },
   // `jacket potato` was here and is REMOVED, and it is the plainest casualty of
   // the corpus becoming uncooked. A jacket potato is a baked potato: it is the
@@ -362,7 +365,7 @@ export const LOCAL_VOCABULARY: readonly LocalVocabularyEntry[] = [
   {
     key: "soymilk",
     targets: ["soy milk"],
-    landsOn: "Soy milk, unsweetened, plain, shelf stable",
-    why: "The one-word spelling of soy milk, which is how the cartons and USDA's own dropped rows both write it; the single plain soy milk the corpus keeps is a Foundation row spelled with a space.",
+    landsOn: "Soy milk, unsweetened, plain",
+    why: "The one-word spelling of soy milk, which is how the cartons and USDA's own dropped rows both write it; the single plain soy milk the corpus keeps is a Foundation row spelled with a space. It shed `shelf stable` to the storage strip, which is a rename and not a re-choosing: the row is fdc:1999630 before and after.",
   },
 ];

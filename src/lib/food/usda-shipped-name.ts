@@ -1,4 +1,5 @@
 import { qualifiersOf, stemOf, wordsOf } from "./reference-food-ranking";
+import { residualDescription } from "./usda-collapse-roster";
 
 // ---------------------------------------------------------------------------
 // The rename: taking out of a name the parts that do not name the food
@@ -202,11 +203,22 @@ export function stripDesignationTag(description: string): string {
  * `Pork, cured, ham, patties, unheated`, and the hand-written vocabulary entry's
  * own guard is what caught it.
  *
- * Exact whole segments only, which the positional strip already guarantees and
- * which matters here more than elsewhere. Six rows write the state with a
- * parenthetical after it, and in two of them the parenthetical IS the food:
- * `raw (liquid expressed from grated meat)` is coconut cream, not a raw
- * anything. Those keep their names whole.
+ * Whole segments, read as a PHRASE rather than as raw text, and the difference
+ * is five rows. This used to read "exact whole segments only", on the ground
+ * that in two of the rows welding a bracket to the state the parenthetical IS
+ * the food - `raw (liquid expressed from grated meat)` being coconut cream,
+ * not a raw anything.
+ *
+ * **That argument is withdrawn (#407).** It does not survive its own result:
+ * strip the segment whole and what is left is `Nuts, coconut cream`, which
+ * names the food exactly, because the head phrase was already carrying the
+ * name the gloss was said to be carrying. The gloss restated the name; it did
+ * not hold it. Keeping it cost the two coconuts, the shrimp, the walrus and
+ * `Beef, tripe` a word USDA wrote and this corpus does not use, and left them
+ * the only rows in 2,025 still saying it.
+ *
+ * See {@link strippablePhrase} and {@link WELDED_STATE} for the two shapes the
+ * weld takes, and for the archive measurement that bounds them at five rows.
  */
 export const STATE_QUALIFIERS: ReadonlySet<string> = new Set([
   "raw",
@@ -214,6 +226,49 @@ export const STATE_QUALIFIERS: ReadonlySet<string> = new Set([
   "unheated",
   "unprepared",
   "raw or unheated",
+  // USDA pairs the state with the freezer on exactly one row, and the pairing is
+  // what protects it: `Durian, raw or frozen` writes both words as ONE segment,
+  // so `isFrozenRecord` next door never sees `frozen` as a segment and the
+  // corpus's only durian is not a frozen record. What the row is left saying is
+  // the uncooked state every other row has stopped saying, so it comes off here
+  // with the other five spellings and the food ships as `Durian`.
+  "raw or frozen",
+]);
+
+/**
+ * Where a shop keeps a food, which is not what the food is.
+ *
+ * Two words, and USDA uses them as a contrasting pair on the same shelf: an
+ * almond milk in the chiller and an almond milk in the ambient aisle, a flour
+ * tortilla of each. Neither says WHICH food the row is, which is the test
+ * {@link CATALOGUE_QUALIFIERS} states and these meet for the same reason.
+ *
+ * **`frozen` is deliberately not here.** A frozen record does not ship at all
+ * (`isFrozenRecord` in `usda-variant-drops.ts`), because a freezer changes what
+ * you are buying in a way a chiller does not — and because the processed filter
+ * already took 285 frozen rows on that reading before any name was written.
+ *
+ * **Whole segments only, and that is the whole of what keeps this narrow.**
+ * Measured over the archives, five surviving rows carry `refrigerated` INSIDE a
+ * larger segment and every one of them means it as part of the food's name:
+ * three `Biscuits, …, refrigerated dough` rows, where the dough in the tube is
+ * the product, and two `Pasta, fresh-refrigerated, …` rows, where fresh pasta is
+ * a different food from dry pasta and carries a different panel. A word-wise
+ * rule would rename all five and file two foods under one name in the second
+ * case. The positional strip already guarantees this; it is restated because the
+ * counterexamples are real rather than hypothetical.
+ *
+ * Unlike the rosters above, these are NOT folded into
+ * {@link STRIPPED_QUALIFIERS}. The strip can leave two rows with one name, and
+ * the rows in contention carry no origin — so rule 1's tiebreak cannot fire and
+ * the collision needs a tiebreak of its own. {@link resolveStorageNames} is that
+ * rule, and keeping it separate is what lets a storage collision report itself
+ * as one instead of being counted as a designation collision it has nothing to
+ * do with.
+ */
+export const STORAGE_QUALIFIERS: ReadonlySet<string> = new Set([
+  "refrigerated",
+  "shelf stable",
 ]);
 
 const STRIPPED_QUALIFIERS: ReadonlySet<string> = new Set([
@@ -400,16 +455,96 @@ export interface ShippedNameVerdict {
    * blocked look identical from outside. A rule whose reach nobody measured is
    * a hole nobody can see (ADR-0056 §5).
    */
-  fortification: FortificationTally;
+  fortification: StripTally;
 }
 
-/** How far the fortification strip reached, and how far it was refused. */
-export interface FortificationTally {
-  /** Rows whose name lost the phrase. */
+/**
+ * How far a CONDITIONAL strip reached, and how far the corpus refused it.
+ *
+ * One shape for both of them — the fortification phrase (ADR-0062 §3) and the
+ * collapse's segments (ADR-0103 §5) — because they are the same event counted
+ * the same way, and a second interface restating two numbers is a shape to
+ * drift rather than a distinction to keep.
+ *
+ * Counted because the refusals are otherwise INVISIBLE. Every unconditional
+ * rule here reports itself by what it changed — a rename in `renamed`, a drop
+ * in `dropped` — but a refused rename leaves the corpus byte-for-byte as it
+ * was, so a roster that reached nothing and a roster the whole corpus blocked
+ * look identical from outside. A rule whose reach nobody measured is a hole
+ * nobody can see (ADR-0056 §5).
+ */
+export interface StripTally {
+  /** Rows whose name lost the phrase or segment. */
   stripped: number;
   /** Rows that kept it, because another row already answered to the shorter name. */
   refused: number;
 }
+
+/**
+ * One row as {@link renameIntoFreeNames} reads it: what it answers to now, and
+ * what it would rather be called.
+ *
+ * Both strips build this and neither owns it, which is the point — whether a
+ * name is FREE is a question about the whole corpus, and asking it two ways
+ * would let the two rules disagree about what a duplicate is.
+ */
+interface FreeNameCandidate {
+  fdcId: number;
+  /** The name it ships under today, and keeps if the rename is refused. */
+  current: string;
+  /** Every other name it answers to, spelled as those names will SHIP. */
+  aliases: readonly string[];
+  /** The name it would like instead, or `current` where it wants none. */
+  proposed: string;
+}
+
+/**
+ * The renames that leave every row a name of its own, and a count of the ones
+ * the corpus refused.
+ *
+ * ADR-0062 §3's condition, shared by the two rules that carry it: **a phrase is
+ * removed only where the resulting name is unique in the corpus.** Where it is
+ * not, the rename is simply not made and nothing is dropped — there is no
+ * origin here to say which of two rows loses, and an ugly name is preferred to
+ * two foods filed under one.
+ *
+ * A name is free when no OTHER row could answer to it, and both words are
+ * load-bearing. **Could**: a candidate whose own proposal is refused keeps the
+ * name it has, so it still holds that name against everyone else, and counting
+ * only proposed names would let two candidates step aside into each other.
+ * **Answer to**: an alias is a name too, since `bestNameKey` ranks a query
+ * against one exactly as against a description.
+ */
+const renameIntoFreeNames = (
+  candidates: readonly FreeNameCandidate[]
+): { renamed: Map<number, string>; tally: StripTally } => {
+  const claimants = new Map<string, Set<number>>();
+  const claim = (name: string, fdcId: number) => {
+    const key = stemmedName(name);
+    const holders = claimants.get(key);
+    if (holders) holders.add(fdcId);
+    else claimants.set(key, new Set([fdcId]));
+  };
+  const proposals = new Map<number, string>();
+  for (const { fdcId, current, aliases, proposed } of candidates) {
+    if (proposed !== current) proposals.set(fdcId, proposed);
+    claim(current, fdcId);
+    claim(proposed, fdcId);
+    for (const alias of aliases) claim(alias, fdcId);
+  }
+
+  const renamed = new Map<number, string>();
+  const tally: StripTally = { stripped: 0, refused: 0 };
+  for (const [fdcId, proposed] of proposals) {
+    if (claimants.get(stemmedName(proposed))?.size !== 1) {
+      tally.refused++;
+      continue;
+    }
+    renamed.set(fdcId, proposed);
+    tally.stripped++;
+  }
+  return { renamed, tally };
+};
 
 /** One qualifier part, twice: as a roster is asked, and as USDA typed it. */
 interface NamedPart {
@@ -505,31 +640,109 @@ const FOOD_DISTRIBUTION_GLOSS =
  * varieties the row stands for. Those stay. A `may` says the opposite - that
  * USDA is not claiming anything.
  *
- * The one other `may` is deliberately NOT here.
- * `Crustaceans, shrimp, mixed species, raw (may contain additives to retain
- * moisture)` hedges about what is IN the shrimp, and added water is a claim
- * about the panel rather than about the journey. Removing it would hide
+ * The one other `may` is still not here, and no longer needs to be. It used to
+ * read that `Crustaceans, shrimp, mixed species, raw (may contain additives to
+ * retain moisture)` should keep its bracket, because added water is a claim
+ * about the panel rather than about the journey and removing it would hide
  * something a reader of the number should know.
+ *
+ * **That argument is withdrawn (#407).** It was answering the wrong question.
+ * The bracket was not merely a hedge being kept - it was WELDING the state word
+ * to the part, so the row shipped saying `raw` while 1,416 others had stopped,
+ * and `raw` then reached nothing at all from the search box because no name
+ * carries it. What a reader of the number should know is a fact about the
+ * panel, and the panel is where it belongs; a name is not the place to keep it,
+ * and it was only ever in the name by USDA's punctuation accident.
+ * {@link strippablePhrase} below takes the whole segment, bracket included.
  */
 const HANDLING_HEDGE = /\s*\(may have been previously frozen\)/i;
+
+/**
+ * A part read as the phrase it is, with any parenthetical gloss trailing it set
+ * aside.
+ *
+ * {@link FOOD_DISTRIBUTION_GLOSS} above states the composition this completes:
+ * while a gloss is attached the part is not `raw`, so the state roster walks
+ * past it, and taking the gloss off first "exposes the word to the strip that
+ * was always meant to have it - the same composition the designation tag
+ * needed, AND THE SAME BUG WHEN IT IS MISSING". Two rosters reached the glosses
+ * they knew by name and nothing reached the rest, so the bug was still there,
+ * on three rows, wearing two different brackets.
+ *
+ * Read rather than removed, which is what keeps this a rule instead of a third
+ * hand-list of brackets. Measured over both archives: no ORIGIN or CATALOGUE
+ * part carries a gloss at all, so this widens the strip over the state roster
+ * and over nothing else.
+ */
+const strippablePhrase = (lookup: string): string => {
+  const glossed = lookup.match(GLOSSED_PART);
+  return glossed ? glossed[1] : lookup;
+};
+
+/**
+ * The state word USDA welded to the end of a part instead of writing a comma.
+ *
+ * Two rows in the archives, both of them the defect and neither of them a food:
+ * `Walrus, meat and subcutaneous fat raw` and `Beef, ..., tripe uncooked`. The
+ * word-wise caution {@link STORAGE_QUALIFIERS} states does not reach here - its
+ * counterexamples are words sitting INSIDE a segment (`refrigerated dough`,
+ * `fresh-refrigerated`), and this is anchored to the end of one, where a state
+ * word can only be the state.
+ */
+const WELDED_STATE = new RegExp(
+  `\\s+(?:${[...STATE_QUALIFIERS]
+    .sort((a, b) => b.length - a.length)
+    .join("|")})$`,
+  "i"
+);
+
+/**
+ * A kept part with {@link WELDED_STATE} taken off, gloss set aside and put back.
+ *
+ * Gloss-aware for the same reason {@link strippablePhrase} is, and it is not
+ * hypothetical here either: this strip runs BEFORE {@link stripDesignationTag},
+ * so `Walrus, meat and subcutaneous fat raw (Alaska Native)` still wears its tag
+ * when the weld is looked for, and a test against the raw text would walk past
+ * the one row the rule exists for.
+ *
+ * Matched against USDA's own text rather than the lowercased lookup, so a gloss
+ * keeps its casing the way {@link stripFortificationQualifier} keeps one.
+ */
+const withoutWeldedState = (text: string): string => {
+  const glossed = text.match(GLOSSED_PART);
+  const phrase = glossed ? glossed[1] : text;
+  const trimmed = phrase.replace(WELDED_STATE, "");
+  if (trimmed === phrase) return text;
+  return glossed ? `${trimmed} ${glossed[2]}` : trimmed;
+};
+
 export function stripNonNamingQualifiers(description: string): string {
   const glossed = description
     .replace(FOOD_DISTRIBUTION_GLOSS, "")
     .replace(HANDLING_HEDGE, "");
   const parts = namedParts(glossed);
   const keep = parts.map(
-    ({ lookup }, index) => index === 0 || !STRIPPED_QUALIFIERS.has(lookup)
+    ({ lookup }, index) =>
+      index === 0 || !STRIPPED_QUALIFIERS.has(strippablePhrase(lookup))
+  );
+  const welded = parts.map(
+    ({ text }, index) =>
+      index > 0 && keep[index] && withoutWeldedState(text) !== text
   );
   // Byte-for-byte when there is nothing to do, which is why the gloss is tested
   // rather than assumed: `qualifiersOf` lowercases and collapses whitespace, and
   // a row nobody is renaming must not have USDA's own text quietly rewritten by
   // passing through a splitter.
-  if (keep.every(Boolean))
+  if (keep.every(Boolean) && !welded.some(Boolean))
     return glossed === description ? description : glossed;
-  return parts
-    .filter((_, index) => keep[index])
-    .map(({ text }) => text)
-    .join(", ");
+  return (
+    parts
+      .filter((_, index) => keep[index])
+      // Never the head phrase, on ADR-0056 section 2's terms - the strip reaches
+      // qualifiers only, and a welded state word is still a qualifier's.
+      .map(({ text }, index) => (index === 0 ? text : withoutWeldedState(text)))
+      .join(", ")
+  );
 }
 
 /**
@@ -580,6 +793,127 @@ export function stripFortificationQualifier(description: string): string {
     if (gloss) kept[kept.length - 1] += ` ${gloss[2]}`;
   });
   return stripped ? kept.join(", ") : description;
+}
+
+/**
+ * A description with its {@link STORAGE_QUALIFIERS} segment removed, or
+ * unchanged if it carries none.
+ *
+ * Positional on ADR-0056 §2's terms and gloss-aware on
+ * {@link stripFortificationQualifier}'s, for the same reason and with the same
+ * two lines: USDA writes no comma before a bracket, so a gloss trailing the
+ * stripped segment joins the part before it rather than standing alone.
+ */
+export function stripStorageQualifier(description: string): string {
+  const kept: string[] = [];
+  let stripped = false;
+  namedParts(description).forEach(({ lookup, text }, index) => {
+    const glossed = lookup.match(GLOSSED_PART);
+    const phrase = glossed ? glossed[1] : lookup;
+    if (index === 0 || !STORAGE_QUALIFIERS.has(phrase)) {
+      kept.push(text);
+      return;
+    }
+    stripped = true;
+    const gloss = text.match(GLOSSED_PART);
+    if (gloss) kept[kept.length - 1] += ` ${gloss[2]}`;
+  });
+  return stripped ? kept.join(", ") : description;
+}
+
+/**
+ * What the storage strip does to a whole corpus: which rows get a shorter name,
+ * and which leave because the shorter name was already somebody's.
+ *
+ * **A pass of its own, run last over the names that will ship**, and both halves
+ * of that are load-bearing.
+ *
+ * *Of its own*, because the collision it causes has no tiebreak in
+ * {@link resolveShippedNames}. Rule 1 settles a collision by dropping the row
+ * that carried an ORIGIN, and none of these rows carries one — an almond milk in
+ * the chiller and an almond milk on the shelf are two records of one food, and
+ * nothing about where a shop kept them says which is the corpus's.
+ *
+ * So it borrows rule 1's SHAPE and rule 3's TIEBREAK, in that order. **Only a
+ * row this strip renamed may lose**, because a row that never had to change is
+ * holding the name it always had — that is what leaves the plain
+ * `Cheese, parmesan, grated` standing without ever putting it in contention.
+ * Where every contender was renamed there is no incumbent, and then **the fuller
+ * panel stays**, which is a claim about the record and the only kind ADR-0055 §1
+ * admits; `fdcId` breaks a tie under it so the answer is stable across
+ * regenerations.
+ *
+ * A group the strip did not touch is skipped outright. Two rows that already
+ * shared a name are not this rule's business, and without that guard it would
+ * delete one of them for a reason belonging to neither.
+ *
+ * *Last*, because the strips before it decide what a name is. Run earlier, the
+ * parmesan pair is `Cheese, parmesan, grated, refrigerated` against
+ * `Cheese, parmesan, grated` and would collide correctly by luck; the tortillas
+ * are `…, flour, refrigerated` against `…, flour, shelf stable` and collide only
+ * once BOTH words are gone, which is this rule's own doing and not another's.
+ *
+ * The three collisions it settles over the shipped corpus, with the panel each
+ * side carries:
+ *
+ * | name after the strip | keeps | loses |
+ * | --- | --- | --- |
+ * | `Cheese, parmesan, grated` | the plain row, 115 nutrients | `refrigerated`, 52 |
+ * | `Almond milk, unsweetened, plain` | `shelf stable`, 124 | `refrigerated`, 57 |
+ * | `Tortillas, ready-to-bake or -fry, flour` | `refrigerated`, 135 | `shelf stable`, 117 |
+ *
+ * The tortillas are the case the tiebreak exists for. A rule reading the WORDS
+ * would drop the refrigerated row on both of the other two rows' logic and take
+ * the corpus's better record with it — 135 nutrients against 117, and seven
+ * household portions against two.
+ *
+ * Six more rows are renamed and nothing contests them: the oat milk, the soy
+ * milk, the hash browns, the lump crab, and the two survivors above that kept a
+ * word once they had nothing left to contrast with.
+ */
+export function resolveStorageNames(rows: readonly ShippedNameRow[]): {
+  renamed: ReadonlyMap<number, string>;
+  dropped: ReadonlySet<number>;
+} {
+  const renamed = new Map<number, string>();
+  const dropped = new Set<number>();
+
+  const byName = new Map<string, ShippedNameRow[]>();
+  for (const row of rows) {
+    const key = stemmedName(stripStorageQualifier(row.description));
+    const group = byName.get(key);
+    if (group) group.push(row);
+    else byName.set(key, [row]);
+  }
+
+  for (const group of byName.values()) {
+    const moved = group.filter(
+      (row) => stripStorageQualifier(row.description) !== row.description
+    );
+    // A group this strip did not touch is somebody else's business. Without
+    // this the rule would reach two rows that already shared a name and drop
+    // one of them for a reason that has nothing to do with either.
+    if (moved.length === 0) continue;
+
+    // Only a renamed row can lose, which is rule 1's shape and its reason: a row
+    // that never had to change is holding the name it always had. Where every
+    // contender was renamed there is no incumbent, and the fuller panel decides.
+    const contenders =
+      moved.length === group.length
+        ? [...group].sort(
+            (a, b) =>
+              (b.panelFields ?? 0) - (a.panelFields ?? 0) || a.fdcId - b.fdcId
+          )
+        : group.filter((row) => !moved.includes(row));
+    const [survivor] = contenders;
+    for (const row of group)
+      if (row !== survivor && moved.includes(row)) dropped.add(row.fdcId);
+
+    const name = stripStorageQualifier(survivor.description);
+    if (name !== survivor.description) renamed.set(survivor.fdcId, name);
+  }
+
+  return { renamed, dropped };
 }
 
 /**
@@ -811,35 +1145,21 @@ export function resolveShippedNames(
   //    Asked of the rows still standing after the designation pass, not of
   //    `survivors` above, which was read before it took its six.
   const standing = rows.filter((row) => !dropped.has(row.fdcId));
-  const claimants = new Map<string, Set<number>>();
-  const claim = (name: string, fdcId: number) => {
-    const key = stemmedName(name);
-    const holders = claimants.get(key);
-    if (holders) holders.add(fdcId);
-    else claimants.set(key, new Set([fdcId]));
-  };
-  const proposals = new Map<number, string>();
-  for (const row of standing) {
-    const shipped = renamed.get(row.fdcId) ?? row.description;
-    const proposed = stripFortificationQualifier(shipped);
-    if (proposed !== shipped) proposals.set(row.fdcId, proposed);
-    claim(shipped, row.fdcId);
-    claim(proposed, row.fdcId);
-    // The alias as it will SHIP, not as the archive wrote it: ADR-0056 takes
-    // the origin words out of both kinds of name, so a check reading the raw
-    // alias would compare against a string nothing answers to.
-    for (const alias of row.also ?? [])
-      claim(stripNonNamingQualifiers(alias), row.fdcId);
-  }
-  const fortification: FortificationTally = { stripped: 0, refused: 0 };
-  for (const [fdcId, proposed] of proposals) {
-    if (claimants.get(stemmedName(proposed))?.size !== 1) {
-      fortification.refused++;
-      continue;
-    }
-    renamed.set(fdcId, proposed);
-    fortification.stripped++;
-  }
+  const { renamed: freed, tally: fortification } = renameIntoFreeNames(
+    standing.map((row) => {
+      const current = renamed.get(row.fdcId) ?? row.description;
+      return {
+        fdcId: row.fdcId,
+        current,
+        // The alias as it will SHIP, not as the archive wrote it: ADR-0056
+        // takes the origin words out of both kinds of name, so a check reading
+        // the raw alias would compare against a string nothing answers to.
+        aliases: (row.also ?? []).map(stripNonNamingQualifiers),
+        proposed: stripFortificationQualifier(current),
+      };
+    })
+  );
+  for (const [fdcId, name] of freed) renamed.set(fdcId, name);
 
   return { renamed, dropped, fortification };
 }
@@ -1153,4 +1473,69 @@ export function renameSeedMaturity(
     renamed.set(row.fdcId, kept.join(", "));
   }
   return renamed;
+}
+
+// ---------------------------------------------------------------------------
+// The collapse's strip: a name over the panel it actually measures
+// (ADR-0103 §5, §10)
+// ---------------------------------------------------------------------------
+//
+// ADR-0103 §5 does not write a strip of its own. It says §1's positional strip
+// "gains this record's collapsing axes", and that the strip is LICENSED by the
+// collapse having happened — so the rule lives here, beside the three rosters
+// above and the one answer to "are these two rows one name", and its roster
+// lives in `usda-collapse-roster.ts`, which moves when an axis is classified.
+// Two modules, because they move on two triggers (§9); one strip, because a
+// second spelling of "remove a whole comma-segment" is a second set of
+// parenthetical traps to fall into.
+//
+// The licence is the whole of the safety argument and it is not computable from
+// a name. `Quinoa, cooked` is the only quinoa USDA publishes: its group holds
+// one row, nothing is stripped, and it ships as `Quinoa, cooked` — a true name
+// over a true panel. Strip it and the corpus would claim to hold raw quinoa and
+// hand the reader a cooked panel. So the caller passes the rows the collapse
+// merged AND found an eligible representative for, and nothing else is touched.
+
+/**
+ * ADR-0103 §5's strip: a collapse group's survivor ships under its residual
+ * name, and only where that name is free.
+ *
+ * `Beef, flank, steak, separable lean and fat, trimmed to 0" fat, choice` ships
+ * as `Beef, flank, steak`, because 5 records of that cut collapsed onto it and
+ * the three segments name a dissection, a trade trim and a carcass grade — none
+ * of which the reader bought or chose. What is left is the four words that name
+ * the food.
+ *
+ * **`licensed` is not an optimisation and may not be derived here.** §5 permits
+ * the strip only where the group MERGED MORE THAN ONE ROW and found a record
+ * eligible to represent it; a group of one keeps its name whole, and a group
+ * with no eligible record ships its fullest panel under that record's whole,
+ * unstripped name (ADR-0103's 2026-09-12 Amendment). Both facts are about a
+ * group, which is `scripts/usda-collapse.mjs`'s to know and this file's to be
+ * told — passing the ids rather than recomputing them is what stops the licence
+ * drifting away from the collapse that granted it.
+ *
+ * **A rename that would collide is not made**, which is ADR-0062 §3's condition
+ * and not ADR-0056 §4's tiebreak. There is no origin here to say which of two
+ * rows loses, and a collapse that deleted a row would contradict the ground §6
+ * fires it on — its worst case is a wrong representative, never a missing food.
+ * So the condition is {@link renameIntoFreeNames}, the same one the
+ * fortification strip asks and by the same route, which is what stops the two
+ * rules disagreeing about what a duplicate is. The aliases arrive already
+ * spelled as they ship, because `applyShippedNames` has run by now.
+ */
+export function resolveCollapsedNames(
+  rows: readonly ShippedNameRow[],
+  licensed: ReadonlySet<number>
+): { renamed: ReadonlyMap<number, string>; tally: StripTally } {
+  return renameIntoFreeNames(
+    rows.map((row) => ({
+      fdcId: row.fdcId,
+      current: row.description,
+      aliases: row.also ?? [],
+      proposed: licensed.has(row.fdcId)
+        ? residualDescription(row.description)
+        : row.description,
+    }))
+  );
 }

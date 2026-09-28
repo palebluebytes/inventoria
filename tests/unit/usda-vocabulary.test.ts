@@ -72,12 +72,14 @@ describe("deriveVocabulary — a phrase that retrieves nothing, mapped to ones t
   const derive = (
     groups: Group[],
     rows: Record<string, number>,
-    denied: string[] = []
+    denied: string[] = [],
+    unreachable: (phrase: string) => boolean = () => false
   ) =>
     deriveVocabulary(groups, {
       denied,
       countMatches: (phrase: string) => rows[phrase] ?? 0,
       corpusSize: 4353,
+      unreachable,
     });
 
   it("inverts a group into the miss that needs help and the names that answer", () => {
@@ -164,10 +166,30 @@ describe("deriveVocabulary — a phrase that retrieves nothing, mapped to ones t
         denied: [],
         countMatches: (phrase: string) => rows[phrase] ?? 0,
         corpusSize,
+        unreachable: () => false,
       }).expansions;
     expect(at(4353)).toEqual({ wholemeal: ["whole"] });
     expect(at(1000)).toEqual({});
     expect(VOCABULARY_TARGET_SHARE).toBeLessThan(0.0262);
+  });
+
+  it("drops a key the query strip would have rewritten", () => {
+    // The reach filter, and it is NOT a case of the effect filter. `raw beef
+    // kidney` retrieves nothing, exactly as it always did, so the effect filter
+    // keeps it — but the search strips the state words out of a query before the
+    // fallback sees it, so nothing can ever be typed at that key
+    // (ADR-0049's #464 Amendment).
+    const { expansions, unreachable_keys } = derive(
+      [
+        { tag: "en:beef-kidney", members: ["raw beef kidney", "beef kidney"] },
+        { tag: "en:eggplant", members: ["aubergine", "eggplant"] },
+      ],
+      { "beef kidney": 3, eggplant: 6 },
+      [],
+      (phrase) => phrase.startsWith("raw ")
+    );
+    expect(expansions).toEqual({ aubergine: ["eggplant"] });
+    expect(unreachable_keys).toEqual(["raw beef kidney"]);
   });
 
   it("sorts its keys, so a regeneration diffs as changed entries", () => {
@@ -190,7 +212,7 @@ describe("assertVocabularyHolds — the finished map, re-measured", () => {
     const map = { aubergine: ["eggplant"], courgette: ["zucchini"] };
     const count = (phrase: string) =>
       phrase === "eggplant" ? 6 : phrase === "zucchini" ? 5 : 0;
-    expect(assertVocabularyHolds(map, count)).toBe(map);
+    expect(assertVocabularyHolds(map, count, () => false)).toBe(map);
   });
 
   it("refuses a key that retrieves rows of its own", () => {
@@ -198,15 +220,36 @@ describe("assertVocabularyHolds — the finished map, re-measured", () => {
     // that already answers would never be reached — and a key that shadowed a
     // real answer would be a regression the map cannot see.
     expect(() =>
-      assertVocabularyHolds({ apple: ["apples"] }, () => 30)
+      assertVocabularyHolds(
+        { apple: ["apples"] },
+        () => 30,
+        () => false
+      )
     ).toThrow(/"apple" retrieves rows of its own/);
   });
 
   it("refuses a key that expands to nothing that retrieves", () => {
     // Otherwise the search answers "No food found" twice, more slowly.
     expect(() =>
-      assertVocabularyHolds({ courgette: ["zucchino"] }, () => 0)
+      assertVocabularyHolds(
+        { courgette: ["zucchino"] },
+        () => 0,
+        () => false
+      )
     ).toThrow(/"courgette" expands to nothing that retrieves/);
+  });
+
+  it("refuses a key the query strip removes a word from", () => {
+    // The third property, and the only one that is not about retrieval: such a
+    // key is never handed to the fallback at all, so shipping it would be a
+    // promise the search cannot keep (ADR-0049's #464 Amendment).
+    expect(() =>
+      assertVocabularyHolds(
+        { "raw beef kidney": ["beef kidney"] },
+        (phrase) => (phrase === "beef kidney" ? 3 : 0),
+        (phrase) => phrase.startsWith("raw ")
+      )
+    ).toThrow(/"raw beef kidney" holds a word the query strip removes/);
   });
 
   it("is the check the generator runs with a counter of its own", () => {
@@ -219,11 +262,16 @@ describe("assertVocabularyHolds — the finished map, re-measured", () => {
         denied: [],
         countMatches: (phrase: string) => (phrase === "zucchini" ? 5 : 0),
         corpusSize: 4353,
+        unreachable: () => false,
       }
     );
-    expect(() => assertVocabularyHolds(built.expansions, () => 12)).toThrow(
-      /retrieves rows of its own/
-    );
+    expect(() =>
+      assertVocabularyHolds(
+        built.expansions,
+        () => 12,
+        () => false
+      )
+    ).toThrow(/retrieves rows of its own/);
   });
 });
 

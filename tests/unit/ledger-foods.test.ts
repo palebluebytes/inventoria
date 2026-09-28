@@ -131,3 +131,52 @@ describe("matchLedgerFoods", () => {
     expect(matchLedgerFoods(foods, [""])).toEqual([]);
   });
 });
+
+describe("the reading one occasion froze", () => {
+  // #485: a recipe twin carries no nutrition panel by design (ADR-0021), so the
+  // only honest figures for it are the ones its log froze. The fold already
+  // holds them; it threw them away, and the mapper downstream then read zeros
+  // off a twin that never had a panel to read.
+  it("carries the log's metrics and the quantity they are quoted against", () => {
+    const foods = ledgerFoodsFromEvents([
+      log("recipe:abc", "Bean salad", 100, {
+        quantity: "1 serving",
+        metrics: {
+          calories: 420,
+          protein: 18,
+          fat: 12,
+          carbs: 55,
+          iron: 0.003,
+        },
+      }),
+    ]);
+    expect(foods[0].quantity).toBe("1 serving");
+    expect(foods[0].metrics?.calories).toBe(420);
+    expect(foods[0].metrics?.iron).toBe(0.003);
+  });
+
+  it("takes them from the SAME log the name came from", () => {
+    // Newest wins for both, or a row would print one occasion's name over
+    // another occasion's figures.
+    const foods = ledgerFoodsFromEvents([
+      log("recipe:abc", "Bean salad", 100, {
+        quantity: "1 serving",
+        metrics: { calories: 420, protein: 18, fat: 12, carbs: 55 },
+      }),
+      log("recipe:abc", "Bean salad, doubled", 300, {
+        quantity: "2 serving",
+        metrics: { calories: 840, protein: 36, fat: 24, carbs: 110 },
+      }),
+    ]);
+    expect(foods).toHaveLength(1);
+    expect(foods[0].name).toBe("Bean salad, doubled");
+    expect(foods[0].quantity).toBe("2 serving");
+    expect(foods[0].metrics?.calories).toBe(840);
+  });
+
+  it("leaves both absent on a log that froze neither", () => {
+    const foods = ledgerFoodsFromEvents([log("gtin:1", "Kefir", 100)]);
+    expect(foods[0].metrics).toBeUndefined();
+    expect(foods[0].quantity).toBeUndefined();
+  });
+});

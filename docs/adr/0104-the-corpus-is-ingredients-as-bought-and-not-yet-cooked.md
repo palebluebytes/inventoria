@@ -737,3 +737,167 @@ horchata, and ADR-0061's chocolate-drink group is down to its last row.
 
 Reach across the archive is 68 records and 27; against the shipped corpus,
 **2,437 → 2,418**.
+
+## Amendment (2026-09-15): where a food was kept is not what it is
+
+Three words were put to this record together — `frozen`, `refrigerated` and
+`commercially prepared` — on the reading that all three describe a shop rather
+than a food. Measured, they are three different questions with three different
+answers, and only one of them is a drop rule in the shape it was proposed.
+
+### The freezer takes two more rows, and stops being relational
+
+The Amendment above shipped `isFrozenMirror` as a **collapse**: a frozen row left
+only where an unfrozen row of the same cut provably shipped. It named the two
+survivors as the rule working — `Pork, fresh, ears, frozen`, which has no
+unfrozen pig ear anywhere, and the seasoned turkey roast.
+
+Re-read, those two are the whole of what the relational guard was buying, and the
+ground for keeping them was never stated: only that no twin existed. **The wider
+claim was available the whole time and `isProcessedProduct` already makes it** —
+`frozen` is in its marker set, and both rows reach the corpus only because that
+filter exempts anything described `raw`, an exemption written to protect retail
+cuts rather than to carry a seasoned turkey roast through it.
+
+So `isFrozenRecord` replaces it: a record USDA froze before it measured it is a
+packaged form, and the label on the freezer-aisle pack is what the OFF scan path
+reads. **Eleven rows** — the nine lamb cuts the mirror rule took, plus those two.
+
+It stays at the late call site, which it no longer needs for its own sake. Six
+frozen pasteurised egg rows are hand-adjudicated variants from the egg read
+above, and a general rule taking them earlier would retire a reading somebody did
+one row at a time.
+
+### The corpus's only durian is protected by a comma
+
+`Durian, raw or frozen` is the one row where the two words are a single
+comma-segment, so `frozen` is not a segment there and the rule never sees it.
+That is ADR-0103 §10's whole-segment rule paying for itself a fourth time.
+
+What the row is then left saying is the uncooked state that §4 of this record
+strips from every other row, so **`raw or frozen` joins `STATE_QUALIFIERS`** as a
+sixth spelling and the food ships as `Durian`. The word `raw` now retrieves five
+rows instead of six, and every one of them is a parenthetical.
+
+### The chiller is a name rule, not a drop rule
+
+`refrigerated` and `shelf stable` are a contrasting pair USDA writes on the same
+shelf: an almond milk in the chiller and an almond milk in the ambient aisle, a
+flour tortilla of each. Neither says which food the row is, which is
+`CATALOGUE_QUALIFIERS`' test, so **the word comes off the name and the row stays**.
+
+A drop rule here was refused on the measurement. Of the thirteen `refrigerated`
+rows, four are the only record of their food: the corpus's only oat milk, and
+three `Biscuits, …, refrigerated dough` rows. Dropping the word's population
+deletes oat milk to tidy a duplicate almond milk.
+
+**Whole segments, and that is the whole of what keeps it narrow.** Five surviving
+rows carry `refrigerated` INSIDE a larger segment and every one means it as part
+of the food's name: the three biscuit doughs, where the tube of dough is the
+product, and two `Pasta, fresh-refrigerated, …` rows, where fresh pasta is a
+different food from dry pasta and carries a different panel. A word-wise rule
+renames all five and files two foods under one name in the second case.
+
+**The collision needs a tiebreak of its own**, which is why `resolveStorageNames`
+is a pass rather than four entries in `STRIPPED_QUALIFIERS`. ADR-0056 §4 settles a
+collision by dropping the row that carried an ORIGIN, and none of these rows
+carries one. So it borrows that rule's SHAPE and §3's TIEBREAK: only a row the
+strip renamed may lose, because a row that never had to change is holding the
+name it always had; and where every contender was renamed, the fuller panel
+stays.
+
+Nine names get shorter and three rows leave:
+
+| name after the strip                      | keeps                        | loses               |
+| ----------------------------------------- | ---------------------------- | ------------------- |
+| `Cheese, parmesan, grated`                | the plain row, 115 nutrients | `refrigerated`, 52  |
+| `Almond milk, unsweetened, plain`         | `shelf stable`, 124          | `refrigerated`, 57  |
+| `Tortillas, ready-to-bake or -fry, flour` | `refrigerated`, 135          | `shelf stable`, 117 |
+
+**The tortillas are the case the tiebreak exists for.** A rule reading the WORDS
+would drop the refrigerated row on the other two rows' logic and take the better
+record with it — 135 nutrients against 117, seven household portions against two.
+
+`milk` now answers with fifteen rows rather than sixteen, and the row that left
+is the second almond milk. #143's gold set had already written the verdict this
+rule reaches: its `almond milk` case reads _"Shelf-stable and refrigerated are the
+same product; neither is more canonical."_
+
+### `commercially prepared` is a barcode, and this is the expensive one
+
+Seven rows, all of them bread: the white and whole-wheat loaves, the dinner
+rolls, a chapati and two naans. The phrase is USDA saying a factory made this,
+which is `isProcessedProduct`'s own claim said in words rather than implied by a
+package, so it joins that marker set.
+
+**It is the one decision in this record whose cost exceeds its benefit on the
+measurement, and it is taken deliberately.** Stated in full:
+
+- The corpus now holds **no plain white loaf and no plain wholemeal loaf**.
+  `bread` answers with a potato bread, a cheese bread and a cinnamon bread;
+  `whole wheat bread` answers with a pita and a french loaf.
+- `white bread` leads with `Bread, white wheat`, which is **not white bread**. It
+  is USDA's white WHOLE-wheat loaf at 9.2 g of fibre and 684 mg of calcium,
+  against the deleted row's 2.7 g and 144 mg. Anyone logging a slice of white
+  toast now gets a fortified whole-grain number.
+- `usda-corpus.test.ts` pinned `Bread, whole-wheat, commercially prepared` as
+  what #144's escape hatches had to leave standing. That rule is unmoved —
+  `BAKED_STAPLE_HEADS` holds `bread` and always did — and the pin is retired
+  because a later claim #144 never made took its row.
+- #143's `rolls` case loses the row it designated, and is marked dropped rather
+  than re-pointed. There is no un-barcoded dinner roll to re-point it at.
+- The `wholemeal` vocabulary key cannot be written. It is derived from OFF and
+  dropped by ADR-0049 §3's breadth guard for reaching 24 rows, and the
+  hand-written entry that would fix it has no target left to land on.
+
+The ground is ADR-0042 §1's division of labour: a wrapped loaf carries a barcode,
+and the barcode path answers it. That division is sound and this is the aisle
+where it bites hardest, because bread is the packaged food people are least
+likely to have the packet for when they log it.
+
+Corpus 2,037 → **2,025**.
+
+## Amendment (2026-09-16): `designated` is computed, and `raw` was declared nowhere
+
+§6 says the base-ingredient key is "baked onto the row beside `plain_sibling` and
+`designated`". One of those two is not a row field, and the field §6 did add was
+stated in no type at all.
+
+### `designated` is computed on read, not baked
+
+It is derived in `readRowRank` from the `foodCategory` every row already carries.
+That is the rule [ADR-0041](0041-nova-processing-badge.md) set for
+`deriveNovaVerdict` and it was followed here deliberately: a fact recoverable
+from a field that already ships is never duplicated into a second field that can
+drift from the first.
+
+So the ranking's four row keys divide two and two. **Read off the row:** `raw`,
+because ADR-0056's strip has taken the word off the shipped name by the time
+anything reads it, and `plain_sibling`, because deciding it needs every
+description at once and costs 24 ms at load. **Computed from the row:**
+`canonical` from `fdcId` and `designated` from `foodCategory`.
+
+### The field this record added was invisible to every type
+
+Found while mapping the pipeline for
+[#407](https://github.com/palebluebytes/inventoria/issues/407) and fixed as
+[#466](https://github.com/palebluebytes/inventoria/issues/466). `raw` shipped in
+the artifact on **1,047 of 2,023 rows** and was named by none of the three places
+the row's shape is declared: `UsdaIndexRow` in `src/lib/food/usda-corpus.ts`, and
+the `IndexRow` and `Survivor` typedefs in `scripts/usda-bundle.mjs`, which had
+gone two fields and one field behind respectively. The key worked the whole time,
+because `readRowRank` takes a structural parameter rather than the interface.
+
+A reader of the interface would have concluded the fifth of twelve ranking keys
+is 0 on every row. That is the shape of the `NaN`-is-falsy hole
+`scripts/usda-key-census.mjs` records: a harness that drops a row fact scores a
+ranking nobody ships and says nothing about it. Nothing under `scripts/` is
+type-checked, so those two typedefs are prose and can only be kept honest by
+being read.
+
+**What changed is what is written down, not what ships.** The field, the
+generator, the ranking and the artifact are untouched, so no `schema_version`
+bump and no regeneration. `usda-corpus.test.ts` gains the tripwire
+`plain_sibling` has had since ADR-0055 §6 — the carried count, and the assertion
+that every carried flag reaches a `RowRank`, which a count of the artifact alone
+cannot show.

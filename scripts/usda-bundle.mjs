@@ -50,7 +50,9 @@
  * `usda-app-module.mjs`, which is ADR-0047 §4's import-don't-copy rule. What a
  * WRITTEN verdict does to the finished corpus — the rows ADR-0061 §5 removes by
  * hand and the names ADR-0056 gives — is `usda-adjudication.mjs`; this file
- * decides when those passes run, and that file decides what they do.
+ * decides when those passes run, and that file decides what they do. ADR-0103's
+ * collapse, which is the opposite kind of thing — mechanical, and carrying no
+ * judgement a human reached — is `usda-collapse.mjs`, on the same division.
  */
 
 import { createHash } from "node:crypto";
@@ -74,6 +76,17 @@ import {
   serialiseNutrientStore,
 } from "./usda-artifacts.mjs";
 import {
+  applyCollapsedNames,
+  assertCollapseReach,
+  assertCollapsedRowsShip,
+  assertNamesClaimNoLess,
+  assertNoAxisHidesInAGloss,
+  collapseAccount,
+  collapseCorpus,
+  collapseReach,
+  headPhraseCount,
+} from "./usda-collapse.mjs";
+import {
   compareToPublished,
   fetchPublishedArchives,
 } from "./usda-releases.mjs";
@@ -93,6 +106,13 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const MANIFEST_PATH = join(ROOT, "scripts", "usda-backup.manifest.json");
 /** Where the committed artifacts live, and where `pnpm build` picks them up. */
 const ARTIFACT_DIR = join(ROOT, "public", "usda");
+/** ADR-0103 §9's committed per-head account, which this run also writes. */
+const COLLAPSE_ACCOUNT_PATH = join(
+  ROOT,
+  "docs",
+  "research",
+  "190-corpus-account.md"
+);
 
 /**
  * The datasets the corpus is built from, in the manifest's own naming. Survey is
@@ -168,6 +188,7 @@ export const BUNDLE_DATASETS = ["Foundation Foods", "SR Legacy"];
  * @property {(rows: { fdcId: number, description: string }[]) => ReadonlyMap<number, string>} resolveVariantDrops
  * @property {readonly (readonly [fdcId: number, description: string, why: string])[]} ADJUDICATED_VARIANTS
  * @property {readonly (readonly [fdcId: number, published: string, shipped: string, why: string])[]} ADJUDICATED_NAMES
+ * @property {ReadonlySet<string>} STATE_QUALIFIERS
  * @property {(food: BundleFood) => boolean} fdcReportsNoEnergy
  * @property {(food: BundleFood, splitNdbNumbers: ReadonlySet<number>) => string | number} fdcIdentityKey
  * @property {(group: BundleFood[]) => { food: BundleFood, merged_from: MergedSource[] }} resolveFdcGroup
@@ -186,18 +207,31 @@ export const BUNDLE_DATASETS = ["Foundation Foods", "SR Legacy"];
  * @property {(rows: { fdcId: number, description: string, panelFields?: number }[]) => { renamed: ReadonlyMap<number, string>, dropped: ReadonlyMap<number, string> }} resolveShippedNames
  * @property {(rows: { fdcId: number, description: string }[]) => ReadonlyMap<number, string>} dropUncontestedQualifiers
  * @property {(rows: { fdcId: number, description: string }[]) => ReadonlyMap<number, string>} renameSeedMaturity
- * @property {(rows: { fdcId: number, description: string }[]) => ReadonlySet<number>} resolveFrozenMirrors
+ * @property {(rows: { fdcId: number, description: string }[]) => ReadonlySet<number>} resolveFrozenRecords
+ * @property {(rows: { fdcId: number, description: string, panelFields?: number }[]) => { renamed: ReadonlyMap<number, string>, dropped: ReadonlySet<number> }} resolveStorageNames
  * @property {(rows: { fdcId: number, description: string }[]) => { renamed: ReadonlyMap<number, string>, dropped: ReadonlySet<number> }} stripEnrichment
  * @property {(description: string) => string} stripNonNamingQualifiers
  * @property {readonly TwinLedgerEntry[]} TWIN_LEDGER
  * @property {ReadonlySet<number>} SPLIT_TWIN_NDB_NUMBERS
  * @property {readonly (readonly [number, string, string, string])[]} SUPERSEDED_RECORDS
  * @property {ReadonlySet<number>} SUPERSEDED_FDC_IDS
+ * @property {(description: string) => string} collapseGroupKey
+ * @property {(description: string) => boolean} mayRepresentGroup
+ * @property {(description: string) => { head: string, tail: string[] }} descriptionSegments
+ * @property {(description: string) => string} residualDescription
+ * @property {(segment: string) => string} withoutTrailingGloss
+ * @property {(segment: string) => { axis: string, preferred: boolean } | null} claimingAxis
+ * @property {(rows: { fdcId: number, description: string, also?: readonly string[] }[], licensed: ReadonlySet<number>) => { renamed: ReadonlyMap<number, string>, tally: { stripped: number, refused: number } }} resolveCollapsedNames
  */
 
 /**
  * One search index row (ADR-0047 §2): identity, the fields ADR-0042 ranks on,
  * the macros a result row renders, the portions, and the twin reference.
+ *
+ * The app's `UsdaIndexRow` is the same shape and the reader's copy of it. Both
+ * halves must name every field, and this one had gone two behind (#466) — the
+ * ranking reads `raw` and `plain_sibling` off a row, and nothing here says the
+ * generator writes them, because no script under `scripts/` is type-checked.
  *
  * @typedef {object} IndexRow
  * @property {number} fdcId
@@ -209,6 +243,8 @@ export const BUNDLE_DATASETS = ["Foundation Foods", "SR Legacy"];
  * @property {Portion[]} [portions]
  * @property {MergedSource[]} [merged_from]
  * @property {string[]} [also]
+ * @property {boolean} [raw] USDA described this record as raw (ADR-0104 §6).
+ * @property {boolean} [plain_sibling] A plainer twin of it ships (ADR-0055 §3).
  */
 
 /**
@@ -233,6 +269,9 @@ export const BUNDLE_DATASETS = ["Foundation Foods", "SR Legacy"];
  * @property {MergedSource[]} merged_from
  * @property {{ amount: number, gramWeight: number, modifier?: string, portionDescription?: string, measureUnit?: { name?: string }, sequenceNumber?: number }[]} foodPortions
  * @property {string[]} [also]
+ * @property {boolean} [describedRaw] The word `raw` was in USDA's description,
+ * read before the strip takes it and carried here because nothing downstream can
+ * recover it (ADR-0104 §6).
  */
 
 // ---------------------------------------------------------------------------
@@ -871,30 +910,92 @@ async function main() {
   const twinNames = assertTwinNamesRetrieve(groups, filtered, app);
   const superseded = assertSupersededSurvive(filtered, supersededFired, app);
   const {
-    survivors,
+    survivors: named,
     renamed,
     adjudicated: adjudicated_names,
     origin_dropped,
     fortification,
+    enrichment_duplicate,
+    frozen_record,
+    storage_collision,
+    storage_renamed,
   } = applyShippedNames(filtered, app);
+
+  // ADR-0103's collapse, LAST: §3's residual description is computed from the
+  // name the row will actually ship under, so a segment ADR-0056 has already
+  // taken cannot come back to split a group. It is the same argument
+  // `applyShippedNames` gives for where it puts the two storage rules.
+  //
+  // Before a segment is read, the names are proved against §10's trap: a
+  // parenthetical welded to a segment has hidden a word from a positional strip
+  // three times on this map, and the guard is asked of the names that SHIP
+  // rather than the ones USDA published (#436).
+  const segmentsRead = assertNoAxisHidesInAGloss(named, app);
+  const {
+    survivors: representatives,
+    collapsed,
+    licensed,
+    groups_merged,
+    groups_shipped_whole,
+  } = collapseCorpus(named, app);
+  const reach = collapseReach(named, representatives, app);
+  const collapsing_heads = assertCollapseReach(reach);
+  // §5's strip, licensed by the collapse having happened, and asserted rather
+  // than assumed: nothing ships under a name claiming less than its panel
+  // measures.
+  const { survivors, tally: collapsedNames } = applyCollapsedNames(
+    representatives,
+    licensed,
+    app
+  );
+  const shortened = assertNamesClaimNoLess(
+    representatives,
+    survivors,
+    licensed,
+    app
+  );
+  // Two passes counting the same event, held to each other. The strip DECIDED
+  // `stripped` renames and the recount found `shortened` names that actually
+  // moved, and they cannot differ against this pipeline — `applyCollapsedNames`
+  // writes exactly what `resolveCollapsedNames` returned. It is written for the
+  // pipeline that would let them, which is the reason `assertCollapsedRowsShip`
+  // gives about itself: a pass inserted between the decision and the rows would
+  // otherwise drop a rename and report the number that was intended.
+  if (shortened !== collapsedNames.stripped)
+    throw new Error(
+      `ADR-0103 §5's strip decided ${collapsedNames.stripped} renames and ` +
+        `${shortened} names moved. A pass between the verdict and the rows has ` +
+        "dropped one; re-read applyCollapsedNames in scripts/usda-collapse.mjs."
+    );
 
   // After the corpus, never before: both of ADR-0049 §3's filters ask what the
   // FINISHED corpus retrieves, so a group's members are compared against the
   // rows that survived rather than against the archives they came from.
   const countMatches = retrievalCounter(retrievalRows(survivors), app);
+  // The roster in the form the query strip reads it, prepared once. The same
+  // words the strip above took out of every shipped name, so a key holding one
+  // of them is a key the fallback can never be handed (ADR-0049's #464
+  // Amendment).
+  const state_qualifiers = app.readStateQualifiers([...app.STATE_QUALIFIERS]);
+  const unreachable = (phrase) =>
+    app.withoutStateQualifiers(phrase, state_qualifiers) !== null;
   const vocabulary = deriveVocabulary(
     readTaxonomyGroups(await readVocabularySource(manifest.vocabulary, dir)),
     {
       denied: app.DENIED_VOCABULARY_TAGS,
       countMatches,
       corpusSize: survivors.length,
+      unreachable,
     }
   );
   // Re-measured with a counter of its own, so the check cannot simply agree with
-  // the cache that built the map (ADR-0049's two acceptance properties).
+  // the cache that built the map (ADR-0049's three acceptance properties). The
+  // third needs no second instrument: the strip is a pure function of the roster
+  // and holds no cache to agree with.
   assertVocabularyHolds(
     vocabulary.expansions,
-    retrievalCounter(retrievalRows(survivors), app)
+    retrievalCounter(retrievalRows(survivors), app),
+    unreachable
   );
   const { index, nutrientStore } = buildArtifacts(
     survivors,
@@ -903,6 +1004,11 @@ async function main() {
     buildVocabularySection(vocabulary.expansions, manifest.vocabulary),
     buildLocalVocabularySection(app.LOCAL_VOCABULARY)
   );
+  // ADR-0051 §2's survivor assertion, inherited whole (ADR-0103 §9). Asked of
+  // the finished ROWS rather than of the pass's own output, so that a filter or
+  // a rename added after the collapse cannot turn it into a silent deletion of
+  // 381 foods. Nothing is written until it returns.
+  const collapsed_rows = assertCollapsedRowsShip(index.foods, collapsed);
   // Nothing is written until this returns: an entry whose expected row has moved
   // stops the generation (ADR-0049's #141 Amendment).
   const hand_written = admitLocalVocabulary(index, app);
@@ -917,7 +1023,7 @@ async function main() {
   );
   console.log(
     `\n${identities.toLocaleString("en-GB")} food identities across ${archives.length} archives, ` +
-      `${twinned} twinned; ${survivors.length.toLocaleString("en-GB")} survive the filters ` +
+      `${twinned} twinned; ${reference_foods.length.toLocaleString("en-GB")} survive the filters ` +
       `(${dropped.brand_specific} brand-specific, ${dropped.processed} packaged or processed, ` +
       `${dropped.prepared} prepared or composite, ` +
       `${dropped.adjudicated_dish} of ${adjudicated_dishes} dishes adjudicated by hand, ` +
@@ -957,6 +1063,50 @@ async function main() {
       `${fortification.refused} keep it because another row already answers ` +
       "to the name it would leave"
   );
+  // The two name rules that DROP rather than rename, reported for the reason
+  // every other tally here is. They went unstated while the first line printed
+  // the FINISHED corpus size, which hid the gap; it now prints what the
+  // food-kind filters left, so the run has to account for every row between.
+  console.log(
+    `  ${enrichment_duplicate} then leave as the unenriched half of a pair, ` +
+      `and ${frozen_record} as a record USDA froze before it measured it`
+  );
+  // The chiller rule reports both halves, because its renames and its drops are
+  // different claims: a name got shorter, or a food lost its place to another
+  // record of itself. A tally printing only the drops would make a nine-row
+  // rename look like a two-row one.
+  console.log(
+    `  ${storage_renamed} lose a word naming the shelf they sat on, and ` +
+      `${storage_collision} leave because that handed their name to a fuller record`
+  );
+  // ADR-0103's collapse, reported at the granularity §9's account asks for:
+  // rows in, rows out, per head phrase. The four are every head it MOVES —
+  // seven carry a segment the roster claims — and `assertCollapseReach` has
+  // just refused a fifth (#435). The same table is committed by this run to
+  // `docs/research/190-corpus-account.md`.
+  console.log(
+    `  ${collapsed_rows} rows then collapse into ${groups_merged} groups of ` +
+      `more than one under ${collapsing_heads} head phrases, leaving ` +
+      `${survivors.length.toLocaleString("en-GB")}; ${groups_shipped_whole} of ` +
+      "those groups hold no record eligible to represent them and ship their " +
+      "fullest panel under its own whole name"
+  );
+  for (const { head, rows, after, absorbed } of reach)
+    console.log(
+      `    ${head.padEnd(8)} ${String(rows).padStart(4)} -> ` +
+        `${String(after).padStart(4)}  (${absorbed} absorbed)`
+    );
+  // §5's strip, reported the way the fortification strip is and for the same
+  // reason: a refused rename changes nothing, so a rule the corpus blocked and a
+  // rule that reached nothing look identical from outside (#436).
+  console.log(
+    `  ${collapsedNames.stripped} survivors then ship under their residual ` +
+      `name, shorter than USDA's by the segments their group collapsed on; ` +
+      `${collapsedNames.refused} keep the name they had because another row ` +
+      `already answers to the residual. ${segmentsRead.toLocaleString("en-GB")} ` +
+      "segments were read for a collapsing axis hidden behind a parenthetical"
+  );
+
   const aliased = index.foods.filter((row) => row.also);
   const aliasBytes = aliased.reduce(
     (total, row) => total + JSON.stringify(row.also).length + ',"also":'.length,
@@ -972,7 +1122,7 @@ async function main() {
     `  ${aliased.length} of them answer to a name the merge discarded ` +
       `(${aliased.reduce((n, row) => n + row.also.length, 0)} aliases, ` +
       `${aliasBytes.toLocaleString("en-GB")} bytes of the index); ` +
-      `all ${twinNames} archived names retrieve; ` +
+      `all ${twinNames} archived names retrieve the row the merge made; ` +
       `${superseded} superseded record${superseded === 1 ? " keeps" : "s keep"} a survivor`
   );
   console.log(
@@ -1007,9 +1157,33 @@ async function main() {
   await mkdir(ARTIFACT_DIR, { recursive: true });
   await writeFile(join(ARTIFACT_DIR, "search-index.json"), indexText);
   await writeFile(join(ARTIFACT_DIR, "nutrient-store.json"), nutrientText);
+  // ADR-0103 §9's third requirement, written here rather than printed only: a
+  // committed account is what makes "this rule removed forty foods" a thing a
+  // diff shows moving (#156).
+  //
+  // THIS IS THE ONLY WRITER, and `scripts/usda-account-check.mjs` is a reader
+  // that rebuilds the same text and compares it. The gate could equally have
+  // written the file — every figure in it is derivable from the two committed
+  // artifacts, which is what makes the comparison possible at all — and it
+  // deliberately does not: an account regenerable without the corpus it
+  // describes being regenerated is an account that goes green by being rewritten,
+  // which is the shape of #156. Written from here, a moved number is a corpus
+  // that moved.
+  await writeFile(
+    COLLAPSE_ACCOUNT_PATH,
+    collapseAccount(reach, {
+      before: named.length,
+      after: survivors.length,
+      heads: headPhraseCount(named, app),
+      groups_merged,
+      groups_shipped_whole,
+      names_refused: collapsedNames.refused,
+    })
+  );
   console.log(
-    `\nwritten to ${ARTIFACT_DIR}/search-index.json and ` +
-      `${ARTIFACT_DIR}/nutrient-store.json`
+    `\nwritten to ${ARTIFACT_DIR}/search-index.json, ` +
+      `${ARTIFACT_DIR}/nutrient-store.json and ` +
+      "docs/research/190-corpus-account.md"
   );
 }
 

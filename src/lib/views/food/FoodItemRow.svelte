@@ -40,6 +40,7 @@
     onclick,
     lead,
     corner,
+    cornerBelow,
     selected = false,
     preview,
     note = "",
@@ -61,6 +62,10 @@
     /** Top-right corner content. Takes the remove ✕'s place when given — the
      *  dashboard puts its selection check here while a selection is active. */
     corner?: Snippet;
+    /** A second mark under whichever of those the corner is showing, in the
+     *  same column (`Row`'s own `cornerBelow`) — the day puts a logged recipe's
+     *  occasion control there. */
+    cornerBelow?: Snippet;
     /** Dashboard selection highlight; ignored by the recipe list. */
     selected?: boolean;
     /** What this food WOULD read at, while a Scale preview is live (ADR-0088
@@ -104,6 +109,7 @@
   {onclick}
   {lead}
   {corner}
+  {cornerBelow}
   {selected}
 >
   {#snippet trailing()}
@@ -161,6 +167,22 @@
     padding-right: calc(1.5rem + var(--space-3xs) - var(--space-s));
   }
 
+  /* A corner that is a column is one box wide and two boxes tall, so what the
+     name gains back in width the AMOUNT has to give up: the second mark sits at
+     the foot of the corner, level with the line the amount is on, where the
+     single-mark reserve above left nothing at all.
+
+     Both lines reserve the same width, and it is the target's rather than the
+     mark's — the drawn ✕ is 1.5rem in a 48px box and a name may run under the
+     transparent half of it, but a name running under the half of a *second*
+     control that a thumb actually lands on is a row with two meanings in one
+     place. */
+  :global(.food-item.fi-logged.has-corner-below .row-title),
+  :global(.food-item.fi-logged.has-corner-below .row-subtitle) {
+    padding-right: calc(var(--tap-min) + var(--space-3xs) - var(--space-s));
+    max-width: none;
+  }
+
   /* A list line, not a poster: two short lines inside the frame's full padding
      left the card mostly air, with the ✕ alone in the band above the name. The
      side padding stays — the frame's left edge and the text's are the alignment
@@ -180,8 +202,7 @@
 
      The selection check takes the same box, so both move together — a Selection
      opening may not shift anything (ADR-0088). */
-  :global(.food-item.fi-logged .row-remove),
-  :global(.food-item.fi-logged .row-corner) {
+  :global(.food-item.fi-logged .row-corner-cluster) {
     top: calc(var(--space-xs) + 0.625 * var(--step-n1) - 0.75rem);
   }
 

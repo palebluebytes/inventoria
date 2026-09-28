@@ -18,7 +18,7 @@
   // recipe/instantiation dialog or the dashboard. The same picker serves both:
   // it edits a working copy and reports the chosen amount once on Done, so the
   // caller commits it its own way — a recipe mutates the ingredient in memory,
-  // the dashboard retract-and-replaces the logged event (append-only, ADR-0008)
+  // the dashboard appends the new amount onto the logged event (ADR-0111 §1)
   // — without this sheet knowing which. The amount is in the food's OWN panel
   // unit and nothing converts (ADR-0060 §1/§2): grams for a weight basis,
   // millilitres for a drink published per 100 ml. The control names that unit and
@@ -94,8 +94,8 @@
 
   // A panel that reports no energy cannot be committed at any amount, and the
   // card says why (ADR-0048 §6). Held here as well as on the staging screen
-  // because Done writes a fresh row — a retract-and-replace on the dashboard,
-  // an in-memory ingredient in the builder — and both would carry the zero
+  // because Done writes a figure either way — a correction on the dashboard, an
+  // in-memory ingredient in the builder — and both would carry the zero
   // forward. Nothing is migrated (§ Consequences), so an entry already written
   // against such a food keeps its zero; the row's ✕ is the way out of it.
   let noEnergy = $derived(reportsNoEnergy(panel));

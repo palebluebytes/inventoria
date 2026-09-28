@@ -172,10 +172,23 @@ export function isBrandSpecific(description: string): boolean {
 //   - a food described "raw" is always a base ingredient and is never dropped,
 //     even retail cuts sold frozen ("Lamb, … frozen, … raw");
 //   - "carbonated" (not "soda") marks fizzy drinks, so "baking soda" survives.
+//
+// `commercially prepared` is USDA saying a factory made this, which is the
+// marker set's own claim said in words rather than implied by a package: what
+// the shopper brings home is a wrapped loaf with a barcode on it, and the
+// barcode is what the OFF scan path reads. It reaches seven surviving rows, all
+// of them bread — the white and whole-wheat loaves, the dinner rolls, a chapati
+// and two naans — and it takes them, which is a real cost stated in full in
+// ADR-0104's Amendment rather than buried here: `white bread` and
+// `whole wheat bread` stop leading with a plain loaf, and the corpus keeps no
+// un-barcoded one to offer instead. That is the division of labour ADR-0042 §1
+// draws, applied to the aisle where it bites hardest.
+//
+// The `raw` guard does not reach it: no row says both words.
 // ---------------------------------------------------------------------------
 
 const PROCESSED_MARKERS =
-  /\b(canned|frozen|bottled|sweetened|syrup|drink|carbonated|concentrate|babyfood|cocktail|dehydrated|instant|ready-to-eat|juice|dry mix)\b/i;
+  /\b(canned|frozen|bottled|sweetened|syrup|drink|carbonated|concentrate|babyfood|cocktail|dehydrated|instant|ready-to-eat|juice|dry mix|commercially prepared)\b/i;
 
 /**
  * True when an FDC description names a packaged/processed product (a barcode-

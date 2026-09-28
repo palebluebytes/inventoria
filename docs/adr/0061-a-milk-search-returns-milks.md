@@ -2,7 +2,7 @@
 
 **Status:** Accepted  
 **Date:** 2026-08-28  
-**Amended by:** the #177 Amendment below, which measures §6's four keys and finds three of them alive  
+**Amended by:** the #177 Amendment below, which measures §6's four keys and finds three of them alive; the #184 Amendment below, which keeps §3's six rows and moves its ground to [ADR-0104](0104-the-corpus-is-ingredients-as-bought-and-not-yet-cooked.md) §2's shopper test  
 **Implemented:** #174 `91e5e79`, `ea25d71`, `029c8d4` — §2, §3 and §4 as `isFlavouredVariant`, `isDehydratedForm` and `isFortificationDuplicate` in `src/lib/food/usda-variant-drops.ts`, §5's row-by-row verdicts as its `ADJUDICATED_VARIANTS`, and the 3.7% rename as `ADJUDICATED_NAMES` in `src/lib/food/usda-shipped-name.ts`, all applied by `scripts/usda-adjudication.mjs`; Search index `schema_version` 6 to 7. §6 by #177 `c62384a` — `soymilk -> soy milk` in `LOCAL_VOCABULARY`, `src/lib/food/food-vocabulary.ts`. The answer all of it was for is pinned by #178 `4f23964` in `tests/unit/usda-corpus.test.ts`
 
 This record amends [ADR-0055](0055-who-eats-a-food-ranks-it-and-never-drops-it.md)
@@ -319,3 +319,164 @@ prohibition is on softening a DEAD phrase, not on the word.
 `vocabulary_local` ([ADR-0049](0049-a-derived-vocabulary-for-food-search.md) §4).
 It leads with `Soy milk, unsweetened, plain, shelf stable` and is held to that by
 the generation, like the seven before it.
+
+## Amendment (2026-09-15, #184): §3 keeps its rows and loses its reason
+
+[#184](https://github.com/palebluebytes/inventoria/issues/184) reported
+`milk powder` answering with four drink mixes. Re-measured, the premise is gone
+and the thing behind it is sharper: §3 was standing on a reason two later
+records contradict, and it has been standing on it since they shipped.
+
+### What the query does now
+
+The four mixes left with the reconstituted-drink rule. Over the corpus that
+ships on this branch — 2,037 rows, `schema_version` 9 — `milk powder`,
+`powdered milk`, `dry milk` and `dried milk` each answer with **0 rows**, and
+`milk` answers with 16, so the zero is a result rather than a tooling failure.
+
+**The corpus holds no milk powder at all.** USDA publishes seven `Milk, dry, …`
+rows. Five fall to §3, and two never reach it for a reason that is not §3's.
+
+### The reason §3 was standing on
+
+§1 gives the ground — a variant of a food the corpus keeps, dropped under a head
+phrase read row by row — and gives simplicity preferred to complete coverage as
+the reason. §3 applies it to a dehydrated form.
+
+ADR-0104 §2 says the opposite about the same axis, and `CONTEXT.md`'s
+**Distinguishing axis** entry repeats it word for word:
+
+> Drying distinguishes: dried apricots are bought as dried apricots.
+
+The corpus agrees with ADR-0104 rather than with §3. **189 shipped rows carry a
+dehydration word** — every dried bean, all the dry pasta, eighteen spices,
+`Plums, dried (prunes)`, `Apricots, dried, sulfured`, every dry-roasted nut.
+Drying drops a row under four head phrases and distinguishes one everywhere
+else, and no record said why.
+
+### The verdict: the rows stay, the reason changes
+
+> **§3's ground is ADR-0104 §2's shopper test** — _if you could scoop it out of a
+> bin and carry it home in a paper bag, with no label on it, it is an
+> ingredient._ A bin of dried apricots is a bin of dried apricots. Milk powder
+> is a manufactured dairy product that arrives sealed and labelled, and so is
+> dried egg, and so is instant anything.
+
+§3 is not retired and drops the same six rows it always did:
+
+| fdcId  | kcal | row                                                                 |
+| ------ | ---: | ------------------------------------------------------------------- |
+| 170876 |  496 | `Milk, dry, whole, with added vitamin D`                            |
+| 173454 |  496 | `Milk, dry, whole, without added vitamin D`                         |
+| 172195 |  362 | `Milk, dry, nonfat, regular, with added vitamin A and vitamin D`    |
+| 170877 |  362 | `Milk, dry, nonfat, regular, without added vitamin A and vitamin D` |
+| 171273 |  354 | `Milk, dry, nonfat, calcium reduced`                                |
+| 171274 |  387 | `Milk, buttermilk, dried`                                           |
+
+**This adds no ground to ADR-0055 §1.** The ground is unchanged and the drop is
+the same drop; what changes is the reason given for one of the three arms
+already standing on it. The Consequences below warn that a third amendment to §1
+should be read as erosion rather than refinement, and that warning is not
+triggered here: §1 is not amended again.
+
+The hand roster's dried-egg entry cites §3's argument by name and keeps it, on
+the same ground and unchanged. So does the entry that drops
+`Milk, low sodium, fluid` for being published for a designated population,
+which is untouched by any of this.
+
+### The clause this declines
+
+ADR-0104 §2's sentence continues _"and there is no fresh apricot behind them"_,
+and `CONTEXT.md` carries the same clause. That was the obvious way to reconcile
+the two records — a dried form drops only where the corpus keeps the wet
+original — and it is **declined as a ground**.
+
+It decides membership by what USDA happens to publish. Under it a dried food is
+admitted or refused according to whether an archive holds its wet twin, which is
+a fact about the archive rather than about the food; a mirror refresh that added
+one fresh row would condemn a dried one that has been an ingredient all along.
+The shopper test asks about the food. `CONTEXT.md`'s **Distinguishing axis**
+entry loses the clause and gains the read-head exception, so the two vocabulary
+entries stop asserting opposite things about the same axis.
+
+### §3 is an instrument, and it reaches less than the rule condemns
+
+`isDehydratedForm` carries two guards the shopper test does not have: the head
+must be one of the four read row by row, and a sibling's description must say
+`fluid`. Ten rows that ship today fail the shopper test and the instrument
+reaches none of them:
+
+| kcal | row                                                          |
+| ---: | ------------------------------------------------------------ |
+|  529 | `Cream substitute, powdered`                                 |
+|  482 | `Cream substitute, flavored, powdered`                       |
+|  431 | `Cream substitute, powdered, light`                          |
+|  373 | `Butter replacement, without fat, powder`                    |
+|  100 | `Whipped cream substitute, dietetic, made from powdered mix` |
+|  339 | `Whey, acid, dried`                                          |
+|  353 | `Whey, sweet, dried`                                         |
+|  335 | `Seasoning mix, dry, chili, original`                        |
+|  322 | `Seasoning mix, dry, taco, original`                         |
+|    0 | `Seasoning mix, dry, sazon, coriander & annatto`             |
+
+**The two dried wheys are the sharp case, and they are not the case they look
+like.** Their fluid twins ship — `Whey, acid, fluid` at 24 and `Whey, sweet,
+fluid` at 27 — so §3's fluid test passes on them and the head guard alone is
+what spares them. `tests/unit/usda-variant-drops.test.ts` pins
+`Whey, acid, dried` as not dropped, which is that guard working exactly as
+designed. Reading the head takes both rows with no new rule.
+
+**`Cream substitute` carries a second and different hole.** Its three wet rows
+say `liquid`, and `FLUID_FORM` is `/\bfluid\b/`. Reading that head would not be
+enough; the marker's vocabulary is one word short of its own intent.
+
+**The gap is named here and not closed here.** Reading 189 rows against a
+judgement test is the work, and a drop reached that way is licensed only under a
+head read row by row, which is §1's guard and the whole of what keeps this away
+from the spice rack — the same 294-row lexical rule refused above. Filed as
+[#457](https://github.com/palebluebytes/inventoria/issues/457) with the ten rows
+as opening evidence rather than as its boundary.
+
+### Two rows §3 does not own
+
+`Milk, dry, nonfat, instant` ships in USDA twice, with and without added
+vitamins A and D, at 358 kcal each. Neither reaches the variant stage at all:
+`isProcessedProduct` takes them earlier on the word `instant`, corpus-wide and
+unscoped by category, where it also takes 58 other rows — every instant coffee
+and instant tea the corpus has, instant oats, instant rice, three gravies and
+seventeen puddings.
+
+So a reader who expects §3 to own the powdered-milk question is wrong by two
+rows, and the rule that does own them is not a dehydration rule and has never
+been read against the shopper test. A jar of instant coffee is the most
+paper-baggable thing in the corpus, and ADR-0042 §1 protects coffee by name.
+That is #457's business too.
+
+### What this answers #184 with
+
+`milk powder`, `powdered milk`, `dry milk` and `dried milk` return nothing, and
+that is the intended outcome rather than a defect. §6 stands whole: no phrase is
+re-pointed at plain milk to soften it, and the empty searches are recorded by
+[ADR-0053](0053-an-empty-food-search-is-recorded-locally-and-leaves-only-by-hand.md).
+
+One finding outlives the query. §5 says a wrong answer is _"worse than returning
+nothing: an empty search is recorded by ADR-0053 and a wrong answer is not"_ —
+and for as long as `milk powder` answered with four drink mixes, nothing
+surfaced it. The rows cleared ADR-0062 §1's gate, the search succeeded, no error
+was thrown, and `searchFoundNothing` fires only on `NoReferenceFoodError`. The
+log is not silent about that search — it records every one, with its query and a
+result count — but it records no row identity at all, so four wrong answers and
+four right ones are the same record. Every drop rule in this corpus is
+unfalsifiable from the log side in the direction that produces the worse
+outcome. Filed as
+[#458](https://github.com/palebluebytes/inventoria/issues/458).
+
+### The counts, and what did not change
+
+Measured over the 2,037-row corpus, `schema_version` 9, on
+`wayfinder/186-food-search-consolidation` at `920f1031`. §5's tallies are left
+as written and are **not** restated: every count there belongs to the 4,312-row
+corpus it left, which is this record's own rule about counts.
+
+Nothing in the generator changed. No regeneration, no corpus delta, no
+vocabulary work: this record moves a reason, names a gap and files it.

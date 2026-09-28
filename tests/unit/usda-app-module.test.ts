@@ -9,7 +9,9 @@ import {
   RANKING_EXPORTS,
   VOCABULARY_EXPORTS,
   CORPUS_EXPORTS,
+  SHIPPED_NAME_EXPORTS,
   TWIN_LEDGER_EXPORTS,
+  COLLAPSE_ROSTER_EXPORTS,
 } from "../../scripts/usda-app-module.mjs";
 import * as usdaFdc from "../../src/lib/food/usda-fdc";
 import * as foodKind from "../../src/lib/food/usda-food-kind";
@@ -21,6 +23,7 @@ import {
   LOCAL_VOCABULARY_CEILING,
 } from "../../src/lib/food/food-vocabulary";
 import * as corpus from "../../src/lib/food/usda-corpus";
+import * as collapseRoster from "../../src/lib/food/usda-collapse-roster";
 
 // ADR-0047 §4's import-don't-copy rule, over the one module that carries it.
 // The corpus is produced by the app's own filters, ranked by the app's own
@@ -59,14 +62,15 @@ describe("the app seam — the scripts borrow the app instead of copying it", ()
     expect(VARIANT_DROP_EXPORTS).toEqual([
       "resolveVariantDrops",
       "ADJUDICATED_VARIANTS",
-      "resolveFrozenMirrors",
+      "resolveFrozenRecords",
     ]);
     expect(typeof variantDrops.resolveVariantDrops).toBe("function");
     expect(Array.isArray(variantDrops.ADJUDICATED_VARIANTS)).toBe(true);
-    // The frozen-mirror rule is a third export and a corpus-wide one: it asks
-    // whether an unfrozen row of this cut ships, so it takes the rows rather
-    // than one description, and it runs after the name strips.
-    expect(typeof variantDrops.resolveFrozenMirrors).toBe("function");
+    // The frozen rule is a third export. It no longer asks anything about the
+    // corpus — a frozen record does not ship whether or not an unfrozen twin
+    // does — but it stays a corpus-wide call so the generator's seam keeps its
+    // shape, and it still runs after the name strips.
+    expect(typeof variantDrops.resolveFrozenRecords).toBe("function");
   });
 
   it("names only real exports of the ranking", () => {
@@ -95,12 +99,44 @@ describe("the app seam — the scripts borrow the app instead of copying it", ()
       expect(typeof (corpus as Record<string, unknown>)[name]).toBe("function");
   });
 
+  it("names the collapse roster and the keys §3 derives from it", () => {
+    // ADR-0103 §9's module, landed by #434 and called by the generator since
+    // #435. Checked apart from the `typeof` sweeps above for
+    // `VARIANT_DROP_EXPORTS`'s reason: `COLLAPSING_AXES` is a list, not a
+    // function, and a sweep would wave it through. `mayRepresentGroup` is §5's
+    // eligibility test, which §4's chain asks first.
+    // `withoutTrailingGloss` is §10's second clause, borrowed by #436's guard:
+    // the bracket the separation entry admits, spelled once so the guard asks
+    // of every other segment the question that bracket has defeated three times.
+    expect(COLLAPSE_ROSTER_EXPORTS).toEqual([
+      "COLLAPSING_AXES",
+      "claimingAxis",
+      "descriptionSegments",
+      "residualDescription",
+      "withoutTrailingGloss",
+      "collapseGroupKey",
+      "mayRepresentGroup",
+    ]);
+    expect(Array.isArray(collapseRoster.COLLAPSING_AXES)).toBe(true);
+    for (const name of COLLAPSE_ROSTER_EXPORTS.filter(
+      (name) => name !== "COLLAPSING_AXES"
+    ))
+      expect([
+        name,
+        typeof (collapseRoster as Record<string, unknown>)[name],
+      ]).toEqual([name, "function"]);
+  });
+
   it("borrows each name from exactly one module", () => {
-    // Seven rosters composed into one bundle: a name in two of them would make
-    // whichever module the entry re-exports last silently win. That is the
-    // failure the #146 split could have introduced — a filter left behind in
-    // `APP_EXPORTS` as well as named in the new one would still load, and would
-    // load whichever copy esbuild wrote second.
+    // All NINE rosters `BORROWED` composes into one bundle: a name in two of
+    // them would make whichever module the entry re-exports last silently win.
+    // That is the failure the #146 split could have introduced — a filter left
+    // behind in `APP_EXPORTS` as well as named in the new one would still load,
+    // and would load whichever copy esbuild wrote second.
+    //
+    // Every roster in `BORROWED` has to be spread here or the guard has a hole
+    // on exactly the pair it omits. `SHIPPED_NAME_EXPORTS` was that hole until
+    // #434 added the ninth and went looking for the other eight.
     const all = [
       ...APP_EXPORTS,
       ...FOOD_KIND_EXPORTS,
@@ -108,7 +144,9 @@ describe("the app seam — the scripts borrow the app instead of copying it", ()
       ...RANKING_EXPORTS,
       ...VOCABULARY_EXPORTS,
       ...CORPUS_EXPORTS,
+      ...SHIPPED_NAME_EXPORTS,
       ...TWIN_LEDGER_EXPORTS,
+      ...COLLAPSE_ROSTER_EXPORTS,
     ];
     expect(new Set(all).size).toBe(all.length);
   });

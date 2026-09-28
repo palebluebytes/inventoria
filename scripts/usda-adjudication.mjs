@@ -264,17 +264,44 @@ export function applyShippedNames(survivors, app) {
         : survivor;
     });
 
-  // Last of all, over the names that will ship: a frozen copy of a cut the
-  // corpus already carries fresh. It has to be here rather than with the variant
-  // rules, because until ADR-0056's strip runs these rows still say
-  // `New Zealand, imported` and no mirror can be seen.
-  const mirrors = app.resolveFrozenMirrors(
+  // Last of all, over the names that will ship, two questions about where a food
+  // was kept.
+  //
+  // First the freezer: a frozen record is a packaged form the OFF scan path
+  // answers, and none of them ship. It stays here rather than moving up beside
+  // the food-kind judgements it now resembles because six frozen pasteurized egg
+  // rows are hand-adjudicated variants (#186), and a general rule taking them
+  // earlier would retire a reading somebody did one row at a time.
+  const frozen = app.resolveFrozenRecords(
     shipped.map((s) => ({
       fdcId: s.food.fdcId,
       description: s.food.description,
     }))
   );
-  const unfrozen = shipped.filter((s) => !mirrors.has(s.food.fdcId));
+  const unfrozen = shipped.filter((s) => !frozen.has(s.food.fdcId));
+
+  // Then the chiller, which is a NAME rule rather than a drop rule: `refrigerated`
+  // and `shelf stable` say where a shop kept a food and not which food it is, so
+  // they come off the name, and a row leaves only where that hands its name to
+  // somebody else. It runs after the freezer so a frozen row cannot win a
+  // contest it was never going to ship from.
+  const storage = app.resolveStorageNames(
+    unfrozen.map((s) => ({
+      fdcId: s.food.fdcId,
+      description: s.food.description,
+      // The same field rule 3 reads, and for the same reason: where every
+      // contender was renamed, completeness is what may choose between them.
+      panelFields: s.food.foodNutrients.length,
+    }))
+  );
+  const stored = unfrozen
+    .filter((s) => !storage.dropped.has(s.food.fdcId))
+    .map((survivor) => {
+      const description = storage.renamed.get(survivor.food.fdcId);
+      return description
+        ? { ...survivor, food: { ...survivor.food, description } }
+        : survivor;
+    });
 
   const origin_dropped = {
     collision: 0,
@@ -283,8 +310,10 @@ export function applyShippedNames(survivors, app) {
   };
   for (const reason of dropped.values()) origin_dropped[reason]++;
   return {
-    survivors: unfrozen,
-    frozen_mirror: mirrors.size,
+    survivors: stored,
+    frozen_record: frozen.size,
+    storage_collision: storage.dropped.size,
+    storage_renamed: storage.renamed.size,
     renamed: renamed.size,
     maturity: maturity.size,
     uncontested: uncontested.size,

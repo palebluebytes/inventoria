@@ -54,6 +54,7 @@ async function routeUsdaCorpus(page: import("@playwright/test").Page) {
           source: "Inventoria, hand-written",
           expansions: {},
         },
+        state_qualifiers: [],
         foods: [
           {
             fdcId: 171705,
@@ -989,6 +990,7 @@ test.describe("Visual Catalog — the surfaces a meal opens", () => {
             source: "Inventoria, hand-written",
             expansions: {},
           },
+          state_qualifiers: [],
           foods: [
             {
               fdcId: 171705,

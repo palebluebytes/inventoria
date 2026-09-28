@@ -56,6 +56,13 @@ const TWIN_LEDGER_MODULE = join(
   "food",
   "usda-twin-ledger.ts"
 );
+const COLLAPSE_ROSTER_MODULE = join(
+  ROOT,
+  "src",
+  "lib",
+  "food",
+  "usda-collapse-roster.ts"
+);
 
 /**
  * Everything this script borrows from the app, by name.
@@ -111,7 +118,7 @@ export const FOOD_KIND_EXPORTS = [
 export const VARIANT_DROP_EXPORTS = [
   "resolveVariantDrops",
   "ADJUDICATED_VARIANTS",
-  "resolveFrozenMirrors",
+  "resolveFrozenRecords",
 ];
 
 /**
@@ -163,8 +170,19 @@ export const VOCABULARY_EXPORTS = [
  * about the fallback, the two matching tiers, the six ranking keys and the alias
  * scoring together, and only the shipped search can answer it. Restating it here
  * would pin the entries to a ranking the app does not have.
+ *
+ * The two state-qualifier functions come with them for the derivation's third
+ * acceptance property (ADR-0049's #464 Amendment). A key holding a word the
+ * query strip removes can never be typed at the fallback, and whether a phrase
+ * is such a key is a question about the strip the search runs — so it is asked
+ * of that strip rather than of a second one written here.
  */
-export const CORPUS_EXPORTS = ["buildSearchCorpus", "searchIndexRows"];
+export const CORPUS_EXPORTS = [
+  "buildSearchCorpus",
+  "searchIndexRows",
+  "readStateQualifiers",
+  "withoutStateQualifiers",
+];
 
 /**
  * The origin rename, borrowed through the same seam and for the same reason
@@ -175,13 +193,26 @@ export const CORPUS_EXPORTS = ["buildSearchCorpus", "searchIndexRows"];
  * generator's side of the seam rather than in the app, which reads finished
  * names and never the rule that produced them. `stripNonNamingQualifiers` comes with
  * it because the aliases are renamed one at a time, after the verdict.
+ *
+ * `STATE_QUALIFIERS` is borrowed for a different reason from the eight above,
+ * and it is the only entry here the generator does not CALL. It is copied into
+ * the artifact as `state_qualifiers`, because the search has to drop from a
+ * typed query exactly the words the strip took out of the names it is searching
+ * (ADR-0049's #464 Amendment). Handing the app the roster through the artifact
+ * rather than through an import is what keeps the bundle test next door true —
+ * nothing in `src/` imports `usda-shipped-name.ts` — while making the two
+ * impossible to disagree: regenerate with a word added or removed and the query
+ * rule moves in the same commit, with the diff as the review gate.
  */
 export const SHIPPED_NAME_EXPORTS = [
   "resolveShippedNames",
+  "STATE_QUALIFIERS",
+  "resolveCollapsedNames",
   "stripNonNamingQualifiers",
   "dropUncontestedQualifiers",
   "stripEnrichment",
   "renameSeedMaturity",
+  "resolveStorageNames",
   "ADJUDICATED_NAMES",
 ];
 
@@ -199,6 +230,48 @@ export const TWIN_LEDGER_EXPORTS = [
   "SPLIT_TWIN_NDB_NUMBERS",
   "SUPERSEDED_RECORDS",
   "SUPERSEDED_FDC_IDS",
+];
+
+/**
+ * ADR-0103 §2's collapsing axes and §3's two keys, borrowed through the same
+ * seam and for the same reason (§9).
+ *
+ * Its own roster because it is its own module and moves for its own reason: the
+ * food-kind five move when an escape is MEASURED and ADR-0061's rules when a
+ * head phrase is READ, and this one moves when an AXIS IS CLASSIFIED.
+ *
+ * `mayRepresentGroup` is §5's eligibility test and comes with them for §4's
+ * sake: the chain that picks a group's representative asks it first, and a
+ * second reading of "non-preferred value" written on this side of the seam would
+ * be the copy ADR-0047 §4 forbids — the four readings #191 measured swung `Beef`
+ * from 71 coverage holes to none, so the difference between two copies is not
+ * cosmetic.
+ *
+ * The readership is `scripts/usda-collapse.mjs`, which is the generator's pass
+ * (#435), and the two instruments beside it, `usda-beef-pilot.mjs` and
+ * `usda-filter-census.mjs`. They are in the seam rather than reached through the
+ * extensionless-import hook because §9 names the seam.
+ *
+ * **`scripts/usda-account-check.mjs` is the one reader that takes three of these
+ * by direct `.ts` import instead** (#437), and the reason is what the seam costs
+ * rather than what it is for. §4's rule is that no second copy of the answer
+ * exists, and a direct import of the same module keeps that whole — what the
+ * seam adds on top is an esbuild bundle, spawned from the PATH or through
+ * `nix shell`. The account gate runs inside `pnpm check` on every commit and in
+ * CI, so paying for a bundler to read three pure functions would make a cheap
+ * gate an expensive and breakable one. `food-search-explainer.mjs` reaches the
+ * ranking the same way for the same reason. A reader that needs the FILTERS, the
+ * merge or the corpus builder still comes through here: those are the ones whose
+ * closure drags in the app.
+ */
+export const COLLAPSE_ROSTER_EXPORTS = [
+  "COLLAPSING_AXES",
+  "claimingAxis",
+  "descriptionSegments",
+  "residualDescription",
+  "withoutTrailingGloss",
+  "collapseGroupKey",
+  "mayRepresentGroup",
 ];
 
 // ---------------------------------------------------------------------------
@@ -221,6 +294,7 @@ const BORROWED = [
   [CORPUS_MODULE, CORPUS_EXPORTS],
   [SHIPPED_NAME_MODULE, SHIPPED_NAME_EXPORTS],
   [TWIN_LEDGER_MODULE, TWIN_LEDGER_EXPORTS],
+  [COLLAPSE_ROSTER_MODULE, COLLAPSE_ROSTER_EXPORTS],
 ];
 
 /**

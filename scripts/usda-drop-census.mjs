@@ -20,11 +20,18 @@
  * so that diff is readable.
  *
  * **It restates nothing.** The merge, the grouping, the seven food-kind
- * judgements, the variant drops and the name drops are all the generator's and
- * the app's own, reached through the same two seams `usda-bundle.mjs` uses. The
- * one thing here that is not borrowed is the ATTRIBUTION (see {@link attribute}),
- * and it is deliberately implementation-blind: it asks the predicate, it does
- * not read the predicate's tables.
+ * judgements, the variant drops, the name drops and ADR-0103's collapse are all
+ * the generator's and the app's own, reached through the same two seams
+ * `usda-bundle.mjs` uses. The one thing here that is not borrowed is the
+ * ATTRIBUTION (see {@link attribute}), and it is deliberately
+ * implementation-blind: it asks the predicate, it does not read the predicate's
+ * tables.
+ *
+ * **One stage is not a drop.** A collapsed row is not gone: ADR-0103 §4 keeps
+ * the food under another `fdcId`, and the census is where that identity is
+ * committed one line per row — `collapsed_into`. It is filed with the drops
+ * because from the index's side the row is absent either way, and a reader
+ * asking "where did this go?" needs one file to ask.
  *
  * **It asserts itself.** The rule ORDER below is mirrored from `buildCorpus`
  * rather than borrowed from it — the one place this file could fall out of step
@@ -48,6 +55,7 @@ import {
   groupByIdentity,
   readBundleArchives,
 } from "./usda-bundle.mjs";
+import { collapseCorpus } from "./usda-collapse.mjs";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const MANIFEST_PATH = join(ROOT, "scripts", "usda-backup.manifest.json");
@@ -411,17 +419,18 @@ async function main() {
     });
   }
 
-  // The frozen-mirror rule, last of all and over the names that will ship —
-  // where the generator runs it, and for its reason: until the origin strip has
-  // run these rows still say `New Zealand, imported` and no mirror can be seen.
+  // The two storage rules, last of all and over the names that will ship —
+  // where the generator runs them, and for its reason: until the origin strip
+  // has run, the frozen lamb still says `New Zealand, imported`, and the
+  // tortillas do not contest a name until both shelf words are gone.
   const finalRows = trimmedRows
     .filter((row) => !enrichment.dropped.has(row.fdcId))
     .map((row) => ({
       ...row,
       description: enrichment.renamed.get(row.fdcId) ?? row.description,
     }));
-  const mirrors = app.resolveFrozenMirrors(finalRows);
-  for (const fdcId of mirrors) {
+  const frozen = app.resolveFrozenRecords(finalRows);
+  for (const fdcId of frozen) {
     const s = byId.get(fdcId);
     const row = finalRows.find((r) => r.fdcId === fdcId);
     drops.push({
@@ -434,21 +443,139 @@ async function main() {
       calories:
         s.food.foodNutrients.find((n) => n.nutrientId === 1008)?.value ?? null,
       stage: "name",
-      rule: "frozen_mirror",
-      // Relational: what removed it is the unfrozen cut that ships, never a word.
+      rule: "frozen_record",
+      // A word, and the census says which one — unlike the mirror rule this
+      // replaced, nothing relational is left to point at.
+      because: ["segment: frozen"],
+      because_kind: "word",
+    });
+  }
+
+  // The chiller rule drops only where the strip handed a row's name to a fuller
+  // record of the same food, so what removed it is that record and never a word.
+  const storage = app.resolveStorageNames(
+    finalRows
+      .filter((row) => !frozen.has(row.fdcId))
+      .map((row) => ({
+        ...row,
+        panelFields: byId.get(row.fdcId).food.foodNutrients.length,
+      }))
+  );
+  for (const fdcId of storage.dropped) {
+    const s = byId.get(fdcId);
+    const row = finalRows.find((r) => r.fdcId === fdcId);
+    drops.push({
+      fdcId,
+      description: row.description,
+      dataType: s.food.dataType,
+      ...(s.food.foodCategory ? { foodCategory: s.food.foodCategory } : {}),
+      group: s.group.map((f) => f.description),
+      nutrients: s.food.foodNutrients.length,
+      calories:
+        s.food.foodNutrients.find((n) => n.nutrientId === 1008)?.value ?? null,
+      stage: "name",
+      rule: "storage_collision",
       because: [],
       because_kind: "by_collision",
     });
   }
 
-  const shipped = afterNames.length - enrichment.dropped.size - mirrors.size;
+  // ADR-0103's collapse, last of all and over the names that ship — where the
+  // generator runs it, and for its reason. Borrowed rather than replayed: the
+  // pass is mechanical, so there is a function to call, and calling it is what
+  // keeps this census from being a second reading of §4's chain.
+  //
+  // A collapsed row is the only drop in this file that names WHERE IT WENT.
+  // Every other rule here removes a food; this one keeps it under another row's
+  // `fdcId`, and §9 makes that identity the thing the generator refuses to
+  // publish without. So the census carries it per row, which is what lets a
+  // reader ask "what happened to `Beef, flank, steak, choice`?" and get a row
+  // back instead of a silence.
+  const collapsible = finalRows
+    .filter((row) => !frozen.has(row.fdcId) && !storage.dropped.has(row.fdcId))
+    // The storage strip renames before the collapse reads a name, exactly as the
+    // generator orders them: §3's residual description is computed from the name
+    // the row will actually ship under, so a shelf word still attached here
+    // would split a group the corpus merges.
+    .map((row) => ({
+      ...row,
+      description: storage.renamed.get(row.fdcId) ?? row.description,
+    }))
+    .map((row) => ({
+      food: {
+        fdcId: row.fdcId,
+        description: row.description,
+        foodNutrients: byId.get(row.fdcId).food.foodNutrients,
+      },
+    }));
+  const { collapsed } = collapseCorpus(collapsible, app);
+  // A survivor is named as the ARTIFACT names it, never as this replay would.
+  // ADR-0103 §5's strip shortens a representative's name once its group has
+  // merged (#436), so replaying the collapse and stopping there would answer
+  // "what happened to `Beef, flank, steak, choice`?" with a name no longer in
+  // the corpus — the silence this file exists to prevent. The strip's own
+  // freedom check is a question about the whole corpus (ADR-0062 §3), which a
+  // replay holding only the collapsed rows could not ask, and the count
+  // assertion below already refuses a census and an index built apart.
+  const index = JSON.parse(
+    await readFile(join(ROOT, "public", "usda", "search-index.json"), "utf8")
+  );
+  const shippedNames = new Map(
+    index.foods.map((row) => [row.fdcId, row.description])
+  );
+  /**
+   * The survivor's name, refusing the census rather than falling back.
+   *
+   * The invariant is the generator's `assertCollapsedRowsShip`: a collapse
+   * always leaves a survivor, and one missing from the index means a later pass
+   * has turned the collapse into a deletion. Answering with the pre-strip name
+   * instead would publish exactly the name that is no longer in the corpus, so
+   * a census built against an index that has moved stops here rather than 380
+   * rows later at the count assertion.
+   */
+  const shippedName = (fdcId) => {
+    const name = shippedNames.get(fdcId);
+    if (name === undefined)
+      throw new Error(
+        `a row collapsed into ${fdcId} and the shipped index does not hold ` +
+          "that row. The census and public/usda/search-index.json were built " +
+          "from different corpora; run `pnpm usda:bundle` first."
+      );
+    return name;
+  };
+  for (const { row, into } of collapsed.values()) {
+    const fdcId = row.food.fdcId;
+    const s = byId.get(fdcId);
+    drops.push({
+      fdcId,
+      description: row.food.description,
+      dataType: s.food.dataType,
+      ...(s.food.foodCategory ? { foodCategory: s.food.foodCategory } : {}),
+      group: s.group.map((f) => f.description),
+      nutrients: s.food.foodNutrients.length,
+      calories:
+        s.food.foodNutrients.find((n) => n.nutrientId === 1008)?.value ?? null,
+      stage: "collapse",
+      rule: "collapsed_into",
+      collapsed_into: into.food.fdcId,
+      collapsed_into_description: shippedName(into.food.fdcId),
+      // Relational, like every rule below `food_kind`: what took this row is the
+      // sibling that shares its residual description, never a word in it.
+      because: [],
+      because_kind: "by_survivor",
+    });
+  }
+
+  const shipped =
+    afterNames.length -
+    enrichment.dropped.size -
+    frozen.size -
+    storage.dropped.size -
+    collapsed.size;
 
   // The census adds up or it is wrong. The rule ORDER above is mirrored from
   // `buildCorpus` rather than borrowed from it — the one place this script could
   // fall out of step with the generator — and this is what notices.
-  const index = JSON.parse(
-    await readFile(join(ROOT, "public", "usda", "search-index.json"), "utf8")
-  );
   if (shipped !== index.foods.length)
     throw new Error(
       `census says ${shipped} rows survive, the shipped index has ${index.foods.length}. ` +

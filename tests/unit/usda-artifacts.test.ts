@@ -18,6 +18,7 @@ describe("serialisation — stable, diffable, one food per line", () => {
   const index = {
     schema_version: SCHEMA_VERSION,
     generated_from: [{ dataset: "SR Legacy", release: "2018-04" }],
+    state_qualifiers: ["raw", "raw or frozen", "uncooked"],
     vocabulary_off: {
       licence: "ODbL",
       source: "Open Food Facts",
@@ -97,10 +98,23 @@ describe("serialisation — stable, diffable, one food per line", () => {
       "artifact",
       "schema_version",
       "generated_from",
+      "state_qualifiers",
       "vocabulary_off",
       "vocabulary_local",
       "foods",
     ]);
+  });
+
+  it("writes the state roster on one line, because it is read whole", () => {
+    // Not one phrase per line, unlike the two vocabularies next to it. Those are
+    // the review gate for a source rewritten in place upstream (ADR-0049 §2), so
+    // a moved taxonomy has to diff as the phrases that moved. This roster is six
+    // words written by hand in `usda-shipped-name.ts`, and a change to it is
+    // already a reviewed diff there; here it is a copy, and a copy diffs best as
+    // the one line it is.
+    expect(serialiseIndex(index).trimEnd().split("\n")).toContain(
+      '"state_qualifiers": ["raw","raw or frozen","uncooked"],'
+    );
   });
 
   it("renders the fields a section has rather than the fields ODbL needs", () => {

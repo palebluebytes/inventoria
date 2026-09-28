@@ -3,6 +3,7 @@
 **Status:** Accepted  
 **Date:** 2026-09-02  
 **Amended by:** the Amendment below, which withdraws §5 and the Consequence that followed it  
+**Amended by:** the second Amendment below, which reads §6 to its edge — a row with no name is not rendered  
 **Implemented:** #334 — `food/search-list.ts` (§4's gate and §5's cap), `views/food/FoodStager.svelte` (the two marks, the name-only row, the scroll reset, and the highlight decoupled from bits-ui's first candidate. §5 shipped in that ticket and was withdrawn in it — see the Amendment). The prototype the variants were compared on is `prototype/326-search-ui`, and the graded density §6 records as the first thing to try is still only there
 
 ## Context
@@ -154,3 +155,32 @@ exactly one thing, which is §4's rank gate.
 **What would reopen it.** A measurement, not an argument: a phone showing that fifty
 lazily-drawn rows cost real scroll or frame time in this sheet. The number to beat is
 `SEARCH_RESULT_LIMIT`, which is 50, and the row is now name-only at ~51px.
+
+## Amendment (2026-09-17, #485): §6 has an edge, and a row with no name is over it
+
+§6 says a row is its name. It did not say what a row is when the name is not there,
+and the answer had been decided by accident: nothing at all, still selectable.
+
+**The case is real, not defensive.** A `recipe:` twin carries no `food/name` —
+ADR-0110 §2 admits one to the "Your foods" block, and ADR-0106 §8's weighed
+occasion puts one past the Recent list's catalogue rule as well, because that rule
+tests the logged unit and a weighed portion is logged in grams. Both lists then
+resolved the row through a mapper reading `food/name` off a twin that has none, so
+what rendered was the select arrow and nothing else: an option with no text, first
+in a ranking, wearing §2's `best` mark.
+
+**Dropping it is not the cap §5 was withdrawn for.** A cap withholds something a
+reader could otherwise see and offers no route to it. There is nothing here to see.
+The withdrawn clause and this one point the same way — a row in the DOM must be a
+row a reader can perceive and choose — and a nameless row fails that test from the
+other side, by being unperceivable rather than unreachable.
+
+**The rank is assigned after the drop**, so a ranking closes over the row it lost
+rather than numbering around a gap. Otherwise §2's staircase would step 0, 2, 3 and
+crown a winner the reader cannot see above a runner-up marked as second.
+
+**What this does not settle.** Whether such a row belongs in either list at all is a
+membership question and is not answered here: ADR-0110 §2 says a logged recipe does
+belong in search, and whether the Recent list should be admitting a weighed recipe
+occasion is `isCatalogueFood`'s question (ADR-0035 §6), not this record's. §6 only
+rules that a row nobody can read is not shown.

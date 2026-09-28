@@ -16,6 +16,7 @@
     setFoodDensity,
     type ConsumptionEvent,
   } from "../stores/calorie.store";
+  import { consolidateIntoRecipe } from "../stores/recipe.store";
   import {
     scaleAmount,
     parseScaleFactor,
@@ -301,7 +302,8 @@
   // bulk rescale.
   let copying = $state(false);
   // The logged event being edited (null = adding). When set, the log sheet opens
-  // in edit mode and saving replaces this event (append-only).
+  // in edit mode and saving corrects this event in place (ADR-0111 §1). The
+  // sheet's meal is the event's own, so a correction never moves it.
   let editEvent = $state<ConsumptionEvent | null>(null);
   // Whether that edit was asked for from the source explainer's "Edit" — then the
   // sheet opens straight on the label form instead of the food's card, since the
@@ -344,7 +346,7 @@
   // FoodAmountPanel; the dashboard equivalent of a recipe row tap) needs to show
   // it: the twin's panel + portions, so the sheet shows the same screen the
   // search flow does, with the food's serving surfaced as a chip. `amount` is
-  // what the picker opens at; Done retract-and-replaces the event via
+  // what the picker opens at; Done corrects the event via
   // changeLoggedFoodAmount.
   interface AmountEdit {
     event: ConsumptionEvent;
@@ -410,8 +412,8 @@
    * A fresh array per act — the day watches its identity, so reassigning is the
    * signal and mutating would be silence. Set by every path that ADDS a row and
    * by none that corrects one: an amount edit and an instantiation correction
-   * both retract and replace, which mints an id for a row already on screen, and
-   * a meal arriving from a paired device is not something this person just did.
+   * both land on a row already on screen, and a meal arriving from a paired
+   * device is not something this person just did.
    */
   let just_logged = $state<string[]>([]);
 
@@ -491,7 +493,7 @@
    * published per 100 ml — or `null` when it has no basis to scale against at
    * all. Both a measured log and a per-serving food with a KNOWN serving weight
    * resolve: they edit their amount in the shared picker, the same screen the
-   * search flow stages into, and both re-log via changeLoggedFoodAmount (which
+   * search flow stages into, and both correct via changeLoggedFoodAmount (which
    * reads the unit and the divisor off that same panel). The food's own serving
    * is surfaced as a chip so a whole-serving food is one tap from its serving
    * while still editable to any amount.
@@ -803,10 +805,9 @@
   });
 
   /**
-   * Applies the factor, append-only: each food is re-logged at its scaled
-   * amount and the original retracted, so the day's nutrition re-derives from
-   * the twins rather than being edited in place — the same path the amount
-   * picker's Done takes, across the Selection.
+   * Applies the factor, append-only: each food's new figures are re-derived from
+   * its twin and appended onto the event itself (ADR-0111 §1) — the same path
+   * the amount picker's Done takes, across the Selection.
    *
    * The whole run is **one append**. Nothing here needs the worker until the
    * write: `scalables` already holds every panel, resolved before the tier
@@ -853,11 +854,14 @@
     }
     closeScale();
     // **A finished verb ends the mode; what it did not finish stays picked.**
-    // Cleared rather than re-pointed at the new ids: the events chosen were
-    // retracted, so carrying their successors forward would leave a Selection
-    // of things nobody chose. What is left behind is what the run never wrote —
-    // which is also what keeps the bar on screen to carry the note below, since
-    // an empty Selection unmounts it.
+    // The events chosen are still there and still theirs — a scale corrects them
+    // in place now (ADR-0111 §1) — so the release stands on the reason CONTEXT.md
+    // gives without reference to retraction: a Selection is the subject of a
+    // verb, and a verb that has run has no subject left. Keeping it alive would
+    // make Scale the only verb that survives itself, and repeated scaling would
+    // compound silently (ADR-0111 §9). What is left behind is what the run never
+    // wrote — which is also what keeps the bar on screen to carry the note below,
+    // since an empty Selection unmounts it.
     setSelection(
       new Set(
         (failed > 0
@@ -900,7 +904,7 @@
   }
 
   // Turn selected consumption events into recipe ingredients carrying each
-  // event's id, so the recipe builder can retract the ones that remain as
+  // event's id, so the consolidation can retract the ones that remain as
   // ingredients. Each seed references its ORIGINAL food twin with the logged
   // quantity parsed back to {amount, unit}, so the recipe derives from that
   // twin's real nutrition/info panel (ADR-0021) and keeps the link to its
@@ -908,9 +912,16 @@
   // it was rounded when logged, so the recipe still totals exactly what these
   // foods contributed — the replace flow stays neutral. If the twin carries no
   // panel, synthesize a per-serving twin equal to the logged macros rather than
-  // corrupt the real twin. Then open the seeded builder.
-  async function buildRecipe() {
-    const items = selectedItems;
+  // corrupt the real twin.
+  //
+  // **Both consolidation verbs seed from here** (ADR-0088's 2026-09-17
+  // amendment): the builder opens on this list, and the one-tap verb commits it
+  // unchanged. What a Selection means as a set of ingredients is one reading,
+  // and the fallbacks below — a missing panel, a unit mismatch — are the reason
+  // it may not be two.
+  async function selectionIngredients(
+    items: typeof selectedItems
+  ): Promise<RecipeIngredient[]> {
     const resolved = await Promise.all(
       items.map(async (it) => {
         const target = it.target || it.id;
@@ -986,8 +997,58 @@
       });
     }
 
-    recipe_meal_type = asMealType(items[0]?.meal_type, "dinner");
+    return seed;
+  }
+
+  /** The meal a consolidation lands in: the first selected food's, as the
+   *  builder has always read it. A Selection is not meal-scoped (ADR-0088 §4),
+   *  so one of them has to be chosen and the first is the one on screen. */
+  function consolidationMeal(items: typeof selectedItems): MealType {
+    return asMealType(items[0]?.meal_type, "dinner");
+  }
+
+  /** Consolidate through the builder: the seeded form, a name if you want one,
+   *  and every optional a Recipe Twin can carry. */
+  async function buildRecipe() {
+    const items = selectedItems;
+    const seed = await selectionIngredients(items);
+    recipe_meal_type = consolidationMeal(items);
     openRecipe("consolidate", null, seed);
+    clearSelection();
+  }
+
+  /**
+   * Consolidate in one tap: the same act, with no form in front of it (ADR-0088's
+   * 2026-09-17 amendment). The foods become one **Impromptu Recipe** on the day —
+   * unnamed, so it is identified by its ingredients, stays out of the library, and
+   * lands on the dish those same ingredients already minted if there is one
+   * (ADR-0110 §1, §4).
+   *
+   * Silent on success (§2): the rows visibly fold into one, which needs no
+   * narrating, and the new row is revealed like any other (#440). A failure is not
+   * a finish, so it keeps the Selection — every write in the sequence is
+   * append-only and independently true, so what landed before the throw is not
+   * rolled back, and running it again lands on the same derived id rather than
+   * minting a second dish.
+   */
+  async function combineSelected() {
+    const items = selectedItems;
+    if (items.length === 0) return;
+    const seed = await selectionIngredients(items);
+    try {
+      just_logged = [
+        await consolidateIntoRecipe(
+          seed,
+          consolidationMeal(items),
+          selectedDate
+        ),
+      ];
+    } catch (e) {
+      appError("combining the selection failed", e);
+      status_note = "could not combine these foods";
+      return;
+    }
+    status_note = "";
     clearSelection();
   }
 </script>
@@ -1409,8 +1470,7 @@
 
 <!-- Amount picker — change a logged food's amount, append-only. The same sheet a
      recipe ingredient row opens (and the search flow stages into); here Done
-     retract-and-replaces the event via changeLoggedFoodAmount, in the panel's
-     own unit. -->
+     corrects the event via changeLoggedFoodAmount, in the panel's own unit. -->
 {#if amountEdit}
   {@const ae = amountEdit}
   <IngredientAmountSheet
@@ -1530,6 +1590,7 @@
       onHandOff={() => (selection_panel_open = true)}
       onScale={toggleScale}
       onMove={() => (move_open = true)}
+      onCombine={combineSelected}
       onRecipe={buildRecipe}
     >
       {#snippet tier()}

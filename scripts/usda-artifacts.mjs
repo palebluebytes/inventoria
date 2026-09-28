@@ -42,11 +42,21 @@ import { brotliCompressSync, constants, gzipSync } from "node:zlib";
  * chocolate milk. 8 is the third of those value-only bumps: nine rows lost the
  * fortification phrase USDA wrote into their names (ADR-0062 §2), so a capture
  * made under 7 recorded five milks, two spreads and two processed cheeses under
- * names the corpus no longer ships. Both files carry the version because both
+ * names the corpus no longer ships. 9 adds a row's `raw`, the base-ingredient
+ * preference becoming a fact about the row: the key used to read the word off
+ * the name and cannot any more, because a corpus of uncooked foods says it on
+ * every row or on none (ADR-0104 §6). 10 adds the search index's
+ * `state_qualifiers` section: the spellings of the uncooked state the strip took
+ * out of every shipped name, carried so the search can take them out of a typed
+ * query too (ADR-0049's #464 Amendment). It is the first section that is neither
+ * a row nor a vocabulary, and it is a bump rather than a silent addition for the
+ * usual reason — a reader holding a capture made under 9 was searching a corpus
+ * where `raw aubergine` could not retrieve anything, and one made under 10 was
+ * not. Both files carry the version because both
  * are generated together from one corpus, and a pair that disagreed about their
  * version would be the bug the number exists to catch.
  */
-export const SCHEMA_VERSION = 9;
+export const SCHEMA_VERSION = 10;
 
 /**
  * The panel fields a search result row renders, which is the whole of what the
@@ -217,10 +227,9 @@ export function buildArtifacts(
   // `Pineapple, raw`, `Nuts, almonds, whole, raw`) from demoting themselves.
   const rows = survivors.map((survivor) => {
     const row = buildIndexRow(survivor, app);
-    // 9 adds this: the ranking's base-ingredient preference, which used to read
-    // the word `raw` off the name and cannot any more - a corpus of uncooked
-    // foods says it on every row or on none. Captured from USDA's own
-    // description before the strip, so the key keeps the signal the name loses.
+    // Schema 9's field. `usda-adjudication.mjs` reads `describedRaw` off USDA's
+    // own description before the strip takes the word, so the key keeps the
+    // signal the shipped name loses.
     if (survivor.describedRaw) row.raw = true;
     return row;
   });
@@ -233,6 +242,12 @@ export function buildArtifacts(
     index: {
       schema_version: SCHEMA_VERSION,
       generated_from,
+      // Schema 10's section, copied off the roster the strip itself reads rather
+      // than restated here, so the words the artifact says it removed are the
+      // words it removed. Sorted for the reviewable diff (ADR-0047 §3): the set
+      // is written in the order a reader of `usda-shipped-name.ts` finds useful
+      // and that order is not a fact about the corpus.
+      state_qualifiers: [...app.STATE_QUALIFIERS].sort(),
       vocabulary_off,
       vocabulary_local,
       foods: rows,
@@ -331,6 +346,7 @@ export function serialiseIndex(artifact) {
     ["artifact", '"usda-search-index"'],
     ["schema_version", String(artifact.schema_version)],
     ["generated_from", renderProvenance(artifact.generated_from)],
+    ["state_qualifiers", JSON.stringify(artifact.state_qualifiers)],
     ["vocabulary_off", renderVocabulary(artifact.vocabulary_off)],
     ["vocabulary_local", renderVocabulary(artifact.vocabulary_local)],
     [

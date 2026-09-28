@@ -39,6 +39,7 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 import {
+  bestOfNames,
   compareRelevance,
   compileReferenceFoodQuery,
   qualifiersOf,
@@ -65,7 +66,18 @@ const pc = (part, whole) => `${Math.round((part / whole) * 100)}%`;
 
 const ROWS = index.foods.length;
 const IDENTITIES = census.identities;
+/** Every record the corpus does not carry, whatever became of it. */
 const DROPPED = census.dropped;
+/**
+ * The records ADR-0103's collapse took, which is the one family in the census
+ * that still SHIPS: each is the same food as a row that survived, under that
+ * row's `fdcId`. Counted apart from {@link DISCARDED} because a headline saying
+ * 5,937 foods were discarded would be wrong by 381 and the page's own correction
+ * paragraph would be arguing with its own stat strip.
+ */
+const COLLAPSED = census.drops.filter((d) => d.stage === "collapse").length;
+/** Records no row carries: a drop, not a collapse. */
+const DISCARDED = DROPPED - COLLAPSED;
 
 if (census.shipped !== ROWS)
   throw new Error(
@@ -73,8 +85,8 @@ if (census.shipped !== ROWS)
       "Regenerate the census: pnpm usda:drop-census"
   );
 
-/** The drop families, in the order `buildCorpus` applies them. */
-const STAGE_ORDER = ["food_kind", "variant", "name"];
+/** The drop families, in the order the generator applies them. */
+const STAGE_ORDER = ["food_kind", "variant", "name", "collapse"];
 const RULE_ORDER = [
   "brand_specific",
   "processed",
@@ -92,11 +104,13 @@ const RULE_ORDER = [
   "dehydrated_form",
   "fortification_duplicate",
   "adjudicated_variant",
-  "frozen_mirror",
+  "frozen_record",
+  "storage_collision",
   "collision",
   "preparation_sibling",
   "designation_collision",
   "enrichment_duplicate",
+  "collapsed_into",
 ];
 
 /**
@@ -171,9 +185,13 @@ const RULE_BLURB = {
     "Removed by hand, under a read head",
     "Four head phrases have been read row by row — Milk, Yogurt, Soymilk and Egg. A drop may fire nowhere else.",
   ],
-  frozen_mirror: [
-    "A frozen copy of a fresh cut",
-    "USDA publishes New Zealand lamb frozen and American lamb fresh, cut for cut. It fires only where the unfrozen row provably ships.",
+  frozen_record: [
+    "USDA froze it before measuring it",
+    "A freezer-aisle food is a packaged one with a label on it, and the label is the scanner's job rather than this corpus's. The word has to be a whole comma-segment, which is what leaves the corpus's only durian standing: USDA wrote it <span class=\"rec\">Durian, raw or frozen</span>, where <em>frozen</em> is half a segment and not one.",
+  ],
+  storage_collision: [
+    "A second record of one food, off a different shelf",
+    "<em>refrigerated</em> and <em>shelf stable</em> say where a shop kept a food, not which food it is. Once the word comes off, two rows want one name and the fuller panel keeps it.",
   ],
   collision: [
     "Its new name is already taken",
@@ -191,6 +209,10 @@ const RULE_BLURB = {
     "The unenriched half of a pair",
     "Enrichment puts back the B vitamins milling removed. Where both halves ship, the enriched one takes the plain name and this one leaves.",
   ],
+  collapsed_into: [
+    "The same food, at another trim or grade",
+    "Not a drop: the food is still here, under the fdcId named beside each row. USDA assays one flank steak lean-or-fat by trim by grade, and a diarist writes one word for all of them.",
+  ],
 };
 
 const STAGE_BLURB = {
@@ -204,7 +226,11 @@ const STAGE_BLURB = {
   ],
   name: [
     "Does its new name collide?",
-    "Last, after the renaming. Two rows that end up with one name cannot both ship under it.",
+    "After the renaming. Two rows that end up with one name cannot both ship under it.",
+  ],
+  collapse: [
+    "Is it another record of a food already here?",
+    "Last, over the names that ship. These rows are not dropped: each names the row it collapsed into, and that row is in the corpus or the generation stops.",
   ],
 };
 
@@ -292,20 +318,26 @@ const corpus = index.foods.map((row) => ({
   names: [row.description, ...(row.also ?? [])].map(readReferenceFoodName),
 }));
 
-const scoreAll = (query) => {
+/**
+ * Every row keyed against one query, the way `bestNameKey` keys it: each of the
+ * row's names scored, the row's own keys spread onto each, and `bestOfNames`
+ * collapsing them. Unfiltered and unordered — the two callers below want
+ * different rows out of the same scoring.
+ */
+const keyAll = (query) => {
   const rank = compileReferenceFoodQuery(query);
-  const scored = corpus
-    .map((food) => ({
-      description: food.description,
-      key: food.names
-        .map((name) => ({ ...rank(name), ...food.rank }))
-        .reduce((best, key) => (compareRelevance(key, best) < 0 ? key : best)),
-    }))
-    .filter(({ key }) => key.tier > 0);
-  return withoutStrayMentions(scored).sort((a, b) =>
-    compareRelevance(a.key, b.key)
-  );
+  return corpus.map((food) => ({
+    description: food.description,
+    key: bestOfNames(
+      food.names.map((name) => ({ ...rank(name), ...food.rank }))
+    ).key,
+  }));
 };
+
+const scoreAll = (query) =>
+  withoutStrayMentions(keyAll(query).filter(({ key }) => key.tier > 0)).sort(
+    (a, b) => compareRelevance(a.key, b.key)
+  );
 
 /**
  * A real corpus row that answers `query` on exactly `tier`, best-first.
@@ -316,14 +348,7 @@ const scoreAll = (query) => {
  * asked rather than remembered.
  */
 const exampleAt = (query, tier) => {
-  const rank = compileReferenceFoodQuery(query);
-  const hit = corpus
-    .map((food) => ({
-      description: food.description,
-      key: food.names
-        .map((name) => ({ ...rank(name), ...food.rank }))
-        .reduce((best, key) => (compareRelevance(key, best) < 0 ? key : best)),
-    }))
+  const hit = keyAll(query)
     .filter(({ key }) => key.tier === tier)
     .sort((a, b) => compareRelevance(a.key, b.key))[0];
   return hit ? hit.description : null;
@@ -592,11 +617,27 @@ const movedLeads = (key) => {
  * vocabulary fallback actually live (ADR-0047 §4's import-don't-copy rule,
  * applied to a document instead of a generator).
  *
- * Twenty kilobytes, tree-shaken, and it pulls in no browser API that would need
+ * **6,316 bytes**, tree-shaken, and it pulls in no browser API that would need
  * stubbing. Reached through esbuild from the PATH or through `nix shell`, the
  * same two attempts `usda-app-module.mjs` makes.
+ *
+ * It was 9,002 B until #186, and 2,686 B of that was the Facet registry — every
+ * tracked domain's storage prefixes and view paths, both Facets' precache
+ * manifests, and both `precacheBytes`. None of it was ever called here. It
+ * arrived because `usda-corpus.ts` mints entity ids, `entity-id.ts` imported
+ * `ENTITY_PREFIXES` as a value, and `FACETS` then survived tree-shaking because
+ * its `precache` spreads a shared list and esbuild cannot prove an iterator
+ * pure. The edge is broken by the registry's own split: `domains.ts` holds the
+ * domain half — the prefixes and nothing that spreads a manifest — and
+ * `entity-id.ts` reaches `ENTITY_PREFIXES` there, so `FACETS` is no longer on
+ * any path out of this bundle.
+ *
+ * **So keep that import pointed at `domains.ts`.** The visible cost of losing
+ * it is a document about food search changing bytes whenever somebody
+ * re-declares an install weight, which is how this was found.
  */
 const BUNDLE_EXPORTS = [
+  "bestOfNames",
   "buildSearchCorpus",
   "searchIndexRows",
   "searchResultName",
@@ -615,7 +656,7 @@ const bundleSearch = () => {
     entry,
     "export { buildSearchCorpus, searchIndexRows, searchResultName, SEARCH_RESULT_LIMIT } from " +
       JSON.stringify(join(ROOT, "src/lib/food/usda-corpus")) +
-      ";\nexport { compareRelevance, compileReferenceFoodQuery, readReferenceFoodName, readRowRank } from " +
+      ";\nexport { bestOfNames, compareRelevance, compileReferenceFoodQuery, readReferenceFoodName, readRowRank } from " +
       JSON.stringify(join(ROOT, "src/lib/food/reference-food-ranking")) +
       ";\n"
   );
@@ -667,6 +708,7 @@ const searchCorpus = {
   schema_version: index.schema_version,
   vocabulary_off: index.vocabulary_off,
   vocabulary_local: index.vocabulary_local,
+  state_qualifiers: index.state_qualifiers,
   foods: index.foods.map((row) => ({
     fdcId: row.fdcId,
     description: row.description,
@@ -677,6 +719,25 @@ const searchCorpus = {
     ...(row.macros ? { macros: row.macros } : {}),
   })),
 };
+
+/**
+ * The archives a figure on this page came from, as a reader can check them.
+ *
+ * `generated_from` is a LIST OF RECORDS, one per USDA archive, each with its
+ * dataset, release and sha256. Interpolating it straight into the template gave
+ * `[object Object],[object Object]` in the two places this page states its own
+ * provenance -- the one line whose whole job is to say where the numbers came
+ * from said nothing at all, in a committed artifact, for as long as the page has
+ * existed.
+ *
+ * It survived because `scripts/usda-account-check.mjs`-style byte gating proves
+ * an artifact is CURRENT, not that it is CORRECT: a regeneration reproduced the
+ * same broken string and compared equal. Found by opening the page (#438).
+ */
+const sourceArchives = (census) =>
+  (census.generated_from ?? [])
+    .map((source) => `${source.dataset} ${source.release}`)
+    .join(" and ");
 
 const esc = (s) =>
   String(s)
@@ -793,15 +854,16 @@ ${CSS}
   <header class="masthead">
     <p class="eyebrow">Inventoria &middot; food search, end to end</p>
     <h1>How Inventoria finds a food</h1>
-    <p class="standfirst">You type <span class="rec">beef</span>. Something decides which of USDA's ${n(IDENTITIES)} published records you are allowed to see, which of the survivors your word reaches, and which of those goes first. This is all three &mdash; and then every one of the ${n(DROPPED)} foods the first decision discarded, with the rule and the words that removed it.</p>
+    <p class="standfirst">You type <span class="rec">beef</span>. Something decides which of USDA's ${n(IDENTITIES)} published records you are allowed to see, which of the survivors your word reaches, and which of those goes first. This is all three &mdash; and then every one of the ${n(DISCARDED)} foods the first decision discarded and the ${n(COLLAPSED)} it merged into a row beside them, with the rule and the words that did it.</p>
     <div class="stamp">
       <span>Index <b>schema ${index.schema_version}</b></span>
       <span>Corpus <b>${n(ROWS)} rows</b></span>
-      <span>Discarded <b>${n(DROPPED)}</b></span>
+      <span>Discarded <b>${n(DISCARDED)}</b></span>
+      <span>Collapsed <b>${n(COLLAPSED)}</b></span>
       <span>Ranking <b>${keyCensus.keys.length} keys</b></span>
       <span>Page <b>50 rows</b></span>
     </div>
-    <p class="generated">Generated by <code>pnpm docs:food-search</code> from ${esc(census.generated_from)}. Every figure on this page is computed from the shipped index and the committed drop census; none is typed in.</p>
+    <p class="generated">Generated by <code>pnpm docs:food-search</code> from ${esc(sourceArchives(census))}. Every figure on this page is computed from the shipped index and the committed drop census; none is typed in.</p>
   </header>
 
   <nav class="rail" aria-label="Sections">
@@ -937,6 +999,13 @@ ${funnelRow("Rows that are the beef you meant", "80/20 mince, past the cap", 0, 
 
       <p class="lede">${n(DROPPED)} of USDA's ${n(IDENTITIES)} records never reach the app &mdash; ${pc(DROPPED, IDENTITIES)} of everything published. A dropped record is simply <em>absent</em> from the shipped index, with nothing anywhere saying which rule took it. This section is the reconstruction: every one of them, the rule that removed it, and the terms that rule fired on.</p>
 
+      <p><strong>${n(COLLAPSED)} of those ${n(DROPPED)} are not removals, which is why the stat strip above counts them apart.</strong> The records under <em>${esc(RULE_BLURB.collapsed_into[0])}</em> are the same food as a row that ships, assayed again at another trim or grade, and each one names the <span class="rec">fdcId</span> it collapsed into. ${n(DISCARDED)} foods were discarded; these ${n(COLLAPSED)} were merged. They are reviewed here with the rest because from the index's side a record is absent either way, and one file should answer &ldquo;where did this go?&rdquo;.</p>
+
+      <p><strong>The survivor then loses the words the group collapsed on.</strong> A name may never claim less than the panel under it measures, so the strip is licensed by the merge rather than by the name: where a group of several became one, the words naming a dissection, a trade trim and a carcass grade go, and where a lone record is all USDA published, the name it published stays whole.</p>
+
+      <pre class="record">Beef, flank, steak, separable lean and fat, trimmed to 0&quot; fat, choice
+  -&gt; Beef, flank, steak</pre>
+
       <p>The cause is found by <strong>ablation, not by reading a table</strong>. The filters' word lists are deliberately private, so a page that copied them would be a second copy of two hundred lines of editorial judgement, drifting quietly. Instead each record is asked of the real rule with terms removed one at a time, and what is reported is the <em>minimal sufficient removal set</em>: the smallest set of terms you could delete and have the rule go quiet. It survives a rewrite of the rules.</p>
 
       <div class="instrument">
@@ -995,14 +1064,14 @@ ${RULE_ORDER.map(ruleCard).join("")}
 
     <section id="review">
       <p class="kicker">08 &middot; Every one of them</p>
-      <h2>Review all ${n(DROPPED)} discarded foods</h2>
+      <h2>Review all ${n(DROPPED)} records the corpus does not carry</h2>
 
       <p>Filter by rule, by USDA category, or by typing. Each row shows the food as USDA named it, the rule that removed it, and &mdash; where there is one &mdash; the terms the rule fired on, which are highlighted in the name.</p>
 
       <div class="browser">
         <div class="controls">
           <label class="ctl grow">
-            <span>Search the discarded</span>
+            <span>Search them</span>
             <input type="search" id="q" placeholder="e.g. buttermilk, TWIZZLERS, salmon" autocomplete="off">
           </label>
           <label class="ctl">
@@ -1399,7 +1468,7 @@ ${shippedWords
   </main>
 
   <footer>
-    Inventoria &middot; generated from ${esc(census.generated_from)} &middot; ${n(ROWS)} shipped, ${n(DROPPED)} discarded
+    Inventoria &middot; generated from ${esc(sourceArchives(census))} &middot; ${n(ROWS)} shipped, ${n(DROPPED)} discarded
   </footer>
 
 </div>

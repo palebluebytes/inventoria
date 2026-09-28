@@ -50,22 +50,23 @@
   /**
    * The key the search scored this row on, for THIS phrase.
    *
-   * `bestNameKey`'s shape: the row's keys spread onto each name's key, the best
-   * of them taken by `compareRelevance` rather than by tier alone. Taking the
-   * best by tier would annotate a different name from the one that won whenever
-   * an alias ties on tier and beats its row on a later key.
+   * `bestNameKey`'s shape: the row's keys spread onto each name's key, and
+   * `bestOfNames` — the app's own collapse, borrowed rather than restated —
+   * taking the best of them by `compareRelevance` rather than by tier alone.
+   * Taking the best by tier would annotate a different name from the one that
+   * won whenever an alias ties on tier and beats its row on a later key.
    */
   function keysFor(row, phrase) {
     var rank = api.compileReferenceFoodQuery(phrase);
     var rowRank = api.readRowRank(row);
     var names = [row.description].concat(row.also || []);
-    var best = null;
+    var keys = [];
     for (var n = 0; n < names.length; n++) {
       var key = rank(api.readReferenceFoodName(names[n]));
       for (var field in rowRank) key[field] = rowRank[field];
-      if (!best || api.compareRelevance(key, best) < 0) best = key;
+      keys.push(key);
     }
-    return best;
+    return api.bestOfNames(keys).key;
   }
 
   function render(query) {
