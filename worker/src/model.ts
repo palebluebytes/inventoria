@@ -38,6 +38,12 @@ import {
   BodyTooLargeError,
   securityHeaders,
 } from "../../src/lib/ingestion/proxy-policy";
+import {
+  faultStatusOf,
+  MODEL_FAULT,
+  readLabel,
+  readLabelAnswer,
+} from "./model-label";
 
 /**
  * Just enough of the Workers AI binding for what this route does with it.
@@ -265,6 +271,22 @@ function respond(
 }
 
 /**
+ * What a refusal says on the wire.
+ *
+ * A text line, as the store's refusals are, and **not a JSON error envelope**:
+ * nothing else in this repo has one, and `deposit-store.ts` already reads
+ * outcomes off statuses. The client branches on the status and draws its own
+ * words, so these are for whoever is reading a network tab — which is why none
+ * of them repeats anything the vendor said.
+ */
+function faultLine(status: number): string {
+  if (status === MODEL_FAULT.exhausted) return "Today's allowance is used up";
+  if (status === MODEL_FAULT.refused) return "The model refused this account";
+  if (status === MODEL_FAULT.unusable) return "The answer was not a panel";
+  return "The model could not be reached";
+}
+
+/**
  * workerd's `crypto.subtle.timingSafeEqual`, reached through a named shape
  * rather than the global for `ModelBinding`'s reason: `tsconfig.tests.json`
  * types this file against the DOM's `SubtleCrypto`, which has no such member,
@@ -405,11 +427,23 @@ export async function modelRequest(
   const parsed = parseModelRequest(decoded);
   if (!parsed.ok) return respond(parsed.message, parsed.status);
 
-  // The task's own prompt, schema and fault mapping are #542's, and land in
-  // their own module beside this one. Until they do, a well-formed question
-  // reaches a route that has no answer for it — which is the honest shape of a
-  // gate built before the thing it gates, and is why this branch is unmerged.
-  void ai;
-  void parsed;
-  return respond("The model route has no task built yet", 503);
+  // One `await` and one classification, so a fault is decided in exactly one
+  // place (§5.4). The task owns the prompt, the schema and the model id; this
+  // module owns the gate, the closed list and the statuses.
+  let answer: unknown;
+  try {
+    answer = await readLabel(ai, parsed.images);
+  } catch (failure) {
+    const status = faultStatusOf(failure);
+    return respond(faultLine(status), status);
+  }
+
+  const reading = readLabelAnswer(answer);
+  if (reading === null) {
+    return respond(faultLine(MODEL_FAULT.unusable), MODEL_FAULT.unusable);
+  }
+
+  return respond(JSON.stringify(reading), 200, {
+    "Content-Type": "application/json",
+  });
 }

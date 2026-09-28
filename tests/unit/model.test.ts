@@ -11,7 +11,16 @@ import {
   MAX_REQUEST_BYTES,
 } from "../../worker/src/model";
 import { findForbiddenCalls } from "../../scripts/worker-closure-check.mjs";
-import { refusingModel } from "./support/model-binding";
+import {
+  faultStatusOf,
+  LABEL_BASES,
+  LABEL_KEYS,
+  LABEL_MODEL,
+  LABEL_PROMPT,
+  MODEL_FAULT,
+  readLabelAnswer,
+} from "../../worker/src/model-label";
+import { recordingModel, refusingModel } from "./support/model-binding";
 
 /**
  * The gate's decisions, and the closed list it is built to keep closed
@@ -299,5 +308,249 @@ describe("the amnesia matcher finds what it is for", () => {
 
   it("finds nothing in a module that keeps nothing", () => {
     expect(findForbiddenCalls("return respond(body, 200);")).toEqual([]);
+  });
+});
+
+/**
+ * The label task (ADR-0115 §5.3, §5.4), and the finding that shapes it: the
+ * vendor's own error codes are not trustworthy, so the **message** is the
+ * discriminant and the contract names the set rather than the mechanism.
+ */
+describe("a thrown failure becomes one of our statuses", () => {
+  const status = (message: string) => faultStatusOf(new Error(message));
+
+  // #509 measured `4006` carrying the exact message Cloudflare publishes under
+  // `3036`, and neither code appears in its own documentation. A Worker
+  // matching the documented code would call exhaustion "try again in a moment"
+  // all day.
+  it("reads an exhausted allocation off its message, whichever code rides with it", () => {
+    expect(
+      status("You have used up your daily free allocation of 10,000 neurons.")
+    ).toBe(MODEL_FAULT.exhausted);
+    expect(status("AiError: 4006: something")).toBe(MODEL_FAULT.exhausted);
+    expect(status("AiError: 3036: something")).toBe(MODEL_FAULT.exhausted);
+  });
+
+  it("reads the operator's faults as refused", () => {
+    expect(status("User has not agreed to Llama3.2 model terms")).toBe(
+      MODEL_FAULT.refused
+    );
+    expect(status("5016")).toBe(MODEL_FAULT.refused);
+    expect(status("Unauthorized")).toBe(MODEL_FAULT.refused);
+  });
+
+  // It clears in seconds, so "try again in a moment" is the true thing to say.
+  // Calling it "not today" would be the worse of the two errors.
+  it("reads a tripped rate limit as unreachable rather than as exhausted", () => {
+    expect(status('{"message":"Rate limited","code":2003}')).toBe(
+      MODEL_FAULT.unreachable
+    );
+  });
+
+  // The contract's couldn't-tell member, by design: it misreads only a
+  // genuinely exhausted day, and fails toward retry.
+  it("falls through to unreachable for anything it cannot classify", () => {
+    expect(status("Capacity temporarily unavailable")).toBe(
+      MODEL_FAULT.unreachable
+    );
+    expect(faultStatusOf("a bare string")).toBe(MODEL_FAULT.unreachable);
+    expect(faultStatusOf(undefined)).toBe(MODEL_FAULT.unreachable);
+  });
+});
+
+describe("the prompt is the safety mechanism, so it is pinned", () => {
+  // #482's ablation: with this sentence removed the same model fabricated all
+  // twelve micronutrients as `0` on the same image, 2/2 runs against 0/9.
+  it("carries the guard sentence, and the zero clause beside it", () => {
+    expect(LABEL_PROMPT).toContain("OMIT THE KEY ENTIRELY");
+    expect(LABEL_PROMPT).toMatch(/Never write 0 for a row that is not printed/);
+    expect(LABEL_PROMPT).toMatch(/If the label prints a row as 0, write 0/);
+  });
+
+  it("names a closed basis enum, or the answer comes back with a space in it", () => {
+    for (const basis of LABEL_BASES)
+      expect(LABEL_PROMPT).toContain(`"${basis}"`);
+  });
+
+  // Asking the model to convert would be a computed number reaching a panel.
+  it("asks for salt as printed and forbids the conversion", () => {
+    expect(LABEL_PROMPT).toMatch(/Do not convert salt to sodium/);
+  });
+
+  it("asks for exactly the twelve keys, and never the barcode", () => {
+    expect(LABEL_KEYS).toHaveLength(12);
+    for (const key of LABEL_KEYS) expect(LABEL_PROMPT).toContain(`"${key}"`);
+    expect(LABEL_PROMPT).not.toMatch(/barcode|ean|gtin/i);
+    expect(LABEL_PROMPT).not.toContain("energy_kj");
+  });
+
+  // The four micros are named for the unit their label prints, which kills a
+  // 1000x trap the prototype's prompt carried and never exercised.
+  it("names the micros in the unit the label prints", () => {
+    expect(LABEL_KEYS).toContain("vitamin_d_ug");
+    expect(LABEL_KEYS).not.toContain("vitamin_d_mg");
+  });
+
+  it("tells the model a comma is a decimal separator", () => {
+    expect(LABEL_PROMPT).toContain("13,808");
+  });
+
+  // The frame that prints no panel at all is what separated the four candidate
+  // models fastest, so the prompt says what to do with one.
+  it("says what an empty frame answers", () => {
+    expect(LABEL_PROMPT).toMatch(/no nutrition panel at all/);
+  });
+});
+
+describe("reading the answer: schema-invalid, never sparse", () => {
+  const answered = (object: unknown) => ({
+    response: JSON.stringify(object),
+  });
+
+  it("reads a panel out of either envelope the binding might use", () => {
+    const body = { name: null, brand: null, basis: "per_100g", nutrition: {} };
+    expect(readLabelAnswer(answered(body))).toEqual(body);
+    expect(
+      readLabelAnswer({
+        choices: [{ message: { content: JSON.stringify(body) } }],
+      })
+    ).toEqual(body);
+  });
+
+  it("reads through a code fence, which is what a prompt regression looks like", () => {
+    const fenced = {
+      response:
+        '```json\n{"name":null,"brand":null,"basis":"per_100g","nutrition":{"fat_g":8}}\n```',
+    };
+    expect(readLabelAnswer(fenced)?.nutrition).toEqual({ fat_g: 8 });
+  });
+
+  it("takes a panel of eight rows, because eight is the correct answer", () => {
+    const eight = {
+      name: "x",
+      brand: null,
+      basis: "per_100g",
+      nutrition: {
+        energy_kcal: 250,
+        fat_g: 8,
+        saturated_fat_g: 2,
+        carbohydrate_g: 30,
+        sugar_g: 12,
+        protein_g: 15,
+        salt_g: 0.6,
+        fiber_g: 3,
+      },
+    };
+    expect(
+      Object.keys(readLabelAnswer(answered(eight))!.nutrition)
+    ).toHaveLength(8);
+  });
+
+  // The barcode-only frame: no panel anywhere, and an empty object is right.
+  it("takes an empty panel from a frame with nothing on it", () => {
+    const empty = { name: null, brand: null, basis: null, nutrition: {} };
+    expect(readLabelAnswer(answered(empty))).toEqual(empty);
+  });
+
+  // Carried rather than dropped, so the client normalises both spellings of
+  // absence in one place.
+  it("carries an explicit null through", () => {
+    const withNull = {
+      name: null,
+      brand: null,
+      basis: "per_100ml",
+      nutrition: { fiber_g: null },
+    };
+    expect(readLabelAnswer(answered(withNull))?.nutrition).toEqual({
+      fiber_g: null,
+    });
+  });
+
+  // A chatty model is not a failure; dropping the row is the same outcome as
+  // never having asked for it.
+  it("drops a key nobody asked for rather than refusing the answer", () => {
+    const chatty = {
+      name: null,
+      brand: null,
+      basis: "per_100g",
+      nutrition: { fat_g: 8, zinc_mg: 4, energy_kj: 3701 },
+    };
+    expect(readLabelAnswer(answered(chatty))?.nutrition).toEqual({ fat_g: 8 });
+  });
+
+  // Unresolved, including what the app has no type for: a Worker that guessed
+  // would relabel every row at once.
+  it("carries a basis the app cannot express, rather than guessing", () => {
+    const serving = {
+      name: null,
+      brand: null,
+      basis: "per_serving",
+      nutrition: {},
+    };
+    expect(readLabelAnswer(answered(serving))?.basis).toBe("per_serving");
+  });
+
+  it("refuses an answer it cannot read as a panel", () => {
+    expect(
+      readLabelAnswer({ response: "I could not read that label." })
+    ).toBeNull();
+    expect(readLabelAnswer({ response: "[1,2,3]" })).toBeNull();
+    expect(readLabelAnswer({ response: '{"name":"x"}' })).toBeNull();
+    expect(readLabelAnswer({})).toBeNull();
+    expect(readLabelAnswer(null)).toBeNull();
+  });
+});
+
+describe("the route answers the task end to end", () => {
+  const KEY2 = "a-long-operator-secret-drawn-from-a-csprng";
+  const body = {
+    name: "La Chinata",
+    brand: null,
+    basis: "per_100ml",
+    nutrition: { energy_kcal: 899, fiber_g: null },
+  };
+
+  const post = (images = ["AAAA"]) =>
+    new Request("https://inventoria.example/api/model", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${KEY2}` },
+      body: JSON.stringify({ task: "label", images }),
+    });
+
+  it("hands every photograph to the model and returns the reading", async () => {
+    const { binding, calls } = recordingModel({
+      response: JSON.stringify(body),
+    });
+    const answer = await modelRequest(post(["AAAA", "BBBB"]), binding, KEY2);
+
+    expect(answer.status).toBe(200);
+    expect(await answer.json()).toEqual(body);
+    expect(calls).toHaveLength(1);
+    expect(calls[0].model).toBe(LABEL_MODEL);
+    // Both photographs, as image parts beside one text part.
+    const content = (
+      calls[0].inputs as { messages: { content: { type: string }[] }[] }
+    ).messages[0].content;
+    expect(content.filter((part) => part.type === "image_url")).toHaveLength(2);
+  });
+
+  it("answers 422 when the model did not answer with a panel", async () => {
+    const { binding } = recordingModel({ response: "sorry, no" });
+    const answer = await modelRequest(post(), binding, KEY2);
+    expect(answer.status).toBe(422);
+  });
+
+  it("answers our status when the binding throws", async () => {
+    const throwing = {
+      async run() {
+        throw new Error(
+          "You have used up your daily free allocation of 10,000 neurons."
+        );
+      },
+    };
+    const answer = await modelRequest(post(), throwing, KEY2);
+    expect(answer.status).toBe(429);
+    // The body says something of our own, never anything the vendor said.
+    expect(await answer.text()).not.toMatch(/neurons/);
   });
 });
