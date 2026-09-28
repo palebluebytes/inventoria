@@ -73,8 +73,21 @@ const DESKTOP = { platform: "Linux x86_64", maxTouchPoints: 0 };
  * to import it *after* stubbing the jar — the preference is read at import — so
  * the first of them wears the transform of the entire root shell, which is past
  * the 5s default on a cold cache and nowhere near it on a warm one.
+ *
+ * **Measured, and the measurement is why the number is this large** (#534). The
+ * first boot takes 17.8 s when this file runs alone and **38,731 ms** in a
+ * `pnpm test:unit` where it competes with 198 other files for workers, so the
+ * 30 s this started at failed the whole roster on a clean tree — the second test
+ * then costs 373 ms, because the first one paid for the transform.
+ *
+ * The budget is set at three times the measurement rather than just above it,
+ * because what it is defending is a *compile* whose cost is a property of the
+ * machine and of how many workers are competing, not of the assertion: a budget
+ * fitted to this laptop would fail again on a slower runner, and the price of a
+ * generous one is nothing at all while the test passes and ninety seconds, once,
+ * on the day something is genuinely hung.
  */
-const FIRST_BOOT_MS = 30_000;
+const FIRST_BOOT_MS = 120_000;
 
 /**
  * The root's landing screen, with `hidden` already in the jar.
