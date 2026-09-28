@@ -1031,3 +1031,79 @@ evidence rather than as a different food; and `8721321940623` has no Open Food
 Facts record, which is the case the delisting rule is written for. Nothing this
 job can see distinguishes a pack reformulated under an unchanged barcode, which
 §14 already names as the blind spot and each row's `captured` date is what dates.
+
+## Amendment (2026-09-28, #517): the second table lands, and the account's gate reads a fourth artifact
+
+§12 promises the collapse account a second table for the pairing arm, and
+[#517](https://github.com/palebluebytes/inventoria/issues/517)'s first half
+deferred it until the Pairing index was committed. It is committed, and the table
+is written — with the shipped table byte-identical, which was the condition §12
+set on itself.
+
+**The arm's collapse, measured.** 1,725 cooked records reach it and 1,035 ship as
+Pairing targets; **690 are absorbed into 386 groups under 93 of the arm's 171 head
+phrases**. 7 of those groups hold no record eligible to represent them and ship
+their fullest panel whole (ADR-0103 §5), and no strip was refused for want of a
+free name. Against the corpus that ships, where 381 rows collapse into 179 groups
+under 4 heads, that is the same rule landing on a different corpus, and the
+difference is the account.
+
+**The honest edit is now a measurement rather than a sentence.** Salt claims a
+segment of **147 of the 690 rows the arm's collapse absorbed and of 0 of the 381
+the shipped one absorbed** — separation 543 against 377, trim 420 against 278,
+grade 301 against 203. Both figures are interpolated into the account's prose from
+the two censuses, so the clause naming salt as the difference is written for the
+zero and the account says something else if the zero ever moves.
+
+**The honest edit lands as a second sentence rather than as a rewrite of the
+first, and that is a reading of §12 worth stating.** §12 says the account "says
+what is left after ADR-0104 removed the cooked half is _purely butchery_, and in
+the pairing arm it is butchery **and salt**", which can be read as an edit to that
+sentence. It is not made as one, because the sentence is in the shipped table's
+account and is exactly true there — 0 of the 381 — and #517's earlier Amendment
+already said so in advance. What the arm's section carries instead is the same
+claim with both figures interpolated and the comparison drawn.
+
+**The gate reads FOUR artifacts rather than the three ADR-0103's 2026-09-18 salt
+Amendment predicted, and the fourth is a census of the arm.** A collapse leaves
+nothing behind in the index it writes: §5 strikes the claimed segments out of the
+survivor's name and the absorbed record is simply absent, so the 690 are as
+invisible in `public/usda/pairing-index.json` as a dropped food is in the Search
+index, and the absorbed column cannot be re-derived from it. Joining the arm to the
+drop census's 1,744 `cooked_form` rows instead — the shape the earlier Amendment
+reached for and rejected on a different ground — is wrong by **19 rows**: two leave
+as variants and seventeen lose an `unenriched` or a `New Zealand, imported` name
+collision before the collapse reads a name, and the join reports `Rice`, `Pasta`
+and `Noodles` as collapsing where nothing collapsed. So `usda:bundle` now commits
+`docs/research/usda-pairing-collapse.json`, one absorbed record per line with the
+target row it went into — the drop census's `"stage": "collapse"` rows, for the one
+stage this arm has. It is a file of its own rather than a section of that census
+because every record in it is already there, dropped by `cooked_form`, and filing
+it twice would break the partition the census's own totals rest on.
+
+**Two tables rather than one wider one, and that is a measured claim too.** No
+collapse group lies astride the two corpora: not one cooked record was absorbed
+into a shipped row, and not one shipped row into a cooked one.
+`assertArmCollapseIsClosed` asserts it from both sides — the generator's, over the
+rows it is about to write, and the gate's, over the census it reads back — because
+a group in both columns would make the arm's absorbed count an account of neither.
+
+**The arm has no second counter, and the subtraction stands in for one.** The
+shipped arm's three group counts are counted twice, once by the passes that perform
+them and once off the names that shipped, which ADR-0103 §9's gate calls the one
+place two implementations are the point. Nothing in the arm counts a group as it
+merges one — the passes run over the whole lifted corpus and report both arms at
+once — so `collapseFigures` derives all four figures from the arm's census on both
+sides. What replaces the second counter is `assertArmFiguresAddUp`: the lifted
+corpus's own tallies minus the shipped arm's must equal the arm's, a subtraction
+that is only legitimate because the closure above has been proved.
+
+**One paragraph of existing prose moved, and it is a wrap fix.** The account's
+paragraphs are wrapped by the generator, and its wrapper broke on whitespace, so a
+code span long enough to straddle a line was split inside its backticks: the
+account has spelled `Beef, flank, steak, separable lean and fat, trimmed to 0"
+fat, choice` across two lines since the day it was first generated, and the
+sentence this change adds would have split `pnpm check` the same way. A word is now
+a run of non-space that swallows whole code spans, which moved that one paragraph
+and no figure in it. A split span renders identically either way; what it costs is
+the reader of the diff, who is the only reason the file is committed.

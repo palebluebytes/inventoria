@@ -1090,3 +1090,23 @@ _purely butchery_ edit the Amendment above promises stay owed, blocked on the Pa
 index rather than on this. The argument for both is in
 [ADR-0113](0113-a-pairing-annotates-a-packaged-food-from-a-reference-food-you-name.md)'s
 own 2026-09-18 Amendment, which carries the measurements.
+
+## Amendment (2026-09-28, #517): §9's account covers two corpora, and its gate reads four artifacts
+
+The salt Amendment above says `scripts/usda-account-check.mjs` gains "a third
+artifact to read" when the second table lands. It gains a fourth, and the reason is
+a property of §9's own account rather than of the pairing arm: **a collapse leaves
+nothing behind in the index it writes.** §5 strikes the claimed segments out of the
+survivor's name and the absorbed record is simply absent, which is why the shipped
+table's absorbed column is read off `docs/research/usda-drop-census.json` and not
+off the corpus — and the arm, having no census, could not state one at all. So
+`usda:bundle` now commits `docs/research/usda-pairing-collapse.json` beside the
+account: one absorbed record per line with the target row it went into, which is
+this census's `"stage": "collapse"` rows for the one stage that arm has.
+
+§9 is otherwise unchanged and its requirement is met twice over: the account is
+committed, it is per-head, and it now says which axes reach each corpus. The
+measurements, the closure claim that licenses two tables rather than one wider one,
+and what stands in for the arm's missing second counter are in
+[ADR-0113](0113-a-pairing-annotates-a-packaged-food-from-a-reference-food-you-name.md)'s
+2026-09-28 Amendment.
