@@ -9,12 +9,14 @@ import {
   assertCollapsedRowsShip,
   assertNamesClaimNoLess,
   assertNoAxisHidesInAGloss,
+  axisReach,
   collapseCorpus,
   collapseReach,
 } from "../../scripts/usda-collapse.mjs";
 // @ts-ignore
 import type { AppModule, Survivor } from "../../scripts/usda-bundle.mjs";
 import {
+  COLLAPSING_AXES,
   claimingAxis,
   collapseGroupKey,
   descriptionSegments,
@@ -38,6 +40,7 @@ import { resolveCollapsedNames } from "../../src/lib/food/usda-shipped-name";
  * the real export, so a renamed key or a changed signature still fails here.
  */
 const app = {
+  COLLAPSING_AXES,
   collapseGroupKey,
   mayRepresentGroup,
   descriptionSegments,
@@ -333,6 +336,39 @@ describe("collapseReach — what the rule lands on, per head phrase", () => {
         { head: "Veal" },
       ])
     ).toThrow(/Chicken/);
+  });
+});
+
+describe("axisReach — which axes claim the rows a collapse absorbed", () => {
+  // Asked of the rows a collapse ABSORBED rather than of the rows that ship,
+  // because §5 strikes the claimed segments out of a survivor's name: counting
+  // them there would count the residue and report a reach of nearly zero.
+  it("counts a row once per axis, over the axes the roster names", () => {
+    expect(
+      axisReach(
+        [
+          'Beef, flank, steak, separable lean and fat, trimmed to 0" fat, choice',
+          "Beans, snap, green, cooked, boiled, drained, with salt",
+        ],
+        app
+      )
+    ).toEqual({ separation: 1, trim: 1, grade: 1, salt: 1 });
+  });
+
+  it("keeps an axis that claims nothing, because the zero is the claim", () => {
+    // ADR-0113 §12 rests the corpus-wide coining on salt claiming no shipped
+    // row, and `Peanut butter, chunk style, with salt` is one of the seven that
+    // made the unconditioned entry false: the segment is there, and no sibling
+    // names a cooking method, so nothing claims it.
+    expect(
+      axisReach(
+        [
+          "Peanut butter, chunk style, with salt",
+          "Lamb, loin, separable lean only",
+        ],
+        app
+      )
+    ).toEqual({ separation: 1, trim: 0, grade: 0, salt: 0 });
   });
 });
 

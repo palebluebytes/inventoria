@@ -90,14 +90,20 @@ import {
   assertCollapsedRowsShip,
   assertNamesClaimNoLess,
   assertNoAxisHidesInAGloss,
+  axisReach,
   collapseAccount,
   collapseCorpus,
+  collapseFigures,
   collapseReach,
   headPhraseCount,
 } from "./usda-collapse.mjs";
 import {
+  assertArmCollapseIsClosed,
+  assertArmFiguresAddUp,
   assertShippedRowsUnmoved,
   buildPairingTargets,
+  pairingCollapseCensus,
+  serialisePairingCollapse,
 } from "./usda-pairing-targets.mjs";
 import {
   compareToPublished,
@@ -125,6 +131,21 @@ const COLLAPSE_ACCOUNT_PATH = join(
   "docs",
   "research",
   "190-corpus-account.md"
+);
+/**
+ * Where the Pairing arm's collapse is committed, one absorbed record per line.
+ *
+ * The account's second table is derived from it (ADR-0113 §12), and it is a file
+ * rather than a section of the drop census because that census is the account of
+ * the corpus that SHIPS: every record here is already in it, dropped by
+ * `cooked_form`, and filing it a second time would break the partition its own
+ * totals rest on.
+ */
+const PAIRING_COLLAPSE_PATH = join(
+  ROOT,
+  "docs",
+  "research",
+  "usda-pairing-collapse.json"
 );
 
 /**
@@ -233,6 +254,7 @@ export const BUNDLE_DATASETS = ["Foundation Foods", "SR Legacy"];
  * @property {(description: string) => { head: string, tail: string[] }} descriptionSegments
  * @property {(description: string) => string} residualDescription
  * @property {(segment: string) => string} withoutTrailingGloss
+ * @property {readonly { axis: string, preferred: boolean }[]} COLLAPSING_AXES
  * @property {(segment: string, siblings: readonly string[]) => { axis: string, preferred: boolean } | null} claimingAxis
  * @property {(tail: readonly string[], at: number) => readonly string[]} siblingsOf
  * @property {(rows: { fdcId: number, description: string, also?: readonly string[] }[], licensed: ReadonlySet<number>) => { renamed: ReadonlyMap<number, string>, tally: { stripped: number, refused: number } }} resolveCollapsedNames
@@ -1036,7 +1058,12 @@ async function main() {
   // would be a second place the lift is written. Nothing else in the pipeline
   // asks what kind of record it has, so every pass below `buildCorpus` runs
   // against the app unstubbed.
-  const { corpus: lifted, targets } = buildPairingTargets(
+  const {
+    corpus: lifted,
+    targets,
+    absorbed,
+    tally: lifted_tally,
+  } = buildPairingTargets(
     buildCorpus(groups, { ...app, isCookedForm: () => false }).survivors,
     new Set(reference_foods.map((s) => s.food.fdcId)),
     app
@@ -1046,6 +1073,53 @@ async function main() {
   const pairingIndexText = serialisePairingIndex(pairing.index);
   const pairingNutrientText = serialisePairingNutrientStore(
     pairing.nutrientStore
+  );
+
+  // ADR-0113 §12's second table, and the census it is derived from. The arm's
+  // collapse leaves nothing behind in the index it writes — §5 strikes the
+  // claimed segments out of the survivor and the absorbed record is simply
+  // absent — so the account's absorbed column is unre-derivable unless this
+  // generation commits the rows it took (#517).
+  const namedRow = (row) => ({
+    fdcId: row.food.fdcId,
+    description: row.food.description,
+  });
+  const arm_collapsed = absorbed.map(({ row, into }) => ({
+    ...namedRow(row),
+    collapsed_into: into.food.fdcId,
+  }));
+  const arm_survivors = assertArmCollapseIsClosed(
+    arm_collapsed,
+    new Map(targets.map((row) => [row.food.fdcId, row.food.description]))
+  );
+  const arm = collapseFigures(
+    targets.map(namedRow),
+    arm_collapsed,
+    arm_survivors,
+    app
+  );
+  // Off the rows the collapse ABSORBED, never off the rows that ship: §5 has
+  // taken the claimed segments out of every survivor, so the same question asked
+  // of the index would answer nearly zero on every axis.
+  const shipped_axes = axisReach(
+    [...collapsed.values()].map(({ row }) => row.food.description),
+    app
+  );
+  const arm_groups = assertArmFiguresAddUp(
+    lifted_tally,
+    {
+      groups_merged,
+      groups_shipped_whole,
+      names_refused: collapsedNames.refused,
+    },
+    arm
+  );
+  const pairingCollapseText = serialisePairingCollapse(
+    pairingCollapseCensus(arm_collapsed, arm_survivors, {
+      schema_version: pairing.index.schema_version,
+      generated_from: pairing.index.generated_from,
+      targets: targets.length,
+    })
   );
 
   const merged = index.foods.filter((row) => row.merged_from).length;
@@ -1178,6 +1252,20 @@ async function main() {
       `reached only under a Declared state of cooked; all ${shipped_unmoved.toLocaleString("en-GB")} ` +
       "shipped rows survive the lift under their own names"
   );
+  // The arm's own collapse, at the granularity §9 asks of the other one. Its
+  // heads are a table rather than a roster (ADR-0113 §11), so the four widest are
+  // printed and the account carries all of them.
+  console.log(
+    `  ${arm.before - arm.after} of them are absorbed into ${arm_groups} groups ` +
+      `under ${arm.reach.length} head phrases, and salt claims ` +
+      `${arm.axes.salt} of the absorbed rows against ${shipped_axes.salt} ` +
+      "in the corpus that ships (ADR-0113 §12)"
+  );
+  for (const { head, rows, after, absorbed: took } of arm.reach.slice(0, 4))
+    console.log(
+      `    ${head.padEnd(8)} ${String(rows).padStart(4)} -> ` +
+        `${String(after).padStart(4)}  (${took} absorbed)`
+    );
 
   console.log(`\n${describeVocabulary(vocabulary)}\n${hand_written}`);
 
@@ -1224,22 +1312,29 @@ async function main() {
   // describes being regenerated is an account that goes green by being rewritten,
   // which is the shape of #156. Written from here, a moved number is a corpus
   // that moved.
+  await writeFile(PAIRING_COLLAPSE_PATH, pairingCollapseText);
   await writeFile(
     COLLAPSE_ACCOUNT_PATH,
-    collapseAccount(reach, {
-      before: named.length,
-      after: survivors.length,
-      heads: headPhraseCount(named, app),
-      groups_merged,
-      groups_shipped_whole,
-      names_refused: collapsedNames.refused,
-    })
+    collapseAccount(
+      {
+        reach,
+        before: named.length,
+        after: survivors.length,
+        heads: headPhraseCount(named, app),
+        groups_merged,
+        groups_shipped_whole,
+        names_refused: collapsedNames.refused,
+        axes: shipped_axes,
+      },
+      arm
+    )
   );
   console.log(
     `\nwritten to ${ARTIFACT_DIR}/search-index.json, ` +
       `${ARTIFACT_DIR}/nutrient-store.json, ` +
       `${ARTIFACT_DIR}/pairing-index.json, ` +
-      `${ARTIFACT_DIR}/pairing-nutrient-store.json and ` +
+      `${ARTIFACT_DIR}/pairing-nutrient-store.json, ` +
+      `${PAIRING_COLLAPSE_PATH} and ` +
       "docs/research/190-corpus-account.md"
   );
 }
