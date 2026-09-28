@@ -1020,3 +1020,48 @@ and its own measurement. And a measured drop in kcal accuracy would return
   provenance envelope. Each refused by name in §10.
 - **A gate for §9.3's stance.** Refused: no static check here can see a screen's
   reachable endings.
+
+## Amendment (2026-09-28): §11's budget line was inherited, and both of its numbers are wrong
+
+Found while building the channel ([#546](https://github.com/palebluebytes/inventoria/issues/546)),
+and corrected here rather than in place. §11 reads _"about a third of the 42.9 KiB
+of headroom ADR-0092 §8.1 already prices"_, at the cap of 100 that
+[#480](https://github.com/palebluebytes/inventoria/issues/480) §5 proposed. Neither
+figure survives measurement.
+
+**The headroom is 15.6 KiB, not 42.9.** ADR-0092's own Amendment of 2026-09-05
+re-weighed the `app` row it had projected — 634 B against a projected 364 — and
+says in terms that what is left is _"not a fourth channel of `scan`'s size, it is
+about six-tenths of one"_, so **a fourth channel is a decision about the caps
+rather than an addition to them**. §11 quoted the pre-correction sentence, three
+weeks after it was corrected.
+
+**And the record is 158 B, not ~130.** The model id is 38 characters, which is the
+field the estimate did not price: `@cf/meta/llama-4-scout-17b-16e-instruct`
+against `scan`'s longest enum member of eleven. At the proposed cap of 100 the
+channel weighs **15.5 KiB** against 15.6 KiB of headroom — the whole remaining
+budget, to within a rounding error.
+
+**So the cap is 50, set by measurement.** Fifty sessions is still weeks of real
+use at the handful of label reads a day this feature is for, and the shape is
+unchanged — every field stays, `model` included, because the question a reader
+brings to it a year from now is _which model produced these readings_ and a short
+local alias would need a second lookup to answer it.
+
+| Channel             | B/record | KiB at cap | % of 256 KiB |
+| ------------------- | -------- | ---------- | ------------ |
+| `search`, cap 200   | 785      | 153.3      | 60%          |
+| `scan`, cap 200     | 129      | 25.2       | 10%          |
+| **`model`, cap 50** | **158**  | **7.8**    | **3%**       |
+| `app`, cap 100      | 634      | 61.9       | 24%          |
+| **Total**           |          | **248.2**  | **97%**      |
+
+**7.8 KiB of headroom**, and the sentence ADR-0092's Amendment wrote about a
+fourth channel now holds for a fifth with more force: there is no room for one at
+any useful cap without taking it from `search`, which is 60% of the budget on its
+own.
+
+`tests/unit/log-budget.test.ts` weighs the record rather than trusting this table,
+which is ADR-0092 §8's rule and the reason this correction was cheap to find. It
+is the **third** figure in this lineage projected from a shape nobody had written,
+and the third to be wrong in the direction that record warns about.

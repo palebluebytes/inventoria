@@ -80,3 +80,27 @@
     </div>
   </div>
 </Card>
+
+<style>
+  /* The three the settings surfaces already draw, carried here because
+     ADR-0097 binds a worn class to a rule in the component that wears it.
+     `FoodSettingsSheet` and `MediaSettingsSheet` each hold an identical copy,
+     so this is the third — a shared `.settings-form` would be a fourth member
+     of the UI vocabulary and ADR-0100 §1's trigger is two fixes for one cause,
+     which these have not had. Noted rather than acted on. */
+  .settings-form {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-m);
+  }
+  .form-group {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3xs);
+  }
+  .help-text {
+    font-size: var(--step-n2);
+    color: var(--text-secondary);
+    font-style: italic;
+  }
+</style>

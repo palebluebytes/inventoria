@@ -47,9 +47,10 @@ import {
 // three times, and `log-channels.test.ts` fails the moment they disagree.
 import { SEARCH_CHANNEL } from "./search-log";
 import { SCAN_CHANNEL } from "./scan-log";
+import { MODEL_CHANNEL } from "./model-log";
 import { APP_CHANNEL } from "./app-log";
 
-export { SEARCH_CHANNEL, SCAN_CHANNEL, APP_CHANNEL };
+export { SEARCH_CHANNEL, SCAN_CHANNEL, MODEL_CHANNEL, APP_CHANNEL };
 
 /**
  * Every channel, in the order a review and an export present them.
@@ -64,7 +65,8 @@ export { SEARCH_CHANNEL, SCAN_CHANNEL, APP_CHANNEL };
 export const LOG_CHANNELS: readonly LogChannel<unknown>[] = [
   SEARCH_CHANNEL,
   SCAN_CHANNEL,
-  // Last, and the position says what it is: the two above are what a Facet's
+  MODEL_CHANNEL,
+  // Last, and the position says what it is: the three above are what a Facet's
   // own acts write, and this is the app underneath them. It is also the only
   // one every Facet carries, because its `domain` is null (ADR-0092 §13).
   APP_CHANNEL,
