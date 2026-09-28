@@ -608,3 +608,47 @@ A permanent paragraph explaining an unfinished screen is the same bargain §9 st
 `● DB Ready`: a developer's affordance charging the user for the space. §11's band is the
 honest statement that these faces are unfinished, and the food screen already keeps its own
 blurb behind a disclosure rather than above the fold.
+
+## Amendment, 2026-09-28: BETA as built, and the third place it is drawn
+
+[#534](https://github.com/palebluebytes/inventoria/issues/534) built §11. The declaration was
+already on the roster from [#528](https://github.com/palebluebytes/inventoria/issues/528), so
+what this ticket added is the drawing — and the drawing turned out to cost no new look at all,
+while the count of places that need it is one higher than §11 says.
+
+**1. §11 counts two drawings and there are three.** The Settings face's face-visibility section
+draws a row per face — mark, name, badge, checkbox — and a row where somebody decides whether to
+keep Media must say that Media is unfinished, or it is asking for the decision blind. That row
+arrived with [#532](https://github.com/palebluebytes/inventoria/issues/532), after §11 was
+written, and it takes the **badge** shape rather than the band, which is §11's own argument for
+the header: a band belongs across a tile and a badge belongs down a list. `FaceMaturity` is
+therefore one component with three call sites and two shapes.
+
+**2. The row's badge changed colour, which is the point of having a component.** #532 drew it
+`variant="warning"` — amber — because there was nothing to reach for yet. §11's look is an ink
+ground with paper caps, so adopting the component moved the row onto it. A face's maturity is now
+one colour in all three places, and that is ADR-0095 §1's whole claim: the second drawing of a
+look is the one that drifts.
+
+**3. The band declares nothing, because `ui/Badge` already was one.** §11 says "ink ground, paper
+caps, letterspaced", and `--radius` is `0` in this frame, so the primitive is already a square ink
+rectangle with letterspaced paper caps. The band is that box plus `.w-full` and `.justify-center`,
+the two utilities `src/app.css` already shares with the two shells' DB-error line. So no `ui/`
+member is minted, ADR-0100's gate is never engaged, and `FaceMaturity` has no `<style>` block at
+all: what it owns is a predicate and a word, and the look stays where the look lives.
+
+**4. The band inverts with the tile, and §11 did not foresee needing it to.** ADR-0038's selected
+mark swaps ink for paper, and five of the seven faces are beta — so "the face you are standing on
+is a beta face" is the ordinary case, not an edge. Left alone, an ink band on an inverted ink
+ground is the word with its box gone. It takes `filter: invert(1)`, the same one line the mark
+above it already takes, rather than a sixth `ui/Badge` variant: `--ink` and `--paper` are `#000`
+and `#fff` and there is no dark theme, so the filter lands on exactly the two tokens a variant
+would have named and cannot drift from them.
+
+**5. "Full tile width" is wider than the mark, and the wording is kept.** The mark is capped at
+its natural 64 and centred, so on a roomy column the band is the wider of the two. That is what
+§11 asked for and it reads correctly — a rectangle of solid ink gains nothing from a cap — but it
+is worth saying, because §11's "directly under the mark" invites the reading that the two measure
+the same. The **14 px** that clause costs is the estimate the earlier geometry was priced at and
+this ticket did not re-measure it: the band's height is the primitive's own box, declared nowhere
+in this arc, so there is no second number to keep in step.

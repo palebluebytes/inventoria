@@ -96,14 +96,60 @@ describe("what the landing screen is allowed to know", () => {
       ),
     ].map((m) => m[1]);
 
-  it("reaches the roster and nothing else", () => {
+  /**
+   * Every module the grid reaches, transitively, as repo-relative paths.
+   *
+   * **Transitive rather than direct, because the grid stopped being a leaf.**
+   * #534 gave it `FaceMaturity`, and a ceiling on the direct list alone would
+   * have been satisfied by a component that imported a store on the grid's
+   * behalf — which is the same convenience import the direct list was written to
+   * catch, moved one file along. Bare specifiers are left as they are written and
+   * are not followed: `svelte` is the framework and stops the walk.
+   */
+  const closure = (entry: string): string[] => {
+    const seen = new Set<string>();
+    const walk = (file: string) => {
+      for (const spec of imports(file)) {
+        if (!spec.startsWith(".")) {
+          seen.add(spec);
+          continue;
+        }
+        const from = file.slice(0, file.lastIndexOf("/"));
+        const joined = new URL(spec, `file:///${from}/`).pathname.slice(1);
+        const resolved = [joined, `${joined}.ts`].find((candidate) => {
+          try {
+            readFileSync(candidate);
+            return true;
+          } catch {
+            return false;
+          }
+        });
+        if (!resolved) throw new Error(`${file} imports unresolvable ${spec}`);
+        if (seen.has(resolved)) continue;
+        seen.add(resolved);
+        walk(resolved);
+      }
+    };
+    walk(entry);
+    return [...seen].sort();
+  };
+
+  it("reaches the roster, a badge and nothing else", () => {
     // §9: it renders before the ledger opens and **must not subscribe to a
     // ledger store**, "which is what makes the boot win real rather than
-    // incidental". Stated as the grid's whole import list rather than as the
-    // absence of one store, because the way this breaks is a convenience import
-    // nobody thought of as a subscription — and the roster is a build-time
-    // constant (ADR-0076 §6), so one entry is the honest ceiling.
-    expect(imports(GRID)).toEqual(["../facets/registry"]);
+    // incidental". Stated as the whole closure rather than as the absence of one
+    // store, because the way this breaks is a convenience import nobody thought
+    // of as a subscription — and every module here is either a build-time
+    // constant (ADR-0076 §6) or a `ui/` primitive with no state of its own, so
+    // this list is the honest ceiling.
+    expect(closure(GRID)).toEqual([
+      "src/lib/facets/domains.ts",
+      "src/lib/facets/registry.ts",
+      "src/lib/layout/FaceMaturity.svelte",
+      "src/lib/ui/Badge.svelte",
+      "src/lib/ui/badge.ts",
+      "svelte",
+    ]);
   });
 
   it("is the one thing the root draws with no ledger at all", () => {

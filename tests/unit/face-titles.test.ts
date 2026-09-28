@@ -115,9 +115,13 @@ describe("a face's own controls cross into the header", () => {
     // `.main` and the face mounts inside it — so this is the only tier that can
     // show the two ends meeting.
     const stop = publishFaceActions(mark("gear"));
-    // After the title, which is the half of §5's order this box decides.
+    // After the title, which is the half of §5's order this box decides. What
+    // may sit between them is whitespace and Svelte's own block anchors and
+    // nothing else — the maturity badge is between the two (#534) and Rations
+    // ships, so on this face it contributes empty anchors. `face-maturity.test.ts`
+    // owns the badge's own place in the row; this stays the handover's claim.
     expect(header()).toMatch(
-      /<h1 class="face-title[^"]*">[^<]*<\/h1>\s*<!--\[0--><div class="face-actions[^"]*"><button id="gear">/
+      /<h1 class="face-title[^"]*">[^<]*<\/h1>(?:\s|<!--[^>]*-->)*<div class="face-actions[^"]*"><button id="gear">/
     );
     stop();
     expect(header()).not.toContain("face-actions");

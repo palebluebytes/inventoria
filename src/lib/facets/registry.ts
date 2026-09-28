@@ -733,10 +733,15 @@ export interface Face {
    * a committed file, and the registry's header refuses a field naming a file
    * that is not there.
    *
-   * **They serve from `/icons/faces/`, which is above `/food/`**, so Rations'
-   * service worker cannot precache the three its own switcher draws — a
-   * precached URL must sit inside the Facet's own scope. Copy or inline is
-   * #529's call; nothing reads this field yet, so no manifest moves here.
+   * **They serve from `/icons/faces/`, which is above `/food/`, and that costs
+   * nothing.** This field said the opposite until #529 built the switcher: that
+   * Rations' service worker could not precache the three its own switcher draws,
+   * so one of a copy or an inline was owed. Refuted by what already shipped —
+   * scope decides which clients a worker controls and never which URLs it may
+   * store — and the argument is in {@link Facet.icons}, which is the field where
+   * an inside-the-scope rule *is* load-bearing, for the install's reasons rather
+   * than the cache's. Both `precache` lists name `/icons/` and nothing is
+   * committed twice (ADR-0114 §12's amendment).
    */
   readonly mark: string;
   /**

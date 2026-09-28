@@ -1,4 +1,5 @@
 <script lang="ts">
+  import FaceMaturity from "./FaceMaturity.svelte";
   import FaceSwitcher from "./FaceSwitcher.svelte";
   import { faceActions } from "./face-actions";
   import { clearShellCeiling, publishShellCeiling } from "./shell-ceiling";
@@ -20,9 +21,10 @@
   // fixed — the switcher panel drops from its lower edge and is portalled out of
   // this tree entirely.
   //
-  // The maturity badge beside the title is
-  // [#534](https://github.com/palebluebytes/inventoria/issues/534)'s. This is the
-  // box it lands in.
+  // **The maturity badge sits between the title and the actions**, which is where
+  // §5's order puts it: it qualifies the name, so it follows the name, and it is
+  // outside the `<h1>` so the heading stays the face's one spelling and nothing
+  // else.
 
   let {
     face,
@@ -62,6 +64,11 @@
        one string, which is what retires `Media Tracker`, `Physical Digital
        Twins` and `Notes & Checklist`. -->
   <h1 class="face-title">{face.name}</h1>
+  <!-- §11's second drawing, from the component the switcher tile's band comes
+       from. A badge here rather than a band: a rectangle across a tap-sized mark
+       would be four illegible pixels, and this row has the width for a label
+       beside the name. -->
+  <FaceMaturity maturity={face.maturity} />
   <!-- The face's own controls, published from inside the scroll box by
        `face-actions.ts` rather than handed down as a prop. The header is above
        `.main` and every face mounts inside it, so the shell is the only box that
@@ -108,6 +115,12 @@
     text-overflow: ellipsis;
     text-transform: uppercase;
     white-space: nowrap;
+  }
+  /* It qualifies the title and must never be the thing that takes its room: the
+     title has the slack and this holds its natural width, so a long name
+     ellipsises and the badge stays whole. */
+  .face-header :global(.badge) {
+    flex-shrink: 0;
   }
   .face-actions {
     display: flex;

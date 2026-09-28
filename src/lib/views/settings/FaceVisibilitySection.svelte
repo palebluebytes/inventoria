@@ -17,14 +17,13 @@
   // (§10: it is where hiding is undone), so the list is the roster minus one at
   // both sizes.
   //
-  // The BETA badge is `ui/Badge`, the primitive ADR-0114 §11 names, drawn here
-  // directly: §11 counts two drawings — the switcher tile's band and the header's
-  // badge — and this row is a third the record did not foresee.
-  // [#534](https://github.com/palebluebytes/inventoria/issues/534) builds the one
-  // component for the other two and folds this in; until it does, a row that said
-  // nothing about maturity would ask somebody to decide whether to hide Media
-  // without telling them Media is unfinished.
-  import Badge from "../../ui/Badge.svelte";
+  // **The BETA badge is `FaceMaturity`**, the one component ADR-0114 §11's two
+  // drawings come from — this row is the third call site, which that record did
+  // not foresee and #534's amendment records. A row that said nothing about
+  // maturity would ask somebody to decide whether to keep Media without telling
+  // them Media is unfinished, and a second spelling of the word here is exactly
+  // what ADR-0095 §1 says a shared look must not be.
+  import FaceMaturity from "../../layout/FaceMaturity.svelte";
   import Card from "../../ui/Card.svelte";
   import Checkbox from "../../ui/Checkbox.svelte";
   import Row from "../../ui/Row.svelte";
@@ -74,9 +73,7 @@
           {/snippet}
           {#snippet trailing()}
             <span class="controls">
-              {#if face.maturity === "beta"}
-                <Badge variant="warning">BETA</Badge>
-              {/if}
+              <FaceMaturity maturity={face.maturity} />
               <!-- Ticked means shown, which is the direction the sentence above
                    is written in and the direction the grid is read in.
 

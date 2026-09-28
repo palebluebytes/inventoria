@@ -1,4 +1,5 @@
 <script lang="ts">
+  import FaceMaturity from "./FaceMaturity.svelte";
   import type { FaceId, RosteredFace } from "../facets/registry";
 
   // The grid of faces (ADR-0114 §7), and the app's whole navigation.
@@ -16,9 +17,11 @@
   // move spends that and gives back adaptation nobody asked for. So this
   // component takes a list and draws it; it holds no comparator and no store.
   //
-  // The BETA band is [#534](https://github.com/palebluebytes/inventoria/issues/534)'s
-  // and is deliberately absent, not forgotten: `maturity` is already on the
-  // roster and the band is a drawing over the tile.
+  // **The BETA band sits under the mark rather than across it** (ADR-0114 §11, as
+  // it was rewritten by assembling this): a band over the tile's lower third
+  // paints out the third of the drawing that identifies it, and five of the seven
+  // faces carry one. It is `FaceMaturity`, which the header and the Settings
+  // face's visibility row draw too.
 
   let {
     faces,
@@ -68,6 +71,13 @@
              when the image arrives — a switcher that jumps as it paints is a
              switcher you tap the wrong tile on. -->
         <img class="face-mark" src={face.mark} alt="" width="64" height="64" />
+        <!-- Between the mark and the name, which is §11's order and the reason
+             the band is legible: it is a full-width rectangle in its own row
+             rather than a strip over line art whose interior paper is
+             load-bearing. It joins the tile's accessible name, so a beta face
+             announces itself as one — which is the whole point of drawing it
+             where somebody chooses a destination. -->
+        <FaceMaturity maturity={face.maturity} shape="band" />
         <span class="face-name">{face.name}</span>
       </button>
     </li>
@@ -168,6 +178,23 @@
      because the drawing has exactly two values and inverting it is what the
      tile itself is doing. */
   .face-tile.current .face-mark {
+    filter: invert(1);
+  }
+  /* And so is the band, by the same one line and for a reason the mark's comment
+     already gives: the badge is an ink ground with paper caps, which on an ink
+     tile is ink on ink. `invert()` rather than a second `ui/Badge` variant —
+     `--ink` and `--paper` are `#000` and `#fff` here and there is no dark theme,
+     so the filter lands on exactly the two tokens a variant would have named, and
+     the border inverting with it is correct: an edge between paper and ink is
+     what the swap already draws. `:global` because the box is the primitive's.
+
+     Keyed on `.badge` and not on a class of ours, which is the one thing here
+     worth a reviewer's eye: it is `ui/Badge`'s own class, so this rule is an
+     override of a primitive from a host. It is allowed the way the inversion
+     above is — the tile is ADR-0038's selected mark and swapping ink for paper is
+     the whole of what that means — and it names no colour, so it cannot drift
+     from what the primitive draws. */
+  .face-tile.current :global(.badge) {
     filter: invert(1);
   }
 </style>
