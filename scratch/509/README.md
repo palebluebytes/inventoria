@@ -234,3 +234,83 @@ Nutrition5k, Thames et al., CVPR 2021, released under CC BY 4.0 —
 <https://github.com/google-research-datasets/Nutrition5k>. Images are fetched into TMP at
 run time and **not committed**; `slice.json` carries only dish ids and the weighed
 figures.
+
+## The adjudication: is the ticket answerable on these arms? (`adjudicate.mjs`)
+
+Added after the run, when the question became _must the remaining arms be run before
+#509 can be answered?_ `node scratch/509/adjudicate.mjs` — a third pass, downstream of
+`score.mjs`, spending no neurons — puts the arms against each other. **Yes, it is
+answerable, and the verdict is don't build.** Four things it establishes that no single
+arm's MAE does.
+
+### 1. The headline arm is the shape the app cannot ship
+
+`bare` is exactly the shipped `PlateEstimate` — `{ name, calories, ingredients[] }`.
+`itemised` adds `items[]` with grams and kcal, which `plate-estimator.ts:29` forbids by
+name. So the 173.3 kcal / 38.9 % headline was measured on a variant, and the shipped
+shape is the arm the ceiling cut short at 13.
+
+On the 13 dishes both reached, `bare` looks better — **130.3 vs 166.4 MAE**. It is not
+better. **Paired, `itemised` wins 7 of 13 and the median |error| reduction is exactly
+0.0 kcal**; the whole 36.1 kcal mean gap is one dish (`dish_1566328831`, +208.7 kcal,
+where itemised double-counted a pizza's toppings). `bare`'s lower MAE is the same
+reading with the itemisation blow-ups removed, not a better reading of the food.
+
+### 2. The coarse prior is in **both** shapes, so §2 is answered
+
+| arm                | distinct                    | sd (truth 269–287) | multiples of 50 | Spearman |
+| ------------------ | --------------------------- | ------------------ | --------------- | -------- |
+| `itemised`, all 49 | 28/49 — **540 seven times** | 267                | 2/49            | 0.74     |
+| `itemised`, the 13 | 13/13                       | 292                | 1/13            | 0.74     |
+| `bare`, the 13     | **7/13 — 550 five times**   | **198**            | **9/13**        | 0.79     |
+
+Rank correlation is the same in both; the spread is **compressed**; and the shipped
+shape is the **coarser** of the two — five of its thirteen answers are 550, against
+truths of 472, 494, 510 and 550. So _the estimate is a prior about what a plate like
+this weighs, not a reading of the food_ is not an artefact of itemising, and #509 §2
+gets its answer without the remaining arms.
+
+Spearman here is on **midranks**: `bare`'s five tied 550s made a naive rank correlation
+depend on the tie order (0.73 sorting by id, 0.86 sorting by truth). Tied values share
+the average of their positions, which is order-free.
+
+### 3. The cluster instrument, split at the step size
+
+| arm        | steps < 200 kcal                                        | steps ≥ 200 kcal          |
+| ---------- | ------------------------------------------------------- | ------------------------- |
+| `itemised` | n=6, 265 kcal of real change → **9 kcal tracked (3 %)** | n=3, 756 → 749 (**99 %**) |
+| `bare`     | none reached                                            | n=1, 305 → 200 (66 %)     |
+
+Sharper than §4 above stated it: large additions are tracked almost **exactly**, small
+ones are **invisible** — four of the six moved the estimate by 0.0. But `bare` reached
+one large step and no small one, so this instrument is itemised-only. That is why §2's
+prior had to be measured instead, and it is what makes the verdict arm-independent.
+
+### 4. Arm B is refuted at its ceiling, for zero neurons
+
+The 2026-09-18 comment on #509 proposed arm B: the model names items and grams, **the
+app** computes kcal from the cooked USDA rows. Its best conceivable lookup is the dish's
+_own_ true energy density, so scoring `model grams × true kcal/g` is an upper bound no
+real table can reach:
+
+|                                    | MAE       | MAE/mean   | MAPE median | within 25 % |
+| ---------------------------------- | --------- | ---------- | ----------- | ----------- |
+| A — the model's own total          | 173.3     | 38.9 %     | 34.2 %      | 20/49       |
+| **B\* — perfect lookup (ceiling)** | **147.8** | **33.2 %** | **36.2 %**  | **19/49**   |
+| published direct-2D bar            | 70.6      | 26.1 %     | —           | —           |
+
+A perfect table buys **~25 kcal of MAE**, still misses the published bar by 7 points,
+and makes the **median and the hit rate worse**. The comment's own stated objection is
+what dominates: the model still originates the grams, and **|1 − mass ratio| is 36 % at
+the median, with only 19 of 49 dishes within 25 % on mass**. #247 measured the real
+lookup — the shipped search on the model's own clean English term — at **6 of 22
+top-1**, so the true arm can only sit below this ceiling. Arm B does not need running.
+
+### What is therefore still un-run, and why it no longer blocks
+
+`main-bare`'s other 37 dishes, the guard ablation (all twelve calls `429`), the
+noguard/variance/frame/mistral arms. §3 (the guard sentence) and §4 (N images) are
+**conditional on building**, so a don't-build verdict moots them — but they are owed
+again, not answered, if a build is ever reopened. On §4 specifically, the decomposition
+bounds what a second angle could buy: it addresses **mass**, and §4 above shows that
+fixing the _other_ half perfectly still leaves 33.2 %.
