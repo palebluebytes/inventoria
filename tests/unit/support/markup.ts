@@ -165,9 +165,29 @@ function expressionAt(text: string, at: number): string {
 }
 
 /**
+ * A literal that is one side of a comparison, with the comparison.
+ *
+ * **Not every string in a `class={…}` is a class**, which is what
+ * {@link classValue} assumed until `FaceMaturity` wrote the first counter-example:
+ * `class={shape === "band" ? "w-full justify-center" : ""}` reads its own `shape`
+ * prop, and `"band"` is the value it is compared *against* rather than anything an
+ * element wears. Collected as a class it convicted the component of wearing a
+ * `.band` no rule declares — a false positive in the one sweep whose whole job is
+ * to be believed, and the failure mode ADR-0097's guard cannot afford, since a
+ * reader who has seen it once starts reading the next one as noise too.
+ *
+ * Only equality is stripped, and only against a literal. `<` and `>` cannot take
+ * a class name meaningfully, and an operand that is an identifier is not a string
+ * in the first place, so there is nothing else here to be wrong about.
+ */
+const COMPARED =
+  /(?:[=!]==?\s*(?:`[^`]*`|"[^"]*"|'[^']*'))|(?:(?:`[^`]*`|"[^"]*"|'[^']*')\s*[=!]==?)/g;
+
+/**
  * The `class` value as written: the text between the quotes, or, for
  * `class={…}`, the string literals inside the expression joined — since those
- * are the only part of an expression that can name a class.
+ * are the only part of an expression that can name a class, once the ones being
+ * *tested* rather than written are taken out (see {@link COMPARED}).
  */
 function classValue(attrs: string): string {
   const found = /\bclass=/.exec(attrs);
@@ -179,7 +199,11 @@ function classValue(attrs: string): string {
     return close === -1 ? "" : attrs.slice(at + 1, close);
   }
   if (opener !== "{") return "";
-  return [...expressionAt(attrs, at).matchAll(/`([^`]*)`|"([^"]*)"|'([^']*)'/g)]
+  return [
+    ...expressionAt(attrs, at)
+      .replace(COMPARED, " ")
+      .matchAll(/`([^`]*)`|"([^"]*)"|'([^']*)'/g),
+  ]
     .map((m) => m[1] ?? m[2] ?? m[3])
     .join(" ");
 }

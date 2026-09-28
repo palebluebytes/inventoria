@@ -256,6 +256,24 @@ describe("class names worn in src/ markup", () => {
     );
   });
 
+  it("does not read a class expression's comparison operand as a class", () => {
+    // `FaceMaturity` writes `class={shape === "band" ? "w-full justify-center" : ""}`,
+    // and the census used to collect every string literal in a `class={…}` — so
+    // `"band"`, the value the prop is compared *against*, came back as a class the
+    // file wears and nothing declares. It failed the sweep below on a component
+    // that wears exactly two classes, both of them `src/app.css`'s.
+    //
+    // Anchored on the real file rather than on a fixture, because the sweep is
+    // discovered from `git ls-files` and a fixture would not be in it: this is the
+    // one wearing in the tree that distinguishes the two readings, and if it is
+    // ever rewritten the sweep below is what still holds.
+    const worn = elementsOf("src/lib/layout/FaceMaturity.svelte").flatMap(
+      (el) => el.classes
+    );
+    expect(worn).not.toContain("band");
+    expect(worn).toEqual(expect.arrayContaining(["w-full", "justify-center"]));
+  });
+
   it("wears no class that no rule reaches", () => {
     const unreached = WORN.filter((w) => !isReached(w))
       .map(
