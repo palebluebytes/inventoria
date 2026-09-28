@@ -6,6 +6,7 @@
 **Amended by:** [ADR-0052](0052-a-drinks-panel-is-carried-per-100-ml.md) §5 (§3's basis toggle resolves a per-100 ml value it never offers)  
 **Amended by:** [ADR-0060](0060-an-amount-is-entered-in-its-panels-unit.md) §7 and its 2026-08-30 Amendment (§3's basis toggle offers per-100 ml directly, and drops `serving` along with its serving-weight field)  
 **Amended by:** [ADR-0066](0066-a-captured-photo-is-bounded-before-it-becomes-a-datom.md) §1 (§5 keeps every shot of the set; each one is bounded to 1600 px)  
+**Amended by:** [ADR-0115](0115-the-app-asks-a-model-through-one-gated-route-and-only-photographs-leave.md) (§4's deferred AI autofill is built, on a provider, model and cost none of its grounding named; §7's `"ai-confirmed"` becomes writable under a ratchet and its `fields` comment is corrected; §5's and §1's two half-true claims below)  
 **Implemented:** #56 `a4be6a9`, #57 `a7e3e8f`, #58 `f3404f2`, #59 `dfd7b64`, #60 `20f0f76`, #61 `5311e71`, #67 `08c361f`, #84 `324050f`
 
 ## Context
@@ -339,3 +340,52 @@ protein, fat, carbs, photo_base64}` to seed the full panel + barcode +
   gates on the user's own OFF login.
 - **Uploading the user's label photos to OFF in v1.** Out of scope (#54):
   structured data only; photo upload is deferred to lived experience.
+
+## Amendment (2026-09-28): AI autofill is built, `"ai-confirmed"` is writable, and four claims are corrected
+
+[ADR-0115](0115-the-app-asks-a-model-through-one-gated-route-and-only-photographs-leave.md)
+is the record of map [#474](https://github.com/palebluebytes/inventoria/issues/474),
+which built the extraction mechanism §4 deferred. Four things this record says are
+now false, and each is corrected here rather than in place.
+
+**§4's deferral is spent, and none of its grounding survived contact.** #51 —
+_"decide the extraction mechanism by testing on the sample labels"_ — closed
+without the test being run, and the prototype it owed ran a year later as
+[#482](https://github.com/palebluebytes/inventoria/issues/482). §4 names **Haiku
+4.5 with a Sonnet 5 escalation** at **~$0.006–0.02 per label**; what ships is
+`@cf/meta/llama-4-scout-17b-16e-instruct` on Cloudflare Workers AI, measured at
+**$0.00084 a label**, with the escalation-on-dense-labels recommendation getting
+no support and staying untested. §4's own rule survives unchanged and is why the
+rest could move: the model output is a **proposal the user confirms**, never
+written un-reviewed, and guided-manual is still exactly the empty-result case, so
+the form is still built once for both.
+
+**§7's `method: "ai-confirmed"` is now writable**, and it means the read was
+_applied_, not attempted — the correction count is irrelevant. It is a **one-way
+ratchet**: `readApplied ? "ai-confirmed" : (prior?.method ?? "manual")`, inherit
+or upgrade, never downgrade, so a later manual save on an AI-read twin cannot
+launder model output into the stronger claim. `adapter_version` stays at **1**,
+because writing a value the envelope always admitted is not a version change.
+The envelope gains **no `model` field**: a read is impossible without
+photographs and photographs are permanent, so a re-audit reads the photo — and
+this envelope crosses to a recipient verbatim, so a vendor model name would leave
+the device on every sent meal. ADR-0115 §10 carries the whole of it.
+
+**§7's inline `// what the user supplied/edited` on `fields` has never been
+true.** The shipped code builds that list from what the form ended up _holding_,
+with no edit tracking anywhere in the component, and it has been listing rows
+seeded from the twin that the person never touched since #56. `fields` describes
+the capture's **coverage**, never its authorship; the behaviour is right and the
+comment was wrong. The same wrong claim stands on `food/manual_entry`, whose
+envelope was minted as this one's sibling, and both are corrected in
+`docs/eavt-vocabulary.md` and in `src/lib/food/provenance.ts`.
+
+**§5 and §1 each carry a claim that is half-shipped.** §5's _"the full set is
+what a future AI call sends"_ is honoured exactly — but its §1 companion, that
+the three barcode/label doors arrive with photographs, is only true of the
+desktop-upload variants: **on a phone, every scan door arrives photo-less**,
+which is why ADR-0115 §8's control is a camera in its empty state and why that
+state is the common case rather than the edge. And §1 calls the found-but-poor
+nudge **dismissible**; shipped, it is merely _ignorable_ — one "Improve" button,
+no `✕`, and its flag is only ever cleared by a state transition, never by a user
+gesture.

@@ -96,10 +96,16 @@ export function buildRawProvenance<RawT>(args: {
 export const LABEL_ADAPTER_VERSION = 1;
 
 /**
- * How the label's values reached the panel: `manual` is v1's guided
- * transcription (the human reads the label into the rows, no model call);
- * `ai-confirmed` is the deferred AI-autofill-then-confirm path (#49/#51). Either
- * way the stored values are what the user confirmed, never written un-reviewed.
+ * How the label's values reached the panel: `manual` is the guided transcription
+ * (the human reads the label into the rows, no model call); `ai-confirmed` says a
+ * model read was APPLIED to the form that produced this save (ADR-0115 §10),
+ * whatever the user then corrected. Either way the stored values are what the user
+ * confirmed, never written un-reviewed.
+ *
+ * It is a ONE-WAY RATCHET: a save with no read inherits whatever the prior
+ * envelope held rather than writing `manual` over it, because `manual` is the
+ * stronger claim of the two and a later hand-edit must not launder model output
+ * into it. `readApplied ? "ai-confirmed" : (prior?.method ?? "manual")`.
  */
 export type LabelCaptureMethod = "manual" | "ai-confirmed";
 
@@ -123,8 +129,15 @@ export interface LabelCapture {
    */
   basis: string;
   /**
-   * What the user supplied or edited, e.g. `["name", "nutriments", "portions"]`
-   * — an audit hint, not a schema, so the form decides the labels.
+   * What this capture COVERED, e.g. `["name", "nutriments", "portions"]` — an
+   * audit hint, not a schema, so the form decides the labels.
+   *
+   * Coverage, never authorship. ADR-0034 §7's own comment read "what the user
+   * supplied/edited" and the code has never computed that: the list is built from
+   * what the form ended up HOLDING, with no edit tracking anywhere, so on the edit
+   * door it has always listed rows seeded from the twin that nobody touched.
+   * Redefining it as what the user CHANGED is refused (ADR-0115 §10): it would
+   * need edit tracking, and it would return `[]` exactly when an AI read worked.
    */
   fields: string[];
 }
@@ -190,8 +203,13 @@ export interface ManualEntry {
   /** Which intent minted the twin — the reusability discriminator. */
   kind: ManualEntryKind;
   /**
-   * The coarse categories the user supplied, e.g. `["name", "calories",
+   * The coarse categories this entry COVERED, e.g. `["name", "calories",
    * "ingredients"]` — an audit hint, not a schema.
+   *
+   * Coverage, never authorship, for {@link LabelCapture.fields}'s reason exactly:
+   * the two envelopes were minted as siblings and computed the same way, so
+   * correcting one alone would leave the other standing as a counter-authority a
+   * reader finds first (ADR-0115 §10).
    */
   fields: string[];
 }

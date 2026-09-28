@@ -379,6 +379,16 @@ _Avoid_: Linking, connecting, adding a device, sync setup, **Devices screen**, S
 The single-use secret addressing one **Pairing** act: a room id and a fresh 256-bit key, the **Send code**'s shape put to a different job, minted wherever the act runs, which is either Facet's settings surface. Two carriers, a QR and the bare code pasted, and **never a link** — there is no distance to cross between two devices you are holding, and a URL-shaped QR is a link in the operating system's hands whatever this app calls it, so the code **must not parse as a URL**. Dead when the pairing completes, on cancel, or after five minutes. It **carries no pairing secret**: that is minted inside the sealed room, so a photograph of a spent code is worth nothing. See ADR-0096 §8.
 _Avoid_: **Send code** (that is Rations' and addresses a meal), pairing secret (which no longer crosses in the code), pairing link, invite, QR (that is one of its two carriers)
 
+### Asking a model
+
+**Model route**:
+The app's one way to ask a model a question, and the only path by which anything readable leaves the device: `POST /api/model` on the site's own Worker, running Cloudflare Workers AI through a named AI Gateway with logging off, gated by one operator secret the user holds because they are the operator. The request is **a task name and photographs, and nothing else** — the prompt, the response schema and the model id all live on the Worker, because "absent is never zero" is a property of a sentence in the prompt rather than of the model, and a safety property that lives in a sentence cannot live on the wire. It is task-agnostic by design and carries exactly one task today, the label read. A model call is never a dependency: every door that offers one still reaches a complete, saveable panel with the radio off. See ADR-0115.
+_Avoid_: The AI endpoint, the LLM API, the extractor, the AI service, "the model" (which is the thing at the far end of the route, and is swappable), AI autofill (that is one **Proposal**'s consumer, not the route)
+
+**Proposal**:
+What a **Model route** answer becomes once it reaches the app: a filled-in form the user reads, corrects and saves, and which is never truth until they do. Nothing of a proposal reaches the **Ledger** un-reviewed, a row the source did not state is **absent rather than zero**, and a number is only ever proposed where the person confirming it has the referent in front of them — a printed panel in their hand — so a model may transcribe or estimate a figure but may never originate one the user cannot check. A proposal is applied whole or not at all: a failed read leaves the form byte-identical to the instant before the press, and a partial application is refused because a half-filled form is one the user cannot trust. See ADR-0115 §6, and ADR-0034 §3 for the form that receives one.
+_Avoid_: Result, extraction, AI answer, prediction, suggestion, draft panel, autofill (the act, not the thing); and treating a **sparse** proposal as a failed one, since a label that prints eight rows should propose eight
+
 ### Notes and checklists
 
 **Checklist**:
@@ -506,6 +516,23 @@ would have to be rejoined by the barcode, which the channel is forbidden to carr
 ADR-0071 §2, and its Amendment of 2026-09-03 for why that prohibition is a purpose
 argument rather than a sensitivity marking.
 _Avoid_: Scan event, lookup log, barcode log, scan (for the session itself)
+
+**Model session**:
+One ask of the **Model route**: it opens when the user taps the control that sends their
+photographs and settles when the answer is applied, refused, or the form is saved without
+it. It leaves **one** entry in the model Log channel, holding the outcome (`ok`,
+`unreachable`, `exhausted`, `unusable` or `refused`), which model was asked from the app's
+own closed set, how many photographs went, whether the form reached the **Ledger**
+afterwards, and — only where the read succeeded — how many proposed rows the user touched
+before saving. That last count is the whole instrument: it is the only way this app learns
+whether a **Proposal** is any good against real labels, and it carries no value, no row
+name and no food. A device with no key set is **not** a model session: nothing was asked,
+so there is no outcome to classify. A duration is refused by name, because it measures the
+network as much as the model. The unit is the session and never the call, for the **Scan
+session**'s reason exactly — the fact worth having is a sequence, and a sequence split
+across two entries could only be rejoined by a key this channel does not carry. See
+ADR-0115 §11.
+_Avoid_: Model call, AI event, inference log, request (for the session itself), autofill attempt
 
 ### Facets
 
