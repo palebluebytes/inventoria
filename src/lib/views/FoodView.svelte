@@ -14,8 +14,12 @@
     moveLoggedFoodsToMeal,
     copyPastMeal,
     setFoodDensity,
+    setFoodPairing,
+    clearFoodPairing,
     type ConsumptionEvent,
   } from "../stores/calorie.store";
+  import { withPairing, PAIRING_CLEARED } from "../food/pairing";
+  import { curatedAcceptance } from "../food/curated-pairing-offer";
   import { consolidateIntoRecipe } from "../stores/recipe.store";
   import {
     scaleAmount,
@@ -75,6 +79,7 @@
     type IngredientSource,
   } from "../food/recipe-nutrition";
   import { readFoodDensity } from "../food/density";
+  import { loadReferenceFoods, pairedSource } from "../food/frozen-pairing";
   import type { NovaVerdict } from "../food/nova-verdict";
   import type { DietaryVerdict } from "../food/off-signals";
   import type { EntityPayload } from "../ingestion/ingest";
@@ -87,6 +92,7 @@
   import RecipeLibrarySheet from "./food/RecipeLibrarySheet.svelte";
   import InstantiationSheet from "./food/InstantiationSheet.svelte";
   import IngredientAmountSheet from "./food/IngredientAmountSheet.svelte";
+  import PackPairingSheet from "./food/PackPairingSheet.svelte";
   import NovaExplainerSheet from "./food/NovaExplainerSheet.svelte";
   import SourceExplainerSheet from "./food/SourceExplainerSheet.svelte";
   import DietaryExplainerSheet from "./food/DietaryExplainerSheet.svelte";
@@ -364,6 +370,42 @@
   // The food whose amount is being changed in the picker sheet (null = closed).
   let amountEdit = $state<AmountEdit | null>(null);
 
+  // Whether the pairing search is open over the food in the amount sheet. It is
+  // about the food under it, so closing that sheet or opening another row's
+  // closes it rather than re-opening over a food nobody asked about.
+  let pairingOpen = $state(false);
+  $effect(() => {
+    void amountEdit;
+    pairingOpen = false;
+  });
+
+  /**
+   * Writes a Pack pairing on an already-logged pack, and mirrors it onto the
+   * twin the sheet is holding (ADR-0113 §7).
+   *
+   * The mirror is not an optimism: `AmountEdit.payload` is a snapshot resolved
+   * when the row was tapped, so without it the card would keep reading the
+   * pairing the twin had before this act, and clearing one would look like it
+   * had done nothing. The datom is still the fact; this is the screen catching
+   * up with it without a re-read.
+   *
+   * Which is why it happens **after** the append settles, and not beside it: a
+   * card showing a pairing no datom carries is §2's collapse in miniature, a
+   * figure reaching a screen without the act having happened. A failed write
+   * leaves the card saying what the ledger says.
+   */
+  async function pairFood(edit: AmountEdit, reference: string) {
+    try {
+      await (reference === PAIRING_CLEARED
+        ? clearFoodPairing(edit.payload.entity)
+        : setFoodPairing(edit.payload.entity, reference));
+    } catch (e) {
+      appError("pairing this food failed", e);
+      return;
+    }
+    edit.payload = withPairing(edit.payload, reference);
+  }
+
   // Explainer handoff seam (#92, ADR-0041 §6): tapping the food-detail badge parks
   // its verdict here for the explainer sheet (ticket C) to mount off. #91 owns
   // only the tappable badge.
@@ -476,6 +518,18 @@
     const resolved = await resolveAmountEdit(item);
     if (resolved) {
       amountEdit = resolved;
+      // **A curated pairing applies itself** (ADR-0113 §2 as amended, #552). The
+      // staged arm takes it inside the payload it is about to commit; a pack
+      // already in the ledger has no such write to ride, and opening its amount
+      // sheet is the moment this path has — the person is looking at the food, and
+      // the card under the sheet is where the pairing is named and where the one
+      // tap that refuses it lives.
+      //
+      // Awaited so the mirror `pairFood` puts on `resolved.payload` lands before
+      // anything reads it, and unawaited failures are its own business: it logs
+      // and leaves the card saying what the ledger says.
+      const reference = curatedAcceptance(resolved.payload);
+      if (reference) await pairFood(resolved, reference);
       return;
     }
 
@@ -736,20 +790,29 @@
    */
   async function resolveScalables(): Promise<Map<string, Scalable>> {
     const next = new Map<string, Scalable>();
+    const resolvedItems: { id: string; resolved: AmountEdit; ref: string }[] =
+      [];
     for (const item of selectedItems) {
       if (item.instantiation || !item.target) continue;
       const resolved = await resolveAmountEdit(item);
       if (!resolved?.panel) continue;
-      next.set(item.id, {
+      resolvedItems.push({ id: item.id, resolved, ref: item.target });
+    }
+    // One load for the whole Selection, and none at all unless one of its foods
+    // is actually paired (ADR-0113 §6). A scale is a NEW reading at a new
+    // amount, so it reads each pack's pairing as it stands now — and the
+    // occasion it replaces keeps its own frozen account untouched (§7).
+    const references = await loadReferenceFoods(
+      resolvedItems.map(({ resolved }) => resolved.payload.attributes)
+    );
+    for (const { id, resolved, ref } of resolvedItems) {
+      next.set(id, {
         amount: resolved.amount,
         // The unit the amount is in, resolved once above — not re-read off the
         // panel, which on a classified food can name the other one.
         unit: resolved.unit,
-        source: {
-          panel: resolved.panel,
-          density: readFoodDensity(resolved.payload.attributes),
-        },
-        ref: item.target,
+        source: pairedSource(resolved.payload.attributes, references),
+        ref,
       });
     }
     return next;
@@ -1486,8 +1549,30 @@
     onExplainDietary={(v) => (dietaryExplain = v)}
     onAssertDensity={(density) =>
       void setFoodDensity(ae.payload.entity, density)}
+    onPair={() => (pairingOpen = true)}
+    onClearPairing={() => void pairFood(ae, PAIRING_CLEARED)}
     onCommit={(amount, unit) => changeLoggedFoodAmount(ae.event, amount, unit)}
     onClose={() => (amountEdit = null)}
+  />
+{/if}
+
+{#if pairingOpen && amountEdit}
+  {@const ae = amountEdit}
+  <!-- The pairing act over an already-logged pack (ADR-0113 §§1, 9). Opened
+       from the card's own mark, over the amount sheet, the same seam the source
+       explainer uses.
+
+       The Curated pairing is decided HERE and not in the sheet (§14), because it
+       is a question about the twin: the offer is withheld from a pack already
+       carrying somebody's own pairing, which wins over a prior, and from one
+       whose pairing was cleared, which is a refusal of the proposal rather than
+       of the food. `ae.payload` is the resolved twin and `pairFood` mirrors each
+       act onto it, so a pack cleared from the card behind this sheet is not
+       offered the row again when it reopens. -->
+  <PackPairingSheet
+    packName={ae.name}
+    onAccept={(reference) => void pairFood(ae, reference)}
+    onClose={() => (pairingOpen = false)}
   />
 {/if}
 

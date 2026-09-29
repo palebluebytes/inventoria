@@ -10,6 +10,7 @@ import {
   type NutritionBreakdown,
   type NutritionInfo,
 } from "./nutrition";
+import type { FrozenPairing } from "./provenance";
 
 /**
  * A recipe ingredient as it is persisted on the recipe twin: a **pure
@@ -50,6 +51,20 @@ export interface IngredientSource {
    */
   panel: NutritionInfo | undefined;
   density?: FoodDensity;
+  /**
+   * What a **Pack pairing** supplied into {@link panel}, where one did
+   * (ADR-0113 §6). Absent on every unpaired food and on every pairing that
+   * filled nothing, which is the same absence and means the same thing:
+   * everything in the panel was printed on a label.
+   *
+   * It rides here rather than beside here because the panel and the account of
+   * it must not be resolvable apart: `panel` is the label **widened by borrowed
+   * rows**, so a resolver that handed one back without the other would let a
+   * caller freeze borrowed numbers with nothing naming them. `pairedSource`
+   * (`frozen-pairing.ts`) is the one function that builds this pair, and nothing
+   * scales the panel without carrying what came with it.
+   */
+  pairing?: FrozenPairing;
 }
 
 /**

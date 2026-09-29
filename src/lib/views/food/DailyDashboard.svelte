@@ -738,8 +738,10 @@
             {@const mealPills = buildNutrientPills(
               totalNutrition(groupedMeals[meal_type]),
               macroNutrients($visibleNutrients),
-              $calorieDisplayDecimals,
-              true
+              {
+                calorieDecimals: $calorieDisplayDecimals,
+                hideEmpty: true,
+              }
             )}
             <div class="meal-items-list">
               {#each groupedMeals[meal_type] as item}

@@ -436,7 +436,26 @@ const COOKING_METHOD =
  */
 const BOUGHT_ROASTED_CATEGORY = "Nut and Seed Products";
 const BOUGHT_ROASTED = /\b(roasted|toasted)\b/i;
-const OTHER_METHOD =
+
+/**
+ * {@link COOKING_METHOD} without the two words a food is SOLD under, which is to
+ * say: the name says somebody cooked this AFTER buying it.
+ *
+ * Exported, and named for what it means rather than for what it is not, because
+ * it has a second reader. ADR-0113 §12's salt axis needs the same line drawn —
+ * salting a pot while it boils happens after the purchase, salting a tub of
+ * margarine does not — and `src/lib/food/usda-collapse-roster.ts` has no
+ * category to draw it from, ADR-0103 §10 keeping the record out of the roster.
+ * So it reads this, and the shop test above is stated once.
+ *
+ * The cost of a category-free reading is that the meat rows `BOUGHT_ROASTED`'s
+ * note above counts are not read as cooked here, so the salt axis walks past a
+ * salt statement beside one of them. That is ADR-0103 §3's direction of failure:
+ * the roster under-collapses, which costs coverage and never correctness. The
+ * tally stays in one place rather than being restated here — #162 is this
+ * repo's standing lesson about one count living in three files.
+ */
+export const COOKING_AFTER_BUYING =
   /\b(cooked|boiled|braised|fried|grilled|broiled|baked|steamed|stewed|simmered|poached|microwaved|blanched|sauteed)\b/i;
 
 /**
@@ -467,7 +486,7 @@ export function isCookedForm(
   if (
     foodCategory === BOUGHT_ROASTED_CATEGORY &&
     BOUGHT_ROASTED.test(description) &&
-    !OTHER_METHOD.test(description)
+    !COOKING_AFTER_BUYING.test(description)
   )
     return false;
   return true;

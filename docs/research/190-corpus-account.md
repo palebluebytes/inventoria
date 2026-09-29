@@ -12,7 +12,9 @@ went blind. A committed account makes "this rule removed forty foods" a thing a
 diff shows moving.
 
 It stops at the head. The row-level answer — which `fdcId` each collapsed record
-went into — is `usda-drop-census.json`, under `"stage": "collapse"`.
+went into — is a census per arm: `usda-drop-census.json` under
+`"stage": "collapse"` for the corpus that ships, and
+`usda-pairing-collapse.json` for the pairing arm below.
 
 ## Rows in, rows out
 
@@ -37,12 +39,13 @@ their fullest panel under its own whole, unstripped name, exactly as a group of
 one does — what a coverage hole forbids is the strip, never the row.
 
 The other 174 ship their representative under its RESIDUAL name, which is §5's
-strip, and a flank steak therefore reads `Beef, flank, steak` rather than `Beef,
-flank, steak, separable lean and fat, trimmed to 0" fat, choice`. It is a count
-of groups rather than of names, because a group that merged on §3's punctuation
-clause alone has nothing to strike out and ships under the name it already had.
-No strip was refused for want of a free name (ADR-0062 §3), and a refused one
-would leave the row under the name it had rather than dropping either side.
+strip, and a flank steak therefore reads `Beef, flank, steak` rather than
+`Beef, flank, steak, separable lean and fat, trimmed to 0" fat, choice`. It is a
+count of groups rather than of names, because a group that merged on §3's
+punctuation clause alone has nothing to strike out and ships under the name it
+already had. No strip was refused for want of a free name (ADR-0062 §3), and a
+refused one would leave the row under the name it had rather than dropping
+either side.
 
 4 of the corpus's 487 head phrases move, and what is left after ADR-0104 removed
 the cooked half is purely butchery: separation, trim and grade. The other 483
@@ -50,10 +53,142 @@ have nothing to collapse and are not listed, because a table of them would be
 that many zeroes padding the rows above. `scripts/usda-collapse.mjs` names the
 heads that move, and the generation stops if another arrives.
 
-Every figure above is re-derived from `public/usda/search-index.json` and
-`usda-drop-census.json` by `scripts/usda-account-check.mjs`, which `pnpm check`
-runs: the per-head counts off the shipped rows, the absorbed counts off the
-census's `"stage": "collapse"` rows, and this file rebuilt from them and
-compared byte for byte. A committed artifact makes a change visible to a
-reviewer; only the gate makes a STALE one visible, and #156 is the case where
+## The pairing arm
+
+ADR-0113 §11 re-admits the records ADR-0104 kept out — the ones USDA cooked
+before it measured them — as a second corpus, run through these same passes and
+shipped as `public/usda/pairing-index.json`. This is the same account of that
+arm.
+
+It is a second table rather than a wider first one because the two corpora are
+two sets of rows: not one of the 690 records this collapse absorbed went into a
+row the Search index ships, and not one shipped row moved under the lift, so the
+arm accounts for itself.
+
+| head                         |      rows |     after | absorbed |
+| ---------------------------- | --------: | --------: | -------: |
+| `Beef`                       |       538 |       157 |      381 |
+| `Pork`                       |       191 |       120 |       71 |
+| `Lamb`                       |       147 |        77 |       70 |
+| `Veal`                       |        61 |        40 |       21 |
+| `Beans`                      |        45 |        26 |       19 |
+| `Squash`                     |        23 |        12 |       11 |
+| `Potatoes`                   |        22 |        15 |        7 |
+| `Cabbage`                    |        10 |         6 |        4 |
+| `Cowpeas`                    |         8 |         4 |        4 |
+| `Taro`                       |         6 |         2 |        4 |
+| `Lima beans`                 |         6 |         3 |        3 |
+| `Peas`                       |         8 |         5 |        3 |
+| `Soybeans`                   |        11 |         8 |        3 |
+| `Balsam-pear (bitter gourd)` |         4 |         2 |        2 |
+| `Corn`                       |         5 |         3 |        2 |
+| `Gourd`                      |         4 |         2 |        2 |
+| `Lentils`                    |         4 |         2 |        2 |
+| `Mung beans`                 |         5 |         3 |        2 |
+| `Mushrooms`                  |         9 |         7 |        2 |
+| `Peppers`                    |         6 |         4 |        2 |
+| `Pumpkin`                    |         3 |         1 |        2 |
+| `Sweet potato`               |         4 |         2 |        2 |
+| `Amaranth leaves`            |         2 |         1 |        1 |
+| `Arrowhead`                  |         2 |         1 |        1 |
+| `Artichokes`                 |         2 |         1 |        1 |
+| `Asparagus`                  |         2 |         1 |        1 |
+| `Bamboo shoots`              |         2 |         1 |        1 |
+| `Beet greens`                |         2 |         1 |        1 |
+| `Borage`                     |         2 |         1 |        1 |
+| `Broadbeans`                 |         2 |         1 |        1 |
+| `Broadbeans (fava beans)`    |         2 |         1 |        1 |
+| `Broccoli`                   |         3 |         2 |        1 |
+| `Brussels sprouts`           |         2 |         1 |        1 |
+| `Burdock root`               |         2 |         1 |        1 |
+| `Butterbur`                  |         2 |         1 |        1 |
+| `Cardoon`                    |         2 |         1 |        1 |
+| `Carrots`                    |         2 |         1 |        1 |
+| `Cauliflower`                |         4 |         3 |        1 |
+| `Celeriac`                   |         2 |         1 |        1 |
+| `Celery`                     |         2 |         1 |        1 |
+| `Chard`                      |         2 |         1 |        1 |
+| `Chayote`                    |         2 |         1 |        1 |
+| `Chickpeas (garbanzo beans`  |         2 |         1 |        1 |
+| `Chrysanthemum`              |         2 |         1 |        1 |
+| `Collards`                   |         2 |         1 |        1 |
+| `Cowpeas (blackeyes)`        |         2 |         1 |        1 |
+| `Cress`                      |         2 |         1 |        1 |
+| `Dandelion greens`           |         2 |         1 |        1 |
+| `Dock`                       |         2 |         1 |        1 |
+| `Drumstick leaves`           |         2 |         1 |        1 |
+| `Drumstick pods`             |         2 |         1 |        1 |
+| `Eggplant`                   |         2 |         1 |        1 |
+| `Hyacinth beans`             |         2 |         1 |        1 |
+| `Hyacinth-beans`             |         2 |         1 |        1 |
+| `Jute`                       |         2 |         1 |        1 |
+| `Kale`                       |         2 |         1 |        1 |
+| `Kohlrabi`                   |         2 |         1 |        1 |
+| `Lambsquarters`              |         3 |         2 |        1 |
+| `Leeks`                      |         2 |         1 |        1 |
+| `Lotus root`                 |         2 |         1 |        1 |
+| `Lupins`                     |         2 |         1 |        1 |
+| `Mothbeans`                  |         2 |         1 |        1 |
+| `Mountain yam`               |         2 |         1 |        1 |
+| `Mungo beans`                |         2 |         1 |        1 |
+| `Mustard greens`             |         2 |         1 |        1 |
+| `Mustard spinach`            |         2 |         1 |        1 |
+| `New zealand spinach`        |         1 |         0 |        1 |
+| `Okra`                       |         2 |         1 |        1 |
+| `Onions`                     |         3 |         2 |        1 |
+| `Parsnips`                   |         2 |         1 |        1 |
+| `Pigeon peas (red gram)`     |         2 |         1 |        1 |
+| `Pigeonpeas`                 |         2 |         1 |        1 |
+| `Pokeberry shoots`           |         2 |         1 |        1 |
+| `Pumpkin leaves`             |         2 |         1 |        1 |
+| `Purslane`                   |         2 |         1 |        1 |
+| `Radishes`                   |         2 |         1 |        1 |
+| `Rutabagas`                  |         2 |         1 |        1 |
+| `Salsify`                    |         2 |         1 |        1 |
+| `Sesbania flower`            |         2 |         1 |        1 |
+| `Spinach`                    |         2 |         1 |        1 |
+| `Succotash`                  |         2 |         1 |        1 |
+| `Sweet potato leaves`        |         2 |         1 |        1 |
+| `Tomatoes`                   |         3 |         2 |        1 |
+| `Tree fern`                  |         2 |         1 |        1 |
+| `Turnip greens`              |         2 |         1 |        1 |
+| `Turnips`                    |         2 |         1 |        1 |
+| `Water convolvulus`          |         2 |         1 |        1 |
+| `Waxgourd`                   |         2 |         1 |        1 |
+| `Winged beans`               |         3 |         2 |        1 |
+| `Yam`                        |         2 |         1 |        1 |
+| `Yambean (jicama)`           |         2 |         1 |        1 |
+| `Yardlong bean`              |         2 |         1 |        1 |
+| `Yardlong beans`             |         2 |         1 |        1 |
+| **arm**                      | **1,725** | **1,035** |  **690** |
+
+386 groups hold more than one record, and the rest of the arm is 649 groups of
+one. 7 of those groups hold no record eligible to represent them (§5) and ship
+their fullest panel under its own whole, unstripped name; the other 379 ship
+their representative under its residual name. No strip was refused for want of a
+free name (ADR-0062 §3).
+
+93 of the arm's 171 head phrases move, and the other 78 are not listed, for the
+reason the first table gives. No roster names these the way
+`scripts/usda-collapse.mjs` names the four above: a list that long is not a list
+anybody reads, and this table is the account, so a head arriving or leaving
+arrives as a diff of it rather than as a refused generation. A head can also
+leave the arm entirely — `after` of 0 — where USDA spells one food two ways and
+§3's key, which ignores case and punctuation, files the survivor under the other
+spelling.
+
+Of the 690 rows this collapse absorbed, separation 543, trim 420, grade 301 and
+salt 147; of the 381 the shipped one absorbed, separation 377, trim 278, grade
+203 and salt 0. A row is counted once per axis, however many segments it states.
+Salt claims nothing in the corpus that ships and is a fourth axis here, which is
+the honest edit ADR-0113 §12 names: the sentence above is exactly true of the
+shipped arm, and in this one it is butchery and salt.
+
+Every figure above is re-derived from `public/usda/search-index.json`,
+`usda-drop-census.json`, `public/usda/pairing-index.json` and
+`usda-pairing-collapse.json` by `scripts/usda-account-check.mjs`, which
+`pnpm check` runs: each arm's per-head counts off the rows that ship in it, its
+absorbed counts off the census that records them, and this file rebuilt from the
+four and compared byte for byte. A committed artifact makes a change visible to
+a reviewer; only the gate makes a STALE one visible, and #156 is the case where
 the second half was missing.

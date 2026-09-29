@@ -1043,7 +1043,20 @@ describe("the floor, swept", () => {
     // standing beside "Makes" (#432). Both sides wrote 131 for reasons that do
     // not overlap, so the text merged clean at a figure neither of them meant;
     // the two added boxes were read off the sweep rather than arithmetic.
-    expect(how).toEqual({ declared: 135, drawn: 25, sanctioned: 6 });
+    //
+    // **135 → 138 where #519 met #462**, and the two moves are disjoint: the
+    // Pack pairing line `FoodCard` draws under a scanned pack is three boxes
+    // (ADR-0113 §1) — `.pair`, the offer; `.paired`, the reference food it is
+    // paired with, which re-opens the search; and `.pairing-clear`, the ✕ beside
+    // it. All three declare the floor, and the ✕ declares the width too, because
+    // it holds a single mark. `drawn` stays where the Occasion fold left it: the
+    // pairing line draws no box on arithmetic.
+    //
+    // Re-measured rather than added. The two branches carried 136 and 135 over a
+    // shared 133, and 138 is what the sweep answers — which is the check worth
+    // having, because two disjoint moves summing is a claim about the keys and
+    // not about the total.
+    expect(how).toEqual({ declared: 138, drawn: 25, sanctioned: 6 });
     // Every box lands in exactly one column. Without this the two figures above
     // could both be right while a box fell out of the sweep between them.
     expect(how.declared + how.drawn + how.sanctioned).toBe(SWEEP.groups.size);

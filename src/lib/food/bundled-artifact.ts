@@ -19,6 +19,75 @@
  */
 
 /**
+ * Fetches one bundled artifact, keeping the two ways it can fail apart.
+ *
+ * **Nothing answered at all** is an offline user (#307). ADR-0077 §5 takes the
+ * Nutrient store out of Inventoria's precache — it is read when a food is
+ * staged, seconds after launch, where the Search index is what the user is
+ * looking at before they do anything — so a cold offline root reaches this with
+ * no network and nothing cached, and the caller is handed something it can turn
+ * into a sentence naming the network. The two pairing artifacts are that case
+ * squarely: neither Facet precaches either of them (ADR-0113 §11).
+ *
+ * **A response that is not `ok`** is the other one: the file is on the origin,
+ * something served it, and its status is worth reading. That stays the plain
+ * error naming the file that this has always thrown. **In Rations both are a
+ * broken build or a broken service worker rather than an offline user** — that
+ * Facet precaches all three USDA artifacts and owes ADR-0047 §11's promise
+ * whole (ADR-0077 §4) — which is why the user-facing half of this is the
+ * caller's and not decided here.
+ *
+ * Say which file either way, because the artifacts fail for the same reasons
+ * and read alike.
+ *
+ * It lives here rather than beside any one of its callers because the
+ * distinction it keeps is this module's whole subject, and because there are now
+ * two modules of callers: a copy in the second one would be a second answer to
+ * the question of which failure is the user's.
+ */
+export async function fetchArtifact<T>(
+  subject: string,
+  url: string
+): Promise<T> {
+  let res: Response;
+  try {
+    res = await fetch(url);
+  } catch (cause) {
+    throw new ArtifactUnreachableError(subject, url, cause);
+  }
+  if (!res.ok) throw new Error(`Failed to load ${url} (${res.status}).`);
+  return (await res.json()) as T;
+}
+
+/**
+ * A loader that runs once per session and **forgets a failure**.
+ *
+ * Caching the rejection would be worse than not caching at all: the likeliest
+ * way one of these fetches fails is a service worker that has not taken control
+ * yet during the startup warm, or a network that comes back a moment later, and
+ * a held rejection would answer every later ask for the rest of the session with
+ * a fault that has already gone away.
+ *
+ * It is one function rather than four because the forgetting is the whole
+ * subtlety and it is invisible when it is missing — a loader that kept its
+ * rejection would look exactly like the three beside it and fail only on the
+ * session where somebody was briefly offline. What each artifact is memoised
+ * FOR still belongs on each loader, and stays there.
+ */
+export function loadedOncePerSession<T>(
+  load: () => Promise<T>
+): () => Promise<T> {
+  let held: Promise<T> | null = null;
+  return () => {
+    held ??= load().catch((error) => {
+      held = null;
+      throw error;
+    });
+    return held;
+  };
+}
+
+/**
  * A bundled artifact this Facet does not hold and could not fetch.
  *
  * Thrown for a **transport** failure only — nothing answered at all. A response

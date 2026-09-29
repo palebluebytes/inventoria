@@ -30,7 +30,12 @@
   } from "../../food/recent-foods";
   import type { MealType } from "../../food/meal-type";
   import { wayInTitle, type WayIn } from "../../food/ways-in";
-  import { amountAgainstBasis, readFoodDensity } from "../../food/density";
+  import { amountAgainstBasis } from "../../food/density";
+  import {
+    correctedPairing,
+    loadReferenceFoods,
+    pairedSource,
+  } from "../../food/frozen-pairing";
   import {
     basisUnit,
     enteredUnit,
@@ -402,9 +407,18 @@
         // macros (ADR-0030 / #28). The headline stays exactly the macros the
         // dashboard already reads (scaleNutrition rounds identically); the extra
         // nutrients ride along in event/metrics for the day breakdown.
-        const panel = f.payload.attributes["nutrition/info"] as
-          | NutritionInfo
-          | undefined;
+        //
+        // The panel is the label WIDENED by whatever this pack's Pack pairing
+        // supplies, which is the reading the card above just showed (ADR-0113
+        // §§5-6), and `source.pairing` names exactly which keys that was. The two
+        // are resolved together and frozen together: borrowed figures are
+        // indistinguishable inside `event/metrics`, so the sibling naming them is
+        // what keeps the occasion honest. Nothing loads for an unpaired food.
+        const source = pairedSource(
+          f.payload.attributes,
+          await loadReferenceFoods([f.payload.attributes])
+        );
+        const panel = source.panel;
         // Scale by the panel's OWN basis, like every other scaler (#148). This
         // divided by a hardcoded 100 while the amount screen the user just read
         // divided by the basis, so the two disagreed on any panel not measured
@@ -420,7 +434,7 @@
             choice.amount,
             choice.unit,
             panel?.serving_size,
-            readFoodDensity(f.payload.attributes)
+            source.density
           ) / parseBasisQuantity(panel?.serving_size);
         const breakdown = scaleNutrition(panel, factor);
         // One spelling for every logged quantity (ADR-0060 §4) — this and
@@ -445,20 +459,26 @@
             quantity,
             macros: breakdown,
             breakdown,
+            // The account of what a Pack pairing supplied into those figures,
+            // travelling with them (ADR-0113 §6). The correction reads the
+            // pairing as the sheet drew it, which is the same resolution the
+            // preview above was derived from — and against the account the
+            // occasion still holds, so an edit that lands on an unpaired jar
+            // cancels the old envelope instead of leaving it over new metrics.
+            pairing: correctedPairing(source.pairing, edit.pairing),
           });
         } else {
-          const newId = await logFoodConsumption(
-            f.entity,
+          const newId = await logFoodConsumption({
+            target: f.entity,
             quantity,
             meal_type,
-            breakdown.calories,
-            breakdown.protein,
-            breakdown.fat,
-            breakdown.carbs,
+            macros: breakdown,
             selectedDate,
-            undefined,
-            breakdown
-          );
+            breakdown,
+            // The account of what a Pack pairing supplied into those figures
+            // (ADR-0113 §6), read as the sheet drew it.
+            pairing: source.pairing,
+          });
           onLogged?.([newId]);
         }
       } else {
@@ -578,18 +598,27 @@
               fat: macrosOnly ? choice.fat : undefined,
               carbs: macrosOnly ? choice.carbs : undefined,
             },
+            // A typed label or custom figure borrows from nobody, so this
+            // reading's account is empty — and where the occasion was a paired
+            // pack, that account has to be cancelled rather than left standing
+            // over figures it never accounted for (ADR-0113 §6). A label capture
+            // on a `gtin:` seed enriches in place, so the target here can be the
+            // very twin the pairing was on.
+            pairing: correctedPairing(undefined, edit.pairing),
           });
         } else {
-          const newId = await logFoodConsumption(
-            twinId,
-            capturedQuantity,
+          const newId = await logFoodConsumption({
+            target: twinId,
+            quantity: capturedQuantity,
             meal_type,
-            choice.calories,
-            macrosOnly ? choice.protein : undefined,
-            macrosOnly ? choice.fat : undefined,
-            macrosOnly ? choice.carbs : undefined,
-            selectedDate
-          );
+            macros: {
+              calories: choice.calories,
+              protein: macrosOnly ? choice.protein : undefined,
+              fat: macrosOnly ? choice.fat : undefined,
+              carbs: macrosOnly ? choice.carbs : undefined,
+            },
+            selectedDate,
+          });
           onLogged?.([newId]);
         }
       }

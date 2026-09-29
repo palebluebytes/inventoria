@@ -86,16 +86,18 @@ describe("a correction appends onto the event it corrects (ADR-0111 §1)", () =>
   /** The banana both devices hold: one log, 100 g, 89 kcal. */
   async function logBanana(): Promise<{ id: string; datoms: Datom[] }> {
     const appended = captureAppends();
-    const id = await logFoodConsumption(
-      "fdc:banana",
-      "100g",
-      "lunch",
-      89,
-      1.1,
-      0.3,
-      22.8,
-      day
-    );
+    const id = await logFoodConsumption({
+      target: "fdc:banana",
+      quantity: "100g",
+      meal_type: "lunch",
+      macros: {
+        calories: 89,
+        protein: 1.1,
+        fat: 0.3,
+        carbs: 22.8,
+      },
+      selectedDate: day,
+    });
     return { id, datoms: appended };
   }
 

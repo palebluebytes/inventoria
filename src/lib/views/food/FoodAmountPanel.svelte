@@ -49,6 +49,7 @@
     portions = [],
     amount = $bindable(),
     unit = $bindable(),
+    estimated = undefined,
     density = undefined,
     prefill = undefined,
     onAssertDensity = undefined,
@@ -63,6 +64,13 @@
      *  memory there decide the opening unit) and the control writes back to it
      *  when the user switches. */
     unit: MeasuredUnit;
+    /**
+     * The panel keys a **Pack pairing**'s reference food supplied rather than
+     * the label (ADR-0113 §5). The scaling below moves a borrowed figure exactly
+     * as it moves a printed one — the mark rides the key, not the number — so
+     * this is handed straight down to the preview.
+     */
+    estimated?: ReadonlySet<string>;
     /** What this food's twin asserts about its density (ADR-0108 §4). */
     density?: FoodDensity | undefined;
     /** The class this food's own source names, where it names exactly one. */
@@ -114,7 +122,7 @@
        the rest behind the full-nutrition disclosure. The recipe surface shows its
        derived figures through the very same component. -->
   <div class="preview">
-    <NutrientPreview {breakdown} testid="food-nutrient-breakdown" />
+    <NutrientPreview {breakdown} {estimated} testid="food-nutrient-breakdown" />
   </div>
 {/if}
 

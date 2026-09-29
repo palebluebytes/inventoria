@@ -361,6 +361,45 @@ describe("referencesOf", () => {
       referencesOf(row("recipe:a", "recipe/ingredients", { ref: "fdc:1" }))
     ).toEqual([]);
   });
+
+  /**
+   * The one case the registry partition above cannot reach (ADR-0113 §6).
+   *
+   * `event/instantiation` is already marked `(reference)` and already walked, so
+   * a reference nested INSIDE one of its rows is invisible to that test: the
+   * attribute is accounted for, and nothing asks what the reader does with a key
+   * the row grew later. A dish's frozen `pairing.ref` is exactly such a key, and
+   * a walk that read it would ship a searchable food nobody ate — the same
+   * refusal `food/pairing` gets, one level down and with nothing counting it.
+   *
+   * So it is pinned here, by name, against a row that carries one.
+   */
+  it("leaves a paired instantiation row's reference food out of the closure", () => {
+    const refs = referencesOf(
+      row("event:consume_a", "event/instantiation", {
+        based_on: "recipe:stew",
+        yield: 2,
+        ingredients: [
+          { ref: "gtin:5000", name: "Kidney beans", amount: 400, unit: "g" },
+          {
+            ref: "gtin:5001",
+            name: "Chopped tomatoes",
+            amount: 400,
+            unit: "g",
+            pairing: {
+              ref: "fdc:173740",
+              name: "Beans, kidney, all types, mature seeds, cooked, boiled, without salt",
+              source_uri: "https://api.nal.usda.gov/fdc/v1/food/173740",
+              filled_fields: ["iron", "folate"],
+            },
+          },
+        ],
+      })
+    );
+
+    expect(refs).toEqual(["recipe:stew", "gtin:5000", "gtin:5001"]);
+    expect(refs).not.toContain("fdc:173740");
+  });
 });
 
 describe("the ceiling", () => {
@@ -505,6 +544,17 @@ describe("the reference attributes the registry marks", () => {
     "event/replaced_by": ["event:consume_", "event:consume_"],
     // The Habit Lineage link, `habits.store.ts`.
     "habit/replaces": ["habit:", "habit:"],
+    // The Pack pairing: a scanned pack naming the reference food that stands in
+    // for what its label left silent (ADR-0113 §1). Declared rather than walked
+    // because you ate the jar — walking the reference food would ship a
+    // searchable food nobody ate, and the recipient's panel is composed from
+    // what the meal froze rather than from the sender's live pairing (§7).
+    "food/pairing": ["gtin:", "fdc:"],
+    // The same reference one tense later: a logged occasion naming the reference
+    // food that filled it (§6). Declared for the same reason, and with one more
+    // of its own — the occasion's numbers are frozen, so a recipient needs
+    // nothing from the record beyond the account itself.
+    "event/pairing": ["event:consume_", "fdc:"],
   };
 
   /**
@@ -560,21 +610,48 @@ describe("the reference attributes the registry marks", () => {
   });
 
   /**
+   * Targets a reference may name without the recipient needing a fact of it: an
+   * `fdc:` id is the name of a row in the corpus the app SHIPS, minted from that
+   * row (`mapIndexRowToPayload`) rather than from anything a device did. Every
+   * reader already knows it is not a ledger fact — `ledger-foods.ts` skips an
+   * `fdc:` target where it reads every other one — so a recipient resolves it
+   * against their own copy of the corpus, or fails to and loses a live panel
+   * widening rather than a fact the meal carried (ADR-0113 §7).
+   *
+   * It is a list rather than a predicate because the exemption is the thing to
+   * keep small: a second prefix arriving here is a claim that a reference can be
+   * resolved off the ledger, which is the claim below is about.
+   */
+  const RESOLVED_OFF_THE_LEDGER = ["fdc:"];
+
+  /**
    * The criterion #427 settled on, and the reason there is no ninth receive
    * refusal: the decision about a marked-but-unwalked reference is taken here,
    * in this repo, at the moment somebody coins one — not months later on
    * somebody else's device, where a rule keyed on the mark would refuse a
    * marked dangling reference and accept an identical unmarked one
    * (`meal-reader.test.ts` asserts that acceptance).
+   *
+   * **The criterion gained its one exemption where #427 met ADR-0113.** As
+   * written it asked only about the HOLDER, using "a meal carries this twin" as
+   * a proxy for "the target will be missing". The proxy is exact for a target
+   * that is a ledger entity and wrong for one that is not: both pairing
+   * attributes are held by a twin a meal carries and point at a corpus row, so
+   * the blunt form refuses a reference that cannot dangle. What it still refuses
+   * — and what makes the exemption narrow rather than a hole — is a named
+   * reference into the LEDGER from a carried twin, which is every case #427
+   * measured.
    */
-  it("refuses a named reference held by a prefix a meal carries", () => {
-    for (const [attribute, [from]] of Object.entries(
+  it("refuses a named reference held by a prefix a meal carries, unless its target is not a ledger fact", () => {
+    for (const [attribute, [from, to]] of Object.entries(
       RESOLVES_IN_ITS_OWN_DOMAIN
     )) {
+      if (!MEAL_TWIN_PREFIXES.some((prefix) => from.startsWith(prefix)))
+        continue;
       expect(
-        MEAL_TWIN_PREFIXES.some((prefix) => from.startsWith(prefix)),
-        `${attribute} is held by a twin a meal carries, so it would land dangling`
-      ).toBe(false);
+        RESOLVED_OFF_THE_LEDGER.some((prefix) => to.startsWith(prefix)),
+        `${attribute} is held by a twin a meal carries and names a ledger entity, so it would land dangling`
+      ).toBe(true);
     }
   });
 

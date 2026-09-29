@@ -13,6 +13,8 @@ import {
   moveLoggedFoodsToMeal,
   consumptionForDay,
   copyPastMeal,
+  setFoodPairing,
+  clearFoodPairing,
 } from "../../src/lib/stores/calorie.store";
 import {
   saveRecipe,
@@ -86,16 +88,18 @@ describe("Calorie Store Actions", () => {
         .mockResolvedValue(undefined);
       const testDate = new Date("2026-05-31T12:00:00");
 
-      const entityId = await logFoodConsumption(
-        "fdc:12345",
-        "150g",
-        "breakfast",
-        250,
-        5,
-        2,
-        45,
-        testDate
-      );
+      const entityId = await logFoodConsumption({
+        target: "fdc:12345",
+        quantity: "150g",
+        meal_type: "breakfast",
+        macros: {
+          calories: 250,
+          protein: 5,
+          fat: 2,
+          carbs: 45,
+        },
+        selectedDate: testDate,
+      });
 
       expect(entityId).toMatch(/^event:consume_/);
       expect(mockAppend).toHaveBeenCalledTimes(1);
@@ -977,6 +981,16 @@ describe("correctInstantiation", () => {
   });
 });
 
+/** An account taken when the jar WAS paired, of the kind a correction may find
+ *  standing over figures that no longer borrow anything (ADR-0113 §6). Shared by
+ *  the two correction paths that mint a fresh reading. */
+const HELD_ACCOUNT = {
+  ref: "fdc:173740",
+  name: "Beans, kidney, all types, mature seeds, cooked, boiled, without salt",
+  source_uri: "https://api.nal.usda.gov/fdc/v1/food/173740",
+  filled_fields: ["iron", "potassium", "folate", "magnesium"],
+};
+
 describe("changeLoggedFoodAmount", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -1031,6 +1045,68 @@ describe("changeLoggedFoodAmount", () => {
     expect(datoms.map((d) => d.attribute)).not.toContain("event/target");
     expect(datoms.map((d) => d.attribute)).not.toContain("event/status");
     expect(datoms.map((d) => d.attribute)).not.toContain("event/replaced_by");
+  });
+
+  it("cancels an account the occasion still claims when the jar is no longer paired", async () => {
+    // The hole (ADR-0113 §6): this mints a NEW reading rather than re-scaling the
+    // old one, so a jar unpaired since the log produces label-only metrics. A
+    // correction that then said nothing about the account left the earlier
+    // envelope standing as the latest datom, and the occasion went on claiming
+    // four borrowed keys its own figures no longer hold.
+    vi.spyOn(dbClient, "query").mockResolvedValue([
+      { attribute: "nutrition/info", value: JSON.stringify(OATS_PANEL) },
+    ] as any);
+    const mockAppend = vi
+      .spyOn(dbClient, "append")
+      .mockResolvedValue(undefined);
+
+    await changeLoggedFoodAmount(
+      {
+        id: "event:consume_old",
+        target: "gtin:5010251341352",
+        quantity: "50g",
+        meal_type: "breakfast",
+        time: new Date("2026-09-18T08:00:00").getTime(),
+        pairing: HELD_ACCOUNT,
+      } as any,
+      100,
+      "g"
+    );
+
+    // The cancelling fact, in `food/pairing`'s own spelling (§7): clearing is not
+    // a deletion, it is a later datom that names nobody.
+    expect(
+      mockAppend.mock.calls[0][0].find((d) => d.attribute === "event/pairing")
+        ?.value
+    ).toBe("");
+  });
+
+  it("stays silent about the account where the occasion never had one", async () => {
+    // Which is what keeps §6's rule whole: absence goes on meaning exactly one
+    // thing ledger-wide, so an unpaired food's amount correction writes no
+    // `event/pairing` at all rather than an empty one.
+    vi.spyOn(dbClient, "query").mockResolvedValue([
+      { attribute: "nutrition/info", value: JSON.stringify(OATS_PANEL) },
+    ] as any);
+    const mockAppend = vi
+      .spyOn(dbClient, "append")
+      .mockResolvedValue(undefined);
+
+    await changeLoggedFoodAmount(
+      {
+        id: "event:consume_old",
+        target: "fdc:oats",
+        quantity: "50g",
+        meal_type: "breakfast",
+        time: new Date("2026-09-18T08:00:00").getTime(),
+      } as any,
+      100,
+      "g"
+    );
+
+    expect(mockAppend.mock.calls[0][0].map((d) => d.attribute)).not.toContain(
+      "event/pairing"
+    );
   });
 
   it("re-logs a drink in its panel's own unit, never as a gram weight", async () => {
@@ -1191,6 +1267,29 @@ describe("scaleLoggedFoods (ADR-0088 §5)", () => {
     await scaleLoggedFoods(twoFoods());
 
     expect(mockQuery).not.toHaveBeenCalled();
+  });
+
+  it("cancels an account a scaled occasion still claims, per row", async () => {
+    // The Scale tier hands back the source it already resolved, so an unpaired
+    // jar arrives here with no envelope — and the row it is correcting may still
+    // carry one (ADR-0113 §6). Read against the event rather than passed through,
+    // so the run cancels rather than falling silent.
+    const mockAppend = vi
+      .spyOn(dbClient, "append")
+      .mockResolvedValue(undefined);
+
+    const [oats, milk] = twoFoods();
+    oats.event.pairing = HELD_ACCOUNT;
+
+    await scaleLoggedFoods([oats, milk]);
+
+    const datoms = mockAppend.mock.calls[0][0];
+    const accountFor = (id: string) =>
+      datoms.find((d) => d.entity === id && d.attribute === "event/pairing")
+        ?.value;
+    expect(accountFor("oats")).toBe("");
+    // And the row that never had one is not given an empty account to carry.
+    expect(accountFor("milk")).toBeUndefined();
   });
 
   it("writes onto the events it was given, and mints none", async () => {
@@ -1733,16 +1832,18 @@ describe("store action → computeConsumption round-trip (Seam 2)", () => {
     const appended = captureAppends();
 
     const twinId = await saveCustomFood("Avocado Toast", 350, 8, 15, 30);
-    await logFoodConsumption(
-      twinId,
-      "1 serving",
-      "breakfast",
-      350,
-      8,
-      15,
-      30,
-      new Date("2026-05-31T12:00:00")
-    );
+    await logFoodConsumption({
+      target: twinId,
+      quantity: "1 serving",
+      meal_type: "breakfast",
+      macros: {
+        calories: 350,
+        protein: 8,
+        fat: 15,
+        carbs: 30,
+      },
+      selectedDate: new Date("2026-05-31T12:00:00"),
+    });
 
     const events = computeConsumption(asLedger(appended));
     expect(events).toHaveLength(1);
@@ -1765,16 +1866,18 @@ describe("store action → computeConsumption round-trip (Seam 2)", () => {
     async (_source, target) => {
       const appended = captureAppends();
 
-      await logFoodConsumption(
+      await logFoodConsumption({
         target,
-        "150g",
-        "lunch",
-        134,
-        1.7,
-        0.5,
-        34.2,
-        new Date("2026-05-31T12:00:00")
-      );
+        quantity: "150g",
+        meal_type: "lunch",
+        macros: {
+          calories: 134,
+          protein: 1.7,
+          fat: 0.5,
+          carbs: 34.2,
+        },
+        selectedDate: new Date("2026-05-31T12:00:00"),
+      });
 
       const events = computeConsumption(asLedger(appended));
       expect(events).toHaveLength(1);
@@ -1844,16 +1947,18 @@ describe("store action → computeConsumption round-trip (Seam 2)", () => {
     ]);
 
     // An ingredient logged earlier, then replaced by the recipe built from it.
-    const ingredientEventId = await logFoodConsumption(
-      "fdc:oats",
-      "50 g",
-      "breakfast",
-      190,
-      6.5,
-      3.5,
-      33.5,
-      day
-    );
+    const ingredientEventId = await logFoodConsumption({
+      target: "fdc:oats",
+      quantity: "50 g",
+      meal_type: "breakfast",
+      macros: {
+        calories: 190,
+        protein: 6.5,
+        fat: 3.5,
+        carbs: 33.5,
+      },
+      selectedDate: day,
+    });
     // Save + log through the real store actions. The store derives the frozen
     // headline AND the snapshot rows itself from the ingredient panels/names
     // (via the resolvers) — the test never calls the derivation helpers.
@@ -2058,18 +2163,19 @@ describe("store action → computeConsumption round-trip (Seam 2)", () => {
     const appended = captureAppends();
     // 150 g of a per-100g food → ×1.5, exactly what LogFoodSheet computes.
     const breakdown = scaleNutrition(OATS_FULL, 150 / 100);
-    await logFoodConsumption(
-      "fdc:oats",
-      "150g",
-      "breakfast",
-      breakdown.calories,
-      breakdown.protein,
-      breakdown.fat,
-      breakdown.carbs,
-      new Date("2026-05-31T12:00:00"),
-      undefined,
-      breakdown
-    );
+    await logFoodConsumption({
+      target: "fdc:oats",
+      quantity: "150g",
+      meal_type: "breakfast",
+      macros: {
+        calories: breakdown.calories,
+        protein: breakdown.protein,
+        fat: breakdown.fat,
+        carbs: breakdown.carbs,
+      },
+      selectedDate: new Date("2026-05-31T12:00:00"),
+      breakdown,
+    });
 
     const events = computeConsumption(asLedger(appended));
     expect(events).toHaveLength(1);
@@ -2113,18 +2219,19 @@ describe("store action → computeConsumption round-trip (Seam 2)", () => {
       ["fdc:oats", oats],
       ["fdc:berries", berries],
     ] as const) {
-      await logFoodConsumption(
+      await logFoodConsumption({
         target,
-        "portion",
-        "breakfast",
-        b.calories,
-        b.protein,
-        b.fat,
-        b.carbs,
-        day,
-        undefined,
-        b
-      );
+        quantity: "portion",
+        meal_type: "breakfast",
+        macros: {
+          calories: b.calories,
+          protein: b.protein,
+          fat: b.fat,
+          carbs: b.carbs,
+        },
+        selectedDate: day,
+        breakdown: b,
+      });
     }
 
     const total = totalNutrition(computeConsumption(asLedger(appended)));
@@ -2140,30 +2247,33 @@ describe("store action → computeConsumption round-trip (Seam 2)", () => {
     const day = new Date("2026-05-31T12:00:00");
     // (1) A macro-only food: logged with four macros and NO breakdown arg (a
     // custom food carries no source panel).
-    await logFoodConsumption(
-      "fdc:macro_only",
-      "150g",
-      "lunch",
-      134,
-      1.7,
-      0.5,
-      34.2,
-      day
-    );
+    await logFoodConsumption({
+      target: "fdc:macro_only",
+      quantity: "150g",
+      meal_type: "lunch",
+      macros: {
+        calories: 134,
+        protein: 1.7,
+        fat: 0.5,
+        carbs: 34.2,
+      },
+      selectedDate: day,
+    });
     // (2) A new food carrying fibre.
     const full = scaleNutrition(OATS_FULL, 0.5);
-    await logFoodConsumption(
-      "fdc:oats",
-      "50g",
-      "lunch",
-      full.calories,
-      full.protein,
-      full.fat,
-      full.carbs,
-      day,
-      undefined,
-      full
-    );
+    await logFoodConsumption({
+      target: "fdc:oats",
+      quantity: "50g",
+      meal_type: "lunch",
+      macros: {
+        calories: full.calories,
+        protein: full.protein,
+        fat: full.fat,
+        carbs: full.carbs,
+      },
+      selectedDate: day,
+      breakdown: full,
+    });
 
     const events = computeConsumption(asLedger(appended));
     const macroOnly = events.find((e) => e.target === "fdc:macro_only")!;
@@ -2251,16 +2361,18 @@ describe("label-food edit is lossless (basis + panel survive on the twin)", () =
       }),
       entityId: gtin,
     });
-    await logFoodConsumption(
-      twinId,
-      "100ml",
-      "snack",
-      190,
-      7,
-      16,
-      6,
-      new Date("2026-08-01T12:00:00")
-    );
+    await logFoodConsumption({
+      target: twinId,
+      quantity: "100ml",
+      meal_type: "snack",
+      macros: {
+        calories: 190,
+        protein: 7,
+        fat: 16,
+        carbs: 6,
+      },
+      selectedDate: new Date("2026-08-01T12:00:00"),
+    });
 
     // The dashboard's view of the logged food: a millilitre event named right.
     const ev = computeConsumption(asLedger(appended)).find(
@@ -2680,5 +2792,376 @@ describe("moveLoggedFoodsToMeal", () => {
 
     expect(moved).toBe(1);
     expect(failed).toBe(1);
+  });
+});
+
+describe("the pairing act writes one assertion on one pack (ADR-0113)", () => {
+  const PACK = "gtin:5010251341352";
+
+  // Cleared here rather than inherited: the `clearAllMocks` above is scoped to
+  // "Calorie Store Actions", so a spy taken at this level carries that suite's
+  // appends into the first call of every test below.
+  const spyOnAppend = () =>
+    vi.spyOn(dbClient, "append").mockResolvedValue(undefined);
+  let append: ReturnType<typeof spyOnAppend>;
+  beforeEach(() => {
+    append = spyOnAppend();
+    append.mockClear();
+  });
+
+  it("writes the reference food's bare id and nothing beside it", async () => {
+    // No field list and no name (§7): which reference food you chose is the
+    // whole of your assertion, and what it fills is computed at read time from
+    // whichever panel rows are silent now.
+    await setFoodPairing(PACK, "fdc:173740");
+
+    expect(append.mock.calls[0][0]).toEqual([
+      expect.objectContaining({
+        entity: PACK,
+        attribute: "food/pairing",
+        value: "fdc:173740",
+      }),
+    ]);
+  });
+
+  it("unpairs by appending an assertion that names nobody", async () => {
+    await clearFoodPairing(PACK);
+
+    expect(append.mock.calls[0][0]).toEqual([
+      expect.objectContaining({ attribute: "food/pairing", value: "" }),
+    ]);
+  });
+
+  it("refuses the three twins §15 names, and writes nothing", async () => {
+    for (const twin of [
+      "recipe:7",
+      "fdc:173740",
+      "food:custom_1758200000000_ab12",
+    ]) {
+      await expect(setFoodPairing(twin, "fdc:173740")).rejects.toThrow(
+        /may not be paired/
+      );
+      await expect(clearFoodPairing(twin)).rejects.toThrow(/may not be paired/);
+    }
+    expect(append).not.toHaveBeenCalled();
+  });
+
+  it("refuses a pairing that names anything but a reference food", async () => {
+    // The relationship has one end in the corpus. A `gtin:` id here would be
+    // one pack standing in for another, which is not what a pairing asserts.
+    await expect(setFoodPairing(PACK, "gtin:123")).rejects.toThrow(
+      /not a reference food/
+    );
+    await expect(setFoodPairing(PACK, "")).rejects.toThrow(
+      /not a reference food/
+    );
+    expect(append).not.toHaveBeenCalled();
+  });
+});
+
+describe("a logged occasion freezes what the pairing supplied (ADR-0113 §6)", () => {
+  const BEANS =
+    "Beans, kidney, all types, mature seeds, cooked, boiled, without salt";
+  const FROZEN = {
+    ref: "fdc:173740",
+    name: BEANS,
+    source_uri: "https://api.nal.usda.gov/fdc/v1/food/173740",
+    filled_fields: ["iron", "potassium", "folate", "magnesium"],
+  };
+
+  // Cleared here rather than inherited, for the reason the suite above states.
+  const spyOnAppend = () =>
+    vi.spyOn(dbClient, "append").mockResolvedValue(undefined);
+  let append: ReturnType<typeof spyOnAppend>;
+  beforeEach(() => {
+    append = spyOnAppend();
+    append.mockClear();
+  });
+
+  /** Every datom of the one append, by attribute. */
+  const written = () =>
+    Object.fromEntries(
+      append.mock.calls[0][0].map((d) => [d.attribute, d.value])
+    );
+
+  it("writes the account as a sibling of the metrics it accounts for", async () => {
+    // The honesty test (§6): a reader greps the event id out of the NDJSON and
+    // two lines come back. One carries every number, the other names a USDA
+    // food, its URI and the keys that came from it. The intersection is the
+    // answer and the difference is the label's.
+    await logFoodConsumption({
+      target: "gtin:5010251341352",
+      quantity: "150g",
+      meal_type: "lunch",
+      macros: {
+        calories: 174,
+        protein: 13,
+        fat: 0.8,
+        carbs: 23.4,
+      },
+      selectedDate: new Date("2026-09-18T12:00:00"),
+      breakdown: {
+        calories: 174,
+        protein: 13,
+        fat: 0.8,
+        carbs: 23.4,
+        iron: 0.0033,
+      },
+      pairing: FROZEN,
+    });
+
+    const rows = written();
+    expect(rows["event/pairing"]).toEqual(FROZEN);
+    // `event/metrics` is unchanged — one blob, every number in it, the borrowed
+    // figures indistinguishable there because that is what §5 already ruled the
+    // meter does with them.
+    expect(rows["event/metrics"]).toMatchObject({
+      calories: 174,
+      iron: 0.0033,
+    });
+  });
+
+  it("writes no datom at all for a food nothing was borrowed for", async () => {
+    // Omitted, never emitted empty: absence means exactly one thing
+    // ledger-wide — *nothing here was supplied*.
+    await logFoodConsumption({
+      target: "gtin:5010251341352",
+      quantity: "150g",
+      meal_type: "lunch",
+      macros: {
+        calories: 174,
+        protein: 13,
+        fat: 0.8,
+        carbs: 23.4,
+      },
+      selectedDate: new Date("2026-09-18T12:00:00"),
+    });
+
+    expect(Object.keys(written())).not.toContain("event/pairing");
+  });
+
+  it("carries the account through a copy rather than re-deriving it", async () => {
+    // A copy of a meal is a copy of the reading that was taken (§7): it keeps
+    // naming the reference food the original borrowed from even if the jar has
+    // since been re-paired. Dropping it would leave borrowed numbers in the copy
+    // with nothing naming them.
+    const source: ConsumptionEvent = {
+      id: "event:consume_src",
+      time: Date.parse("2026-09-17T12:00:00"),
+      target: "gtin:5010251341352",
+      quantity: "150g",
+      calories: 174,
+      metrics: { calories: 174, protein: 13, fat: 0.8, carbs: 23.4 },
+      pairing: FROZEN,
+    };
+
+    const { copied } = await copyPastMeal(
+      [source],
+      "dinner",
+      new Date("2026-09-18T19:00:00")
+    );
+
+    expect(copied).toBe(1);
+    expect(written()["event/pairing"]).toEqual(FROZEN);
+  });
+
+  /**
+   * ADR-0113 §7's two consequences, read where they are actually true: on the
+   * ledger. The twin's `food/pairing` is live and latest-datom-wins; the
+   * occasion's copy is a value that was written once, so re-pairing or unpairing
+   * the jar appends to the TWIN and reaches no event.
+   */
+  describe("the two tenses (§7)", () => {
+    const asLedger = (datoms: any[]) =>
+      asStored(datoms.map((d) => ({ ...d, value: JSON.stringify(d.value) })));
+
+    /** Yesterday's occasion: a paired pack logged, account and all. */
+    const loggedYesterday = async () => {
+      const appended: any[] = [];
+      append.mockImplementation(async (d: any) => {
+        appended.push(...d);
+      });
+      await logFoodConsumption({
+        target: "gtin:5010251341352",
+        quantity: "150g",
+        meal_type: "lunch",
+        macros: {
+          calories: 174,
+          protein: 13,
+          fat: 0.8,
+          carbs: 23.4,
+        },
+        selectedDate: new Date("2026-09-17T12:00:00"),
+        breakdown: {
+          calories: 174,
+          protein: 13,
+          fat: 0.8,
+          carbs: 23.4,
+          iron: 0.0033,
+        },
+        pairing: FROZEN,
+      });
+      return appended;
+    };
+
+    /** One later assertion about the jar, of the kind §7 says wins live. */
+    const jarDatom = (value: string) => ({
+      entity: "gtin:5010251341352",
+      attribute: "food/pairing",
+      value,
+      time: Date.parse("2026-09-18T09:00:00"),
+    });
+
+    it("keeps yesterday's account when the jar is re-paired today", async () => {
+      const yesterday = await loggedYesterday();
+
+      const [event] = computeConsumption(
+        asLedger([...yesterday, jarDatom("fdc:171077")])
+      );
+
+      // Still marking exactly the rows yesterday's pairing supplied, under
+      // yesterday's reference food's name.
+      expect(event.pairing).toEqual(FROZEN);
+      expect(event.metrics).toMatchObject({ iron: 0.0033 });
+    });
+
+    it("keeps yesterday's account when the jar is unpaired today", async () => {
+      const yesterday = await loggedYesterday();
+
+      const [event] = computeConsumption(
+        asLedger([...yesterday, jarDatom("")])
+      );
+
+      // Unpair it and yesterday's meal changes not at all.
+      expect(event.pairing).toEqual(FROZEN);
+      expect(event.metrics).toMatchObject({ iron: 0.0033 });
+    });
+  });
+
+  /**
+   * The third tense: a **correction** to the occasion itself. §7's two
+   * consequences are about the jar moving under a settled occasion; these are
+   * about the occasion's own reading being re-minted, which is the one act that
+   * may honestly take the account away.
+   */
+  describe("an account a correction cancelled (§6)", () => {
+    const asLedger = (datoms: any[]) =>
+      asStored(datoms.map((d) => ({ ...d, value: JSON.stringify(d.value) })));
+
+    /** Yesterday's occasion, and the cancelling datom a correction appends onto
+     *  it once the reading behind it borrows nothing. */
+    const cancelledYesterday = async () => {
+      const appended: any[] = [];
+      append.mockImplementation(async (d: any) => {
+        appended.push(...d);
+      });
+      await logFoodConsumption({
+        target: "gtin:5010251341352",
+        quantity: "150g",
+        meal_type: "lunch",
+        macros: {
+          calories: 174,
+          protein: 13,
+          fat: 0.8,
+          carbs: 23.4,
+        },
+        selectedDate: new Date("2026-09-17T12:00:00"),
+        breakdown: {
+          calories: 174,
+          protein: 13,
+          fat: 0.8,
+          carbs: 23.4,
+          iron: 0.0033,
+        },
+        pairing: FROZEN,
+      });
+      const entity = appended[0].entity;
+      return [
+        ...appended,
+        {
+          entity,
+          attribute: "event/metrics",
+          value: { calories: 174, protein: 13, fat: 0.8, carbs: 23.4 },
+          time: Date.parse("2026-09-18T09:00:00"),
+        },
+        {
+          entity,
+          attribute: "event/pairing",
+          value: "",
+          time: Date.parse("2026-09-18T09:00:00"),
+        },
+      ];
+    };
+
+    it("folds to no account at all, so one question answers the whole projection", async () => {
+      const [event] = computeConsumption(asLedger(await cancelledYesterday()));
+
+      // Not `""`, which would be a second spelling of the same absence for every
+      // reader downstream to learn.
+      expect(event.pairing).toBeUndefined();
+      expect("pairing" in event).toBe(false);
+      // And the reading it accounted for is gone with it: label-only metrics.
+      expect(event.metrics).not.toHaveProperty("iron");
+    });
+
+    it("is not carried into a copy of that meal", async () => {
+      // `copyPastMeal` re-logs verbatim from the projected event, so a cancelled
+      // account must not arrive at the log path as an empty one — that is the
+      // shape §6 refuses on a fresh occasion.
+      const [event] = computeConsumption(asLedger(await cancelledYesterday()));
+      append.mockReset();
+      append.mockResolvedValue(undefined);
+
+      await copyPastMeal([event], "dinner", new Date("2026-09-19T19:00:00"));
+
+      expect(
+        append.mock.calls[0][0].map((d: any) => d.attribute)
+      ).not.toContain("event/pairing");
+    });
+  });
+
+  it("gives a dish no event/pairing, and puts the account on the row instead", async () => {
+    // The two attributes never co-occur, and a reader need not guess which
+    // shape is in front of them: `event/instantiation` is already the thing
+    // that says *this is a dish*.
+    const refs: ReferenceIngredient[] = [
+      { ref: "gtin:beans", amount: 400, unit: "g" },
+      { ref: "fdc:rice", amount: 100, unit: "g" },
+    ];
+    const panel = (calories: number, extra = {}) => ({
+      serving_size: "100 g",
+      calories,
+      protein_content: 8,
+      fat_content: 1,
+      carbohydrate_content: 20,
+      ...extra,
+    });
+
+    await logRecipeConsumption(
+      "recipe:stew",
+      refs,
+      2,
+      (ref) =>
+        ref === "gtin:beans"
+          ? { panel: panel(116, { iron: 0.0022 }), pairing: FROZEN }
+          : { panel: panel(360) },
+      (ref) => (ref === "gtin:beans" ? "Kidney beans" : "Rice"),
+      "dinner",
+      new Date("2026-09-18T19:00:00")
+    );
+
+    const rows = written();
+    expect(Object.keys(rows)).not.toContain("event/pairing");
+
+    const snapshot = rows["event/instantiation"] as Instantiation;
+    expect(snapshot.ingredients[0]).toMatchObject({
+      ref: "gtin:beans",
+      name: "Kidney beans",
+      pairing: FROZEN,
+    });
+    // The unpaired row carries no key at all, so a reader sums the marked rows
+    // and divides by the snapshot's own yield to get the exact borrowed share.
+    expect(snapshot.ingredients[1]).not.toHaveProperty("pairing");
+    expect(snapshot.yield).toBe(2);
   });
 });

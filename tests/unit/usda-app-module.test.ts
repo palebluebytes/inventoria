@@ -108,9 +108,14 @@ describe("the app seam — the scripts borrow the app instead of copying it", ()
     // `withoutTrailingGloss` is §10's second clause, borrowed by #436's guard:
     // the bracket the separation entry admits, spelled once so the guard asks
     // of every other segment the question that bracket has defeated three times.
+    // `siblingsOf` is ADR-0113 §12's, and travels for the same reason: every
+    // caller walking a tail owes `claimingAxis` the other segments, and an
+    // index comparison written as a value comparison would drop a repeated
+    // segment out of its own siblings.
     expect(COLLAPSE_ROSTER_EXPORTS).toEqual([
       "COLLAPSING_AXES",
       "claimingAxis",
+      "siblingsOf",
       "descriptionSegments",
       "residualDescription",
       "withoutTrailingGloss",

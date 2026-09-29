@@ -1,5 +1,9 @@
 import type { EntityPayload } from "../ingestion/ingest";
-import { searchUsdaCorpus } from "./usda-corpus";
+import {
+  loadSearchCorpus,
+  searchUsdaCorpus,
+  type SearchCorpus,
+} from "./usda-corpus";
 import { curatedMatches } from "./curated-foods";
 import { byFrecency, type Frecency } from "./frecency";
 import { matchLedgerFoods, type LedgerFood } from "./ledger-foods";
@@ -250,6 +254,23 @@ export function isCatalogueFood(
 export const NO_FOOD_FOUND = "No food found.";
 
 /**
+ * How long typing has to settle before the corpus is searched.
+ *
+ * This is a coalescer for a mid-word burst, NOT a network guard: the 400 ms it
+ * replaces was sized for the FDC API's 717–980 ms round trip and its request
+ * quota, and searching the bundled corpus (ADR-0047) costs 13 ms from keystroke
+ * to painted results at desktop speed, 28 ms at 4x CPU throttle. Firing on every
+ * keystroke was measured smooth — nine consecutive searches held a 2–7 ms median
+ * frame — so the value sits under a fast typist's inter-key interval and lets the
+ * results track the word instead of waiting for it.
+ *
+ * Here rather than in a screen because two screens now search this corpus, the
+ * staging screen and the pairing sheet, and one answering at a different speed
+ * from the other is one fact spelled twice.
+ */
+export const SEARCH_DEBOUNCE_MS = 120;
+
+/**
  * Thrown when a search returns no food. Distinct from the plain `Error`s the
  * search path throws for a genuine fault, so a broken artifact or a broken
  * service worker is never folded into "no food found".
@@ -322,10 +343,19 @@ export interface SearchContext {
  * No key, no quota and no network (ADR-0047 §1): the corpus is a committed
  * artifact precached at install, so this answers on a plane and on a cold
  * offline install alike.
+ *
+ * `load` is the **set** the query reads, and the Search index is the whole of
+ * the default. One thing moves it: a person's **Declared state** of *cooked*,
+ * which reaches the Pairing index and only it (ADR-0113 §11,
+ * `pairingSearchCorpus`). It sits here rather than on {@link SearchContext}
+ * because that is what this device already knows and this is what the query is
+ * asked of — and it mirrors `searchUsdaCorpus`'s own parameter, which is the
+ * one it is handed to.
  */
 export async function searchUsdaFoods(
   query: string,
-  context: SearchContext = {}
+  context: SearchContext = {},
+  load: () => Promise<SearchCorpus> = loadSearchCorpus
 ): Promise<ReferenceFoodSearch> {
   const trimmed = query.trim();
   if (!trimmed)
@@ -336,7 +366,7 @@ export async function searchUsdaFoods(
   // where what was typed reached no reference food at all.
   const { phrases, foods, rescued_by_vocabulary } = await searchUsdaCorpus(
     trimmed,
-    undefined,
+    load,
     frecency
   );
   const curated = curatedMatches(phrases);

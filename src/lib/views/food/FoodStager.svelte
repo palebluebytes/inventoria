@@ -22,6 +22,7 @@
     isPoorFoodTwin,
     NoReferenceFoodError,
     NO_FOOD_FOUND,
+    SEARCH_DEBOUNCE_MS,
     type FoodResult,
   } from "../../food/food-search";
   import { searchList } from "../../food/search-list";
@@ -42,6 +43,8 @@
     type AmountContext,
     type FoodDensity,
   } from "../../food/density";
+  import { withPairing, PAIRING_CLEARED } from "../../food/pairing";
+  import { curatedAcceptance } from "../../food/curated-pairing-offer";
   import {
     amountDefaults,
     basisUnit,
@@ -131,6 +134,7 @@
   import CategoryPicker from "./CategoryPicker.svelte";
   import DensityQuestion from "./DensityQuestion.svelte";
   import FoodCard from "./FoodCard.svelte";
+  import PackPairingSheet from "./PackPairingSheet.svelte";
   import ManualEntryFlow from "./ManualEntryFlow.svelte";
   import CommitButton from "./CommitButton.svelte";
   import NovaExplainerSheet from "./NovaExplainerSheet.svelte";
@@ -410,6 +414,52 @@
       },
     };
   }
+
+  // Whether the pairing search is open over the staged food. It is about the
+  // food under it, so staging another one closes it rather than re-opening over
+  // a pack nobody asked about.
+  let pairingOpen = $state(false);
+  $effect(() => {
+    void staged;
+    pairingOpen = false;
+  });
+
+  // The pairing act, on a food still being staged (ADR-0113 §§1, 2). It lands
+  // on the staged payload for the reason the density assertion does: the payload
+  // IS what the host ingests on commit, so the assertion travels with the food
+  // it is about and a staging the user backs out of writes nothing.
+  //
+  // Through `withPairing` and not a spread of its own, because this path reaches
+  // the ledger too — at commit, through the host's ingest — so §15's refusals
+  // bind here exactly as they bind the store's append. Both halves go through
+  // one writer, because §7 makes them one attribute with two values: an `fdc:`
+  // id, and the empty string that names nobody.
+  function stageFoodPairing(value: string) {
+    if (!staged) return;
+    staged = { ...staged, payload: withPairing(staged.payload, value) };
+  }
+
+  // **A curated pairing applies itself** (ADR-0113 §2 as amended, #552). The
+  // table's 25 rows are hand-adjudicated claims about specific barcodes, and a
+  // confirmation they waited behind is a confirmation on a screen most people
+  // never open — so the row lands and the act a person performs is the refusal.
+  //
+  // It rides the write this staging is already going to make: the payload IS what
+  // the host ingests on commit, so a staging backed out of writes nothing at all,
+  // and the datom that does land is the one the user asked for by logging the
+  // food. That is why this is here rather than beside a scan — there are four
+  // sites that assign `staged`, and an effect answers all of them without any of
+  // them having to remember.
+  //
+  // Idempotent by construction rather than by a guard: `curatedAcceptance` reads
+  // through `curatedPairingOffer`, which returns nothing once the twin holds a
+  // `food/pairing` in any form. So it fires once per staged pack, and never again
+  // on one whose pairing the person has cleared — the clear IS the opt-out, and
+  // the gate reads it as the refusal it is.
+  $effect(() => {
+    const reference = curatedAcceptance(staged?.payload);
+    if (reference) stageFoodPairing(reference);
+  });
 
   // The staged food's full nutrition panel (per its serving basis). Handed to
   // FoodAmountPanel, which scales it to the typed amount for the pill preview and
@@ -1159,15 +1209,6 @@
   // the search again. Plain let — not an $effect dependency.
   let lastQuery = "";
   let debounceTimer: ReturnType<typeof setTimeout>;
-  // How long typing has to settle before the search runs. This is a coalescer
-  // for a mid-word burst, NOT a network guard: the 400 ms it replaces was sized
-  // for the FDC API's 717–980 ms round trip and its request quota, and searching
-  // the bundled corpus (ADR-0047) costs 13 ms from keystroke to painted results
-  // at desktop speed, 28 ms at 4x CPU throttle. Firing on every keystroke was
-  // measured smooth — nine consecutive searches held a 2–7 ms median frame — so
-  // the value sits under a fast typist's inter-key interval and lets the results
-  // track the word instead of waiting for it.
-  const SEARCH_DEBOUNCE_MS = 120;
 
   // ── The search log's session (ADR-0053 §2, #149) ───────────────────────────
   // One entry per search session, never one per debounced search: the search effect
@@ -2219,6 +2260,8 @@
                     bind:amount
                     bind:unit={amountUnit}
                     onAssertDensity={assertStagedDensity}
+                    onPair={() => (pairingOpen = true)}
+                    onClearPairing={() => stageFoodPairing(PAIRING_CLEARED)}
                     onEdit={editStaged}
                     onExplainSource={(kind) => (sourceExplain = kind)}
                     onExplainNova={explainNova}
@@ -3152,6 +3195,23 @@
   <DietaryExplainerSheet
     verdict={dietaryExplain}
     onClose={() => (dietaryExplain = null)}
+  />
+{/if}
+
+{#if pairingOpen && staged}
+  <!-- The pairing act (ADR-0113 §§1, 9), opened off the staged card's own mark.
+       The sheet only ever hands back an id: what it means for this food is
+       `stageFoodPairing`'s, and the write is the commit's.
+
+       The sheet hands back no curated row any more (#552). §14's row is applied
+       above, against the staged payload, and the payload is the right twin on both
+       arms — a barcode already in the ledger stages FROM its local twin, so a live
+       pairing and a cleared one both travel here, and one scanned for the first
+       time carries neither, which is exactly the pack the table is for. -->
+  <PackPairingSheet
+    packName={staged.name}
+    onAccept={stageFoodPairing}
+    onClose={() => (pairingOpen = false)}
   />
 {/if}
 

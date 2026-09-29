@@ -1,11 +1,18 @@
 import { dbClient } from "../db/db.client";
 import { mintEntity } from "../facets/entity-id";
 import { ingestEntity } from "../ingestion/ingest";
+import { FOOD_DENSITY_ATTR, type FoodDensity } from "../food/density";
 import {
-  readFoodDensity,
-  FOOD_DENSITY_ATTR,
-  type FoodDensity,
-} from "../food/density";
+  isReferenceFoodEntity,
+  withPairing,
+  PAIRING_CLEARED,
+} from "../food/pairing";
+import {
+  correctedPairing,
+  loadReferenceFoods,
+  pairedSource,
+  EVENT_PAIRING_ATTR,
+} from "../food/frozen-pairing";
 import { HLC_ORDER_ASC } from "../db/hlc";
 import { createProjectionStore } from "./datoms.store";
 import type { ConsumptionEvent } from "../food/consumption-state";
@@ -22,7 +29,11 @@ import {
   type NutritionExtras,
   type Portion,
 } from "../food/nutrition";
-import type { LabelCapture, ManualEntry } from "../food/provenance";
+import type {
+  FrozenPairing,
+  LabelCapture,
+  ManualEntry,
+} from "../food/provenance";
 import {
   deriveIngredientMacros,
   type IngredientSource,
@@ -65,43 +76,78 @@ export function consumptionForDay(
 // ---------------------------------------------------------------------------
 
 /**
- * Creates and appends a Consumption Event's datoms to the ledger. `instantiation`
- * is the optional `event/instantiation` snapshot a logged recipe carries beside
- * its frozen `event/metrics` headline (ADR-0022); a plain food logs without one.
+ * What one logged occasion is made of — the contract `logFoodConsumption` takes
+ * (CODING_STANDARDS §3.1).
  *
- * `breakdown` widens the frozen `event/metrics` to the food's **full** panel
- * scaled to the amount (ADR-0030 / #28): the four `{ calories, protein, fat,
- * carbs }` headline keys are written from the positional args, and every extra
- * nutrient the breakdown carried is merged in under its panel name. Omit it — as
- * a macro-only custom food (no source panel) does — and the snapshot stays
- * exactly the four-key headline; an extra a food never reported is never written,
- * so it reads as absent (never 0) forever.
- *
- * `protein`/`fat`/`carbs` are **omittable** (pass `undefined`): a manual-entry
- * intent (ADR-0035 §7) freezes `calories` only, so a macro passed as `undefined`
- * is left OUT of `event/metrics` entirely — the daily macro meters treat it as
- * not-counted (never coerced to 0), moving only the calorie ring. Every other
- * caller passes real numbers and is unchanged.
- *
- * `entityId` is the id the event is logged under. Every caller but one omits it
- * and gets the fresh random mint below, which is right for an occasion the user
- * is recording now. The receive path supplies one instead, derived from the
- * payload it is accepting, so that accepting the same meal twice cannot log it
- * twice (ADR-0073 §5).
+ * It was twelve positional arguments, which is how the shape of a log came to be
+ * legible only at the declaration: the pairing arm's own call site read
+ * `…selectedDate, undefined, breakdown, undefined, source.pairing`. It is the
+ * sibling of {@link Correction} deliberately — a log and a correction of that log
+ * freeze the same facts, and `macros`/`breakdown` are the same pair under the same
+ * names in both.
  */
-export async function logFoodConsumption(
-  targetEntity: string,
-  quantity: string,
-  meal_type: string,
-  calories: number,
-  protein: number | undefined,
-  fat: number | undefined,
-  carbs: number | undefined,
-  selectedDate: Date,
-  instantiation?: Instantiation,
-  breakdown?: NutritionBreakdown,
-  entityId?: string
-): Promise<string> {
+export interface FoodLogEntry {
+  /** The food or recipe twin this occasion names. */
+  target: string;
+  quantity: string;
+  meal_type: string;
+  /**
+   * The headline the occasion freezes. `protein`/`fat`/`carbs` are **omittable**:
+   * a manual-entry intent (ADR-0035 §7) freezes `calories` only, and a macro left
+   * out is left OUT of `event/metrics` entirely — the daily macro meters treat it
+   * as not-counted rather than coercing it to 0, so only the calorie ring moves.
+   */
+  macros: FrozenHeadline;
+  /**
+   * The day the occasion is recorded on. The time of day is now's, so a day's
+   * events do not all cluster at 00:00 (ADR-0058 §10).
+   */
+  selectedDate: Date;
+  /** The `event/instantiation` snapshot a logged recipe carries beside its frozen
+   *  headline (ADR-0022). A plain food logs without one. */
+  instantiation?: Instantiation;
+  /**
+   * Widens the frozen `event/metrics` to the food's **full** panel scaled to the
+   * amount (ADR-0030 / #28): `macros` writes the four headline keys and every
+   * extra nutrient this carried is merged in under its panel name. Omit it — as a
+   * macro-only custom food with no source panel does — and the snapshot stays
+   * exactly the headline. An extra a food never reported is never written, so it
+   * reads as absent, never 0, forever.
+   */
+  breakdown?: NutritionBreakdown;
+  /**
+   * The id the event is logged under. Every caller but one omits it and gets the
+   * fresh random mint below, which is right for an occasion the user is recording
+   * now. The receive path supplies one instead, derived from the payload it is
+   * accepting, so that accepting the same meal twice cannot log it twice
+   * (ADR-0073 §5).
+   */
+  entityId?: string;
+  /**
+   * What a **Pack pairing** supplied into `breakdown` (ADR-0113 §6).
+   *
+   * Its own field rather than one of the breakdown's, because it is a different
+   * KIND of fact — the numbers are the occasion's and this is an account of where
+   * some of them came from — and they land as two sibling datoms for the same
+   * reason: `event/metrics` stays one blob with every number in it, and a reader
+   * greps the event id and gets both lines. Omitted on every unpaired food, and on
+   * every pairing that happened to fill nothing.
+   */
+  pairing?: FrozenPairing;
+}
+
+/** Creates and appends a Consumption Event's datoms to the ledger. */
+export async function logFoodConsumption({
+  target,
+  quantity,
+  meal_type,
+  macros,
+  selectedDate,
+  instantiation,
+  breakdown,
+  entityId,
+  pairing,
+}: FoodLogEntry): Promise<string> {
   // Use selected date's time, but keep current hour/minute/second so events don't all cluster at 00:00
   const now = new Date();
   const eventDate = new Date(selectedDate);
@@ -122,15 +168,20 @@ export async function logFoodConsumption(
 
   const attributes: Record<string, unknown> = {
     "event/type": "ConsumeAction",
-    "event/target": targetEntity,
+    "event/target": target,
     "event/quantity": quantity,
     "event/meal_type": meal_type,
-    "event/metrics": frozenMetrics(
-      { calories, protein, fat, carbs },
-      breakdown
-    ),
+    "event/metrics": frozenMetrics(macros, breakdown),
   };
   if (instantiation) attributes["event/instantiation"] = instantiation;
+  // The account of what a Pack pairing supplied into the metrics above
+  // (ADR-0113 §6). Omitted and never emitted empty: a pairing that supplied
+  // nothing writes no datom, so absence means exactly one thing ledger-wide —
+  // *nothing here was borrowed*. It never co-occurs with an instantiation
+  // either: a dish's account is nested on its rows, because that is the shape a
+  // reader can reconstruct the borrowed share from, and `event/instantiation` is
+  // already the thing that says *this is a dish*.
+  if (pairing) attributes[EVENT_PAIRING_ATTR] = pairing;
 
   const datoms = ingestEntity({ entity, attributes });
 
@@ -220,6 +271,21 @@ export interface Correction {
   macros?: FrozenHeadline;
   breakdown?: NutritionBreakdown;
   instantiation?: Instantiation;
+  /** The account of what a Pack pairing supplied into `macros`/`breakdown`
+   *  (ADR-0113 §6). It travels with them because it is a fact about the reading
+   *  they are: a correction that rewrote the figures off a widened panel and
+   *  said nothing here would leave the occasion claiming the account of a
+   *  reading it no longer holds.
+   *
+   *  Three states, not two, and that is the whole of why it is not simply a
+   *  `FrozenPairing`. An envelope names what this reading borrowed.
+   *  {@link PAIRING_CLEARED} **cancels** an account the occasion still carries,
+   *  for a reading that borrowed nothing — the same act, in the same spelling,
+   *  as unpairing the jar itself (§7). Omitted says nothing at all and leaves
+   *  what the event already holds, like every other key here. A caller reads the
+   *  three off its minted reading and the event in front of it through
+   *  {@link correctedPairing}, which is the only place the choice is made. */
+  pairing?: FrozenPairing | typeof PAIRING_CLEARED;
 }
 
 /**
@@ -246,6 +312,11 @@ function correctionDatoms(eventId: string, correction: Correction) {
     );
   if (correction.instantiation !== undefined)
     attributes["event/instantiation"] = correction.instantiation;
+  // All three of `Correction.pairing`'s states ride this one line: an envelope
+  // and the cancelling `""` are both values and are both written; omitted writes
+  // nothing and leaves what the event holds.
+  if (correction.pairing !== undefined)
+    attributes[EVENT_PAIRING_ATTR] = correction.pairing;
   return ingestEntity({ entity: eventId, attributes });
 }
 
@@ -287,7 +358,9 @@ export interface ScaleChange {
   /** The target twin's panel and density, read when the Scale tier opened. A
    *  scaled amount keeps the unit it was logged in, so the density is needed for
    *  the same reason the panel is: a gram amount against a per-100 ml panel has
-   *  to be converted before it can be divided (ADR-0108 §5). */
+   *  to be converted before it can be divided (ADR-0108 §5). It also carries
+   *  what a Pack pairing supplied into that panel, because the two are resolved
+   *  together and a scale freezes both (ADR-0113 §6). */
   source: IngredientSource;
   /** The food twin whose panel the new figures are derived from — the event's
    *  own target. A scale changes how much, never what. */
@@ -331,6 +404,15 @@ export async function scaleLoggedFoods(
         quantity: quantityLabel(change.amount, change.unit),
         macros: roundedHeadline(breakdown),
         breakdown,
+        // Off the source the Scale tier already resolved, which is where a Pack
+        // pairing's widened panel and the account of it arrive together
+        // (ADR-0113 §6). The tier's live preview and this freeze therefore read
+        // one reading rather than two.
+        //
+        // Read against the account the event still carries, because a scale of an
+        // unpaired-since jar mints a label-only reading and must cancel rather
+        // than fall silent — `correctedPairing` is where that choice is made.
+        pairing: correctedPairing(change.source.pairing, change.event.pairing),
       })
     );
   }
@@ -380,19 +462,29 @@ export async function copyPastMeal(
   const ids: string[] = [];
   for (const item of items) {
     try {
-      const id = await logFoodConsumption(
-        item.target as string,
-        item.quantity as string,
+      const id = await logFoodConsumption({
+        target: item.target as string,
+        quantity: item.quantity as string,
         meal_type,
-        item.calories as number,
-        item.protein,
-        item.fat,
-        item.carbs,
+        macros: {
+          calories: item.calories as number,
+          protein: item.protein,
+          fat: item.fat,
+          carbs: item.carbs,
+        },
         selectedDate,
-        item.instantiation,
-        item.metrics,
-        mintEventId?.(item)
-      );
+        instantiation: item.instantiation,
+        breakdown: item.metrics,
+        entityId: mintEventId?.(item),
+        // Carried verbatim beside the metrics it accounts for, never re-derived
+        // from the twin's pairing as it stands now (ADR-0113 §7). A copy of a
+        // meal is a copy of the reading that was taken, so it keeps naming the
+        // reference food the original borrowed from even if the jar has since
+        // been re-paired or unpaired. Dropping it would leave borrowed numbers
+        // in the copy with nothing naming them, which is the one shape §6
+        // refuses.
+        pairing: item.pairing,
+      });
       ids.push(id);
     } catch (e) {
       appError("copying a logged food failed", e);
@@ -576,6 +668,63 @@ export async function setFoodDensity(
   await dbClient.append(
     ingestEntity({ entity, attributes: { [FOOD_DENSITY_ATTR]: density } })
   );
+}
+
+/**
+ * Appends one `food/pairing` assertion.
+ *
+ * `withPairing` is what refuses a twin §15 will not have, and it is shared with
+ * the staging arm rather than restated here: §15's three are properties of the
+ * FOOD, so a screen that offered the act on a recipe twin would be a defect and
+ * a path that could write one past the predicate would make the ledger carry it.
+ */
+async function appendPairing(entity: string, value: string): Promise<void> {
+  await dbClient.append(
+    ingestEntity(withPairing({ entity, attributes: {} }, value))
+  );
+}
+
+/**
+ * Records that a named reference food describes the substance in this pack well
+ * enough to stand in for what its label left silent — a **Pack pairing**
+ * (ADR-0113 §1).
+ *
+ * The datom is a bare live `fdc:` id and carries no field list and no name (§7):
+ * which reference food you chose is the whole of the assertion, and what it
+ * fills is computed at read time from whichever panel rows are silent now.
+ * Latest-wins settles a person who changes their mind about their own jar, which
+ * is the same property `food/density` relies on and for the same reason.
+ *
+ * It is written only for an **explicit act** (§2). Pre-selecting a candidate is
+ * allowed and pre-accepting one is not: a figure reaching a meter without a
+ * person having said yes is the collapse ADR-0048 §1 exists to prevent.
+ *
+ * Like {@link setFoodDensity}, this is the path for a pack already in the
+ * ledger. One still being STAGED has no twin yet, and its assertion rides its
+ * payload to whatever commits it.
+ */
+export async function setFoodPairing(
+  entity: string,
+  reference: string
+): Promise<void> {
+  // `withPairing` admits the clear too, because that is a legitimate value of
+  // this attribute. Pairing is not the act that writes it: a caller reaching
+  // here with nobody to name wanted {@link clearFoodPairing} and should hear so
+  // rather than silently unpair a pack.
+  if (!isReferenceFoodEntity(reference))
+    throw new Error(`${reference} is not a reference food`);
+  await appendPairing(entity, reference);
+}
+
+/**
+ * Unpairs a pack, by appending an assertion that names nobody (§7).
+ *
+ * It is an append and not a deletion, so the pairing it supersedes stays in the
+ * ledger; and it changes no logged occasion, because an occasion froze what its
+ * own pairing supplied at the moment it was logged.
+ */
+export async function clearFoodPairing(entity: string): Promise<void> {
+  await appendPairing(entity, PAIRING_CLEARED);
 }
 
 /** A manual-entry food from one of the Custom chooser's intents (ADR-0035). */
@@ -771,19 +920,32 @@ export async function changeLoggedFoodAmount(
   const target = retarget ?? event.target;
   if (!target) return;
   const twin = await getLocalFoodTwin(target);
-  const panel = twin?.attributes?.["nutrition/info"] as
-    | NutritionInfo
-    | undefined;
-  if (!panel) return;
+  // The panel a Pack pairing widened, and the account of what widened it,
+  // resolved together (ADR-0113 §6), which is a superset of the label's own
+  // panel and its density: `pairedSource` hands back exactly those where the
+  // pack names nobody. This is a NEW reading at a new amount rather than a
+  // re-scaling of the old one, so it reads the pairing as it stands now — which
+  // is exactly what the amount screen above it drew.
+  const source = pairedSource(
+    twin?.attributes,
+    await loadReferenceFoods([twin?.attributes])
+  );
+  if (!source.panel) return;
   const breakdown = deriveIngredientMacros(
     { ref: target, amount, unit },
-    () => ({ panel, density: readFoodDensity(twin?.attributes) })
+    () => source
   );
   await correctConsumptionEvent(event.id, {
     target: retarget,
     quantity: quantityLabel(amount, unit),
     macros: roundedHeadline(breakdown),
     breakdown,
+    // The new reading's own account, or the cancelling fact where this reading
+    // borrowed nothing and the occasion still claims that it did (ADR-0113 §6).
+    // This is the path the hole was found on: unpair a jar, correct the amount,
+    // and a bare `source.pairing` left the earlier envelope standing as the
+    // latest datom over label-only metrics.
+    pairing: correctedPairing(source.pairing, event.pairing),
   });
 }
 

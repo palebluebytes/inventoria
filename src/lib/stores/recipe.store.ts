@@ -48,6 +48,7 @@ import {
   nameFromIngredients,
   parseLoggedQuantity,
   quantityLabel,
+  referenceFoodsFor,
   sourceFromIngredients,
   toReferenceIngredient,
   type RecipeIngredient,
@@ -322,11 +323,17 @@ export async function consolidateIntoRecipe(
     yield: recipeYield,
     ingredients: references,
   });
+  // Awaited here rather than handed in, because on the one-tap path there is no
+  // screen that could have loaded it: a commit may never freeze a paired row's
+  // figures without the account of them (ADR-0113 §6), and this act is the same
+  // act whether a form was opened or not. Nothing loads unless one of the rows
+  // is actually paired.
+  const referenceFoods = await referenceFoodsFor(rows);
   const logged = await logRecipeConsumption(
     recipeId,
     references,
     recipeYield,
-    (ref) => sourceFromIngredients(rows, ref),
+    (ref) => sourceFromIngredients(rows, ref, referenceFoods),
     (ref) => nameFromIngredients(rows, ref),
     meal_type,
     selectedDate
@@ -378,18 +385,15 @@ export async function logRecipeConsumption(
     resolveName,
     occasion
   );
-  return logFoodConsumption(
-    recipeId,
+  return logFoodConsumption({
+    target: recipeId,
     quantity,
     meal_type,
-    snapshot.calories,
-    snapshot.protein,
-    snapshot.fat,
-    snapshot.carbs,
+    macros: snapshot,
     selectedDate,
     instantiation,
-    snapshot
-  );
+    breakdown: snapshot,
+  });
 }
 
 /**
@@ -561,12 +565,17 @@ export async function correctOccasion(
   for (const ing of list) {
     await dbClient.append(ingestEntity(ing.payload));
   }
+  // The same load the two surfaces above this would each have had to make, asked
+  // once here for the reason the ingest is: a corrected snapshot is a new reading
+  // and may not freeze a paired row's figures without the account of them
+  // (ADR-0113 §6). Nothing loads unless one of the rows is actually paired.
+  const referenceFoods = await referenceFoodsFor(list);
   await correctInstantiation(
     eventId,
     based_on,
     list.map(toReferenceIngredient),
     recipeYield,
-    (ref) => sourceFromIngredients(list, ref),
+    (ref) => sourceFromIngredients(list, ref, referenceFoods),
     (ref) => nameFromIngredients(list, ref),
     size
   );

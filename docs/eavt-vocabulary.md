@@ -206,6 +206,24 @@ aubergine`, because several independent readers show a food's name and only one 
   ([ADR-0085](adr/0085-a-setting-is-never-a-datom-and-a-consent-is-not-a-setting.md)
   draws that line). Absent on every food nobody has classified, which is the standing
   case: such a food stays in millilitres and remains fully loggable.
+- `pairing` **(reference)**: the **Pack pairing**. One `fdc:` id, on a `gtin:` twin,
+  naming the reference food whose figures may stand in for what this pack's label left
+  silent ([ADR-0113](adr/0113-a-pairing-annotates-a-packaged-food-from-a-reference-food-you-name.md)
+  §1). It is a **bare live id** and nothing beside it: no field list and no name, because
+  which reference food you chose is the whole of the assertion, and what it fills is
+  computed at read time from whichever panel rows are silent now (§7). It is superseded
+  by appending when you change your mind about your jar, and cleared by appending `""`,
+  a later datom naming nobody, since the ledger has no other way to unsay something. It
+  is a property of **a capture, not of the corpus** (§3): two people can be right about
+  one barcode, drained against in-brine, so nothing in this app holds a fact of the form
+  _barcode X is food Y_ and this datom is the whole of the same-barcode cache. It is
+  refused on a `recipe:` twin (nutrition derives from its ingredients, so there is no
+  silence), on an `fdc:` twin (it is the other end of the relationship) and on a
+  `food:custom_` twin (a hand-entered silence is the user not typing rather than a
+  manufacturer not declaring, so §4's partition does not transfer). §15 carries those
+  three, and `calorie.store.ts` enforces them at the append. It **does not cross in a
+  sent meal**: you ate the jar, and walking the reference food would ship a searchable
+  food nobody ate.
 - `assessment`: one atomic Open Food Facts blob of consumer signals with no schema.org
   counterpart (`nova_group`, `nutri_score`, `eco_score`, `nutrient_levels`, `allergens`,
   `additives`, `labels`; ADR-0030). Read back by
@@ -326,7 +344,7 @@ because it names the ingestion machinery rather than a domain, and nothing may s
   mints. Where two records from one source were merged to complete a panel, it also names
   the record that filled the gaps and the fields it supplied (`merged_from`,
   [ADR-0045](adr/0045-usda-stays-the-base-food-composition-authority.md) §4). It was
-  `provenance/raw` until ADR-0086 §5.
+  `twin/raw_provenance` until ADR-0086 §5.
 
 ### `habit/`
 
@@ -391,10 +409,40 @@ Every logged Event.
   carried, each under its `nutrition/info` panel name such as `fiber_content` or
   `sodium_content`, and the micronutrients. A nutrient the food never reported is
   absent, never `0` (ADR-0030).
+- `pairing` **(reference)**: what a **Pack pairing** supplied into the `metrics` blob beside it, on a
+  logged **food** ([ADR-0113](adr/0113-a-pairing-annotates-a-packaged-food-from-a-reference-food-you-name.md)
+  §6). Four keys, `{ ref, name, source_uri, filled_fields }`, naming the reference
+  food, how the corpus described it at the moment this occasion was logged, where its
+  record can be fetched, and exactly which panel keys came from it. It is
+  `provenance/raw`'s `merged_from` entry in the event's clothes, and the two fields
+  they share are spelled the same on purpose: ADR-0045 §4 already requires a borrowed
+  value to be traceable, and this is the same fact about a different kind of source.
+  It is **omitted and never emitted empty**, since a pairing that supplied nothing writes
+  no datom, so absence means exactly one thing ledger-wide: _nothing here was borrowed_.
+  The `name` is **frozen** though display identity is read live everywhere else in this
+  projection, because it belongs to a **third** entity the corpus may drop and the
+  raw-export reader it is written for has no live lookup at all; where the corpus can no
+  longer answer, `ref` stands in it. The reference food's own per-100 figures never
+  travel: they duplicate what `metrics` already holds, and their only use would be a
+  re-derivation ADR-0045 forbids. Its `ref` is a reference the closure walk is
+  **declared against rather than walked along**, exactly as `food/pairing` is: you ate
+  the jar, and walking the reference food would ship a searchable food nobody ate, while
+  the occasion's own numbers are frozen so a recipient needs nothing from it. Both ends
+  sit in the Food domain. It **never co-occurs with `instantiation`**: a dish's account
+  is nested on its rows instead, below.
 - `instantiation` **(reference)**: a logged recipe's frozen **Recipe Instantiation**
   snapshot. Holds `based_on`, `yield`, `batch_weight`, and per-row
   `{ ref, name, amount, unit, calories, protein, fat, carbs, ... }` carrying the same
-  full breakdown. `batch_weight` is what the finished dish weighed, in grams, on the
+  full breakdown. A row whose ingredient twin carried a **Pack pairing** also carries
+  its own `pairing`, in `event/pairing`'s four-key shape, nested so the row's own `ref`
+  and `name` keep meaning the ingredient twin (ADR-0113 §6). That nested `ref` is a
+  reference the closure walk deliberately does **not** read, for the reason `food/pairing`
+  is not walked either. A top-level list over the rows was refused because it is not
+  reconstructible: the rows' numbers are frozen, so a reader sums the marked rows and
+  divides by the snapshot's own `yield` and gets the exact borrowed share, where a list
+  could only say that somewhere inside a sum something was borrowed. One live occasion
+  froze twelve rows naming four reference foods, and in that dish folate is 100%
+  borrowed and calcium 2.3%. `batch_weight` is what the finished dish weighed, in grams, on the
   one occasion this snapshot records, so a logged meal says 160 g of a 480 g pot and
   keeps saying it
   ([ADR-0106](adr/0106-a-recipe-occasion-is-sized-by-the-weight-you-put-on-the-scale.md) §5).

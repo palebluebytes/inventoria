@@ -23,10 +23,20 @@ export function readSource(path: string): string {
  * The file with its comments taken out, so a sentence in a doc comment cannot
  * satisfy a claim about code. Block comments, line comments and markup comments,
  * which is every kind a `.ts` or `.svelte` file has.
+ *
+ * **A block comment has to START somewhere**, and the opener is anchored rather
+ * than searched for, because an unanchored one blinds far more than it strips:
+ * `accept="image/*"` in `FoodStager.svelte` opens a comment that runs to the
+ * next `*\/` — 36,060 characters and 764 lines of markup further down, the
+ * pairing sheet's mount among them. Every claim a suite made about that region
+ * passed against an empty string. So `/*` counts only where a comment can
+ * actually begin: at the start of a line or after whitespace or a delimiter,
+ * which is where every real one in this repo is written and where a MIME wildcard
+ * inside a quoted attribute never is.
  */
 export function readCode(path: string): string {
   return read(path)
-    .replace(/\/\*[\s\S]*?\*\//g, "")
+    .replace(/(^|[\s{;(,=[])\/\*[\s\S]*?\*\//g, "$1")
     .replace(/^[ \t]*\/\/.*$/gm, "")
     .replace(/<!--[\s\S]*?-->/g, "");
 }

@@ -254,6 +254,31 @@ export function formatCalories(
  */
 export const ABSENT_NUTRIENT = "—";
 
+/**
+ * The mark a borrowed figure wears (ADR-0113 §5) — the whole of the provenance a
+ * panel carries on screen.
+ *
+ * It is one word and a lighter weight, on the same row, in the same list, in
+ * normal panel order: nothing framed off, nothing in a second column, no dashed
+ * block. That is ADR-0041's own 2026-08-06 precedent re-applied rather than a new
+ * direction — that amendment removed the `·est` marker from the NOVA badge on the
+ * stated ground that a calmer surface beats an at-a-glance provenance cue.
+ */
+export const ESTIMATED_MARK = "est";
+
+/**
+ * What {@link ESTIMATED_MARK} means, in one sentence, and **the same sentence on
+ * a food and on a dish** (ADR-0113 §5). On a food's own panel _not every_ happens
+ * to be _none_ — the figure came whole from the reference food — and a dish does
+ * not get a second, softer mark.
+ *
+ * Held here beside the mark, in the module that already owns every label and unit
+ * on these surfaces, so the two views that draw it cannot come to say different
+ * things about the same word.
+ */
+export const ESTIMATED_MEANING =
+  "Not every figure in this row was printed on a label";
+
 /** Reads a nutrient's day total out of a breakdown, treating absent as 0. */
 function totalFor(
   breakdown: NutritionBreakdown,
@@ -348,6 +373,8 @@ export interface NutrientRow {
   key: string;
   label: string;
   value: string;
+  /** See {@link NutrientPill.est} — one mark, drawn the same on both surfaces. */
+  est?: true;
 }
 
 /**
@@ -358,18 +385,73 @@ export interface NutrientRow {
  */
 function nutrientRow(
   breakdown: NutritionBreakdown,
-  d: NutrientDescriptor
+  d: NutrientDescriptor,
+  estimated: ReadonlySet<string>
 ): NutrientRow {
-  return {
+  const row: NutrientRow = {
     key: d.key,
     label: d.label,
     value: formatNutrientValue(totalFor(breakdown, d.key), d.unit),
   };
+  if (estimated.has(d.key)) row.est = true;
+  return row;
 }
 
-/** Shared empty exclusion set — the default for {@link buildNutrientBreakdown}, so
- *  the no-exclusion path allocates nothing. */
+/** Shared empty key set — the default for both of {@link buildNutrientBreakdown}'s
+ *  key arguments (what to exclude, and what a pairing filled), so the ordinary
+ *  path allocates nothing. */
 const EMPTY_KEY_SET: ReadonlySet<string> = new Set();
+
+/**
+ * How a nutrient list is shown, for the two builders that draw one.
+ *
+ * One contract rather than a tail of positional arguments, which is what these had
+ * grown: `buildNutrientBreakdown(scaled, undefined, true, gridKeys)` and
+ * `buildNutrientPills(scaled, ["iron"], undefined, true, marked)` say nothing at
+ * the call site about which knob is which (CODING_STANDARDS §3.1). Shared between
+ * the two because **the grid and the disclosure are one panel split by what the
+ * user tracks** (ADR-0113 §5) — every field here but `exclude` means the same thing
+ * on both halves, and a field that came to mean two things across them would be the
+ * drift one contract exists to stop.
+ */
+export interface NutrientListOptions {
+  /**
+   * The whole-number display setting, reaching the leading Calories row or pill
+   * alone: every nutrient formats at the fixed precision
+   * {@link formatNutrientValue} sets.
+   */
+  calorieDecimals?: number;
+  /**
+   * Drops any row or pill that reads as zero at its display precision — 0 g fat,
+   * 0 mg sodium, checked per-unit so a real 0.26 mg micronutrient survives — and,
+   * for a pill, one the breakdown never carried at all. A single food's surfaces
+   * then list only what that food has a value for rather than a "–" or a "0 g"
+   * that adds no information; the recipe per-serving preview leaves it false to
+   * keep a stable pill set as ingredients change. Calories always lead, never
+   * hidden.
+   */
+  hideEmpty?: boolean;
+  /**
+   * Drops any nutrient whose key this contains, `calories` included. The
+   * disclosure's own knob: a card showing a pill grid above it passes the grid's
+   * keys here, so the full-nutrition list holds the extras not already on screen
+   * and never repeats one. Meaningless to {@link buildNutrientPills}, whose
+   * membership is the caller's `selection`.
+   */
+  exclude?: ReadonlySet<string>;
+  /**
+   * The keys a **Pack pairing**'s reference food supplied, each of which carries
+   * {@link NutrientRow.est} (ADR-0113 §5). It changes neither the order nor the
+   * membership of a list — every nutrient sits in one list in normal panel order,
+   * and a borrowed figure differs from a printed one by the mark alone.
+   *
+   * On both builders rather than only the disclosure, because a borrowed nutrient
+   * that happens to be tracked must not shed its mark by being promoted into the
+   * grid. The mark is the sole carrier of provenance on screen and it has no
+   * backstop.
+   */
+  estimated?: ReadonlySet<string>;
+}
 
 /**
  * Builds the full nutrient breakdown for a (already-scaled) panel — the ordered
@@ -401,12 +483,21 @@ const EMPTY_KEY_SET: ReadonlySet<string> = new Set();
  * list to the *extras* not already on the card, never repeating them. Default is
  * empty: with no exclusion Calories still leads and every carried nutrient shows,
  * so callers that want the complete list are unaffected.
+ *
+ * `estimated` names the keys a **Pack pairing**'s reference food supplied, and
+ * each of those rows carries {@link NutrientRow.est} (ADR-0113 §5). It changes
+ * neither the order nor the membership of the list — every nutrient sits in one
+ * list in normal panel order, and a borrowed figure differs from a printed one by
+ * the mark alone.
  */
 export function buildNutrientBreakdown(
   breakdown: NutritionBreakdown,
-  calorieDecimals: number = FOOD_DISPLAY_DECIMALS,
-  hideEmpty: boolean = false,
-  exclude: ReadonlySet<string> = EMPTY_KEY_SET
+  {
+    calorieDecimals = FOOD_DISPLAY_DECIMALS,
+    hideEmpty = false,
+    exclude = EMPTY_KEY_SET,
+    estimated = EMPTY_KEY_SET,
+  }: NutrientListOptions = {}
 ): NutrientRow[] {
   const rows: NutrientRow[] = [];
   if (!exclude.has("calories")) {
@@ -424,7 +515,7 @@ export function buildNutrientBreakdown(
       nutrientDisplayValue(totalFor(breakdown, d.key), d.unit) === 0
     )
       continue;
-    rows.push(nutrientRow(breakdown, d));
+    rows.push(nutrientRow(breakdown, d, estimated));
   }
   return rows;
 }
@@ -692,7 +783,11 @@ export function buildDayRdaView(
   const untracked: NutrientRow[] = [];
   for (const d of NUTRIENT_CATALOGUE) {
     if (!(d.key in breakdown) || hasTarget(d.key) || hasLimit(d.key)) continue;
-    untracked.push(nutrientRow(breakdown, d));
+    // No `est` mark here, and that is ADR-0113 §5 rather than an omission: this
+    // is a DAY total over every food logged, and an estimated figure reaches the
+    // day's surfaces as measured. A mark over a sum of many foods could not say
+    // which of them borrowed anything.
+    untracked.push(nutrientRow(breakdown, d, EMPTY_KEY_SET));
   }
 
   // Biggest gaps: the "no data" nutrients first — the day carried none, OR carried
@@ -783,6 +878,17 @@ export interface NutrientPill {
   key: string;
   label: string;
   value: string;
+  /**
+   * This figure was supplied by the reference food a **Pack pairing** names,
+   * rather than printed on the label (ADR-0113 §5). Views draw it as a small
+   * `est` mark and a lighter weight — nothing framed off, nothing in a second
+   * column, no dashed block.
+   *
+   * `true` or absent, never `false`: it is a present-only mark like every other
+   * one on a food card, and a nutrient both sources carry shows the label's
+   * figure with no mark.
+   */
+  est?: true;
 }
 
 /**
@@ -803,12 +909,21 @@ export interface NutrientPill {
  * pill), rather than a "–" or a "0 g" that adds no information. The recipe
  * per-serving preview leaves it false to keep a stable pill set as ingredients
  * change. Calories always lead, never hidden.
+ *
+ * `estimated` marks a pill the way {@link buildNutrientBreakdown} marks a row,
+ * and it is here rather than only there because the two are one panel split by
+ * what the user tracks: a borrowed nutrient that happens to be tracked must not
+ * shed its mark by being promoted into the grid. The `est` mark is the sole
+ * carrier of provenance on screen and it has no backstop (ADR-0113 §5).
  */
 export function buildNutrientPills(
   breakdown: NutritionBreakdown,
   selection: string[] | undefined,
-  calorieDecimals: number = FOOD_DISPLAY_DECIMALS,
-  hideEmpty: boolean = false
+  {
+    calorieDecimals = FOOD_DISPLAY_DECIMALS,
+    hideEmpty = false,
+    estimated = EMPTY_KEY_SET,
+  }: NutrientListOptions = {}
 ): NutrientPill[] {
   const pills: NutrientPill[] = [
     {
@@ -825,11 +940,13 @@ export function buildNutrientPills(
     // micronutrient survives) are both dropped rather than shown.
     if (hideEmpty && (!present || nutrientDisplayValue(grams, d.unit) === 0))
       continue;
-    pills.push({
+    const pill: NutrientPill = {
       key: d.key,
       label: d.label,
       value: present ? formatNutrientValue(grams, d.unit) : ABSENT_NUTRIENT,
-    });
+    };
+    if (estimated.has(d.key)) pill.est = true;
+    pills.push(pill);
   }
   return pills;
 }

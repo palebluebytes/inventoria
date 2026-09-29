@@ -31,6 +31,8 @@ const SCRIPT = fileURLToPath(
 
 const INDEX_PATH = "public/usda/search-index.json";
 const CENSUS_PATH = "docs/research/usda-drop-census.json";
+const ARM_INDEX_PATH = "public/usda/pairing-index.json";
+const ARM_CENSUS_PATH = "docs/research/usda-pairing-collapse.json";
 const ACCOUNT_PATH = "docs/research/190-corpus-account.md";
 
 let repo: string;
@@ -108,6 +110,49 @@ const collapsed = [
 
 const index = { artifact: "usda-search-index", foods: shipped };
 
+/**
+ * ADR-0113 §11's arm, at the same scale: the cooked records, collapsed among
+ * themselves.
+ *
+ * `Beans` moves on SALT alone and `Beef` on butchery, which is the comparison
+ * §12's honest edit rests on — the shipped fixture above states no salt at all,
+ * so the account's two axis lines differ here exactly as they differ in the real
+ * corpus. `Carrots` is the arm's group of one.
+ */
+const armShipped = [
+  { fdcId: 20, description: "Beans, snap, green, cooked, boiled, drained" },
+  { fdcId: 22, description: "Beef, chuck, cooked, braised" },
+  { fdcId: 24, description: "Carrots, cooked, boiled, drained" },
+];
+
+const armCollapsed = [
+  {
+    fdcId: 21,
+    description: "Beans, snap, green, cooked, boiled, drained, with salt",
+    collapsed_into: 20,
+  },
+  {
+    fdcId: 23,
+    description: "Beef, chuck, cooked, braised, separable lean and fat, choice",
+    collapsed_into: 22,
+  },
+];
+
+const armIndex = { artifact: "usda-pairing-index", foods: armShipped };
+
+const armCensus = {
+  artifact: "usda-pairing-collapse",
+  targets: armShipped.length,
+  absorbed: armCollapsed.length,
+  collapsed: armCollapsed,
+};
+
+/** The two arms, in the shape the gate reads them. */
+const arms = () => ({
+  shipped: { index, census },
+  arm: { index: armIndex, census: armCensus },
+});
+
 /** The census, with one non-collapse drop to prove the stage filter is read. */
 const census = {
   artifact: "usda-drop-census",
@@ -131,14 +176,20 @@ const census = {
 };
 
 const seed = (
-  parts: { index?: unknown; census?: unknown; account?: string } = {}
+  parts: {
+    index?: unknown;
+    census?: unknown;
+    armIndex?: unknown;
+    armCensus?: unknown;
+    account?: string;
+  } = {}
 ) => {
-  const theIndex = parts.index ?? index;
-  const theCensus = parts.census ?? census;
-  write(INDEX_PATH, JSON.stringify(theIndex));
-  write(CENSUS_PATH, JSON.stringify(theCensus));
+  write(INDEX_PATH, JSON.stringify(parts.index ?? index));
+  write(CENSUS_PATH, JSON.stringify(parts.census ?? census));
+  write(ARM_INDEX_PATH, JSON.stringify(parts.armIndex ?? armIndex));
+  write(ARM_CENSUS_PATH, JSON.stringify(parts.armCensus ?? armCensus));
   if (parts.account !== undefined) write(ACCOUNT_PATH, parts.account);
-  else write(ACCOUNT_PATH, accountFromArtifacts(index, census));
+  else write(ACCOUNT_PATH, accountFromArtifacts(arms()));
 };
 
 beforeEach(() => {
@@ -149,7 +200,7 @@ afterEach(() => {
 });
 
 describe("accountFromArtifacts — the account the shipped rows prove", () => {
-  const account = accountFromArtifacts(index, census);
+  const account = accountFromArtifacts(arms());
 
   it("counts rows in, rows out and absorbed, per head", () => {
     // `Beef` went in as three records and ships as one. The account reads
@@ -196,9 +247,54 @@ describe("accountFromArtifacts — the account the shipped rows prove", () => {
         drop.fdcId === 2 ? { ...drop, collapsed_into: 4242 } : drop
       ),
     };
-    expect(() => accountFromArtifacts(index, orphaned)).toThrow(
-      /collapsed into 4242, and no row of .* carries that fdcId/
+    expect(() =>
+      accountFromArtifacts({ ...arms(), shipped: { index, census: orphaned } })
+    ).toThrow(/collapsed into 4242, and no row of .* carries that fdcId/);
+  });
+
+  it("accounts for the pairing arm in a second table", () => {
+    // ADR-0113 §12's second table. `Beans` went in as two records — one salted,
+    // one not — and ships as one, which is the axis §12 coins and the reason the
+    // arm's account is not a copy of the corpus's.
+    const account = accountFromArtifacts(arms());
+    expect(account).toContain("## The pairing arm");
+    expect(account).toMatch(/\|\s*`Beans`\s*\|\s*2\s*\|\s*1\s*\|\s*1\s*\|/);
+    expect(account).toMatch(
+      /\|\s*\*\*arm\*\*\s*\|\s*\*\*5\*\*\s*\|\s*\*\*3\*\*\s*\|\s*\*\*2\*\*\s*\|/
     );
+    expect(account).toMatch(/2 of the arm's 3 head phrases move/);
+    expect(account).not.toMatch(/\|\s*`Carrots`/);
+  });
+
+  it("states each axis's reach in both arms, and salt is the difference", () => {
+    // The honest edit §12 names, as two interpolated lines rather than as a
+    // sentence: salt claims the one absorbed row here and none of the shipped
+    // ones, so "purely butchery" stays exactly true above and is false below.
+    const account = accountFromArtifacts(arms());
+    expect(account).toMatch(
+      /Of the 2 rows this collapse absorbed, separation 1, trim 0, grade 1 and\s+salt 1/
+    );
+    expect(account).toMatch(
+      /of the 5 the shipped one absorbed, separation 5, trim 2, grade 5 and salt\s+0/
+    );
+    expect(account).toMatch(/Salt claims\s+nothing in the corpus that ships/);
+  });
+
+  it("refuses an arm whose collapse reached a row the Search index ships", () => {
+    // The claim that licenses two tables instead of one. A group astride both
+    // corpora makes the arm's absorbed count an account of neither.
+    expect(() =>
+      accountFromArtifacts({
+        ...arms(),
+        arm: {
+          index: armIndex,
+          census: {
+            ...armCensus,
+            collapsed: [{ ...armCollapsed[0], collapsed_into: 1 }],
+          },
+        },
+      })
+    ).toThrow(/collapsed into 1 in the Pairing arm/);
   });
 
   it("refuses a corpus in which a fifth head phrase moves", () => {
@@ -222,7 +318,12 @@ describe("accountFromArtifacts — the account the shipped rows prove", () => {
         },
       ],
     };
-    expect(() => accountFromArtifacts(wider, widerCensus)).toThrow(/Chicken/);
+    expect(() =>
+      accountFromArtifacts({
+        ...arms(),
+        shipped: { index: wider, census: widerCensus },
+      })
+    ).toThrow(/Chicken/);
   });
 });
 
@@ -240,7 +341,7 @@ describe("the gate, run as pnpm check runs it", () => {
     // so "correcting" one in place is indistinguishable from the file being
     // right unless the whole text is rebuilt.
     seed({
-      account: accountFromArtifacts(index, census).replace(
+      account: accountFromArtifacts(arms()).replace(
         "4 groups hold more than one record",
         "5 groups hold more than one record"
       ),
@@ -256,7 +357,7 @@ describe("the gate, run as pnpm check runs it", () => {
     // The staleness the ticket names: a regeneration lands, the account is not
     // committed with it, and nothing else in the tree notices. Here a row
     // leaves the index, so `Cheese` is gone and the corpus row is one short.
-    const account = accountFromArtifacts(index, census);
+    const account = accountFromArtifacts(arms());
     const moved = { ...index, foods: shipped.filter((f) => f.fdcId !== 11) };
     seed({ index: moved, account });
     const { status, out } = run();
@@ -268,6 +369,8 @@ describe("the gate, run as pnpm check runs it", () => {
   it("fails when the account is missing altogether", () => {
     write(INDEX_PATH, JSON.stringify(index));
     write(CENSUS_PATH, JSON.stringify(census));
+    write(ARM_INDEX_PATH, JSON.stringify(armIndex));
+    write(ARM_CENSUS_PATH, JSON.stringify(armCensus));
     const { status, out } = run();
     expect(status).not.toBe(0);
     expect(out).toContain("does not exist, and ADR-0103 §9 commits it");
@@ -278,7 +381,7 @@ describe("the gate, run as pnpm check runs it", () => {
     // only "out of date" would leave a contributor comparing a generated file
     // against nothing.
     seed({
-      account: accountFromArtifacts(index, census).replace(
+      account: accountFromArtifacts(arms()).replace(
         "purely butchery",
         "purely beef"
       ),
@@ -298,8 +401,11 @@ describe("the committed account", () => {
     const root = fileURLToPath(new URL("../..", import.meta.url));
     const read = (rel: string) =>
       JSON.parse(readFileSync(join(root, rel), "utf8"));
-    expect(accountFromArtifacts(read(INDEX_PATH), read(CENSUS_PATH))).toBe(
-      readFileSync(join(root, ACCOUNT_PATH), "utf8")
-    );
+    expect(
+      accountFromArtifacts({
+        shipped: { index: read(INDEX_PATH), census: read(CENSUS_PATH) },
+        arm: { index: read(ARM_INDEX_PATH), census: read(ARM_CENSUS_PATH) },
+      })
+    ).toBe(readFileSync(join(root, ACCOUNT_PATH), "utf8"));
   });
 });
