@@ -1043,7 +1043,11 @@ describe("the floor, swept", () => {
     // standing beside "Makes" (#432). Both sides wrote 131 for reasons that do
     // not overlap, so the text merged clean at a figure neither of them meant;
     // the two added boxes were read off the sweep rather than arithmetic.
-    expect(how).toEqual({ declared: 135, drawn: 25, sanctioned: 6 });
+    // #547 moved it to 136: one box, `FoodStager`'s `.cf-model-mark`, the ⓘ
+    // that re-opens the egress explanation beside the read control — a mark
+    // rather than a second button, which is exactly the shape that arrives
+    // without a floor unless one is declared for it.
+    expect(how).toEqual({ declared: 136, drawn: 25, sanctioned: 6 });
     // Every box lands in exactly one column. Without this the two figures above
     // could both be right while a box fell out of the sweep between them.
     expect(how.declared + how.drawn + how.sanctioned).toBe(SWEEP.groups.size);

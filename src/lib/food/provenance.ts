@@ -92,6 +92,15 @@ export function buildRawProvenance<RawT>(args: {
 // Photos are REFERENCED, not duplicated here: they live once in
 // `food/label_photos[]`. This envelope carries only the capture's metadata.
 
+/**
+ * The EAVT attribute holding a label capture's origin envelope.
+ *
+ * Named here beside {@link MANUAL_ENTRY_ATTR}, its sibling, because ADR-0115
+ * §10's ratchet gave the envelope its **first reader**: a save has to look at
+ * the one a twin already carries so it can inherit rather than overwrite.
+ */
+export const LABEL_CAPTURE_ATTR = "food/label_capture";
+
 /** Bumped when the label-capture envelope's shape or semantics change. */
 export const LABEL_ADAPTER_VERSION = 1;
 
