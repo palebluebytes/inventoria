@@ -85,6 +85,9 @@ jobs:
       # which kind of not-clean. A title asserting a move would be wrong for every
       # UNCHECKED run — Open Food Facts being down is not a record changing — and
       # the title is what a reader meets before anything can correct it (#205).
+      # For the same reason it names neither table: since #523 the job looks at
+      # both, and a title saying "stand-in" would send a reader to the wrong one
+      # on every run where only a Curated pairing moved.
       - name: File an issue when the check does not come back clean
         if: steps.check.outputs.unclean == 'true'
         env:
@@ -136,6 +139,6 @@ jobs:
             exit 0
           fi
           gh issue create \
-            --title "The curated stand-in check did not come back clean" \
+            --title "The curated snapshot check did not come back clean" \
             --label curated-snapshot \
             --body-file issue-body.md
