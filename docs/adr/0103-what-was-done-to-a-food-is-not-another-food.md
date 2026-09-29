@@ -1110,3 +1110,32 @@ measurements, the closure claim that licenses two tables rather than one wider o
 and what stands in for the arm's missing second counter are in
 [ADR-0113](0113-a-pairing-annotates-a-packaged-food-from-a-reference-food-you-name.md)'s
 2026-09-28 Amendment.
+
+## Amendment (2026-09-29, #518): the salt axis's three figures, measured against the set that shipped
+
+The 2026-09-18 salt Amendment's figures were forward estimates, taken from the map
+before the arm's own collapse had ever run. All three are measurable now, from
+`public/usda/pairing-index.json` and `docs/research/usda-pairing-collapse.json`,
+and all three moved.
+
+- The set is **1,035**, not 1,182. The arm holds 1,725 records before its collapse
+  and 690 of them are absorbed across the four axes.
+- The axis arrives at **147** pairs, not 145 — the estimate was right within two.
+- It absorbs **147 of the arm's 1,725**, which is 8.5% of it. **294** records stand
+  in a salt pair, 17.0%. Neither reading is the "290 of the 1,182 rows, a quarter
+  of it" the Amendment states, and the quarter came from dividing by a set a
+  quarter smaller than the one that shipped.
+
+**The classification does not move, and neither does a shipped row.** Salt is the
+fourth `CollapsingAxisName` on the same argument, corpus-wide, conditioned on a
+cooking method by the Amendment after it, and the "0 rows leave
+`public/usda/search-index.json`" figure is the structural zero that Amendment made
+it. This corrects three counts and nothing else.
+
+**Why they were left standing through two later Amendments.** Both point at
+[ADR-0113](0113-a-pairing-annotates-a-packaged-food-from-a-reference-food-you-name.md)'s
+own Amendments as the place the measurements live, and that record does say the set
+is 1,035 rather than 1,182. What neither said is that the numbers **above** were
+superseded by it — so a reader of this record alone, which is what a reader of the
+collapsing axes has reason to be, still read a forward estimate as a measurement.
+A figure corrected in a neighbouring record is not corrected here.

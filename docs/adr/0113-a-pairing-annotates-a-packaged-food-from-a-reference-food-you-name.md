@@ -1107,3 +1107,58 @@ sentence this change adds would have split `pnpm check` the same way. A word is 
 a run of non-space that swallows whole code spans, which moved that one paragraph
 and no figure in it. A split span renders identically either way; what it costs is
 the reader of the diff, who is the only reason the file is committed.
+
+## Amendment (2026-09-29, #520): §4's never-fill set is the whole declaration, §5's one list has two halves, and §16's roster is nine
+
+Three readings the shipped code makes that the record above states narrowly. None
+changes behaviour; each closes a gap between a section and the module implementing
+it.
+
+### §4's closing sentence understates the rule by one operative key
+
+§4 quotes #495's measured pair — _a pairing may supply `cholesterol_content` and
+`trans_fat_content`; it may never supply `sodium_content` or
+`saturated_fat_content`_ — and closes on "`filled_fields` (§6) simply never names
+those two keys." The paragraph between them states the real rule, and it is wider
+than the pair: a nutrient **in the mandatory declaration** is one a pack is silent
+on nowhere it was lawfully sold, so its silence is a failed capture.
+
+`marked-panel.ts` implements the rule rather than the pair. `DECLARED_NUTRIENT_KEYS`
+is the declaration whole — energy, protein, fat, carbohydrate, sugars, saturates and
+salt, seven keys — and `FILLABLE_NUTRIENT_KEYS` is derived from it by exclusion, so
+a panel nutrient coined later arrives fillable unless the declaration names it. Of
+those seven, four are the headline macros, which are not extras at all and read as 0
+rather than as absent on every surface here, so a borrowed one could not be told
+from a measured one even by the mark. **Three are operative**, and the third is
+`sugar_content`. So the set `filled_fields` may never name is three keys rather than
+the two §4 closes on, and 16 of the 19 panel extras are fillable.
+
+Deriving forwards is the point rather than a convenience: written out, the roster
+would have had to be revisited every time a nutrient was coined, and the rule it
+encodes is a fact about declarations rather than about a list.
+
+### §5's one list has two halves, and the mark rides both
+
+§5 says every nutrient sits in one list in normal panel order, in the shipped
+`NutrientBreakdown` shape. `NutrientPreview` splits that list two ways and has since
+long before pairing: the nutrients a person tracks are promoted into a pill grid and
+the rest sit behind the full-nutrition disclosure, with `pillKeys` excluded from the
+disclosure so nothing shows twice.
+
+So the mark is drawn on both halves, which is §5 holding rather than reaching past
+it. Marking the disclosure alone would mean a borrowed nutrient **shed its mark by
+being tracked** — promoted into the grid, it would be the one borrowed figure on
+screen with nothing saying so, and on exactly the nutrients a person cares enough
+about to watch. `EstMark.svelte` is one component for the same reason, and the
+lighter weight is set per surface on the value element because it belongs to the
+figure rather than to the word beside it.
+
+### §16's roster is nine terms, not six
+
+§16 names six, and the 2026-09-18 Amendment adds **Pack pairing** as the qualified
+term the bare word could not be. Two more land with the code: **Marked panel**, for
+what §§4-5 compose on every read, and **est mark**, for §5's own word. Both were
+already this record's concepts under this record's arguments — §5 does not have a
+name for the thing it describes without them — and CODING_STANDARDS §8 asks that a
+genuinely new domain concept reach `CONTEXT.md`. Nine entries, and the **Reference
+food** narrowing §16 describes is unchanged.
