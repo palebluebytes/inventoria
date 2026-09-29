@@ -33,6 +33,13 @@ const PACK_CODE = "3017620422003";
 const REFERENCE = "fdc:171705";
 const REFERENCE_NAME = "Mock Banana";
 
+/** A barcode the Curated pairing table really holds, and the row it names
+ *  (`src/lib/food/curated-pairings.ts`). Driven rather than stubbed, so this
+ *  asserts the shipped table and not a fixture of one. */
+const CURATED_CODE = "8436578483167";
+const CURATED_REFERENCE = "fdc:171413";
+const CURATED_NAME = "Mock Olive Oil";
+
 test.describe("Pack pairing (ADR-0113)", () => {
   test.beforeEach(async ({ page }) => {
     page.on("pageerror", (err) => console.error("PAGE ERROR:", err.message));
@@ -69,6 +76,17 @@ test.describe("Pack pairing (ADR-0113)", () => {
                 protein_content: 1.1,
                 fat_content: 0.3,
                 carbohydrate_content: 22.8,
+              },
+            },
+            {
+              fdcId: 171413,
+              description: CURATED_NAME,
+              dataType: "Foundation",
+              macros: {
+                calories: 884,
+                protein_content: 0,
+                fat_content: 100,
+                carbohydrate_content: 0,
               },
             },
             {
@@ -113,6 +131,10 @@ test.describe("Pack pairing (ADR-0113)", () => {
               1087: 5,
               1089: 0.26,
             },
+            // Vitamin E is what the bottle's label does not print and the curated
+            // row's own `ground` says USDA carries, so the auto-accepted pairing
+            // has something to fill and the mark has something to sit on.
+            171413: { 1003: 0, 1004: 100, 1005: 0, 1008: 884, 1089: 0.56 },
             1102706: { 1003: 13.1, 1004: 6.5, 1005: 67.7, 1008: 379 },
           },
         }),
@@ -163,6 +185,30 @@ test.describe("Pack pairing (ADR-0113)", () => {
         }),
       });
     });
+
+    // The curated barcode's pack. Four figures and silent on iron, which the
+    // reference food the table names does carry.
+    await page.route(
+      `**/api/v3/product/${CURATED_CODE}.json`,
+      async (route) => {
+        await route.fulfill({
+          contentType: "application/json",
+          body: JSON.stringify({
+            code: CURATED_CODE,
+            status: "success",
+            product: {
+              product_name: "Aceite de oliva virgen extra",
+              nutriments: {
+                "energy-kcal_100g": 899,
+                proteins_100g: 0,
+                fat_100g: 99.9,
+                carbohydrates_100g: 0,
+              },
+            },
+          }),
+        });
+      }
+    );
 
     // The pack itself. Four figures, per 100 g, and silent on everything else.
     await page.route(`**/api/v3/product/${PACK_CODE}.json`, async (route) => {
@@ -400,5 +446,69 @@ test.describe("Pack pairing (ADR-0113)", () => {
       )
     ).toHaveCount(0);
     expect(fetched.some((f) => f.startsWith("pairing-index"))).toBe(true);
+  });
+
+  test("gives a seeded barcode its curated pairing without being asked", async ({
+    page,
+  }) => {
+    // **§2 as amended** (#552): the row applies itself, and the act a person
+    // performs is the refusal. Driven against the shipped table rather than a
+    // fixture of one, so this fails if the seed ever stops reaching a pack.
+    await page.goto("/?mem=1");
+    await waitForDbReady(page);
+    await openWayIn(page, "breakfast", "scan");
+    await page.locator("#barcode-input").fill(CURATED_CODE);
+    await page.locator("#barcode-input").press("Enter");
+
+    const paired = page.locator('[data-testid="paired-with"]');
+    await expect(paired).toBeVisible();
+    await expect(paired).toHaveAttribute("data-reference", CURATED_REFERENCE);
+    await expect(paired).toContainText(CURATED_NAME);
+
+    // And it says where a pairing nobody chose came from, carrying the `ground`
+    // §14 says the whole commitment rests on — which is what keeps §9's read
+    // available, now that it happens after the write rather than before it.
+    const note = paired.locator(".paired-curated");
+    await expect(note).toHaveText("matched by hand");
+    await expect(note).toHaveAttribute("title", /Extra virgin olive oil/);
+
+    // The pairing is live, so the marks are on the panel it widened.
+    const panel = await openTheFullPanel(page);
+    await expect(panel.locator("dd.est")).toHaveCount(1);
+    await expect(panel).toContainText("Iron");
+  });
+
+  test("takes one tap to refuse, and never offers that pack again", async ({
+    page,
+  }) => {
+    // The opt-out, and the half of it that matters: a refusal re-offered is the
+    // nag §14 forbids, so the cleared datom has to be read as this proposal's
+    // refusal rather than as an absence the table may fill again.
+    await page.goto("/?mem=1");
+    await waitForDbReady(page);
+    await openWayIn(page, "breakfast", "scan");
+    await page.locator("#barcode-input").fill(CURATED_CODE);
+    await page.locator("#barcode-input").press("Enter");
+    await expect(page.locator('[data-testid="paired-with"]')).toBeVisible();
+
+    await page.locator('[data-testid="clear-pairing"]').click();
+    await expect(page.locator('[data-testid="pair-food"]')).toBeVisible();
+    await expect(page.locator(".staged .nutrients")).not.toContainText("Iron");
+
+    // Log it, so the cleared pairing is a datom in the ledger rather than a
+    // staged payload, then scan the same barcode again. It stages FROM the local
+    // twin now, and the twin says no.
+    await page.getByLabel("Amount in grams").fill("15");
+    await page.locator("#log-food-btn").click();
+    await expect(
+      page.locator(".meal-section", { hasText: "BREAKFAST" })
+    ).toContainText("Aceite de oliva");
+
+    await openWayIn(page, "lunch", "scan");
+    await page.locator("#barcode-input").fill(CURATED_CODE);
+    await page.locator("#barcode-input").press("Enter");
+    await expect(page.locator(".staged h3")).toContainText("Aceite de oliva");
+    await expect(page.locator('[data-testid="paired-with"]')).toHaveCount(0);
+    await expect(page.locator('[data-testid="pair-food"]')).toBeVisible();
   });
 });

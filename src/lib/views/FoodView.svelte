@@ -19,7 +19,7 @@
     type ConsumptionEvent,
   } from "../stores/calorie.store";
   import { withPairing, PAIRING_CLEARED } from "../food/pairing";
-  import { curatedPairingOffer } from "../food/curated-pairing-offer";
+  import { curatedAcceptance } from "../food/curated-pairing-offer";
   import { consolidateIntoRecipe } from "../stores/recipe.store";
   import {
     scaleAmount,
@@ -518,6 +518,18 @@
     const resolved = await resolveAmountEdit(item);
     if (resolved) {
       amountEdit = resolved;
+      // **A curated pairing applies itself** (ADR-0113 §2 as amended, #552). The
+      // staged arm takes it inside the payload it is about to commit; a pack
+      // already in the ledger has no such write to ride, and opening its amount
+      // sheet is the moment this path has — the person is looking at the food, and
+      // the card under the sheet is where the pairing is named and where the one
+      // tap that refuses it lives.
+      //
+      // Awaited so the mirror `pairFood` puts on `resolved.payload` lands before
+      // anything reads it, and unawaited failures are its own business: it logs
+      // and leaves the card saying what the ledger says.
+      const reference = curatedAcceptance(resolved.payload);
+      if (reference) await pairFood(resolved, reference);
       return;
     }
 
@@ -1559,7 +1571,6 @@
        offered the row again when it reopens. -->
   <PackPairingSheet
     packName={ae.name}
-    curated={curatedPairingOffer(ae.payload)}
     onAccept={(reference) => void pairFood(ae, reference)}
     onClose={() => (pairingOpen = false)}
   />

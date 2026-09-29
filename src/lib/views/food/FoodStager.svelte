@@ -44,7 +44,7 @@
     type FoodDensity,
   } from "../../food/density";
   import { withPairing, PAIRING_CLEARED } from "../../food/pairing";
-  import { curatedPairingOffer } from "../../food/curated-pairing-offer";
+  import { curatedAcceptance } from "../../food/curated-pairing-offer";
   import {
     amountDefaults,
     basisUnit,
@@ -438,6 +438,28 @@
     if (!staged) return;
     staged = { ...staged, payload: withPairing(staged.payload, value) };
   }
+
+  // **A curated pairing applies itself** (ADR-0113 §2 as amended, #552). The
+  // table's 25 rows are hand-adjudicated claims about specific barcodes, and a
+  // confirmation they waited behind is a confirmation on a screen most people
+  // never open — so the row lands and the act a person performs is the refusal.
+  //
+  // It rides the write this staging is already going to make: the payload IS what
+  // the host ingests on commit, so a staging backed out of writes nothing at all,
+  // and the datom that does land is the one the user asked for by logging the
+  // food. That is why this is here rather than beside a scan — there are four
+  // sites that assign `staged`, and an effect answers all of them without any of
+  // them having to remember.
+  //
+  // Idempotent by construction rather than by a guard: `curatedAcceptance` reads
+  // through `curatedPairingOffer`, which returns nothing once the twin holds a
+  // `food/pairing` in any form. So it fires once per staged pack, and never again
+  // on one whose pairing the person has cleared — the clear IS the opt-out, and
+  // the gate reads it as the refusal it is.
+  $effect(() => {
+    const reference = curatedAcceptance(staged?.payload);
+    if (reference) stageFoodPairing(reference);
+  });
 
   // The staged food's full nutrition panel (per its serving basis). Handed to
   // FoodAmountPanel, which scales it to the typed amount for the pill preview and
@@ -3181,14 +3203,13 @@
        The sheet only ever hands back an id: what it means for this food is
        `stageFoodPairing`'s, and the write is the commit's.
 
-       `curatedPairingOffer`'s rules are its own (§14); what this host owes it is
-       the right twin, and the staged payload is one on both arms — a barcode
-       already in the ledger stages FROM its local twin, so a live pairing and a
-       cleared one both travel here, and one scanned for the first time carries
-       neither, which is exactly the pack the table is for. -->
+       The sheet hands back no curated row any more (#552). §14's row is applied
+       above, against the staged payload, and the payload is the right twin on both
+       arms — a barcode already in the ledger stages FROM its local twin, so a live
+       pairing and a cleared one both travel here, and one scanned for the first
+       time carries neither, which is exactly the pack the table is for. -->
   <PackPairingSheet
     packName={staged.name}
-    curated={curatedPairingOffer(staged.payload)}
     onAccept={stageFoodPairing}
     onClose={() => (pairingOpen = false)}
   />

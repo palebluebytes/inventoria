@@ -4,19 +4,20 @@
  *
  * `curated-pairings.test.ts` holds the table itself — that every row points at a
  * food this app ships, at a barcode that is a barcode, once. What is asserted
- * here is the other half: **when a row is offered at all**, and what has to be
- * true before one reaches a screen. The table is a prior, never a fact, and
- * every rule below is that sentence applied to one twin.
+ * here is the other half: **when a row applies at all**, and what has to be true
+ * before one reaches a pack.
+ *
+ * Since #552 a row APPLIES ITSELF rather than arming a button, so the sentence
+ * these rules are all an application of has moved: the table is a prior a person
+ * **refuses**, where it used to be one they accepted. Every guard is the same one,
+ * because the gate is the same gate — what changed is what happens when it opens.
  */
 import { describe, expect, it } from "vitest";
 import {
-  curatedPairingName,
+  curatedAcceptance,
+  curatedPairingApplied,
   curatedPairingOffer,
-  curatedPick,
   curatedReference,
-  declaredStateLabel,
-  declaredStateOf,
-  type PairingPick,
 } from "../../src/lib/food/curated-pairing-offer";
 import { CURATED_PAIRINGS } from "../../src/lib/food/curated-pairings";
 import {
@@ -175,98 +176,89 @@ describe("the sequence one pack walks through (§14)", () => {
   });
 });
 
-describe("the Declared state a row asserts (§§11, 14)", () => {
-  it("reads the state off `set`, which is written and never derived", () => {
-    expect(declaredStateOf(COOKED)).toBe("cooked");
-    expect(declaredStateOf(AS_BOUGHT)).toBe("as-bought");
+describe("what the acceptance writes, and when it says nothing (§2 as amended)", () => {
+  it("accepts the row's reference on a pack that has said nothing", () => {
+    // The whole of the change: a row no longer arms a button, it names the
+    // reference the pack is about to carry.
+    expect(curatedAcceptance(twin(AS_BOUGHT.gtin))).toBe(
+      curatedReference(AS_BOUGHT)
+    );
   });
 
-  it("names it in the words the question itself is asked in", () => {
-    // One list of two values, in `pairing-targets.ts`. A screen spelling the
-    // state out again would be a third place for a value to be coined, which is
-    // what §11 refuses.
-    for (const { value, label } of DECLARED_STATES)
-      expect(declaredStateLabel(value)).toBe(label);
+  it("carries the Declared state with it, because the id IS the state", () => {
+    // A row asserting a Pairing target is the assertion that the pack is cooked
+    // (§11), and nothing separate records it: the `fdc:` id this writes is the
+    // whole of the claim, so there is no second act and no second datom.
+    expect(curatedAcceptance(twin(COOKED.gtin))).toBe(curatedReference(COOKED));
+  });
+
+  it("says nothing about a pack nobody adjudicated", () => {
+    expect(curatedAcceptance(twin("0000000000000"))).toBeUndefined();
+  });
+
+  it("never speaks over a pairing the person made themselves", () => {
+    const own = withPairing(twin(AS_BOUGHT.gtin), "fdc:999999");
+
+    expect(curatedAcceptance(own)).toBeUndefined();
+  });
+
+  it("is refused for good by a clear, which is the whole opt-out", () => {
+    // **The opt-out needed nothing built.** The `✕` on the card writes
+    // PAIRING_CLEARED, the gate reads that as this proposal's refusal, and a
+    // refusal re-offered is the nag §14 already forbade. So the opt-out is one
+    // tap, it is durable, and it syncs between devices like any other datom.
+    const refusedPack = withPairing(twin(AS_BOUGHT.gtin), PAIRING_CLEARED);
+
+    expect(refusedPack.attributes[FOOD_PAIRING_ATTR]).toBe(PAIRING_CLEARED);
+    expect(curatedAcceptance(refusedPack)).toBeUndefined();
+  });
+
+  it("is idempotent, because accepting closes the gate it read", () => {
+    // Which is what lets the hosts apply it from an effect rather than from a
+    // one-shot hook: it fires once per pack and never again.
+    const fresh = twin(AS_BOUGHT.gtin);
+    const reference = curatedAcceptance(fresh)!;
+
+    expect(curatedAcceptance(withPairing(fresh, reference))).toBeUndefined();
   });
 });
 
-describe("when the row is pickable, and what it is (§§9, 11, 14)", () => {
-  const NAME = "Oil, olive, salad or cooking";
-
-  it("is pickable under the state it asserts, as the id and the description", () => {
-    // The two things §14 will not let a curated row imply, and the two a pick
-    // needs: the `fdc:` id the act writes, and the USDA row's own words.
-    expect(curatedPick(AS_BOUGHT, NAME, "as-bought")).toEqual({
-      entity: curatedReference(AS_BOUGHT),
-      name: NAME,
-    });
-  });
-
-  it("is withdrawn under the other state, and restored on the way back", () => {
-    // §11's partition binds a prior exactly as it binds a typed query: a cooked
-    // claim left standing under a person who has just said their pack is as they
-    // bought it is one tap from the pairing the partition exists to refuse.
-    // Withdrawing records nothing, so moving back brings it back.
-    expect(curatedPick(COOKED, NAME, "as-bought")).toBeUndefined();
-    expect(curatedPick(COOKED, NAME, "cooked")).toBeDefined();
-    expect(curatedPick(AS_BOUGHT, NAME, "cooked")).toBeUndefined();
-  });
-
-  it("is not pickable at all until the set can describe it", () => {
-    // §9's condition: the description is the whole of what makes a pairing
-    // rejectable, so a row that cannot show one has nothing a person could
-    // check. That covers a stale id, and on a device with no network it covers
-    // every cooked row too — §11 has neither Facet precaching the Pairing index,
-    // so the pack falls back to the search it would have had.
-    expect(curatedPick(AS_BOUGHT, undefined, "as-bought")).toBeUndefined();
-    expect(curatedPick(undefined, NAME, "as-bought")).toBeUndefined();
-  });
-});
-
-describe("the USDA row's own description, which is §9's condition", () => {
-  it("names a Reference food out of the shipped corpus, and fetches nothing else", async () => {
-    const name = await curatedPairingName(
-      AS_BOUGHT,
-      async () =>
-        corpusOf(row(AS_BOUGHT.fdcId, "Oil, olive, salad or cooking")),
-      refused("the Pairing index")
+describe("where a pairing nobody chose came from (§14)", () => {
+  it("names the row a live pairing came out of the table", () => {
+    // §7 keeps `food/pairing` a bare id carrying no name and no field list, so the
+    // datom cannot say who asserted it. What can be said is that the table would
+    // have proposed exactly this — which is what a card needs in order to point a
+    // reader at the `ground` and let them check it.
+    const accepted = withPairing(
+      twin(AS_BOUGHT.gtin),
+      curatedReference(AS_BOUGHT)
     );
-    expect(name).toBe("Oil, olive, salad or cooking");
+
+    expect(curatedPairingApplied(accepted)?.gtin).toBe(AS_BOUGHT.gtin);
+    expect(curatedPairingApplied(accepted)?.ground).toBe(AS_BOUGHT.ground);
   });
 
-  it("names a Pairing target out of the Pairing index, and never the Search index", async () => {
-    // The partition is symmetric (§11), and it binds a curated row exactly as it
-    // binds a typed query: a row asserting the pack is cooked is named out of
-    // the cooked set or not at all.
-    const name = await curatedPairingName(
-      COOKED,
-      refused("the Search index"),
-      async () => indexOf(row(COOKED.fdcId, "Beans, kidney, cooked, boiled"))
-    );
-    expect(name).toBe("Beans, kidney, cooked, boiled");
+  it("claims nothing about a pairing the person picked themselves", () => {
+    const own = withPairing(twin(AS_BOUGHT.gtin), "fdc:999999");
+
+    expect(curatedPairingApplied(own)).toBeUndefined();
   });
 
-  it("names nobody where the set it points at cannot answer", async () => {
-    // A stale id is the standing hazard the quarterly job exists for, and what
-    // it costs is the offer: `curatedPick` refuses a row it cannot describe.
+  it("claims nothing about an unpaired or a refused pack", () => {
+    expect(curatedPairingApplied(twin(AS_BOUGHT.gtin))).toBeUndefined();
     expect(
-      await curatedPairingName(
-        AS_BOUGHT,
-        async () => corpusOf(row(1, "Something else")),
-        refused("the Pairing index")
-      )
+      curatedPairingApplied(withPairing(twin(AS_BOUGHT.gtin), PAIRING_CLEARED))
     ).toBeUndefined();
   });
 
-  it("never rejects, on either arm", async () => {
-    // The sheet leans on this beside a search box that already works. An
-    // artifact that would not load costs the offer and nothing else — which is
-    // the state every unseeded pack is already in, and the state a cooked row
-    // is in on a device with no network.
-    const boom = async (): Promise<never> => {
-      throw new Error("offline");
-    };
-    expect(await curatedPairingName(AS_BOUGHT, boom, boom)).toBeUndefined();
-    expect(await curatedPairingName(COOKED, boom, boom)).toBeUndefined();
+  it("does not credit the table for the same id on a different barcode", () => {
+    // The row is keyed to one pack. Another pack paired with the same reference
+    // food is somebody's own judgement and is not the table's to claim.
+    const elsewhere = withPairing(
+      twin("0000000000000"),
+      curatedReference(AS_BOUGHT)
+    );
+
+    expect(curatedPairingApplied(elsewhere)).toBeUndefined();
   });
 });

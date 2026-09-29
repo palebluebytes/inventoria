@@ -131,11 +131,15 @@ describe("the search a person drives (§§2, 9)", () => {
   it("starts where a person already stands, so the question is a widening act", () => {
     // Defaulting to as-bought is what keeps the twins that already pair behaving
     // exactly as they do today, and what keeps the second artifact's fetch off
-    // the common path. A pack carrying a Curated pairing is the one exception
-    // and it is not a third value: the row asserts a state (§14), so the sheet
-    // opens at it with the control saying so.
+    // the common path.
+    //
+    // There is no exception left. A pack carrying a Curated pairing used to open
+    // at the state its row asserted, because the row was waiting here to be
+    // accepted; since #552 it has already been accepted, so every pack that can
+    // reach this sheet opens at the default and the declaration is the person's
+    // from the first frame.
     expect(SHEET).toMatch(
-      /\$state<DeclaredState>\(\s*curated \? declaredStateOf\(curated\) : DECLARED_STATE_DEFAULT\s*\)/
+      /\$state<DeclaredState>\(\s*DECLARED_STATE_DEFAULT\s*\)/
     );
   });
 
@@ -181,16 +185,15 @@ describe("the search a person drives (§§2, 9)", () => {
     // committed, and one more import is what a reviewer has to see. The three
     // the Declared state added are the two corpora's partition, the control that
     // asks the question, and the sentence a device with no network is owed for
-    // the artifact it has to fetch to answer it. The two the Curated pairing
-    // added are a hand-authored TABLE and the module that reads it — a row per
-    // barcode with a `ground` a reviewer read, which is the opposite of a thing
-    // that works a candidate out (§14). None of the five can name a food this
-    // screen was not handed.
+    // the artifact it has to fetch to answer it. The Curated pairing's own table
+    // is no longer among them at all: since #552 the row is applied at the host,
+    // so this screen imports one TYPE from the offer module and never the table —
+    // it cannot name a curated food even by accident. None of the four can name a
+    // food this screen was not handed.
     const imports = [...SHEET.matchAll(/from "([^"]+)"/g)].map((m) => m[1]);
     expect([...new Set(imports)].sort()).toEqual([
       "../../food/bundled-artifact",
       "../../food/curated-pairing-offer",
-      "../../food/curated-pairings",
       "../../food/food-search",
       "../../food/pairing",
       "../../food/pairing-targets",
@@ -247,86 +250,70 @@ describe("the search a person drives (§§2, 9)", () => {
  * and the description is resolved in an effect, which a server render never
  * runs.
  */
-describe("the Curated pairing a seeded barcode is offered (§14)", () => {
+describe("the Curated pairing a seeded barcode is given (§14, §2 as amended)", () => {
   const SHEET = readCode("src/lib/views/food/PackPairingSheet.svelte");
   const VIEW = readCode("src/lib/views/FoodView.svelte");
   const STAGER = readCode("src/lib/views/food/FoodStager.svelte");
+  const CARD = readCode("src/lib/views/food/FoodCard.svelte");
 
-  it("shows the USDA row's own description, which is §9's condition", () => {
-    // The table holds the PACK's name and a `ground` written for a reviewer, and
-    // neither is the USDA record's words. The row's title is the description
-    // `curatedPairingName` resolved out of the set the row names, and the sheet
-    // has nothing else to put there.
-    expect(SHEET).toMatch(/title=\{offered\.name\}/);
-    expect(SHEET).toMatch(/curatedPairingName\(row\)/);
+  it("applies itself on both paths, through one rule", () => {
+    // #552 inverted §2: the row lands and the act a person performs is the
+    // refusal. There are two paths a `food/pairing` reaches the ledger by, so the
+    // rule is one function and both hosts call it — a rule spelled at both is a
+    // rule that can differ at one.
+    expect(STAGER).toMatch(/curatedAcceptance\(staged\?\.payload\)/);
+    expect(VIEW).toMatch(/curatedAcceptance\(resolved\.payload\)/);
   });
 
-  it("shows the Declared state the row asserts, rather than implying it", () => {
-    // Two carriers, and both are the row's: the second line of the row itself,
-    // and the control above the box, which opens at the state the row asserts.
-    // Either is a tap from being changed.
-    expect(SHEET).toMatch(/subtitle="The pack, \{curatedStateLabel/);
-    expect(SHEET).toMatch(/declaredStateLabel\(declaredStateOf\(curated\)\)/);
+  it("rides the write each path was already going to make", () => {
+    // The staged arm applies it to the payload the host ingests on commit, so a
+    // staging backed out of writes nothing at all. The logged arm has no such
+    // write to ride, so it takes the moment the amount sheet opens — the only one
+    // that path has, and the one where the card under it names the pairing.
+    expect(STAGER).toMatch(/if \(reference\) stageFoodPairing\(reference\)/);
+    expect(VIEW).toMatch(
+      /if \(reference\) await pairFood\(resolved, reference\)/
+    );
+  });
+
+  it("shows where a pairing nobody chose came from, on the card", () => {
+    // §14 says the whole commitment rests on the row's `ground`. It used to be
+    // read above the search box; a pack that has been auto-accepted can never
+    // reach that surface again, so the ground is on the card beside the pairing it
+    // explains and the one tap that refuses it.
+    expect(CARD).toMatch(/curatedPairingApplied\(payload\)/);
+    expect(CARD).toMatch(/title=\{curatedRow\.ground\}/);
+    expect(CARD).toMatch(/matched by hand/);
+  });
+
+  it("keeps the refusal one tap away from the thing it refuses", () => {
+    // The opt-out is the clear that was already there, beside the paired name
+    // rather than behind the sheet: `PAIRING_CLEARED` is what the gate reads as
+    // this proposal's refusal, so the affordance and the meaning are one datom.
+    expect(CARD).toMatch(/data-testid="clear-pairing"/);
+    expect(CARD).toMatch(/onclick=\{onClearPairing\}/);
+  });
+
+  it("no longer offers a row on the sheet, because it could never draw", () => {
+    // A pack carrying a curated row is paired before this sheet can be reached, so
+    // the offer gate has closed on it for good. The section is gone rather than
+    // left unreachable, and with it the three helpers that had no other caller.
+    expect(SHEET).not.toMatch(/data-testid="curated-pairing"|pp-curated/);
+    expect(SHEET).not.toMatch(/\boffered\b|curatedPick|curatedPairingName/);
+    expect(SHEET).not.toMatch(/declaredStateLabel|CuratedPairing\b/);
+    // And the declaration opens at the default on every pack, because a row's own
+    // state can no longer be waiting to seed it.
     expect(SHEET).toMatch(
-      /curated \? declaredStateOf\(curated\) : DECLARED_STATE_DEFAULT/
+      /let declared = \$state<DeclaredState>\(\s*DECLARED_STATE_DEFAULT\s*\)/
     );
   });
 
-  it("pre-selects and never pre-accepts", () => {
-    // §2, and the whole of what makes a pre-selected row safe. Three statements,
-    // and none of them is about the operator. The effect arms what the button
-    // WOULD write and writes nothing; `chosen ??` is why an offer arriving late
-    // cannot displace a pick somebody already made; and `onAccept` is reachable
-    // from the button alone, the same button a typed search arms.
-    expect(SHEET).toMatch(
-      /\$effect\(\(\) => \{\s*chosen = chosen \?\? offered;\s*\}\);/
-    );
-    expect(SHEET.match(/onAccept\(/g)).toHaveLength(1);
-    expect(SHEET).toMatch(
-      /function accept\(\) \{\s*if \(!chosen\) return;\s*onAccept\(chosen\.entity\);/
-    );
-  });
-
-  it("takes both with one act", () => {
-    // The state and the row are accepted together because the id IS the state
-    // (§11): what the button writes is one `fdc:` id, minted from the row by
-    // `curatedPick`, and there is no second confirmation for the declaration.
-    expect(SHEET).toMatch(/curatedPick\(curated, curatedName, declared\)/);
-    expect(SHEET).not.toMatch(/onAccept\([^)]*declared/);
-  });
-
-  it("is never a fallback: the row is shown beside the search, not behind it", () => {
-    // Showing a curated claim only where nothing else was found hides it exactly
-    // where it is load-bearing. The block's condition names the offer alone —
-    // nothing about whether a search ran, answered, or failed.
-    const block = /\{#if offered\}([^]*?)\{\/if\}/.exec(SHEET);
-    expect(block).not.toBeNull();
-    expect(block![1]).not.toMatch(/results|answered|error|searching/);
-    // And it sits ahead of the box rather than under the list.
-    expect(SHEET.indexOf("{#if offered}")).toBeLessThan(
-      SHEET.indexOf('data-testid="pairing-search"')
-    );
-  });
-
-  it("decides none of §14 itself", () => {
-    // Every rule about when a row is offered, and what it is once offered, lives
-    // in `curated-pairing-offer.ts` where it is testable. This screen draws what
-    // it is handed — so the withdrawal rule, the description condition and the
-    // keying are asserted there, not against this markup.
-    expect(SHEET).not.toMatch(/"pairing-target"|CURATED_PAIRINGS|\.gtin\b/);
-    expect(SHEET).not.toMatch(/declared === declaredStateOf/);
-  });
-
-  it("leaves the offer to the host, which is the one that can see the twin", () => {
-    // Whether a row is offered is a question about the twin and not the screen:
-    // a live `food/pairing` wins over the table and a cleared one is never
-    // re-offered. Both hosts ask the same predicate of the payload they hold —
-    // the resolved twin on the logged path, the staged payload on the staging
-    // one, which stages FROM the local twin where there is one.
-    expect(VIEW).toMatch(/curated=\{curatedPairingOffer\(ae\.payload\)\}/);
-    expect(STAGER).toMatch(
-      /curated=\{curatedPairingOffer\(staged\.payload\)\}/
-    );
+  it("decides none of §14 on either host", () => {
+    // Every rule about when a row applies, and what it writes, lives in
+    // `curated-pairing-offer.ts` where it is testable. The hosts call it and the
+    // card reads it back; neither knows what a curated row IS.
+    for (const source of [SHEET, VIEW, STAGER, CARD])
+      expect(source).not.toMatch(/"pairing-target"|CURATED_PAIRINGS|\.gtin\b/);
   });
 });
 

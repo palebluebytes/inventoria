@@ -21,6 +21,7 @@
   } from "../../food/off-signals";
   import { dietaryTagsView } from "../../food/dietary-tag";
   import { foodSourceView, type FoodSourceKind } from "../../food/food-source";
+  import { curatedPairingApplied } from "../../food/curated-pairing-offer";
   import { pairingRefusalOf, readFoodPairing } from "../../food/pairing";
   import { markPanel } from "../../food/marked-panel";
   import { loadReferenceFoods } from "../../food/frozen-pairing";
@@ -211,6 +212,21 @@
     paired ? foodSourceView({ entity: paired, attributes: {} }) : null
   );
 
+  // **Where a pairing nobody chose came from** (ADR-0113 §14, §2 as amended,
+  // #552). A curated row now applies itself, so the first time a person sees this
+  // pack it is already paired — and §7 keeps `food/pairing` a bare live id, so the
+  // datom cannot say who asserted it. What CAN be said is that the table would
+  // have proposed exactly this, and that is the claim a reader needs before they
+  // decide whether to keep it.
+  //
+  // It carries the row's `ground` rather than a badge, because the `ground` is the
+  // whole of what makes the claim checkable — the field ADR-0113 §14 says the
+  // commitment rests on, written for a person to read against what is in their
+  // hand. Before the amendment it was on the pairing sheet, above the search box;
+  // the sheet cannot show it any more, because a pack that is already paired is
+  // one the offer gate has closed on for good.
+  let curatedRow = $derived(curatedPairingApplied(payload));
+
   // The paired row's own description, resolved out of the corpus the search
   // already reads. It is the name and never a stored copy of one: §7 keeps the
   // twin's pairing a bare live id, so what a pack is paired WITH is looked up
@@ -354,6 +370,15 @@
         >
           <SourceTag source={pairedSourceTag} />
           <span class="paired-name">{pairedName ?? paired}</span>
+          {#if curatedRow}
+            <!-- Quiet and secondary, for ADR-0041's amendment's reason and §5's:
+                 a calmer surface beats an at-a-glance provenance cue, with the
+                 honesty one tap deeper. The ground rides the title so the claim
+                 is readable without a second sheet. -->
+            <span class="paired-curated" title={curatedRow.ground}
+              >matched by hand</span
+            >
+          {/if}
         </button>
         {#if onClearPairing}
           <button
@@ -571,6 +596,12 @@
     font-size: var(--step-n1);
     color: var(--text-secondary);
     background: none;
+  }
+  /* The curated note is not a control and takes no tap: it is a word inside the
+     paired button, which carries the floor for both of them. */
+  .paired-curated {
+    font-size: var(--step-n2);
+    color: var(--text-secondary);
   }
   .pair {
     padding: var(--space-3xs) 0;

@@ -1162,3 +1162,73 @@ already this record's concepts under this record's arguments — §5 does not ha
 name for the thing it describes without them — and CODING_STANDARDS §8 asks that a
 genuinely new domain concept reach `CONTEXT.md`. Nine entries, and the **Reference
 food** narrowing §16 describes is unchanged.
+
+## Amendment (2026-09-29, #552): a Curated pairing applies itself, and the act a person performs is the refusal
+
+**This reverses §2 for the Curated pairing table, and only for it**
+([#552](https://github.com/palebluebytes/inventoria/issues/552)). §2 reads
+_pre-selecting is allowed; pre-accepting is not_, and names §14's table as the thing
+it binds. A curated row now lands on the pack without being asked, and the explicit
+act §2 was protecting moves from the acceptance to the **refusal**.
+
+§2's rule stands unchanged everywhere else. A typed search still writes nothing
+until the button is tapped, and §9's refusal of a proposer is untouched: the reason
+nothing proposes is that no mechanism is good enough, and a hand-adjudicated row
+committed with a `ground` is not a mechanism. What has changed is one judgement about
+one table.
+
+### What it costs, stated rather than discovered
+
+**§9's read still happens, but after the write instead of before it.** §9 rests on a
+wrong pairing naming a food you can read and reject, because validating an id against
+the corpus catches one wrong-food error in seven ([#247](https://github.com/palebluebytes/inventoria/issues/247)).
+Before, the row's USDA description had to resolve before the accept button armed.
+Now the pairing lands, the card names the reference food live under its own source
+tag, and the clear beside it is one tap. The read is preserved; the gate is not.
+
+**That is a real weakening**, because §5 sends a borrowed figure to the day's meters
+as measured and the `est` mark is its only carrier. A wrong curated row moves a real
+number until somebody looks at the card. Against it: the 25 rows reach the 25 packs
+they were adjudicated for, rather than waiting behind a confirmation on a screen most
+people never open — which was
+[#62](https://github.com/palebluebytes/inventoria/issues/62) in miniature, the thing
+§14 shipped the table seeded to avoid.
+
+### The opt-out needed nothing built
+
+`curatedPairingOffer` already gated on the twin carrying **no** `food/pairing` in any
+form, and already read a **cleared** one as this proposal's refusal on the stated
+ground that _a refusal re-offered is the nag §14 forbids_. So the `✕` that was
+already on the card is the opt-out: one tap, durable, and it syncs between your own
+devices like any other datom. No setting was added, and none should be — a toggle
+that changes what a datom means is the hidden state §2 was written against.
+
+It follows that the acceptance is **idempotent**: accepting closes the gate it read,
+which is what lets both hosts apply it from an effect rather than from a one-shot
+hook.
+
+### Where it is written, and where §14's `ground` went
+
+Two paths reach `food/pairing` and each rides the write it was already making. A
+staged pack takes it on the payload the host ingests at commit, so a staging backed
+out of writes nothing. A pack already in the ledger takes it when its amount sheet
+opens, which is the only moment that path has.
+
+**§14's row is therefore gone from the pairing sheet, and the section is deleted
+rather than left unreachable.** A pack carrying a curated row is paired before that
+sheet can be opened, so the offer gate has closed on it for good. The row's `ground`
+is the field §14 says the whole commitment rests on, and it now sits on the pack's own
+card, beside the pairing it explains and the tap that refuses it — quiet and
+secondary, which is ADR-0041's amendment's shape and §5's. `curatedPick`,
+`curatedPairingName` and `declaredStateLabel` went with the section; they had no other
+caller.
+
+One consequence for §11: the sheet's Declared state opens at the default on every
+pack, because a curated row's own state can no longer be waiting there to seed it.
+
+### What would reopen this
+
+A wrong curated row that reached a logged occasion before anybody noticed. That is
+the measurement this amendment is exposed on, and the honest place to take it is the
+quarterly `curated:check` — if drift ever finds a row whose food had changed under it,
+the gate this removed is what would have caught it.

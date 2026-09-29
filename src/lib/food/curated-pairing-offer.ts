@@ -46,6 +46,7 @@ import { CURATED_PAIRINGS, type CuratedPairing } from "./curated-pairings";
 import {
   describedReferenceFood,
   FOOD_PAIRING_ATTR,
+  readFoodPairing,
   referenceFoodName,
 } from "./pairing";
 import {
@@ -94,6 +95,79 @@ export function curatedPairingOffer(
 }
 
 /**
+ * The reference a curated row is **accepted as** on a pack that has said nothing
+ * about pairing yet — or `undefined` where the table has nothing for it.
+ *
+ * **This is the amended §2** (#552). The record's original rule was that only a
+ * person's explicit act makes a pairing a fact, and a curated row could arm the
+ * accept button and nothing more. It now applies itself, and the act a person
+ * performs is the **refusal** rather than the acceptance.
+ *
+ * Every guard that made the offer safe still holds, because they are all
+ * {@link curatedPairingOffer}'s and it is the gate here too: a live pairing is the
+ * person's own assertion and wins, and a **cleared** one is their refusal of this
+ * very proposal — which is why the opt-out needs nothing built. The `✕` on the
+ * card writes `PAIRING_CLEARED`, the gate reads that as a refusal, and a refusal
+ * re-offered is the nag §14 already forbade. The opt-out is therefore durable, and
+ * it syncs between your own devices like any other datom.
+ *
+ * **What moved is the ORDER of §9's read, not whether it happens.** §9 rests on a
+ * wrong pairing naming a food you can read and reject, because validating an id
+ * against the corpus catches one wrong-food error in seven (#247). Before, the
+ * row's description had to resolve before the button armed. Now the pairing lands
+ * and the card names it — live, under the reference food's own source tag, beside
+ * a one-tap clear — so the read is after the write instead of before it. That is a
+ * real weakening and is recorded as one: §5 sends a borrowed figure to the day's
+ * meters as measured, so a wrong row moves a real number until somebody looks.
+ * What is traded for it is the 25 rows actually reaching the packs they were
+ * adjudicated for, rather than waiting behind a confirmation on a screen most
+ * people never open.
+ *
+ * **It is a function rather than two calls at each host** for the reason
+ * `withPairing` is one writer: there are two paths a `food/pairing` reaches the
+ * ledger by, and a rule spelled at both is a rule that can differ at one.
+ *
+ * No `name` is required, unlike {@link curatedPick}. A sheet could not offer a
+ * food it was unable to name, because the name WAS the whole of what made the
+ * offer rejectable at that moment. Here the card does the naming a moment later,
+ * and where the corpus cannot answer the bare id stands — which §7 already holds
+ * to be honest, and which keeps this decision synchronous so the staged arm can
+ * take it inside the payload it is about to commit.
+ */
+export function curatedAcceptance(
+  twin: EntityPayload | undefined
+): string | undefined {
+  const row = curatedPairingOffer(twin);
+  return row ? curatedReference(row) : undefined;
+}
+
+/**
+ * The curated row a twin's **live** pairing came from, or `undefined` where the
+ * pairing is the person's own choice, absent, or refused.
+ *
+ * The other end of {@link curatedAcceptance}, and what lets a card say where a
+ * pairing nobody chose came from. §7 keeps `food/pairing` a bare live id carrying
+ * no field list and no name, so the datom itself cannot say who asserted it; what
+ * CAN be said is that the table would have proposed exactly this, which is the
+ * honest claim and the one a reader needs in order to go and check the `ground`.
+ *
+ * It reads the table rather than the offer gate, because by construction the gate
+ * has already closed: the twin has a pairing, so {@link curatedPairingOffer}
+ * returns nothing for it forever after.
+ */
+export function curatedPairingApplied(
+  twin: EntityPayload | undefined
+): CuratedPairing | undefined {
+  const live = twin ? readFoodPairing(twin.attributes) : undefined;
+  if (!live) return undefined;
+  return CURATED_PAIRINGS.find(
+    (row) =>
+      mintEntity("gtin:", row.gtin) === twin?.entity &&
+      curatedReference(row) === live
+  );
+}
+
+/**
  * The `fdc:` id a curated row names — the entity a Pack pairing would hold, and
  * the one thing an acceptance writes (§7).
  *
@@ -103,33 +177,6 @@ export function curatedPairingOffer(
  */
 export function curatedReference(row: CuratedPairing): string {
   return mintEntity("fdc:", row.fdcId);
-}
-
-/**
- * The Declared state a row asserts (§§11, 14).
- *
- * Read off `set`, which §14 writes down and never derives: a row naming a
- * Pairing target **is** the assertion that the pack is sold cooked, because the
- * target's own `fdc:` id is the state and there is nowhere else for it to live.
- */
-export function declaredStateOf(row: CuratedPairing): DeclaredState {
-  return row.set === "pairing-target" ? "cooked" : "as-bought";
-}
-
-/**
- * The words a person reads a Declared state under, taken from the one list the
- * question itself is asked from (§11).
- *
- * A screen spelling the two states out again would be a third place a value
- * could be coined, and a third option is precisely what §11 refuses. The value
- * stands in for its own label where the list somehow does not carry it, which it
- * always does: a screen is not the place to discover otherwise, and a throw here
- * would take the search down with the caption.
- */
-export function declaredStateLabel(state: DeclaredState): string {
-  return (
-    DECLARED_STATES.find((option) => option.value === state)?.label ?? state
-  );
 }
 
 /**
@@ -144,77 +191,4 @@ export function declaredStateLabel(state: DeclaredState): string {
 export interface PairingPick {
   entity: string;
   name: string;
-}
-
-/**
- * The curated row as something pickable, or `undefined` where there is nothing
- * to offer right now.
- *
- * Three things have to hold at once, and each is a §14 clause rather than a
- * convenience:
- *
- *  - there is a row, which {@link curatedPairingOffer} decided;
- *  - the set it names could **describe** it, which is §9's condition — a row
- *    whose id has left that set has nothing a person could check, and the honest
- *    surface for one is no offer at all rather than a bare id. On a device with
- *    no network that also covers every cooked row, because §11 has neither Facet
- *    precaching the Pairing index: the pack falls back to the search it would
- *    have had, rather than to a claim nobody can read;
- *  - the person's Declared state is the one the row asserts. It is withdrawn
- *    when they move off it and restored when they move back, because a
- *    pre-selection is not an answer and withdrawing one records nothing.
- */
-export function curatedPick(
-  row: CuratedPairing | undefined,
-  name: string | undefined,
-  declared: DeclaredState
-): PairingPick | undefined {
-  if (!row || !name) return undefined;
-  if (declared !== declaredStateOf(row)) return undefined;
-  return { entity: curatedReference(row), name };
-}
-
-/**
- * The USDA row's **own description**, out of whichever shipped set the row's
- * `set` names — or `undefined` where that set cannot answer for it.
- *
- * **This is §9's condition, and it is what makes a curated row showable at
- * all.** Validating an id against the corpus catches one wrong-food error in
- * seven (#247), so the clause the whole design rests on — *a wrong pairing names
- * a food you can read and reject* — holds only where the row's own words are on
- * screen. A curated row is not a person's typed query, so it owes that condition
- * more rather than less: a caller that cannot name the food must offer nothing,
- * which is {@link curatedPick}'s second clause.
- *
- * **It reads the set the row names, and only it**, which is §11's partition
- * binding a prior exactly as it binds a search. A row asserting the pack is
- * cooked is named out of the Pairing index or not at all — naming it out of the
- * Search index would be the forward error the partition exists to refuse,
- * arriving through the one door that skips the question.
- *
- * **The index and never the Nutrient store.** §11 splits the two cooked
- * artifacts by act — the index when a person declares cooked, the store when
- * they accept a row — and looking at a curated row is the first of those, so the
- * megabyte stays off it. For an as-bought row the corpus is the shipped one,
- * memoised and warmed at startup, so the ordinary case costs nothing.
- *
- * **It never rejects.** The offer sits beside a search box that already works,
- * so an artifact that would not load costs the offer and nothing else — which is
- * the state every unseeded pack is already in.
- */
-export async function curatedPairingName(
-  row: CuratedPairing,
-  loadCorpus: () => Promise<SearchCorpus> = loadSearchCorpus,
-  loadCooked: () => Promise<PairingIndex> = loadPairingIndex
-): Promise<string | undefined> {
-  const reference = curatedReference(row);
-  try {
-    if (declaredStateOf(row) === "cooked") {
-      const index = await loadCooked();
-      return describedReferenceFood(index.foods, reference);
-    }
-    return referenceFoodName(await loadCorpus(), reference);
-  } catch {
-    return undefined;
-  }
 }
