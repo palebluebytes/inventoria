@@ -28,7 +28,6 @@
     curatedPick,
     declaredStateLabel,
     declaredStateOf,
-    preselect,
     type PairingPick,
   } from "../../food/curated-pairing-offer";
   import type { CuratedPairing } from "../../food/curated-pairings";
@@ -193,14 +192,44 @@
    *
    * **Arming, never accepting**: this sets what the button would write and
    * writes nothing, and the button under it is the whole act. **And never
-   * overruling**: `preselect` hands back what is already picked where anything
-   * is, which matters because the description is resolved out of an artifact —
-   * the offer can appear a fetch after this sheet opened, by which time somebody
-   * may have typed a query and tapped a row of their own.
+   * overruling**: `chosen ??` is the whole of that rule — what is already picked
+   * survives, which matters because the description is resolved out of an
+   * artifact. The offer can appear a fetch after this sheet opened, by which time
+   * somebody may have typed a query and tapped a row of their own, and silently
+   * moving what the accept button would write under a person who has already
+   * chosen is §2's collapse in a smaller window.
+   *
+   * The `??` was a named function until it was read as the thin wrapper it is
+   * (CODING_STANDARDS §4). What made it worth naming was never the operator: it
+   * is that the expression sits HERE, in an effect that arms and nothing else,
+   * and that `onAccept` is reachable from the button alone. Both are asserted in
+   * `pack-pairing-surface.test.ts`, against this file's own source.
    */
   $effect(() => {
-    chosen = preselect(chosen, offered);
+    chosen = chosen ?? offered;
   });
+
+  /**
+   * What a failed pairing search says, by what failed.
+   *
+   * A dispatch of four cases rather than the nested ternary it was: the middle
+   * case carries the reasoning, and an explanation nested three levels into a
+   * conditional expression is one nobody reads (CODING_STANDARDS §4).
+   *
+   * **Neither Facet precaches the Pairing index** (§11), so declaring a pack
+   * cooked with no network is an ordinary case rather than an exceptional one —
+   * and the recovery is the declaration itself, because the set this device DOES
+   * keep is one tap away.
+   */
+  function searchErrorLine(e: unknown): string {
+    if (e instanceof NoReferenceFoodError) return NO_FOOD_FOUND;
+    if (e instanceof ArtifactUnreachableError)
+      return needsNetworkLine(
+        e,
+        "Say “As you bought it” to search the foods this device keeps."
+      );
+    return e instanceof Error ? e.message : String(e);
+  }
 
   let debounceTimer: ReturnType<typeof setTimeout>;
   $effect(() => {
@@ -243,21 +272,7 @@
     } catch (e) {
       results = [];
       answered = typed;
-      error =
-        e instanceof NoReferenceFoodError
-          ? NO_FOOD_FOUND
-          : // Neither Facet precaches the Pairing index (§11), so declaring a
-            // pack cooked with no network is an ordinary case rather than an
-            // exceptional one, and the recovery is the declaration itself: the
-            // set this device DOES keep is one tap away.
-            e instanceof ArtifactUnreachableError
-            ? needsNetworkLine(
-                e,
-                "Say “As you bought it” to search the foods this device keeps."
-              )
-            : e instanceof Error
-              ? e.message
-              : String(e);
+      error = searchErrorLine(e);
     } finally {
       searching = false;
     }

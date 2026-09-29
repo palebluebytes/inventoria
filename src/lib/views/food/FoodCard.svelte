@@ -202,7 +202,12 @@
   let paired = $derived(readFoodPairing(payload.attributes));
   // The reference food's OWN source tag (§1), read from the id by the app's one
   // origin reader rather than by a second rule written here.
-  let pairedSource = $derived(
+  //
+  // Named `…Tag` and not `pairedSource`, which is `frozen-pairing.ts`'s function
+  // for a different concept entirely — the panel and envelope a freeze reads off
+  // a twin. This is a `FoodSourceView`, the sibling of `source` above
+  // (CODING_STANDARDS §2.3).
+  let pairedSourceTag = $derived(
     paired ? foodSourceView({ entity: paired, attributes: {} }) : null
   );
 
@@ -338,7 +343,7 @@
        paired" would be noise about a capability that food never had. -->
   {#if pairable && onPair}
     <div class="pairing" data-testid="pack-pairing">
-      {#if paired && pairedSource}
+      {#if paired && pairedSourceTag}
         <button
           type="button"
           class="paired"
@@ -347,7 +352,7 @@
           onclick={onPair}
           title="Pair with a different reference food"
         >
-          <SourceTag source={pairedSource} />
+          <SourceTag source={pairedSourceTag} />
           <span class="paired-name">{pairedName ?? paired}</span>
         </button>
         {#if onClearPairing}

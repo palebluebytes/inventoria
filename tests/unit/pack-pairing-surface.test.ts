@@ -273,13 +273,13 @@ describe("the Curated pairing a seeded barcode is offered (§14)", () => {
   });
 
   it("pre-selects and never pre-accepts", () => {
-    // §2, and the whole of what makes a pre-selected row safe. The effect arms
-    // what the button WOULD write, through `preselect`, whose rule — an offer
-    // never displaces a pick somebody made — is asserted behaviourally in
-    // `curated-pairing-offer.test.ts`. The button is still the only thing that
-    // calls `onAccept`, and it is still the same button a typed search arms.
+    // §2, and the whole of what makes a pre-selected row safe. Three statements,
+    // and none of them is about the operator. The effect arms what the button
+    // WOULD write and writes nothing; `chosen ??` is why an offer arriving late
+    // cannot displace a pick somebody already made; and `onAccept` is reachable
+    // from the button alone, the same button a typed search arms.
     expect(SHEET).toMatch(
-      /\$effect\(\(\) => \{\s*chosen = preselect\(chosen, offered\);\s*\}\);/
+      /\$effect\(\(\) => \{\s*chosen = chosen \?\? offered;\s*\}\);/
     );
     expect(SHEET.match(/onAccept\(/g)).toHaveLength(1);
     expect(SHEET).toMatch(

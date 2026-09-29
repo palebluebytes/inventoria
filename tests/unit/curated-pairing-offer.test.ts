@@ -16,7 +16,6 @@ import {
   curatedReference,
   declaredStateLabel,
   declaredStateOf,
-  preselect,
   type PairingPick,
 } from "../../src/lib/food/curated-pairing-offer";
 import { CURATED_PAIRINGS } from "../../src/lib/food/curated-pairings";
@@ -221,28 +220,6 @@ describe("when the row is pickable, and what it is (§§9, 11, 14)", () => {
     // so the pack falls back to the search it would have had.
     expect(curatedPick(AS_BOUGHT, undefined, "as-bought")).toBeUndefined();
     expect(curatedPick(undefined, NAME, "as-bought")).toBeUndefined();
-  });
-});
-
-describe("what arming the button may and may not do (§2)", () => {
-  const OFFER: PairingPick = { entity: "fdc:171413", name: "Oil, olive" };
-  const OWN: PairingPick = { entity: "fdc:173740", name: "Beans, kidney" };
-
-  it("pre-selects onto an empty screen", () => {
-    expect(preselect(undefined, OFFER)).toBe(OFFER);
-  });
-
-  it("never overrules a pick the person made themselves", () => {
-    // The description is resolved out of an artifact, so the offer can appear a
-    // fetch after the sheet opened — long after somebody typed a query and
-    // tapped a row. Moving what the accept button would write, under a person
-    // who has already chosen, is §2's collapse in a smaller window.
-    expect(preselect(OWN, OFFER)).toBe(OWN);
-  });
-
-  it("leaves an empty screen empty where there is nothing to offer", () => {
-    expect(preselect(undefined, undefined)).toBeUndefined();
-    expect(preselect(OWN, undefined)).toBe(OWN);
   });
 });
 

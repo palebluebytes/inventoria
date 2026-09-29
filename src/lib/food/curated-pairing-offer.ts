@@ -18,7 +18,8 @@
 //
 //  - It pre-SELECTS and never accepts (§2), so nothing here writes and nothing
 //    it returns is a datom. What it hands a screen is a row to show.
-//  - A pre-selection never displaces a person's own pick ({@link preselect}),
+//  - A pre-selection never displaces a person's own pick — `chosen ?? offered`
+//    in `PackPairingSheet`'s arming effect, where the rule is pinned,
 //    which is the same sentence read from the other end.
 //  - It never overwrites a live `food/pairing` (§14). A person's assertion about
 //    their own jar wins, and a pack already carrying one is not a pack with a
@@ -171,28 +172,6 @@ export function curatedPick(
   if (!row || !name) return undefined;
   if (declared !== declaredStateOf(row)) return undefined;
   return { entity: curatedReference(row), name };
-}
-
-/**
- * What is armed once an offer appears: the offer, unless the person has already
- * picked something themselves.
- *
- * **This is §2 read from the far end.** Pre-selecting is allowed, so an offer
- * arriving to an empty screen arms the button. Pre-*accepting* is not, and
- * neither is pre-*overruling*: a curated row's description is resolved out of an
- * artifact, so the offer can appear a fetch after the sheet opened — long after
- * somebody has typed a query and tapped a row of their own. Silently moving what
- * the accept button would write, under a person who has already chosen, is the
- * same collapse in a smaller window.
- *
- * A function rather than a condition inside an effect, because the rule is the
- * decision and an effect is where it would go untested.
- */
-export function preselect(
-  chosen: PairingPick | undefined,
-  offer: PairingPick | undefined
-): PairingPick | undefined {
-  return chosen ?? offer;
 }
 
 /**
