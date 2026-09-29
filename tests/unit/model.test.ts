@@ -19,6 +19,7 @@ import {
   LABEL_PROMPT,
   MODEL_FAULT,
   readLabelAnswer,
+  answerBodyOf,
 } from "../../worker/src/model-label";
 import { recordingModel, refusingModel } from "./support/model-binding";
 
@@ -407,7 +408,18 @@ describe("reading the answer: schema-invalid, never sparse", () => {
     response: JSON.stringify(object),
   });
 
-  it("reads a panel out of either envelope the binding might use", () => {
+  /**
+   * #541 measured the live envelope: fifteen top-level keys, with `response`
+   * holding the model's JSON **already parsed** and `choices[0].message.content`
+   * holding the same answer as a string. Both are asserted because both are
+   * shapes that have been seen — and the object arm is the one that ships.
+   */
+  it("reads a panel out of the parsed `response` the binding returns", () => {
+    const body = { name: null, brand: null, basis: "per_100g", nutrition: {} };
+    expect(readLabelAnswer({ response: body })).toEqual(body);
+  });
+
+  it("reads it out of `choices` too, which is what REST answers", () => {
     const body = { name: null, brand: null, basis: "per_100g", nutrition: {} };
     expect(readLabelAnswer(answered(body))).toEqual(body);
     expect(
@@ -415,6 +427,14 @@ describe("reading the answer: schema-invalid, never sparse", () => {
         choices: [{ message: { content: JSON.stringify(body) } }],
       })
     ).toEqual(body);
+  });
+
+  // Taking `response` as a string, which is what the binding page implies,
+  // would have yielded null and a 422 on every read.
+  it("does not mistake the parsed object for something it cannot read", () => {
+    expect(answerBodyOf({ response: { basis: "per_100g" } })).toEqual({
+      basis: "per_100g",
+    });
   });
 
   it("reads through a code fence, which is what a prompt regression looks like", () => {

@@ -172,11 +172,30 @@ export const MODEL_FAULT = {
  * member by design. It misreads only a genuinely exhausted day and fails toward
  * retry rather than toward giving up.
  *
- * [#541](https://github.com/palebluebytes/inventoria/issues/541) is where the
- * binding's own thrown shape gets measured; until it reports, the message
- * patterns below are read from what the REST path produced and this function is
- * correct either way, because the contract names the set and never the
- * mechanism.
+ * **#541 has now measured the thrown shape, and it is not what the docs say.**
+ * Against the live binding:
+ *
+ * ```
+ * constructor  InferenceUpstreamError      (not a bare Error)
+ * name         AiGatewayError | AiError    (which side faulted)
+ * ownKeys      ["stack", "message", "name"]   — there is NO `.code`
+ * message      "2003: Rate limited"
+ * ```
+ *
+ * So **the code arrives as a `NNNN: ` prefix on the message**, which is why
+ * matching the message rather than a property is not a workaround but the only
+ * reading available. `name` additionally says *which side* faulted —
+ * `AiGatewayError` for the gateway, `AiError` for the model, as a deprecated
+ * model id demonstrated — and is deliberately **not** matched on: it is
+ * undocumented, it does not change the mapping, and a second signal that agrees
+ * with the first is a second thing to keep in step.
+ *
+ * `returnRawResponse: true` was measured too, and it is real: it answers a
+ * `Response` rather than throwing — `200` on success, `429` on the limit, with
+ * a structured body carrying `internalCode: 2003` as a **number**. It is not
+ * taken, because it would also make the success path a raw `Response` and throw
+ * away the parse {@link answerBodyOf} relies on. Recorded so nobody re-measures
+ * it to find out.
  */
 export function faultStatusOf(failure: unknown): number {
   const message =
@@ -202,35 +221,14 @@ export function faultStatusOf(failure: unknown): number {
 }
 
 /**
- * The text the model answered, out of whichever envelope the binding used.
+ * The JSON object inside a string answer.
  *
- * **Both shapes are accepted because this repo has not measured which one the
- * binding returns for this model.** #482 ran over the OpenAI-compatible REST
- * endpoint, which answers `choices[].message.content`; the Workers AI binding
- * is documented as answering `response` for text generation. Guessing one and
- * being wrong is a `422` on every read, and accepting both costs four lines.
- * #541 is where it gets pinned; narrowing this is that ticket's to do, not a
- * later reader's to assume.
- */
-export function answerTextOf(raw: unknown): string | null {
-  if (typeof raw === "string") return raw;
-  if (typeof raw !== "object" || raw === null) return null;
-  const envelope = raw as {
-    response?: unknown;
-    choices?: { message?: { content?: unknown } }[];
-  };
-  if (typeof envelope.response === "string") return envelope.response;
-  const content = envelope.choices?.[0]?.message?.content;
-  return typeof content === "string" ? content : null;
-}
-
-/**
- * The JSON object inside an answer.
- *
- * The prompt asks for bare JSON and #482 measured this model obeying, every run.
- * A fenced block is stripped anyway — tolerance, not expectation: it is what the
- * *naive* prompt produced, so it is the shape a prompt regression arrives in,
- * and reading through it costs one regular expression.
+ * The prompt asks for bare JSON and #482 measured this model obeying, every
+ * run — and #541 then found the binding parses it for us anyway, so this is
+ * reached only on the paths that hand back a string. A fenced block is stripped
+ * as tolerance rather than expectation: it is what the *naive* prompt produced,
+ * so it is the shape a prompt regression arrives in, and reading through it
+ * costs one regular expression.
  */
 function jsonIn(text: string): unknown {
   const fenced = /```(?:json)?\s*([\s\S]*?)```/.exec(text);
@@ -240,6 +238,46 @@ function jsonIn(text: string): unknown {
   } catch {
     return null;
   }
+}
+
+/**
+ * The answer out of the binding's envelope — **already parsed, on the path that
+ * ships**.
+ *
+ * Measured against the live binding for
+ * [#541](https://github.com/palebluebytes/inventoria/issues/541), which is the
+ * only way this was ever going to be known: the envelope carries **fifteen**
+ * top-level keys and two of them hold the answer. `response` is the model's
+ * JSON **already parsed into an object**, and `choices[0].message.content` is
+ * the same answer as a raw string. `usage.neurons` read **74.70** for one
+ * 1125x2000 photograph, which is #482's 76 confirmed on the binding rather than
+ * on REST.
+ *
+ * **That is not what the documentation implies.** Workers AI's binding page
+ * describes `response` for text generation, which reads as a string, and #482
+ * ran over the OpenAI-compatible REST endpoint, which answers only `choices`.
+ * A route written to either single shape alone would have been wrong: taking
+ * `response` as a string yields `null` and a `422` on **every** read, and
+ * taking `choices` alone throws away a parse the platform already did.
+ *
+ * So the order is **object, then string, then the raw choice**, and every arm
+ * is a shape that has been seen rather than a defensive guess.
+ */
+export function answerBodyOf(raw: unknown): unknown {
+  if (typeof raw !== "object" || raw === null)
+    return typeof raw === "string" ? jsonIn(raw) : null;
+
+  const envelope = raw as {
+    response?: unknown;
+    choices?: { message?: { content?: unknown } }[];
+  };
+  // The path that ships: the binding parsed it for us.
+  if (typeof envelope.response === "object" && envelope.response !== null)
+    return envelope.response;
+  // A model that answered prose, or a future envelope that stops parsing.
+  if (typeof envelope.response === "string") return jsonIn(envelope.response);
+  const content = envelope.choices?.[0]?.message?.content;
+  return typeof content === "string" ? jsonIn(content) : null;
 }
 
 /**
@@ -261,10 +299,7 @@ function jsonIn(text: string): unknown {
  * relabel every row at once.
  */
 export function readLabelAnswer(raw: unknown): LabelReading | null {
-  const text = answerTextOf(raw);
-  if (text === null) return null;
-
-  const parsed = jsonIn(text);
+  const parsed = answerBodyOf(raw);
   if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed))
     return null;
 
