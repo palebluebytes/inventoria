@@ -423,7 +423,7 @@ _Avoid_: The AI endpoint, the LLM API, the extractor, the AI service, "the model
 
 **Proposal**:
 What a **Model route** answer becomes once it reaches the app: a filled-in form the user reads, corrects and saves, and which is never truth until they do. Nothing of a proposal reaches the **Ledger** un-reviewed, a row the source did not state is **absent rather than zero**, and a number is only ever proposed where the person confirming it has the referent in front of them — a printed panel in their hand — so a model may transcribe or estimate a figure but may never originate one the user cannot check. A proposal is applied whole or not at all: a failed read leaves the form byte-identical to the instant before the press, and a partial application is refused because a half-filled form is one the user cannot trust. See ADR-0115 §6, and ADR-0034 §3 for the form that receives one.
-_Avoid_: Result, extraction, AI answer, prediction, suggestion, draft panel, autofill (the act, not the thing); and treating a **sparse** proposal as a failed one, since a label that prints eight rows should propose eight
+_Avoid_: Result, extraction, AI answer, prediction, suggestion, draft panel, autofill (the act, not the thing); and treating a **sparse** proposal as a failed one, since a label that prints eight rows should propose eight. **Not a pairing _proposer_**, which is ADR-0113 §9's word for the refused mechanism that would have suggested which reference food a pack is paired with — that one was measured and does not ship, this one is what the label read hands the form, and the two senses of the word now sit in one tree
 
 ### Notes and checklists
 

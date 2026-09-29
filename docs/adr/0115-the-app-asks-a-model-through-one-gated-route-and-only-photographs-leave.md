@@ -3,7 +3,7 @@
 **Status:** Accepted  
 **Date:** 2026-09-28  
 **Amends:** [ADR-0034](0034-label-photo-food-capture.md) §4 (AI autofill stops being deferred, and none of §4's grounding survives: not the provider, not the model, not the cost figure), §5 (its "only the three barcode/label doors arrive with photos" is half-shipped), §7 (`method: "ai-confirmed"` becomes writable, under a ratchet, and `fields` never meant authorship), and §1's "dismissible" nudge (shipped, it is merely ignorable)  
-**Implemented:** the map is [#474](https://github.com/palebluebytes/inventoria/issues/474); the account-side half is [#490](https://github.com/palebluebytes/inventoria/issues/490) `c748f139` ([`docs/how-to-operate-the-model-route.md`](../how-to-operate-the-model-route.md)). The app-side half is unbuilt and cut as this record's implementation tickets.
+**Implemented:** the map is [#474](https://github.com/palebluebytes/inventoria/issues/474); the account-side half is [#490](https://github.com/palebluebytes/inventoria/issues/490) `c748f139` ([`docs/how-to-operate-the-model-route.md`](../how-to-operate-the-model-route.md)). App-side, one commit per ticket: §2/§3.1/§4.2/§5.1 [#540](https://github.com/palebluebytes/inventoria/issues/540) `2eab9a93` `worker/src/model.ts`; §5.1-§5.3 [#542](https://github.com/palebluebytes/inventoria/issues/542) `c4c682c8` `worker/src/model-label.ts`; §5.4's mechanism [#541](https://github.com/palebluebytes/inventoria/issues/541) `f25c02f5`; §5.4/§5.5 [#543](https://github.com/palebluebytes/inventoria/issues/543) `06bcff71` `src/lib/food/model-route.ts`; §5.2/§5.3/§6.2 [#544](https://github.com/palebluebytes/inventoria/issues/544) `cd415e37` `src/lib/food/ai-autofill.ts`; §4.3 [#545](https://github.com/palebluebytes/inventoria/issues/545) `9454a05b` `src/lib/views/model/ModelKeySection.svelte`; §11 [#546](https://github.com/palebluebytes/inventoria/issues/546) `7158e504` `src/lib/logs/model-log.ts`; §3.2/§8/§9 [#547](https://github.com/palebluebytes/inventoria/issues/547) `a0c6a7ee` `src/lib/food/model-copy.ts`, `src/lib/views/food/ModelEgressSheet.svelte`; §10 [#548](https://github.com/palebluebytes/inventoria/issues/548) `89884b95` `ratchetLabelMethod`. The operator's secret is **not** set: it is the one act left, and it belongs at the deploy.
 
 ## Context
 
@@ -1065,3 +1065,42 @@ own.
 which is ADR-0092 §8's rule and the reason this correction was cheap to find. It
 is the **third** figure in this lineage projected from a shape nobody had written,
 and the third to be wrong in the direction that record warns about.
+
+## Amendment (2026-09-29): the Pack pairing arc landed, and it moves nothing here
+
+Written on merging 51 commits of that arc into this record's branch, because a
+record whose neighbours have changed underneath it should say whether it still
+holds rather than leave a reader to check. It does, and two clauses are worth
+stating more exactly than the decision text did.
+
+**§1's count survives, and the line it rests on is between the app and its build
+scripts.** The arc added no route to `worker/src/` and exactly one `fetch` to
+`src/` — `bundled-artifact.ts`, same-origin, a hoist so two new artifacts share
+the call this app already made. What did widen is `scripts/curated-snapshot-check.mjs`,
+which reaches Open Food Facts on a quarterly cron and now asks after 25 curated
+pairings as well as the stand-ins. That is not a second readable egress, on the
+distinction that script's own header states first: _"this job is not the app, and
+a rate limit or a block earned here should not land on people using
+Inventoria."_ §1 counts what the app sends from somebody's phone. A reader
+auditing egress will find that job, and should find this paragraph beside it.
+
+**§12's refusal of the pairing proposer is no longer a forward reference.** That
+bullet reads _"refused by its own map, which owns it"_, written while the map was
+open. It has since closed as
+[ADR-0113](0113-a-pairing-annotates-a-packaged-food-from-a-reference-food-you-name.md),
+whose §9 is the refusal itself with the measurements behind it — 15 agreements
+at 120 rows, 11 at 300, 6 at 600, 1 at 2,023 — and
+`docs/research/247-can-a-model-propose-a-pairing.md` is the note. The count in
+§12 is unchanged: one live consumer, three refused. Nothing about the pairing
+lane asks a model at build time or at runtime.
+
+**One vocabulary hazard the merge created, fixed in `CONTEXT.md` rather than
+here.** That other record uses _proposer_ and _proposal_ for the mechanism it
+refuses, and this one mints **Proposal** for what a model's answer becomes once
+the app has it. Two senses of one word now sit in one tree. The `_Avoid_` line
+under **Proposal** names the other sense; neither meaning moves.
+
+**Nothing else moved.** `src/lib/logs/` has an empty diff from that arc, so §11's
+table stands with no cap touched and `LOG_BUDGET_BYTES` unchanged; none of the
+four records §1-§10 revise were edited; and neither enforcement script §13 names
+was touched.
