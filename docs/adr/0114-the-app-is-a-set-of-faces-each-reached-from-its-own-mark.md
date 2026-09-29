@@ -720,3 +720,81 @@ predicting a release cadence.
 and the root gave that up at ADR-0077 §5 — but 4 MB in a runtime cache is its own decision
 about what an install weighs after a week of use, and #307's sentence is the answer that
 record chose. §13 is about one file.
+
+## Amendment, 2026-09-28: Recipes' second door, as closed
+
+[#536](https://github.com/palebluebytes/inventoria/issues/536) finished §4. Recipes was on the
+face roster from [#528](https://github.com/palebluebytes/inventoria/issues/528) and had a
+switcher tile from [#529](https://github.com/palebluebytes/inventoria/issues/529), but it was
+still one of Rations' pages as well — so the recipe library had two controls, the tile and the
+food header's mortar-and-pestle, and both drove one opening. `PAGES` closes at two, the pot is
+gone, and both shells mount `RecipeLibrarySheet` with no props at all. Five precisions.
+
+**1. The phone loses a sheet and gains a screen, and that is the trade §4 was making.** Below
+the shell breakpoint there were never any pages: the pot opened the library as a `Modal`
+sheet over the day, and the tile opens a face. So the library stops being something that
+covers the day and becomes somewhere you went — no ✕, no Back stop, no dim. This is stated
+rather than arrived at by deleting a button, because it is the visible half of the change and
+it is a loss as well as a gain: a sheet is dismissed where it was opened and a face is not.
+What buys it is ADR-0091 §1 satisfied rather than conceded — **one control at every width**,
+where the pot was a page opener above 768 and a sheet opener below it — and the other four
+beta faces already made the same trade, so the library is now the same kind of place they are.
+What Back should mean on any of them is [#539](https://github.com/palebluebytes/inventoria/issues/539)
+and is not answered here.
+
+**2. The surface moved up to the shells, and it took the food screen's mount with it.** The
+alternative was keeping the render inside `FoodView` off a state that was no longer a page,
+which is a page by another name. `Rations.svelte` draws it beside the call `App.svelte`
+already made, so the two shells are the same two lines — and the food screen is therefore
+**unmounted** while the face is up, where a page left it mounted. Three consequences, all of
+them the root's existing reading of a face arriving on Rations:
+
+- Leaving Rations for Recipes **declines an arriving meal**. `FoodView`'s receiving surface
+  already said this in as many words — "leaving is declining, by any route, including a tab
+  change, which unmounts this whole screen under it" (ADR-0073 §10) — and a face change is
+  now one of those routes on both shells.
+- The **Selection is the day's, and the day is the Rations face's** (ADR-0088 §1). It survived
+  the recipes page and does not survive the Recipes face. It still survives Reports and
+  Settings, which are pages, so the rule is unrevised and its scope is now stated: every
+  screen inside the face, none outside it.
+- Coming back lands on **the day**, not on whatever page was last open, because the tile
+  clears the opening.
+
+**3. One widened variable, not a second flag.** Rations' shell held `Page | null` and derived
+which face it was standing on from it, which worked while both of its non-day faces were pages.
+Recipes is not one, so the state is `Page | "recipes" | null` and the food screen is handed its
+half through a getter/setter pair (`bind:page={() => foodPage, (p) => (standing = p)}`). The
+reason is §5's own, one level up: two states would be two things that can both say yes, and
+the one that says it wrongly is the one nobody can see — the header would name a face the
+screen was not showing.
+
+**4. `selectedDate` was inert before this, and both shells were saying so.** The library takes
+a date because `RecipeBuilder` does, and the two builder verbs that read one — `consolidate`
+and `define` — are unreachable from this screen. The root already handed a fresh `new Date()`
+with a comment admitting it; the food screen handed the day it was on, which nothing here could
+spend. It is `INERT_DATE` inside the component now, beside the `INERT_MEAL` that had been
+there all along, so the shape is satisfied in one place rather than threaded from two that both
+had nothing honest to put in it. `inline` and `onClose` go the same way: a face is a screen at
+every width, and nothing on it can close.
+
+**5. The ticket was wrong about the tests, in the direction that costs coverage.** It expected
+three end-to-end specs clicking `#food-recipes-btn` by name; **no spec names that string.**
+Two of them (`tests/layout-invariants.spec.ts`, `tests/visual-catalog.spec.ts`) reach these
+controls through `iconIdOf` inside a loop over `PAGES`, so removing a member made both stop
+visiting the recipe library **with no edit and no failure** — and the catalogue's
+`rations-recipes-page.png` was the library's only picture on either shell. A derived roster
+notices a page that arrives and says nothing about one that leaves for somewhere the derivation
+cannot see. Both now reach the face by name; the orphaned baseline is deleted; and the root
+gains `recipes-face.png`, which is the capture the catalogue's own roster guard has claimed to
+have since #529 — its name is _"the switcher offers exactly the screens this catalogue
+photographs"_ and Recipes was the one it did not. Two specs in `tests/food-ui.spec.ts` did name
+the control, by its accessible name rather than its id, and they leave by switching faces now
+because there is no ✕ to press.
+
+**What was left standing.** Rations' gear and the Settings tile open one surface between them,
+which is the same two-doors shape on the same shell, and #536 did not close it:
+[#550](https://github.com/palebluebytes/inventoria/issues/550) is the question. None of the
+argument above reaches it — the pot went because the face is the same control at every width,
+and the gear opens food-specific settings §10 deliberately leaves where they are, on a shell
+where the same gear opens another Facet's page rather than that shell's own Settings face. It
+is written down on the state it complicates rather than kept quiet.

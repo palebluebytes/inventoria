@@ -85,7 +85,6 @@
   import PastMealSheet from "./food/PastMealSheet.svelte";
   import LogFoodSheet from "./food/LogFoodSheet.svelte";
   import RecipeModal from "./food/RecipeModal.svelte";
-  import RecipeLibrarySheet from "./food/RecipeLibrarySheet.svelte";
   import InstantiationSheet from "./food/InstantiationSheet.svelte";
   import IngredientAmountSheet from "./food/IngredientAmountSheet.svelte";
   import NovaExplainerSheet from "./food/NovaExplainerSheet.svelte";
@@ -169,21 +168,30 @@
      * **One variable, not two booleans**, and that is what makes the shape
      * legal. As sheets they could never both be open — a sheet covers the
      * screen and neither has a door to the other — but as pages the header is
-     * standing navigation, so Recipes is one click away from Settings. Two
+     * standing navigation, so Reports is one click away from Settings. Two
      * booleans would let both be true and draw both pages down the column; a
      * single opening makes "a page replaces a page" free rather than something
-     * an effect has to keep tidying up.
+     * an effect has to keep tidying up. Rations' shell widens the same one
+     * variable rather than adding a flag beside it, for the same reason.
      *
-     * It is a prop rather than local state because two of the three openings
-     * are also **faces**, and a shell's switcher has to be able to reach them
-     * (ADR-0114 §4, §10). Rations binds it so a switcher tile lands on the
-     * opening the header's control already opens, rather than on a second one
-     * beside it — one opening, two controls, which is the state this arc is in
-     * until Recipes and Settings finish leaving `PAGES`
-     * ([#532](https://github.com/palebluebytes/inventoria/issues/532)). The root
-     * binds nothing and gets the `null` default: it has no pages at any width
-     * and reaches the recipe library as a face of its own. Unbound this is
-     * exactly the local state it was.
+     * It is a prop rather than local state because one of the two openings is
+     * also a **face**, and a shell's switcher has to be able to reach it
+     * (ADR-0114 §10). Rations binds it so the Settings tile lands on the opening
+     * the gear already opens, rather than on a second one beside it.
+     *
+     * **That is one surface with two controls, and it is the last one**
+     * ([#536](https://github.com/palebluebytes/inventoria/issues/536) took the
+     * other). It is not the shape Recipes was in: Rations' gear opens
+     * food-specific settings that ADR-0114 §10 deliberately leaves where they
+     * are, and the same gear on the root opens a page of another Facet's rather
+     * than that shell's own Settings face — so deleting it would take a control
+     * away from the root to settle a duplication that only exists here. Left
+     * standing and written down rather than quietly kept:
+     * [#550](https://github.com/palebluebytes/inventoria/issues/550).
+     *
+     * The root binds nothing and gets the `null` default: it has no pages at any
+     * width, and it reaches both the recipe library and its own Settings as
+     * faces. Unbound this is exactly the local state it was.
      */
     page?: Page | null;
   } = $props();
@@ -236,16 +244,21 @@
     scannedCode = code;
   }
 
-  // ── Settings and Recipes: one state, two shapes ───────────────────────────
+  // ── Settings: one state, two shapes ───────────────────────────────────────
   //
   // The opening itself is `page`, and it is a **prop** — the argument for its
   // shape is on the declaration above. The header's gear opens the Facet's one
-  // named, full-height settings surface (ADR-0080 §7) and its pot opens the
-  // recipe library; **what those two surfaces are** is the only thing the width
-  // decides. Above the shell breakpoint they are pages shown instead of the
-  // day, below it they are the sheets they have always been, and it is the same
-  // surface either way — `BottomSheet`'s `inline` renders the same header and
-  // body into the page's flow rather than growing a second copy (#341).
+  // named, full-height settings surface (ADR-0080 §7); **what that surface is**
+  // is the only thing the width decides. Above the shell breakpoint it is a page
+  // shown instead of the day, below it it is the sheet it has always been, and
+  // it is the same surface either way — `BottomSheet`'s `inline` renders the same
+  // header and body into the page's flow rather than growing a second copy
+  // (#341).
+  //
+  // The pot that opened the recipe library is gone with the page behind it
+  // (ADR-0114 §4, #536): Recipes is a face, so its screen is the shell's to mount
+  // and not this one's, and it is a screen at every width rather than a sheet
+  // below the breakpoint.
 
   // Whether a page may be shown at all: this shell has them and the window is
   // wide enough for one. It starts false and the watcher corrects it, so a
@@ -1171,16 +1184,16 @@
   </svg>
 {/snippet}
 
-<!-- A page's mark, in the header and in the legend. The three pages' marks are
-     different kinds of thing — Recipes wears the meal header's own recipe pot,
-     so the same thing looks the same in both places, and Settings and Reports
-     have drawn marks of their own — so the roster is looped and the mark is
-     chosen here, once, rather than the whole control being written out three
-     times. -->
+<!-- A page's mark, in the header and in the legend. Both pages have a drawn mark
+     of their own, so the roster is looped and the mark is chosen here, once,
+     rather than the whole control being written out twice.
+
+     It used to choose between three, and the third was the odd one: Recipes wore
+     the meal header's own recipe pot, so the same thing looked the same in both
+     places. That page is a face now (ADR-0114 §4), and its mark is the roster's
+     (`FACES`) rather than a way in's. -->
 {#snippet pageMark(of: Page)}
-  {#if of === "recipes"}
-    <WayInIcon kind="recipe" />
-  {:else if of === "reports"}
+  {#if of === "reports"}
     {@render reportsMark()}
   {:else}
     {@render settingsMark()}
@@ -1376,12 +1389,11 @@
   />
 {/if}
 
-<!-- Settings and Recipes, and **one call site each** (ADR-0091 §5).
-     `inline` is the whole of the difference: above the shell breakpoint the
-     surface renders into the page's flow, right where the day stood, and below
-     it `Modal` portals the same header and body out as a dialog — so where this
-     sits in the markup decides the page's position and nothing about the
-     sheet's.
+<!-- Settings, and **one call site** (ADR-0091 §5). `inline` is the whole of the
+     difference: above the shell breakpoint the surface renders into the page's
+     flow, right where the day stood, and below it `Modal` portals the same header
+     and body out as a dialog — so where this sits in the markup decides the
+     page's position and nothing about the sheet's.
 
      Two call sites, one per shape, was the alternative and is what #341 exists
      to avoid one level down: the same two props would be written twice and
@@ -1393,15 +1405,6 @@
   <FoodSettingsSheet
     {dbReady}
     {shell}
-    inline={onPage}
-    onClose={() => (page = null)}
-  />
-{:else if page === "recipes"}
-  <!-- The recipe library. Browses every saved recipe and opens one to review or
-       amend; its "New recipe" writes a template only. No path through it logs,
-       which is what separates it from the meal browsers. -->
-  <RecipeLibrarySheet
-    {selectedDate}
     inline={onPage}
     onClose={() => (page = null)}
   />
@@ -1605,8 +1608,15 @@
 
      The Selection itself is kept rather than cleared: leaving a screen is not
      the way out of a mode (§1 gives it its own), and dropping a hand-picked set
-     of rows because somebody opened Recipes would be destroying work as a side
+     of rows because somebody opened Reports would be destroying work as a side
      effect of navigation. Coming back to the day comes back to the Selection.
+
+     **Leaving the face is another matter, and it always was.** A page keeps this
+     screen mounted and a face does not, so switching to Recipes or to Settings on
+     the root has always taken the Selection with it — and since #536 that is what
+     Recipes does on Rations too, where it used to be a page. The mode is the
+     day's, and the day is the Rations face's: it survives every screen inside
+     that face and none outside it.
 
      **Handed to the day rather than rendered beside it** (ADR-0101 §4), so that
      one render can sit in two places. Below 768 the bar is `position: fixed` and

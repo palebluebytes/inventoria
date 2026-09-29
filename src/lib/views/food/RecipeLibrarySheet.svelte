@@ -11,7 +11,28 @@
   import { warmUsdaCorpus } from "../../food/usda-corpus";
   import type { MealType } from "../../food/meal-type";
 
-  // The food screen's recipe library, opened from the header's recipe button.
+  // The Recipes face's screen (ADR-0114 §4).
+  //
+  // **It takes no props at all, and that is the whole of what #536 changed here.**
+  // It was the food screen's recipe library, opened from a pot in that screen's
+  // header and shown as a page above the shell breakpoint or a sheet below it,
+  // *and* the Recipes face on the root at the same time — one surface with two
+  // controls, which ADR-0091 §1 allows an action one of. The face is what survived,
+  // so both shells now mount this the same way and the three props it used to take
+  // are gone with the page:
+  //
+  // - `inline` was the page/sheet switch (#341). A face is a screen at every
+  //   width, so the surface is inline always — which is what takes the ✕ and the
+  //   Back stop off it (`BottomSheet`): a page is left by going somewhere else.
+  //   What that costs is the phone shape: the library used to be a sheet over the
+  //   day down there and is a screen you switch to now, the same trade the other
+  //   four faces already made.
+  // - `onClose` had nothing left to call it once nothing here can close.
+  // - `selectedDate` was the day the food screen was on, and it was **already**
+  //   inert: the root handed a fresh `new Date()` and said so. It is `INERT_DATE`
+  //   below now, beside the meal it already kept there, so the shape `RecipeBuilder`
+  //   demands is satisfied in one place instead of being threaded through two
+  //   shells that both had nothing honest to put in it.
   //
   // It is the log sheet's Recipe tab with a different verb. There, a browser sits
   // inside a meal, so picking a recipe means logging one. Here there is no meal:
@@ -29,15 +50,6 @@
   // not (§6). Both pick into the same `openRecipe`, because both open the same
   // twin on the same screen (§7), which is why the second list is one prop and
   // not a second path.
-  let {
-    selectedDate,
-    onClose,
-    inline = false,
-  }: {
-    selectedDate: Date;
-    onClose: () => void;
-    inline?: boolean;
-  } = $props();
 
   // **The second face that can search food, and §13 only counted the first.**
   //
@@ -46,12 +58,16 @@
   // and mounts this surface with no food screen anywhere near it. Building or
   // amending a recipe reaches `AddIngredientSheet`, which is `FoodStager`, which
   // searches the corpus: so a reader who went straight to Recipes would have hit
-  // a ~960 KB fetch inside their first ingredient search.
+  // a ~800 KB fetch inside their first ingredient search. (~800, not the ~960 the
+  // ticket said: #535 measured the index at 812,093 B and found §13's own figure
+  // stale — do not quote either number from memory.)
   //
-  // On Rations this fires as well as `FoodView`'s, because the library is one of
-  // that screen's pages. Both are no-ops after the first: the loads are memoised
-  // on success, and a failure is deliberately forgotten so the next search
-  // retries.
+  // Since #536 that is **both** shells: the food screen is unmounted while this
+  // face is up on Rations too, so there is no longer any width at which reaching
+  // the library also mounted the screen that warms the index. The general rule is
+  // the one on the function — a face that can search food warms what it searches —
+  // and a second call costs nothing, because the loads are memoised on success and
+  // a failure is deliberately forgotten so the next search retries.
   onMount(warmUsdaCorpus);
 
   type RecipeTwin = { entity: string; attributes: Record<string, any> };
@@ -60,10 +76,18 @@
     | { kind: "build"; mode: "create" | "edit"; template: RecipeTwin | null };
   let view = $state<View>({ kind: "list" });
 
-  // The builder takes a meal and a date because two of its four verbs log. The
-  // two reachable here do not, so this is inert — passed to satisfy the shape,
-  // never read down a path this sheet can take.
+  // The builder takes a meal and a date because two of its four verbs log
+  // (`consolidate` and `define`). The two reachable here are `create` and `edit`,
+  // so both of these are inert — they satisfy the shape and are never read down a
+  // path this screen can take.
+  //
+  // The date was a prop until #536, threaded from whichever shell drew the
+  // surface, and both of them had nothing honest to thread: the root handed a
+  // fresh `new Date()` and the food screen handed the day it was on, which no
+  // path here could reach. One clock read at mount is the same inertness stated
+  // once.
   const INERT_MEAL: MealType = "dinner";
+  const INERT_DATE = new Date();
 
   async function openRecipe(entity: string) {
     const twin = await getLocalFoodTwin(entity);
@@ -105,15 +129,14 @@
   isOpen
   title={heading}
   class="recipe-library"
-  {onClose}
   onBack={view.kind === "list" ? undefined : backToList}
   backLabel="Back to recipes"
-  {inline}
+  inline
 >
   {#if view.kind === "build"}
     <RecipeBuilder
       meal_type={INERT_MEAL}
-      {selectedDate}
+      selectedDate={INERT_DATE}
       mode={view.mode}
       template={view.template}
       onCommitted={backToList}

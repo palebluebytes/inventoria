@@ -33,6 +33,10 @@ import { hasPagesAt, openRationsDay } from "./support/rations";
  * out rather than read off `FACES` on purpose: this sweep's job is to notice
  * that a screen it never looked at has appeared, and a roster it derived from
  * the app would silently grow with the app.
+ *
+ * `sweepRations` below reads `PAGES` instead, and #536 is what that costs: a
+ * member leaving the roster took its sweep with it silently. Hence the one
+ * hand-written face test over there as well.
  */
 const FACES = [
   "Rations",
@@ -230,6 +234,23 @@ function sweepRations() {
     await expectNoOverflow(page, "the day");
   });
 
+  // **The one of Rations' three faces that is not a screen this loop already
+  // reaches**, and it needs its own test because #536 took it out of `PAGES`.
+  //
+  // That removal is worth reading as a warning: the loop below is derived from the
+  // roster, so Recipes stopped being swept here — on both this shell and, in the
+  // catalogue, in the picture it used to take — with no edit to either file and no
+  // failure. A derived roster notices a page that arrives and says nothing about
+  // one that leaves for somewhere the derivation cannot see.
+  //
+  // The other two need no line of their own: the Rations face is the day above,
+  // and the Settings face is the settings page the loop below reaches through the
+  // gear (which is one control too many — see #550 — but not this file's problem).
+  test("Recipes keeps all content within the viewport", async ({ page }) => {
+    await goToFace(page, "Recipes");
+    await expectNoOverflow(page, "Recipes");
+  });
+
   for (const p of PAGES) {
     test(`${pageLabel(p)} keeps all content within the viewport`, async ({
       page,
@@ -237,11 +258,11 @@ function sweepRations() {
     }) => {
       // Which controls the header offers is a fact about the width, and it is
       // read off the roster rather than restated here (`lib/food/pages.ts`).
-      // Above the shell breakpoint all three open a page; below it Recipes and
-      // Settings open the same surfaces as sheets and Reports has no control at
-      // all, because it has no sheet form (ADR-0091 §7). So this loop sweeps
-      // both shapes of the two that have two, and skips the one that is not on
-      // screen rather than inventing a way to reach it.
+      // Above the shell breakpoint both open a page; below it Settings opens the
+      // same surface as a sheet and Reports has no control at all, because it has
+      // no sheet form (ADR-0091 §7). So this loop sweeps both of Settings' shapes,
+      // and skips the one that is not on screen rather than inventing a way to
+      // reach it.
       const shown = pagesShownAt(hasPagesAt(viewport));
       test.skip(
         !shown.includes(p),

@@ -523,7 +523,7 @@ _Avoid_: App (which already means Inventoria-the-PWA), Edition (which implies th
 
 **Face**:
 A named, mark-bearing screen of the app that the switcher can reach, carrying its own logo, its own canonical name and its own **maturity**. There are seven — Rations, Recipes, Media, Items, Agenda, Notes, Settings — in that fixed order, with Settings always last and always at the grid's right edge. A face is **not** a **Facet**: installability is what makes a Facet one, and a face costs a name, a mark and a screen where a Facet costs a manifest, a service worker, a precache band and an install that shares no bytes with its siblings. It is not one-to-one with a **Tracked Domain** in either direction: Agenda holds two, Rations and Recipes both sit on food, and Settings sits on none, being jar-wide — so the roster is authored beside `FACETS` rather than derived, because a Facet's domains decide what it _owns_ and a face's decide only what it _draws_. Each shell declares which faces it holds and `scripts/facet-checks.mjs` proves the declaration against its built entry, which is what keeps a switcher from ever naming a screen outside its own build (ADR-0114 §8, ADR-0078 §1). A face can be **hidden**, which takes it out of the switcher and does nothing else: its screens, its URL and its share target all still work, so a deep link or a shared meal still lands on it and nothing logged is touched. Hiding is a **Setting** — one device-local key, so it never syncs and no datom records it — and Settings itself cannot be hidden, being where hiding is undone. ADR-0114 is the record.
-_Avoid_: Facade (never in the code — it names nothing this word does not), Tab (what the six were before, and a Facet contains tabs), Page (spent on ADR-0091 §5's widths), Screen (a face has one, and Rations has three), Section, Area
+_Avoid_: Facade (never in the code — it names nothing this word does not), Tab (what the six were before, and a Facet contains tabs), Page (spent on ADR-0091 §5's widths), Screen (a face has one, and Rations has three — the day and two pages), Section, Area
 
 **Switcher**:
 The panel a face's logo drops from the top, holding a tile per face the running build can reach: the app's mark and wordmark, then a fixed four-column grid with names under the tiles and a **BETA** band on the unfinished ones. It never re-sorts — the active face keeps its declared position and is merely inverted — because seven destinations are learned by position and a grid whose tiles move spends that. It is modal, built on `Modal` with a top-anchored card rather than as a member of the `ui/` vocabulary, so Escape, the backdrop and Back all dismiss it. **It is not a way out**: each shell's roster is declared from its own build, so a crossing out of a Facet's scope stays unexpressible (ADR-0114 §6 and §8).
@@ -687,8 +687,10 @@ Calendar domain's screen)
 
 **Page**:
 A whole-screen surface Rations shows instead of the day, above the shell
-breakpoint only: Settings, Recipes, Reports. The header's icons are its navigation
-and the title is the way back. A page **reuses the sheet it replaces** through
+breakpoint only: Reports and Settings. Recipes was the third until ADR-0114 §4
+made it a **Face**, which took its header control with it — a surface that was a
+page and a face at once had two ways in, and ADR-0091 §1 allows an action one. The
+header's icons are its navigation and the title is the way back. A page **reuses the sheet it replaces** through
 `BottomSheet`'s `inline` rather than restating it, so a control cannot drift
 between the two. Below the breakpoint there are no pages and the same icons open
 sheets. See ADR-0091 §5.

@@ -315,23 +315,22 @@
         {/if}
 
         <!-- Recipes is a face rather than one of Rations' pages (ADR-0114 §4),
-             so the root reaches the library directly instead of through a
-             header control it does not have. `inline` is the same prop the page
-             form passes: one surface, two hosts (#337).
+             and since #536 it is **only** a face: the pot in the food screen's
+             header is gone, so this call and Rations' are the same call, and the
+             surface takes nothing.
+
+             What used to be here was the argument for its three props, and all
+             three are the component's own now — a face is a screen at every
+             width, it is left by choosing another, and the day it was handed was
+             inert.
 
              It is **not** a Facet, and the reason is a gate rather than a
              preference: `recipe:` is owned by the `food` domain, and
              `check:facets` holds a Facet to reaching every screen of every
              domain it holds, so a recipes-only Facet holding `food` is
-             unbuildable. `selectedDate` is inert on this surface — nothing it
-             can reach puts food on a day — and `onClose` has nothing to close,
-             because a face is left by choosing another. -->
+             unbuildable. -->
         {#if face === "recipes"}
-          <RecipeLibrarySheet
-            selectedDate={new Date()}
-            inline
-            onClose={() => {}}
-          />
+          <RecipeLibrarySheet />
         {/if}
 
         {#if face === "media"}

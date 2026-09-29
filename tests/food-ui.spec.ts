@@ -2806,9 +2806,12 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
       "0 kcal"
     );
 
-    // The standing place for recipes: reached from the screen header, without
-    // first picking a meal. It opens on the list, empty to begin with.
-    await page.getByRole("button", { name: "Recipes", exact: true }).click();
+    // The standing place for recipes, and since #536 it is reached the way every
+    // other face is: the switcher, not a control in the food screen's header. The
+    // pot that used to be there was the library's second door (ADR-0091 §1), and
+    // `goToFace` is width-blind — it presses the tile on the landing grid or in
+    // the panel, whichever is up. It opens on the list, empty to begin with.
+    await goToFace(page, "Recipes");
     await expect(page.locator(".recipe-library")).toContainText(
       "No saved recipes yet"
     );
@@ -2829,7 +2832,9 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     await expect(
       page.locator(".recipe-pick", { hasText: "Pantry Bowl" })
     ).toBeVisible();
-    await page.locator(".recipe-library .close-btn").click();
+    // A face has no ✕ — it is left by going somewhere else (#536, `BottomSheet`'s
+    // `inline`) — so going back to the day is going back to the Rations face.
+    await goToFace(page, "Rations");
 
     // The day is untouched — this is the whole point of the verb. No meal
     // gained a serving and the running total never moved off zero.
@@ -2864,7 +2869,7 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
 
     // Picking it in the library opens it for review — seeded from the template,
     // saving back to it, and NOT logging: the CTA is Edit's, not "Log".
-    await page.getByRole("button", { name: "Recipes", exact: true }).click();
+    await goToFace(page, "Recipes");
     await page.locator(".recipe-pick", { hasText: "Dinner Combo" }).click();
     await expect(page.locator("#recipe-name")).toHaveValue("Dinner Combo");
     await expect(page.locator("#library-save-recipe-btn")).toContainText(
@@ -2882,7 +2887,7 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     await expect(
       page.locator(".recipe-pick", { hasText: "Dinner Combo v2" })
     ).toBeVisible();
-    await page.locator(".recipe-library .close-btn").click();
+    await goToFace(page, "Rations");
     await expect(page.locator(".macro-item.calories .macro-now")).toHaveText(
       "323 kcal"
     );

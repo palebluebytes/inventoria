@@ -243,11 +243,28 @@ describe("a page is only shown where a shell has one and the width allows", () =
 
 describe("a page has exactly one control, and it is in the header", () => {
   it("holds the roster the app can actually reach, in the header's order", () => {
-    // All three now have a surface behind them (#346 built Reports). The order
-    // is the order the controls are drawn in, left to right, because the header
-    // and the legend both loop it — and Settings stays last, where it has
-    // always been.
-    expect([...PAGES]).toEqual(["recipes", "reports", "settings"]);
+    // Two, since #536 took Recipes up to a face (ADR-0114 §4): it was a page and
+    // a face at once, which is one surface with two controls where ADR-0091 §1
+    // allows an action one. The order is the order the controls are drawn in, left
+    // to right, because the header and the legend both loop it — and Settings
+    // stays last, where it has always been.
+    expect([...PAGES]).toEqual(["reports", "settings"]);
+  });
+
+  it("keeps no trace of the page Recipes was, anywhere in the screen", () => {
+    // #536's acceptance, and it is a claim about the *screen* rather than about
+    // the roster above: taking a member out of `PAGES` makes the control and the
+    // legend row vanish for free, because both are loops, but the surface behind
+    // it was a call site written out by hand. A `<RecipeLibrarySheet>` left here
+    // would be a page nothing can open and a second copy of a face's screen.
+    const view = source(FOOD_VIEW);
+    expect(view).not.toContain("RecipeLibrarySheet");
+    expect(view).not.toContain('"recipes"');
+    // And the shells are where it went: one call each, which is what makes the
+    // two of them the same call (ADR-0114 §4).
+    for (const shell of [ROOT_SHELL, RATIONS_SHELL]) {
+      expect(source(shell).match(/<RecipeLibrarySheet/g)).toHaveLength(1);
+    }
   });
 
   it("draws the controls and the legend from the roster, not from a list", () => {
@@ -286,7 +303,7 @@ describe("a page has exactly one control, and it is in the header", () => {
     // hold, in the same order — never a re-ordering, because the controls do
     // not move about as a window resizes.
     expect([...pagesShownAt(true)]).toEqual([...PAGES]);
-    expect([...pagesShownAt(false)]).toEqual(["recipes", "settings"]);
+    expect([...pagesShownAt(false)]).toEqual(["settings"]);
   });
 
   it("reads the settings name off the registry, where its surface does", () => {
@@ -294,7 +311,6 @@ describe("a page has exactly one control, and it is in the header", () => {
     // "Rations settings" and the surface it opens builds the same string from
     // the roster (ADR-0080 §7, §8).
     expect(pageLabel("settings")).toBe("Rations settings");
-    expect(pageLabel("recipes")).toBe("Recipes");
   });
 
   it("opens a page with a click that goes somewhere, never a toggle", () => {
@@ -361,12 +377,12 @@ describe("the title is the way back, and the only way off a page", () => {
 describe("a page with no sheet has no control at a width that only has sheets", () => {
   it("says which pages have a second shape, and Reports is not one", () => {
     // ADR-0091 §7, and it is a fact about the *page* rather than about the
-    // width: Settings and Recipes are a sheet below the shell breakpoint and a
-    // page above it, and Reports is a page or nothing. A report is a reading
-    // surface — dense, comparative, about a period rather than a moment — and
-    // no phone form for one has been designed, so ADR-0059 §4 makes the control
-    // absent rather than disabled.
-    expect(PAGES.filter(hasSheetForm)).toEqual(["recipes", "settings"]);
+    // width: Settings is a sheet below the shell breakpoint and a page above it,
+    // and Reports is a page or nothing. A report is a reading surface — dense,
+    // comparative, about a period rather than a moment — and no phone form for
+    // one has been designed, so ADR-0059 §4 makes the control absent rather than
+    // disabled.
+    expect(PAGES.filter(hasSheetForm)).toEqual(["settings"]);
     expect(hasSheetForm("reports")).toBe(false);
   });
 
@@ -391,13 +407,13 @@ describe("a page with no sheet has no control at a width that only has sheets", 
   });
 
   it("renders the report as a page and gives it no second shape", () => {
-    // The two surfaces that are both a sheet and a page take `inline`; this one
+    // The one surface that is both a sheet and a page takes `inline`; this one
     // takes nothing, because there is no shape for it to be told to be. A prop
     // here would be a sheet form claimed in the markup and absent everywhere
     // else.
     const view = source(FOOD_VIEW);
     expect(view.match(/<ReportsPage/g)).toHaveLength(1);
-    expect(view.match(/inline=\{onPage\}/g)).toHaveLength(2);
+    expect(view.match(/inline=\{onPage\}/g)).toHaveLength(1);
     expect(view).not.toMatch(/<ReportsPage[^>]*inline/);
   });
 
@@ -482,14 +498,16 @@ describe("a page is Rations' and the width's, and both are required", () => {
     expect(view.match(/<DailyDashboard/g)).toHaveLength(1);
   });
 
-  it("renders each surface once, a page or a sheet by one prop", () => {
+  it("renders the surface once, a page or a sheet by one prop", () => {
     // #341 one level up: two call sites, one per shape, is the same two props
     // written twice and changed once. `inline` is the whole of the difference.
+    //
+    // One surface rather than the two #341 built for: the recipe library was the
+    // other, and it is a face's screen now with `inline` hard-coded (#536), which
+    // is the same rule reaching the one surface that only ever has one shape.
     const view = source(FOOD_VIEW);
-    for (const tag of ["FoodSettingsSheet", "RecipeLibrarySheet"]) {
-      expect(view.match(new RegExp(`<${tag}`, "g"))).toHaveLength(1);
-    }
-    expect(view.match(/inline=\{onPage\}/g)).toHaveLength(2);
+    expect(view.match(/<FoodSettingsSheet/g)).toHaveLength(1);
+    expect(view.match(/inline=\{onPage\}/g)).toHaveLength(1);
   });
 
   it("writes no width of its own, anywhere in the screen", () => {

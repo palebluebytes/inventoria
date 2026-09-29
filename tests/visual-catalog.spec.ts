@@ -571,6 +571,13 @@ test.describe("Visual Catalog Generator", () => {
     // fixed order rather than sorted: §7 refuses a grid that re-sorts, so the
     // ORDER is part of what this assertion is for.
     //
+    // **And the title was a claim this file did not keep until #536.** Recipes
+    // joined the grid when it became a face and no capture joined with it: the
+    // library's only picture was `rations-recipes-page.png`, taken on the *other*
+    // shell through a header control, and #536 deleted the page that control
+    // opened. So the seven tiles are seven captures now, which is what this test's
+    // name has been saying since #529.
+    //
     // Read off the **landing screen**, which is where `boot` now leaves the page:
     // §9 stops the root landing on food and opens it on this grid, so there is no
     // trigger here to press and the switcher is simply the screen. The tiles are
@@ -612,6 +619,27 @@ test.describe("Visual Catalog Generator", () => {
     await page.locator("#log-food-btn").click();
 
     await takeFullPageScreenshot(page, "food-dashboard.png", ROOT_SHELL_FLAT);
+  });
+
+  /**
+   * The Recipes face, empty, and the seventh tile's first picture (#536).
+   *
+   * Empty on purpose. The two lists this screen holds are the library and the
+   * impromptu dishes (ADR-0110 §6), and seeding either costs a recipe built
+   * through `FoodStager` — two minutes of searching to photograph two rows that
+   * `RecipeList`'s own unit tier already asserts. What is worth a baseline is the
+   * **shape**: a face's screen with the pinned header above it, its BETA badge,
+   * and the empty-state sentence where the lists will be — none of which existed
+   * as a picture while the library was a page on a shell this catalogue reaches
+   * through a gear.
+   */
+  test("the recipes face, empty", async ({ page }) => {
+    await boot(page);
+    await goToFace(page, "Recipes");
+    await expect(page.locator(".recipe-library")).toContainText(
+      "No saved recipes yet"
+    );
+    await takeFullPageScreenshot(page, "recipes-face.png", ROOT_SHELL_FLAT);
   });
 
   /** The add-habit sheet mid-entry, which is the one capture here that is not a
@@ -1274,11 +1302,16 @@ test.describe("Visual Catalog — Rations' own shell", () => {
       );
     });
 
-    // One test per page, drawn from the roster rather than three tests written
-    // out: a fourth page is then photographed by the same rule that puts its
+    // One test per page, drawn from the roster rather than two tests written
+    // out: a third page is then photographed by the same rule that puts its
     // control in the header, and cannot be added with no picture of it. They
     // stay separate tests for the sheet catalogue's reason — one `expect` per
     // image, so a differing shot does not leave the ones behind it unverified.
+    //
+    // **What a derived roster does not do is notice a departure.** #536 took
+    // Recipes out of `PAGES`, this loop stopped taking `rations-recipes-page.png`,
+    // and nothing failed — the baseline was simply orphaned and deleted. The
+    // library's picture is `recipes-face.png` on the root now, above.
     for (const p of PAGES) {
       test(`${pageLabel(p)}, whole`, async ({ page }) => {
         await openRations(page);
