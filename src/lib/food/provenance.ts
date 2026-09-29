@@ -152,6 +152,42 @@ export interface LabelCapture {
 }
 
 /**
+ * What `method` a save writes, given whether a read was applied and whatever
+ * the twin already carried (ADR-0115 §10).
+ *
+ * **Inherit or upgrade; never downgrade.** `"ai-confirmed"` says a model read
+ * was *applied* to the form that produced this save — not merely attempted, and
+ * whatever the user then corrected, because sixteen corrections out of eighteen
+ * rows is still a panel a model reached first. A **correction threshold** is
+ * refused by name: it would make a permanent record depend on a tuning
+ * constant, a reader still could not recover 16-of-18 from 2-of-18 from the
+ * stored value, and the instrument it would key on counts rows *touched* rather
+ * than rows changed. That measurement lives in the Log, at a lifetime that fits
+ * it.
+ *
+ * **The hole this closes is the reverse journey**, which no ticket had priced.
+ * A twin saved `"ai-confirmed"` in September and re-opened in October to fix
+ * the brand, with **no read**, would under the applied-test alone write
+ * `"manual"` — laundering model output into the stronger claim of the two, in
+ * the one direction that matters. So the prior value is inherited rather than
+ * overwritten.
+ *
+ * On the manual path with no prior capture this is exactly today's behaviour,
+ * which is why the shipped flow is unchanged.
+ *
+ * A function rather than an expression at the call site, because it is a **rule
+ * about what the ledger may claim** and rules that live inline are rules nobody
+ * can test one case at a time.
+ */
+export function ratchetLabelMethod(
+  readApplied: boolean,
+  prior: LabelCapture | null | undefined
+): LabelCaptureMethod {
+  if (readApplied) return "ai-confirmed";
+  return prior?.method ?? "manual";
+}
+
+/**
  * Builds the `food/label_capture` envelope. Pure, deterministic and clock-free —
  * mirrors {@link buildRawProvenance} — so it composes into the save path without
  * making the writer impure. It does NOT take or embed photo base64: photos live

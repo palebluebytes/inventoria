@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   buildLabelCapture,
   LABEL_ADAPTER_VERSION,
+  ratchetLabelMethod,
   buildManualEntry,
   manualEntryIsReusable,
   MANUAL_ENTRY_ADAPTER_VERSION,
@@ -146,5 +147,74 @@ describe("buildArrival (food/arrival, ADR-0073 §11)", () => {
     expect(buildArrival(1_756_600_000_000)).toEqual(
       buildArrival(1_756_600_000_000)
     );
+  });
+});
+
+/**
+ * The one-way ratchet on `food/label_capture.method` (ADR-0115 §10).
+ *
+ * `method` has **no reader anywhere in `src/`** — the origin badge and
+ * `foodSourceView` both key on the *presence* of the envelope and never open
+ * it — so this is not a decision about what a screen shows. It is a decision
+ * about what the ledger claims, which is the only thing `method` has ever been
+ * for, and its reader is a person auditing the ledger.
+ */
+describe("ratchetLabelMethod", () => {
+  const prior = (method: "manual" | "ai-confirmed") =>
+    buildLabelCapture({ method, basis: "100 g", fields: ["nutriments"] });
+
+  // Applied, not attempted. #480 made failure atomic, so there is no partial
+  // state to classify: a read that errored or was never applied left the form
+  // untouched.
+  it("writes ai-confirmed when a read was applied", () => {
+    expect(ratchetLabelMethod(true, null)).toBe("ai-confirmed");
+  });
+
+  // Sixteen corrections out of eighteen rows is still a panel a model reached
+  // first, and that is the whole of what the word claims. A correction
+  // threshold is refused by name.
+  it("writes ai-confirmed however much the user corrected", () => {
+    expect(ratchetLabelMethod(true, prior("manual"))).toBe("ai-confirmed");
+    expect(ratchetLabelMethod(true, prior("ai-confirmed"))).toBe(
+      "ai-confirmed"
+    );
+  });
+
+  // A read applied and then abandoned by switching door must not colour the
+  // save that follows — which is why the flag resets wherever the form does.
+  it("writes manual for a save with no read and no prior capture", () => {
+    expect(ratchetLabelMethod(false, null)).toBe("manual");
+    expect(ratchetLabelMethod(false, undefined)).toBe("manual");
+  });
+
+  /**
+   * **The case the attribute was never designed for**, and the reverse of the
+   * one anybody predicted: a twin saved `"ai-confirmed"` in September, re-opened
+   * in October to fix the brand with no read, saved. Under the applied-test
+   * alone that write says `"manual"` — which launders model output into the
+   * stronger claim of the two.
+   */
+  it("inherits ai-confirmed on a later save that asked no model", () => {
+    expect(ratchetLabelMethod(false, prior("ai-confirmed"))).toBe(
+      "ai-confirmed"
+    );
+  });
+
+  it("leaves a hand-typed twin hand-typed", () => {
+    expect(ratchetLabelMethod(false, prior("manual"))).toBe("manual");
+  });
+
+  // The envelope's version does not move: every value already in a ledger means
+  // exactly what it meant before, and `"ai-confirmed"` was declared in v1's own
+  // type from the start. Writing a value the envelope always admitted is not a
+  // version change.
+  it("changes no envelope version", () => {
+    expect(
+      buildLabelCapture({
+        method: ratchetLabelMethod(true, null),
+        basis: "100 g",
+        fields: [],
+      }).adapter_version
+    ).toBe(LABEL_ADAPTER_VERSION);
   });
 });

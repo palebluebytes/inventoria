@@ -72,6 +72,7 @@
   } from "../../food/label-form";
   import {
     buildLabelCapture,
+    ratchetLabelMethod,
     LABEL_CAPTURE_ATTR,
     type LabelCapture,
     type ManualEntryKind,
@@ -2258,15 +2259,10 @@
         ...(portions.length ? ["portions"] : []),
       ];
       const labelCapture = buildLabelCapture({
-        // ADR-0115 §10's one-way ratchet: inherit or upgrade, never downgrade.
-        // `"ai-confirmed"` means a read was **applied** to the form that
-        // produced this save, whatever the user then corrected — sixteen
-        // corrections out of eighteen rows is still a panel a model reached
-        // first. With no prior capture and no read this is exactly today's
-        // behaviour, so the manual flow is unchanged.
-        method: modelReadApplied
-          ? "ai-confirmed"
-          : (priorLabelCapture?.method ?? "manual"),
+        // ADR-0115 §10's one-way ratchet, which is a rule about what the ledger
+        // may claim and therefore lives where it can be tested one case at a
+        // time rather than as an expression here.
+        method: ratchetLabelMethod(modelReadApplied, priorLabelCapture),
         basis: nutrition.serving_size,
         fields,
       });

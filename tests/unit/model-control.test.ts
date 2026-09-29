@@ -238,11 +238,12 @@ describe("the offer belongs to the photographs, not to a door", () => {
     );
   });
 
-  // Inherit or upgrade, never downgrade: `"manual"` is the stronger claim, so a
-  // later hand-edit must not launder model output into it.
+  // The rule itself is `provenance.ts`'s and is tested there, one case at a
+  // time. What this holds is that the save goes through it rather than deciding
+  // for itself.
   it("writes the method through the ratchet", () => {
     expect(STAGER).toMatch(
-      /method: modelReadApplied\s*\?\s*"ai-confirmed"\s*:\s*\(priorLabelCapture\?\.method \?\? "manual"\)/
+      /method: ratchetLabelMethod\(modelReadApplied, priorLabelCapture\)/
     );
   });
 

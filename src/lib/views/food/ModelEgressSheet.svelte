@@ -33,7 +33,7 @@
   } = $props();
 </script>
 
-<ExplainerSheet title={MODEL_EGRESS_SHEET.title} class="model-egress" {onClose}>
+<ExplainerSheet title={MODEL_EGRESS_SHEET.title} {onClose}>
   <div data-testid="model-egress-sheet">
     <h3>{MODEL_EGRESS_SHEET.heading}</h3>
     {#each MODEL_EGRESS_SHEET.paragraphs as paragraph (paragraph)}
