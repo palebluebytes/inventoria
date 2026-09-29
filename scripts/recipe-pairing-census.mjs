@@ -45,6 +45,7 @@ import { registerHooks } from "node:module";
 import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { foldLedgerExport } from "./ledger-fold.mjs";
 import { ADJUDICATION } from "./pairing-adjudication.mjs";
 import { resolve as resolveTs } from "./ts-resolve-hook.mjs";
 
@@ -67,31 +68,6 @@ const EXPORT_PATH =
  */
 const REFUSED = new Set(["sodium_content", "saturated_fat_content"]);
 
-/** Latest datom per (entity, attribute) by HLC stamp (ADR-0020). */
-function foldLedger(path) {
-  const latest = new Map();
-  for (const line of readFileSync(path, "utf8").split("\n")) {
-    if (!line.trim()) continue;
-    const row = JSON.parse(line);
-    if (!row.entity) continue;
-    const key = `${row.entity} ${row.attribute}`;
-    const held = latest.get(key);
-    if (
-      !held ||
-      row.hlc_ms > held.hlc_ms ||
-      (row.hlc_ms === held.hlc_ms && row.hlc_ctr > held.hlc_ctr)
-    )
-      latest.set(key, row);
-  }
-  const entities = new Map();
-  for (const row of latest.values()) {
-    const attrs = entities.get(row.entity) ?? {};
-    attrs[row.attribute] = JSON.parse(row.value);
-    entities.set(row.entity, attrs);
-  }
-  return entities;
-}
-
 /** A consumption event still standing: not retracted, not superseded. */
 function isLive(attrs) {
   return !attrs["event/status"] && !attrs["event/replaced_by"];
@@ -104,7 +80,7 @@ function verdictFor(ref) {
 }
 
 const store = JSON.parse(readFileSync(STORE_PATH, "utf8"));
-const ledger = foldLedger(EXPORT_PATH);
+const ledger = foldLedgerExport(EXPORT_PATH);
 
 // ---------------------------------------------------------------------------
 // 1. The arity: how many reference foods does one dish name?

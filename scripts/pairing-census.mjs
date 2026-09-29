@@ -34,6 +34,7 @@ import { registerHooks } from "node:module";
 import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { packQueries, readPackTwins } from "./ledger-fold.mjs";
 import { ADJUDICATION } from "./pairing-adjudication.mjs";
 import { resolve as resolveTs } from "./ts-resolve-hook.mjs";
 
@@ -78,75 +79,8 @@ const PLAUSIBLE_WRONG = {
 // ---------------------------------------------------------------------------
 // The population, read out of the export
 // ---------------------------------------------------------------------------
-
-/**
- * Every `gtin:` twin in the export, with the OFF record it was captured from.
- *
- * Latest datom per attribute by HLC stamp (ADR-0020), which is what the app's
- * own fold does — a twin edited after capture must be read as it stands now, or
- * the census measures a product that was superseded.
- */
-function readPopulation(path) {
-  const latest = new Map();
-  const firstSeen = new Map();
-  for (const line of readFileSync(path, "utf8").split("\n")) {
-    if (!line.trim()) continue;
-    const row = JSON.parse(line);
-    if (!row.entity?.startsWith("gtin:")) continue;
-    const stamp = [row.hlc_ms, row.hlc_ctr];
-    const attrs = latest.get(row.entity) ?? new Map();
-    const held = attrs.get(row.attribute);
-    if (
-      !held ||
-      stamp[0] > held.stamp[0] ||
-      (stamp[0] === held.stamp[0] && stamp[1] > held.stamp[1])
-    )
-      attrs.set(row.attribute, { stamp, value: JSON.parse(row.value) });
-    latest.set(row.entity, attrs);
-    const seen = firstSeen.get(row.entity);
-    if (seen === undefined || row.hlc_ms < seen)
-      firstSeen.set(row.entity, row.hlc_ms);
-  }
-
-  return [...latest].map(([entity, attrs]) => {
-    const provenance =
-      attrs.get("twin/raw_provenance")?.value ??
-      attrs.get("provenance/raw")?.value;
-    const product = provenance?.raw_data?.product ?? provenance?.product ?? {};
-    return {
-      gtin: entity.slice("gtin:".length),
-      captured: firstSeen.get(entity),
-      name: attrs.get("food/name")?.value ?? null,
-      panel: attrs.get("nutrition/info")?.value ?? null,
-      hasOffRecord: Object.keys(product).length > 0,
-      productName: product.product_name || null,
-      categoriesTags: product.categories_tags ?? [],
-    };
-  });
-}
-
-// ---------------------------------------------------------------------------
 // Proposer 2: the mechanical matcher
 // ---------------------------------------------------------------------------
-
-/**
- * The queries an OFF record offers the corpus, most specific first.
- *
- * `en:`-prefixed tags only. OFF's taxonomy is canonically English however the
- * pack is written, which is the whole reason the categories are worth more here
- * than the name — this population is Spanish, French, Catalan, Dutch, German
- * and Chinese, and the corpus is English. A `da:`, `es:` or `fr:` tag is a
- * language-local leaf OFF never canonicalised and the corpus cannot answer.
- *
- * OFF orders a tag list broad to specific, so it is read backwards.
- */
-function queriesFor(twin) {
-  const tags = twin.categoriesTags
-    .filter((tag) => tag.startsWith("en:"))
-    .map((tag) => tag.slice(3).replaceAll("-", " ").toLowerCase())
-    .reverse();
-  return { tags, name: twin.productName ?? twin.name };
-}
 
 /** The first query that reaches anything, and the row it put on top. */
 function propose(corpus, queries) {
@@ -196,7 +130,7 @@ const corpus = buildSearchCorpus(index);
 const rowsById = new Map(index.foods.map((row) => [row.fdcId, row]));
 const store = JSON.parse(readFileSync(STORE_PATH, "utf8"));
 
-const population = readPopulation(EXPORT_PATH).sort(
+const population = readPackTwins(EXPORT_PATH).sort(
   (a, b) => a.captured - b.captured
 );
 const missing = population.filter((twin) => !ADJUDICATION[twin.gtin]);
@@ -229,7 +163,7 @@ const rows = population.map((twin) => {
     fdcId: null,
     why: "",
   };
-  const { tags, name } = queriesFor(twin);
+  const { tags, name } = packQueries(twin);
   const byCategory = propose(corpus, tags);
   const byName = propose(corpus, [name]);
   const combined = byCategory ?? byName;
@@ -251,7 +185,7 @@ const noCategories = rows.filter(
   (r) => r.twin.hasOffRecord && r.twin.categoriesTags.length === 0
 );
 const noEnglishCategories = rows.filter(
-  (r) => queriesFor(r.twin).tags.length === 0
+  (r) => packQueries(r.twin).tags.length === 0
 );
 
 const agrees = (row, proposal) =>
@@ -394,7 +328,7 @@ console.log(
 
 console.log(`\n## Where the matcher is structurally silent\n`);
 const silentWithTags = rows.filter(
-  (r) => r.byCategory === null && queriesFor(r.twin).tags.length > 0
+  (r) => r.byCategory === null && packQueries(r.twin).tags.length > 0
 );
 console.log(
   `  ${noEnglishCategories.length}/${rows.length} hand the matcher no English category tag at all — it cannot be asked.`
@@ -404,7 +338,7 @@ console.log(
 );
 for (const row of silentWithTags)
   console.log(
-    `      ${(row.twin.name ?? "").padEnd(34)} ${JSON.stringify(queriesFor(row.twin).tags)}`
+    `      ${(row.twin.name ?? "").padEnd(34)} ${JSON.stringify(packQueries(row.twin).tags)}`
   );
 
 console.log(

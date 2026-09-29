@@ -49,6 +49,7 @@ import {
 import { applyShippedNames, applyVariantDrops } from "./usda-adjudication.mjs";
 import { applyCollapsedNames, collapseCorpus } from "./usda-collapse.mjs";
 import { buildArtifacts } from "./usda-artifacts.mjs";
+import { packQueries, readPackTwins } from "./ledger-fold.mjs";
 import { ACCEPTED, ADJUDICATION } from "./pairing-adjudication.mjs";
 import { resolve as resolveTs } from "./ts-resolve-hook.mjs";
 
@@ -65,48 +66,13 @@ const EXPORT_PATH =
 const INDEX_PATH = join(ROOT, "public", "usda", "search-index.json");
 
 // ---------------------------------------------------------------------------
-// Population (copied from pairing-census.mjs's fold; same HLC rule)
+// Population
 // ---------------------------------------------------------------------------
 
-function readPopulation(path) {
-  const latest = new Map();
-  for (const line of readFileSync(path, "utf8").split("\n")) {
-    if (!line.trim()) continue;
-    const row = JSON.parse(line);
-    if (!row.entity?.startsWith("gtin:")) continue;
-    const stamp = [row.hlc_ms, row.hlc_ctr];
-    const attrs = latest.get(row.entity) ?? new Map();
-    const held = attrs.get(row.attribute);
-    if (
-      !held ||
-      stamp[0] > held.stamp[0] ||
-      (stamp[0] === held.stamp[0] && stamp[1] > held.stamp[1])
-    )
-      attrs.set(row.attribute, { stamp, value: JSON.parse(row.value) });
-    latest.set(row.entity, attrs);
-  }
-  return [...latest].map(([entity, attrs]) => {
-    const provenance =
-      attrs.get("twin/raw_provenance")?.value ??
-      attrs.get("provenance/raw")?.value;
-    const product = provenance?.raw_data?.product ?? provenance?.product ?? {};
-    return {
-      gtin: entity.slice("gtin:".length),
-      name: attrs.get("food/name")?.value ?? null,
-      panel: attrs.get("nutrition/info")?.value ?? null,
-      productName: product.product_name || null,
-      categoriesTags: product.categories_tags ?? [],
-    };
-  });
-}
-
-/** #243's query construction, verbatim. */
+/** #243's queries as one ordered list of attempts, most specific first. */
 function queriesFor(twin) {
-  const tags = twin.categoriesTags
-    .filter((tag) => tag.startsWith("en:"))
-    .map((tag) => tag.slice(3).replaceAll("-", " ").toLowerCase())
-    .reverse();
-  return [...tags, twin.productName ?? twin.name].filter(Boolean);
+  const { tags, name } = packQueries(twin);
+  return [...tags, name].filter(Boolean);
 }
 
 // ---------------------------------------------------------------------------
@@ -186,7 +152,7 @@ console.log(
   } rows`
 );
 
-const population = readPopulation(EXPORT_PATH);
+const population = readPackTwins(EXPORT_PATH);
 const twinByGtin = new Map(population.map((t) => [t.gtin, t]));
 
 // ---------------------------------------------------------------------------

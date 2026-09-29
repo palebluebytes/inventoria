@@ -65,6 +65,7 @@ import {
   serialiseIndex,
   serialiseNutrientStore,
 } from "./usda-artifacts.mjs";
+import { readPackTwins } from "./ledger-fold.mjs";
 import { ACCEPTED, ADJUDICATION, REFUSED } from "./pairing-adjudication.mjs";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
@@ -246,30 +247,9 @@ console.log(
 // 3. Coverage over #241's real population
 // ---------------------------------------------------------------------------
 
-/** Every `gtin:` twin's latest panel, folded by HLC stamp as the app folds it. */
+/** Every `gtin:` twin's latest panel, by barcode. */
 function readPanels(path) {
-  const latest = new Map();
-  for (const line of readFileSync(path, "utf8").split("\n")) {
-    if (!line.trim()) continue;
-    const datom = JSON.parse(line);
-    if (!datom.entity?.startsWith("gtin:")) continue;
-    const stamp = [datom.hlc_ms, datom.hlc_ctr];
-    const attrs = latest.get(datom.entity) ?? new Map();
-    const held = attrs.get(datom.attribute);
-    if (
-      !held ||
-      stamp[0] > held.stamp[0] ||
-      (stamp[0] === held.stamp[0] && stamp[1] > held.stamp[1])
-    )
-      attrs.set(datom.attribute, { stamp, value: JSON.parse(datom.value) });
-    latest.set(datom.entity, attrs);
-  }
-  return new Map(
-    [...latest].map(([entity, attrs]) => [
-      entity.slice("gtin:".length),
-      attrs.get("nutrition/info")?.value ?? null,
-    ])
-  );
+  return new Map(readPackTwins(path).map((twin) => [twin.gtin, twin.panel]));
 }
 
 /**
