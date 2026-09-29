@@ -8,6 +8,7 @@ import {
   descriptionSegments,
   mayRepresentGroup,
   residualDescription,
+  siblingsOf,
 } from "../../src/lib/food/usda-collapse-roster";
 
 // ADR-0103 §2's roster, pinned against real corpus descriptions — an axis tuned
@@ -34,36 +35,164 @@ describe("a roster entry says which of §2's two kinds it claims, and why", () =
       ]);
   });
 
-  it("holds three axes, and preparation is not one of them", () => {
+  it("holds four axes, and preparation is not one of them", () => {
     expect([...new Set(COLLAPSING_AXES.map((entry) => entry.axis))]).toEqual([
       "separation",
       "trim",
       "grade",
+      "salt",
     ]);
+  });
+});
+
+type Row = { description: string };
+
+describe("the salt axis is read beside its siblings (ADR-0113 §12)", () => {
+  // §12 coins `with salt` / `without salt` on the ground that salting a pot
+  // while it boils is something done to a food after it was bought. The words
+  // alone do not say that: on a tub of margarine they name the thing on the
+  // shelf. So this is the one entry that reads the REST of the name, and the
+  // measurement that forced it is in the ADR's amendment — unconditional, the
+  // coining takes seven shipped rows, all of them shelf distinctions.
+  const boiled = ["cooked", "boiled", "drained"];
+
+  it("claims a salt statement standing beside a cooking method", () => {
+    expect(claimingAxis("without salt", boiled)?.axis).toBe("salt");
+    expect(claimingAxis("with salt", boiled)?.axis).toBe("salt");
+    expect(
+      residualDescription("Spinach, cooked, boiled, drained, with salt")
+    ).toBe("Spinach, cooked, boiled, drained");
+  });
+
+  it("claims nothing from the same words standing alone", () => {
+    // The segment out of context says only that the food is salted, which is a
+    // fact about the shelf until something else in the name says when.
+    expect(claimingAxis("with salt", [])).toBe(null);
+    expect(claimingAxis("without salt", [])).toBe(null);
+  });
+
+  it("leaves salted butter, margarine and peanut butter on the shelf", () => {
+    // Five of the seven pairs the unconditional coining would have merged; the
+    // other two are a second margarine stick carrying `with added vitamin D`
+    // and the 60% spread, both of which differ from a name here only in a
+    // segment the roster never reads. A pack names whether it is salted, which
+    // is §12's own ground for narrowness turned on salt itself.
+    for (const name of [
+      "Butter, light, stick",
+      "Margarine, 80% fat, composite, stick",
+      "Margarine, 80% fat, composite, tub",
+      "Margarine-like, vegetable oil spread, 20% fat",
+      "Peanut butter, chunk style",
+    ])
+      expect([name, collapseGroupKey(`${name}, with salt`)]).not.toEqual([
+        name,
+        collapseGroupKey(`${name}, without salt`),
+      ]);
+  });
+
+  it("leaves the salt on a roasted nut or seed, which is bought that way", () => {
+    // ADR-0104 §2's shop test, borrowed whole: `roasted` and `toasted` are the
+    // two cooking words that also name a food as it is SOLD, so salt beside
+    // them went on before the purchase. Under-collapsing is §3's sanctioned
+    // direction of failure; taking these would reverse ADR-0104 silently.
+    expect(claimingAxis("without salt", ["whole", "roasted"])).toBe(null);
+    expect(claimingAxis("with salt", ["kernels", "toasted"])).toBe(null);
+  });
+
+  it("claims the two statements §12 coins and no wider spelling", () => {
+    // §12 coins `with salt` / `without salt`. `with salt added` is USDA's
+    // spelling on the shelf rows above and is not the same claim; widening to
+    // it takes twenty-seven shipped rows rather than seven.
+    expect(claimingAxis("with salt added", boiled)).toBe(null);
+    expect(claimingAxis("without salt added", boiled)).toBe(null);
+    expect(claimingAxis("low sodium", boiled)).toBe(null);
+    expect(claimingAxis("salted", boiled)).toBe(null);
+  });
+
+  it("claims not one segment of the corpus that ships", () => {
+    // §12's headline claim, asked of the corpus rather than argued. It is a
+    // structural zero, not a lucky one: the shipped rows carrying a bare salt
+    // statement name no cooking method beside it but roasting and toasting,
+    // which is ADR-0104 §2's own exemption. Read out of the artifact for the
+    // roasted block's reason below — a regeneration that changes it fails here.
+    const shipped: Row[] = JSON.parse(
+      readFileSync("public/usda/search-index.json", "utf8")
+    ).foods;
+    const claimed = shipped.filter(({ description }) => {
+      const { tail } = descriptionSegments(description);
+      return tail.some(
+        (segment, at) =>
+          claimingAxis(segment, siblingsOf(tail, at))?.axis === "salt"
+      );
+    });
+    expect(claimed.map((row) => row.description)).toEqual([]);
+    // And the population it walked past is real, so the zero above is the
+    // condition working rather than the pattern missing.
+    expect(
+      shipped.filter(({ description }) =>
+        descriptionSegments(description).tail.some((segment) =>
+          /^(with|without) salt$/i.test(segment)
+        )
+      ).length
+    ).toBe(36);
+  });
+
+  it("pins the tallies the roster's own prose states", () => {
+    // The paragraph over `COLLAPSING_AXES` says the corpus is 2,023 rows at
+    // schema 10, that 51 of them still carry a butchery segment and that salt
+    // claims none of the other 1,972. #517 found the first two of those reading
+    // 2,037 and schema 9 against a corpus that had moved underneath them, which
+    // is the hole the paragraph itself warns about: a roster entry whose reach
+    // nobody measured. Measured here, so the next move fails rather than drifts.
+    const index = JSON.parse(
+      readFileSync("public/usda/search-index.json", "utf8")
+    );
+    expect([index.foods.length, index.schema_version]).toEqual([2023, 10]);
+    const carrying = index.foods.filter(({ description }: Row) => {
+      const { tail } = descriptionSegments(description);
+      return tail.some((segment, at) =>
+        claimingAxis(segment, siblingsOf(tail, at))
+      );
+    });
+    expect(carrying.length).toBe(51);
+  });
+
+  it("refuses a salted record the group's name, and keeps the unsalted one", () => {
+    // §5: the group's name would claim an unsalted food over a panel that
+    // measured a salted one, and sodium is the one nutrient ADR-0113 §4 forbids
+    // a pairing to spend. Separation's asymmetry, on the axis that earns it.
+    expect(claimingAxis("with salt", boiled)?.preferred).toBe(false);
+    expect(claimingAxis("without salt", boiled)?.preferred).toBe(true);
+    expect(
+      mayRepresentGroup("Spinach, cooked, boiled, drained, with salt")
+    ).toBe(false);
+    expect(
+      mayRepresentGroup("Spinach, cooked, boiled, drained, without salt")
+    ).toBe(true);
   });
 });
 
 describe("claimingAxis", () => {
   it("reads the butcher's dissection as a separation", () => {
-    expect(claimingAxis("separable lean and fat")?.axis).toBe("separation");
-    expect(claimingAxis("boneless separable lean only")?.axis).toBe(
+    expect(claimingAxis("separable lean and fat", [])?.axis).toBe("separation");
+    expect(claimingAxis("boneless separable lean only", [])?.axis).toBe(
       "separation"
     );
-    expect(claimingAxis("lean only")?.axis).toBe("separation");
+    expect(claimingAxis("lean only", [])?.axis).toBe("separation");
   });
 
   it("reads a trim specification, with or without USDA's missing space", () => {
     // ADR-0103 §10: the archives spell it both ways, so an entry is a pattern
     // over a segment rather than a literal string.
-    expect(claimingAxis('trimmed to 1/8" fat')?.axis).toBe("trim");
-    expect(claimingAxis('trimmed to 1/8"fat')?.axis).toBe("trim");
-    expect(claimingAxis('trimmed to 0" fat')?.axis).toBe("trim");
+    expect(claimingAxis('trimmed to 1/8" fat', [])?.axis).toBe("trim");
+    expect(claimingAxis('trimmed to 1/8"fat', [])?.axis).toBe("trim");
+    expect(claimingAxis('trimmed to 0" fat', [])?.axis).toBe("trim");
   });
 
   it("reads a carcass grade in either country's vocabulary", () => {
-    expect(claimingAxis("choice")?.axis).toBe("grade");
-    expect(claimingAxis("USDA Select")?.axis).toBe("grade");
-    expect(claimingAxis("Aust. marble score 9")?.axis).toBe("grade");
+    expect(claimingAxis("choice", [])?.axis).toBe("grade");
+    expect(claimingAxis("USDA Select", [])?.axis).toBe("grade");
+    expect(claimingAxis("Aust. marble score 9", [])?.axis).toBe("grade");
   });
 
   it("reads a separation USDA welded a provenance gloss to", () => {
@@ -73,8 +202,8 @@ describe("claimingAxis", () => {
     // tag walked past ADR-0056's strip. The gloss cannot be taken with the
     // segment, because the entry is non-preferred — a record stating it never
     // represents a group, so no strip ever reaches it.
-    expect(claimingAxis("separable fat (from ham and arm picnic)")).toEqual(
-      claimingAxis("separable fat")
+    expect(claimingAxis("separable fat (from ham and arm picnic)", [])).toEqual(
+      claimingAxis("separable fat", [])
     );
     expect(
       mayRepresentGroup("Pork, cured, separable fat (from ham and arm picnic)")
@@ -100,13 +229,13 @@ describe("claimingAxis", () => {
       "external fat",
       "composite of trimmed retail cuts",
     ])
-      expect([segment, claimingAxis(segment)]).toEqual([segment, null]);
+      expect([segment, claimingAxis(segment, [])]).toEqual([segment, null]);
   });
 
   it("never reads USDA's egg grade as a carcass grade", () => {
     // §10's standing warning: `grade a` is a different sense of the word, and an
     // entry reading the word rather than the segment renames three egg rows.
-    expect(claimingAxis("Grade A")).toBe(null);
+    expect(claimingAxis("Grade A", [])).toBe(null);
     expect(residualDescription("Eggs, Grade A, Large, egg white")).toBe(
       "Eggs, Grade A, Large, egg white"
     );
@@ -180,9 +309,9 @@ describe("the preparation axis is absent, and ADR-0104's roasted rows say why", 
   it("claims no spelling of the uncooked state either", () => {
     // ADR-0104 §4 already strips these from every shipped name, so the pilot's
     // `raw` entries reach nothing and left with the rest of the axis.
-    expect(claimingAxis("raw")).toBe(null);
-    expect(claimingAxis("cooked")).toBe(null);
-    expect(claimingAxis("roasted")).toBe(null);
+    expect(claimingAxis("raw", [])).toBe(null);
+    expect(claimingAxis("cooked", [])).toBe(null);
+    expect(claimingAxis("roasted", [])).toBe(null);
   });
 });
 

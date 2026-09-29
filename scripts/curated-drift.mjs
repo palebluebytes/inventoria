@@ -1,5 +1,16 @@
 /**
- * Has a curated stand-in's pinned OFF record moved? (ADR-0046, #117)
+ * Has a pinned barcode moved out from under the table that names it?
+ * (ADR-0046, #117; ADR-0113 §14, #523)
+ *
+ * Two hand-authored tables travel with the app and both pin a barcode: the
+ * Curated stand-ins, which pin an OFF record as a base ingredient's panel, and
+ * the Curated pairings, which pin a barcode's substance to a USDA reference
+ * food. One loop asks Open Food Facts about each, and a {@link PinnedTable}
+ * carries what an answer MEANS for that table — the two differ in rules and not
+ * in machinery.
+ *
+ * The rest of this header is the stand-ins' half. The pairings' half, including
+ * the two findings that are deliberately not made there, is on {@link PAIRINGS}.
  *
  * Why this exists: ADR-0046 §4 snapshots each stand-in's OFF record into the
  * repo rather than fetching it per search, and accepts silent staleness as the
@@ -47,8 +58,19 @@
  */
 const DRIFT_EPSILON = { relative: 0.005, absolute: 0.1 };
 
-/** How long to wait between two OFF requests, in ms (their rate guidance). */
-const REQUEST_INTERVAL_MS = 1000;
+/**
+ * How long to wait between two OFF requests, in ms.
+ *
+ * Measured, not guessed, and it is three seconds because of what #523 found the
+ * moment this job went from 2 barcodes to 27: one request a second is under
+ * Open Food Facts' published 100-a-minute ceiling for product reads and still
+ * trips a burst limiter, which turned the fourteenth request and every one after
+ * it into a `429`. Ten of those same barcodes, re-read at three seconds apart
+ * immediately afterwards, all answered. A quarterly job has no reason to hurry:
+ * the whole run costs a minute and a half, and a run that spends it is worth
+ * more than a fast one that establishes nothing about half the table.
+ */
+export const REQUEST_INTERVAL_MS = 3000;
 
 /** The separators an ingredients list uses, in every form OFF records them. */
 const INGREDIENT_SEPARATOR = /,|;|\+|&|\band\b/;
@@ -191,11 +213,18 @@ function valueFindings(name, pinnedValue, currentValue) {
 }
 
 /**
- * One thing that has moved, and what kind of thing it is. The four kinds are
- * the whole vocabulary: a panel value, the ingredients text, a product OFF no
- * longer lists, and a request that never reached OFF at all.
+ * One thing a run found, and what kind of thing it is. The six kinds are the
+ * whole vocabulary: a panel value, the ingredients text, a barcode that has come
+ * to name a different food, a product OFF no longer lists, a barcode OFF has no
+ * record of, and a request that never reached OFF at all.
  *
- * @typedef {{ kind: "panel" | "ingredients" | "delisted" | "unreachable", message: string }} Finding
+ * Only the first four ask anything of anybody. The last two are the two ways a
+ * row can go unconfirmed without being in doubt, and they are apart because they
+ * ask for different things: `unreachable` asks for the run again, and `absent`
+ * asks for nothing at all. Both still print, because a line reading `ok` over a
+ * row nothing was learned about is the silence this whole job exists against.
+ *
+ * @typedef {{ kind: "panel" | "ingredients" | "identity" | "delisted" | "absent" | "unreachable", message: string }} Finding
  */
 
 /**
@@ -254,24 +283,182 @@ export function driftFindings(snapshotProduct, currentProduct) {
 }
 
 /**
- * Re-fetches every pinned entry and reports what has moved, one result per
- * entry, in order.
+ * What one pinned table's rows are, and what an answer about one means.
+ *
+ * The machinery below is one loop; the two tables differ only in rules, which is
+ * what #523 priced when it extended this job to the Curated pairings. Each says
+ * how to read a row, what a served record means for it, what a delisting means,
+ * and what a reader must do about a finding.
+ *
+ * @template Row
+ * @typedef {{
+ *   what: string,
+ *   describe: (entry: Row) => { label: string, code: string, captured: string },
+ *   served: (entry: Row, product: Record<string, unknown>) => Finding[],
+ *   delisted: (entry: Row, reason: string) => Finding[],
+ *   advice: string[],
+ * }} PinnedTable
+ */
+
+/**
+ * The fields each table's rules actually read off a row, which is deliberately
+ * less than the shipped tables carry: this job asks Open Food Facts about a
+ * barcode, and a stand-in's aliases or a pairing's `ground` are no part of that
+ * question. Structural, so `CURATED_STAND_INS` and `CURATED_PAIRINGS` satisfy
+ * them as they are and no app type crosses into a plain-Node module.
+ *
+ * @typedef {{ food: string, captured: string, snapshot: { code: string, product: Record<string, unknown> } }} PinnedStandIn
+ * @typedef {{ gtin: string, product: string, captured: string }} PinnedPairing
+ */
+
+/**
+ * A pack's name as an identity rather than as a string: case, edge space and
+ * runs of space inside it are how one product's name is written twice, and are
+ * not how one barcode becomes a different food.
+ */
+const asIdentity = (name) =>
+  typeof name === "string"
+    ? name.trim().toLowerCase().replace(/\s+/g, " ")
+    : "";
+
+/**
+ * Whether the record Open Food Facts serves today still names the pack a Curated
+ * pairing was made against (ADR-0113 §14).
+ *
+ * The one question this job can ask of a pairing, and it errs toward asking a
+ * human: any name that is not the pinned one is reported, including an edit that
+ * only rewords it. That is ADR-0046 §4's stance carried over — a wasted look
+ * costs five minutes, where an unnoticed GTIN reuse leaves a pack annotated from
+ * a reference food for something else entirely — and a reworded record is
+ * cheaper still to settle, because the fix is the `product` field alone.
+ *
+ * A record carrying NO name says nothing either way and is not a finding: one
+ * seed row is exactly that pack, paired off its categories because its name is
+ * blank, and a quarterly report of the blank it was paired with would spend the
+ * attention this job exists to bank. The PINNED side of that row is a
+ * placeholder for the same reason, so the day Open Food Facts gives that barcode
+ * a name this reports it — correctly, as something to read, and the answer will
+ * be to write the name into `product` rather than to doubt the pairing.
+ *
+ * @param {PinnedPairing} row
+ * @param {Record<string, unknown>} product
+ * @returns {Finding[]}
+ */
+export function identityFindings(row, product) {
+  const now = asIdentity(product.product_name);
+  if (!now || now === asIdentity(row.product)) return [];
+  return [
+    {
+      kind: "identity",
+      message: `"${row.product}" pinned, OFF names this barcode "${product.product_name}" today`,
+    },
+  ];
+}
+
+/**
+ * The Curated stand-ins (ADR-0046 §4): the pinned OFF record IS the panel.
+ *
+ * @type {PinnedTable<PinnedStandIn>}
+ */
+export const STAND_INS = {
+  what: "curated stand-in",
+  describe: (entry) => ({
+    label: entry.food,
+    code: entry.snapshot.code,
+    captured: entry.captured,
+  }),
+  served: (entry, product) => driftFindings(entry.snapshot.product, product),
+  delisted: (entry, reason) => [
+    {
+      kind: "delisted",
+      message: `${reason} — the stand-in still answers searches from its snapshot`,
+    },
+  ],
+  advice: [
+    "Nothing above has been rewritten. A moved panel is a prompt to re-vet the",
+    "entry against ADR-0046 §2 — the absence, the single ingredient, the",
+    "cross-product consensus, the independent check — and to update the snapshot",
+    "and its `captured` date by hand once it still holds, or to drop the entry.",
+  ],
+};
+
+/**
+ * The Curated pairings (ADR-0113 §14): the row claims the barcode's SUBSTANCE,
+ * and Open Food Facts is a witness to it rather than the source of it.
+ *
+ * Two consequences, and both are why this is a different rule set rather than
+ * the same one pointed at a second table:
+ *
+ *  - A DELISTING IS NOT A FINDING. A stand-in that goes missing leaves the
+ *    search answering from a snapshot of something gone; a pairing that goes
+ *    missing is a row no scan will ever reach again, which harms nobody. Some of
+ *    the seed's packs were typed from their labels and have no OFF record at
+ *    all, so absence is the ordinary case here and reporting it would fail this
+ *    job every quarter over rows nothing had happened to.
+ *  - THE PANEL IS NOT COMPARED, because none is pinned. What invalidates a
+ *    pairing is the barcode coming to name a different food, and the name is the
+ *    only evidence of that Open Food Facts carries. Reformulation under a stable
+ *    GTIN stays invisible to this job, is named as such in the table's header,
+ *    and is what each row's `captured` date exists to date.
+ *
+ * @type {PinnedTable<PinnedPairing>}
+ */
+export const PAIRINGS = {
+  what: "Curated pairing",
+  describe: (row) => ({
+    label: row.product,
+    code: row.gtin,
+    captured: row.captured,
+  }),
+  served: identityFindings,
+  delisted: (row) => [
+    {
+      kind: "absent",
+      message: `Open Food Facts has no record for ${row.gtin}, so nothing here was confirmed or contradicted`,
+    },
+  ],
+  advice: [
+    "Nothing above has been rewritten. A barcode that has come to name a",
+    "different food is a pairing to re-make or withdraw by hand in",
+    "`src/lib/food/curated-pairings.ts`, with its `ground` and `captured` date —",
+    "and a renamed record that is still the same food needs only the `product`",
+    "field brought up to date. ADR-0113 §14 makes a curated row a person's claim,",
+    "so no job may settle either case for them.",
+  ],
+};
+
+/**
+ * Re-fetches every pinned row and reports what has moved, one result per row, in
+ * order.
  *
  * `fetchProduct` and `pause` are parameters rather than imports so the rules can
  * be exercised without a network, and so the rate limit is a decision of this
  * function rather than a property of whatever fetcher is passed in. The pause
- * falls BETWEEN requests: OFF asks callers to rate-limit, and a list this short
+ * falls BETWEEN requests: OFF asks callers to rate-limit, and a table this short
  * spends a few seconds a quarter honouring it.
+ *
+ * `continuing` says this run follows another against the same host, so the
+ * pacing spans both rather than restarting: the interval stays this function's
+ * decision, and the caller only reports whether it has already spent requests.
+ *
+ * @template Row
+ * @param {readonly Row[]} entries
+ * @param {{
+ *   fetchProduct: (code: string) => Promise<{ status: number, body: unknown }>,
+ *   pause?: (ms: number) => Promise<void>,
+ *   table: PinnedTable<Row>,
+ *   continuing?: boolean,
+ * }} io
  */
-export async function checkStandIns(entries, { fetchProduct, pause = sleep }) {
+export async function checkPinned(
+  entries,
+  { fetchProduct, pause = sleep, table, continuing = false }
+) {
   const results = [];
   for (const entry of entries) {
-    if (results.length > 0) await pause(REQUEST_INTERVAL_MS);
-    const code = entry.snapshot.code;
+    if (continuing || results.length > 0) await pause(REQUEST_INTERVAL_MS);
     const result = {
-      food: entry.food,
-      code,
-      captured: entry.captured,
+      ...table.describe(entry),
       /** @type {Finding[]} */
       findings: [],
     };
@@ -279,7 +466,7 @@ export async function checkStandIns(entries, { fetchProduct, pause = sleep }) {
 
     let response;
     try {
-      response = await fetchProduct(code);
+      response = await fetchProduct(result.code);
     } catch (error) {
       result.findings.push({
         kind: "unreachable",
@@ -298,15 +485,10 @@ export async function checkStandIns(entries, { fetchProduct, pause = sleep }) {
       continue;
     }
     if (read.kind === "delisted") {
-      result.findings.push({
-        kind: "delisted",
-        message: `${read.reason} — the stand-in still answers searches from its snapshot`,
-      });
+      result.findings.push(...table.delisted(entry, read.reason));
       continue;
     }
-    result.findings.push(
-      ...driftFindings(entry.snapshot.product, read.product)
-    );
+    result.findings.push(...table.served(entry, read.product));
   }
   return results;
 }
@@ -317,19 +499,31 @@ export function sleep(ms) {
 }
 
 /**
- * Whether a finding asks a human to re-vet the entry against ADR-0046 §2, as
- * opposed to asking for the run to be repeated.
+ * Whether a finding asks a human to look at the row again.
  *
  * The one line every reader of this report has to draw (#205), and drawn once
  * here because two callers draw it: the closing advice below, and the exit
- * summary in `curated-snapshot-check.mjs`. `unreachable` is the whole of the
- * far side — OFF said nothing about the record, so nothing about the record is
- * in question.
+ * summary in `curated-snapshot-check.mjs`. The far side is everything OFF said
+ * nothing about — it never answered, or it answered that it has no such record —
+ * because nothing about the row is in question either way.
  *
  * @param {Finding} finding
  */
 export function needsReVetting(finding) {
-  return finding.kind !== "unreachable";
+  return finding.kind !== "unreachable" && finding.kind !== "absent";
+}
+
+/**
+ * Whether a finding asks for the run to be repeated rather than for a decision.
+ *
+ * The second line, and the reason it is not the negation of the first: a barcode
+ * OFF has no record of is settled, and running the job again would establish the
+ * same nothing. Only an entry OFF never answered about is worth another look.
+ *
+ * @param {Finding} finding
+ */
+export function needsAnotherRun(finding) {
+  return finding.kind === "unreachable";
 }
 
 /** What each kind of finding means to whoever reads the report. */
@@ -337,12 +531,19 @@ const KIND_LABEL = {
   delisted: "GONE",
   panel: "PANEL",
   ingredients: "ADMISSION",
+  identity: "IDENTITY",
+  absent: "NO RECORD",
   unreachable: "UNCHECKED",
 };
 
 /**
  * The run as text, in the shape `usda-backup.mjs` prints: one line per entry,
  * `ok` for a clean one, and the findings indented under a failing one.
+ *
+ * The closing advice is the table's, because what a finding asks of a reader is
+ * the one thing the two tables do not share: a stand-in's moved panel sends
+ * someone back through ADR-0046 §2's admissions, where a pairing's moved name
+ * asks whether the barcode is still the same food.
  *
  * It closes by saying what the job did NOT do, because the report is the only
  * place a reader learns that nothing was rewritten for them — and it closes with
@@ -352,37 +553,36 @@ const KIND_LABEL = {
  * never heard from asks for another run, and asking for a re-vet on the strength
  * of one would spend the review attention ADR-0046 §4 is banking on.
  */
-export function formatReport(results) {
+export function formatReport(results, table) {
   const lines = [];
   for (const result of results) {
-    const where = `${result.food} (${result.code}, captured ${result.captured})`;
+    const where = `${result.label} (${result.code}, captured ${result.captured})`;
     if (result.findings.length === 0) {
       lines.push(`  ok  ${where}`);
       continue;
     }
-    lines.push(`FAIL  ${where}`);
+    // Three outcomes, not two: a row nothing was learned about has not failed,
+    // and must not read `ok` either. `--` is the middle one, and the findings
+    // under it say which of the two silences it was.
+    const failed = result.findings.some(
+      (finding) => needsReVetting(finding) || needsAnotherRun(finding)
+    );
+    lines.push(`${failed ? "FAIL" : "  --"}  ${where}`);
     for (const finding of result.findings)
       lines.push(`      ${KIND_LABEL[finding.kind]}  ${finding.message}`);
   }
 
   const findings = results.flatMap((result) => result.findings);
-  if (findings.some(needsReVetting))
+  if (findings.some(needsReVetting)) lines.push("", ...table.advice);
+  if (findings.some(needsAnotherRun))
     lines.push(
       "",
-      "Nothing above has been rewritten. A moved panel is a prompt to re-vet the",
-      "entry against ADR-0046 §2 — the absence, the single ingredient, the",
-      "cross-product consensus, the independent check — and to update the snapshot",
-      "and its `captured` date by hand once it still holds, or to drop the entry."
-    );
-  if (findings.some((finding) => !needsReVetting(finding)))
-    lines.push(
-      "",
-      "An UNCHECKED line is not a finding about the food. Open Food Facts served",
-      "no record for that entry — it was busy, down, or turned the request away —",
-      "so the run established nothing either way, and that snapshot has been",
+      "An UNCHECKED line is not a finding about the food. Open Food Facts did",
+      "not answer for that entry — it was busy, down, or turned the request away",
+      "— so the run established nothing either way, and that row has been",
       "neither confirmed nor contradicted. Start the check again; if the same",
       "status comes back run after run, it is the check that needs looking at,",
-      "not the stand-in."
+      "not the row it was asked about."
     );
   return lines.join("\n");
 }

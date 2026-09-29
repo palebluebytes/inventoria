@@ -29,6 +29,17 @@
  *     per-head "after" and the corpus total come from.
  *   - `docs/research/usda-drop-census.json`, whose `"stage": "collapse"` rows
  *     are the records the collapse absorbed and the survivor each went into.
+ *   - `public/usda/pairing-index.json` and `docs/research/usda-pairing-collapse.json`,
+ *     the same pair for ADR-0113 §11's Pairing arm, which §12 gives the account a
+ *     second table for. The arm needs its own census for a reason the shipped one
+ *     makes easy to miss: a collapse leaves nothing behind in the index it writes,
+ *     so the 690 records it absorbed are as absent from the Pairing index as a
+ *     dropped food is from the Search index, and the absorbed column would be
+ *     unre-derivable without them. Joining the arm to the drop census's
+ *     `cooked_form` rows instead is what #517 refused: 19 of those 1,744 leave by
+ *     the variant and name rules before the collapse reads a name, so the join
+ *     reports three head phrases (`Rice`, `Pasta`, `Noodles`) as collapsing where
+ *     nothing collapsed.
  *
  * Between them they carry every figure the account states, which is a property
  * of the account rather than a lucky one: `collapseAccount` is written to state
@@ -45,124 +56,98 @@
  * pass on the day its copy and the generator's agreed with each other and
  * disagreed with the corpus.
  *
- * **The three group counts ARE re-derived, deliberately, and that is the one
- * place two implementations are the point.** The generator counts merged groups,
- * coverage holes and refusals as it performs them; {@link countSurvivorOutcomes}
- * reads them back off the names that shipped. A gate whose numbers came from the
- * same pass that wrote them would agree with a wrong account as readily as with
- * a right one. The cost is honest and worth naming: if the two ever disagree
- * about a corpus that did not move, this gate fails and the first differing line
- * says which count — which is a real bug in one of them, and the failure is how
- * anyone finds out.
+ * **The shipped arm's three group counts ARE re-derived, deliberately, and that
+ * is the one place two implementations are the point.** The generator counts
+ * merged groups, coverage holes and refusals as it performs them;
+ * `countSurvivorOutcomes` reads them back off the names that shipped. A gate
+ * whose numbers came from the same pass that wrote them would agree with a wrong
+ * account as readily as with a right one. The cost is honest and worth naming: if
+ * the two ever disagree about a corpus that did not move, this gate fails and the
+ * first differing line says which count — which is a real bug in one of them, and
+ * the failure is how anyone finds out.
  *
- * It reads its three files relative to the working directory, the way
+ * **The pairing arm's counts are one implementation, and the generator asserts
+ * the difference instead.** Nothing in that arm counts a group as it merges it —
+ * `buildPairingTargets` runs the shipped passes over a wider corpus and the cooked
+ * half is a subset of what they report — so `collapseFigures` derives all four
+ * figures from the arm's census, on both sides of the comparison. What stands in
+ * for the second counter is in `usda-bundle.mjs`: the lifted corpus's own group
+ * tallies, minus the shipped arm's, have to equal the arm's, and they can only be
+ * subtracted like that because `assertArmCollapseIsClosed` has proved no group
+ * lies astride the two.
+ *
+ * It reads its four files relative to the working directory, the way
  * `docs-check.mjs` does, so `usda-account-check.test.ts` can run the real gate
  * against a throwaway tree and prove it fires. A gate nobody has seen fail is a
  * gate nobody has tested.
  */
 
 import { readFileSync } from "node:fs";
+import { registerHooks } from "node:module";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 
 import {
   assertCollapseReach,
   collapseAccount,
-  collapseReach,
-  headPhraseCount,
+  collapseFigures,
 } from "./usda-collapse.mjs";
-import {
+import { assertArmCollapseIsClosed } from "./usda-pairing-targets.mjs";
+import { resolve as resolveTs } from "./ts-resolve-hook.mjs";
+
+// ADR-0113 §12's salt entries read a cooking method out of `usda-food-kind.ts`
+// rather than spelling one a second time, so the roster now has a neighbour and
+// a plain Node import of it needs the extensionless-import hook. Registered
+// before the dynamic import below, which is why that import is dynamic: a static
+// one is hoisted above this line and resolves against the bare specifier.
+registerHooks({ resolve: resolveTs });
+const {
+  COLLAPSING_AXES,
+  claimingAxis,
   descriptionSegments,
   mayRepresentGroup,
   residualDescription,
-} from "../src/lib/food/usda-collapse-roster.ts";
+  siblingsOf,
+} = await import("../src/lib/food/usda-collapse-roster.ts");
 
 const INDEX_PATH = join("public", "usda", "search-index.json");
 const CENSUS_PATH = join("docs", "research", "usda-drop-census.json");
+const ARM_INDEX_PATH = join("public", "usda", "pairing-index.json");
+const ARM_CENSUS_PATH = join("docs", "research", "usda-pairing-collapse.json");
 const ACCOUNT_PATH = join("docs", "research", "190-corpus-account.md");
 
 /** The roster, in the shape the generator's passes ask for it. */
-const app = { descriptionSegments, residualDescription, mayRepresentGroup };
+const app = {
+  COLLAPSING_AXES,
+  claimingAxis,
+  descriptionSegments,
+  residualDescription,
+  mayRepresentGroup,
+  siblingsOf,
+};
 
 /**
- * A row in the shape {@link collapseReach} reads: a name, and an identity.
+ * The account the four committed artifacts say the two corpora deserve.
  *
- * The panel is empty and unread. §4's chain has already run — this gate looks at
- * a finished corpus and never picks a representative — so filling the array
- * would be a fixture pretending to a question nobody asks here.
- */
-const collapsible = (fdcId, description) => ({
-  food: { fdcId, description, foodNutrients: [] },
-});
-
-/**
- * How each collapse group's survivor ended up named, read off the corpus rather
- * than off the pass that produced it.
+ * Exported for the test, which asks it of corpora small enough to read.
  *
- * Two of the three counts the account's "And why" section states — the third,
- * the groups shipping under a residual name, is what is left once these are
- * taken off the merged total. Each is a question about the SHIPPED name of a
- * group's representative:
- *
- * - **A name with no collapsing segment left in it** is a group that shipped
- *   under its residual. Either §5's strip took the segments, or the group merged
- *   on §3's punctuation clause and had none to take — which is why the account
- *   counts groups here and not names (the generator holds the two to each other,
- *   where both numbers exist).
- * - **A representative that could not have stood for its group** is §5's
- *   coverage hole: every record in the group states a non-preferred value, so
- *   the fullest panel ships under its own whole name.
- * - **A representative that WAS eligible and still carries its segments** is
- *   ADR-0062 §3's refusal: the residual name was taken, so the strip was not
- *   made. A refusal leaves the corpus byte-for-byte as it was, which is the
- *   whole reason it is counted rather than inferred.
- *
- * @param {Map<number, string>} survivors - each group's representative, by `fdcId`.
- * @returns {{ groups_shipped_whole: number, names_refused: number }}
- */
-function countSurvivorOutcomes(survivors) {
-  let groups_shipped_whole = 0;
-  let names_refused = 0;
-  for (const description of survivors.values()) {
-    if (residualDescription(description) === description) continue;
-    if (mayRepresentGroup(description)) names_refused++;
-    else groups_shipped_whole++;
-  }
-  return { groups_shipped_whole, names_refused };
-}
-
-/**
- * The account the two committed artifacts say the corpus deserves.
- *
- * Exported for the test, which asks it of a corpus small enough to read.
- *
- * @param {{ foods: { fdcId: number, description: string }[] }} index
- * @param {{ drops: { fdcId: number, description: string, stage: string, collapsed_into?: number }[] }} census
+ * @param {{ shipped: { index: { foods: { fdcId: number, description: string }[] }, census: { drops: { fdcId: number, description: string, stage: string, collapsed_into?: number }[] } }, arm: { index: { foods: { fdcId: number, description: string }[] }, census: { collapsed: { fdcId: number, description: string, collapsed_into: number }[] } } }} artifacts
  * @returns {string}
  */
-export function accountFromArtifacts(index, census) {
-  const after = index.foods.map((row) =>
-    collapsible(row.fdcId, row.description)
-  );
+export function accountFromArtifacts({ shipped, arm }) {
   // The one family of the census that still SHIPS: each of these records is the
   // same food as a row that survived, under that row's `fdcId`.
-  const taken = census.drops.filter((drop) => drop.stage === "collapse");
-  // The corpus as the collapse received it: what survived, plus what it took.
-  // Stated this way round because the archives are the one input this gate does
-  // not have, and the census is a record of the difference between the two.
-  const before = [
-    ...after,
-    ...taken.map((drop) => collapsible(drop.fdcId, drop.description)),
-  ];
-
-  const shipped = new Map(
-    index.foods.map((row) => [row.fdcId, row.description])
+  const taken = shipped.census.drops.filter(
+    (drop) => drop.stage === "collapse"
+  );
+  const names = new Map(
+    shipped.index.foods.map((row) => [row.fdcId, row.description])
   );
   /** @type {Map<number, string>} */
   const survivors = new Map();
   for (const drop of taken) {
     const into = drop.collapsed_into;
-    const description = shipped.get(into);
+    const description = names.get(into);
     // ADR-0051 §2's survivor assertion, asked a second time and from the other
     // side. The generator asks it of the rows it is about to write; this asks it
     // of the rows that were written, so a corpus and a census committed out of
@@ -179,18 +164,25 @@ export function accountFromArtifacts(index, census) {
       );
     survivors.set(into, description);
   }
-
-  const reach = collapseReach(before, after, app);
+  const corpus = collapseFigures(shipped.index.foods, taken, survivors, app);
   // Named before the bytes are compared, so a head arriving or leaving reports
-  // itself as the roster question it is rather than as a diff of a table.
-  assertCollapseReach(reach);
-  return collapseAccount(reach, {
-    before: before.length,
-    after: after.length,
-    heads: headPhraseCount(before, app),
-    groups_merged: survivors.size,
-    ...countSurvivorOutcomes(survivors),
-  });
+  // itself as the roster question it is rather than as a diff of a table. Asked
+  // of the shipped arm alone: 93 head phrases move in the other one, which is a
+  // table and not a roster (ADR-0113 §11).
+  assertCollapseReach(corpus.reach);
+
+  const armNames = new Map(
+    arm.index.foods.map((row) => [row.fdcId, row.description])
+  );
+  return collapseAccount(
+    corpus,
+    collapseFigures(
+      arm.index.foods,
+      arm.census.collapsed,
+      assertArmCollapseIsClosed(arm.census.collapsed, armNames),
+      app
+    )
+  );
 }
 
 /**
@@ -215,9 +207,13 @@ function firstDifference(committed, rebuilt) {
 }
 
 function main() {
-  const index = JSON.parse(readFileSync(INDEX_PATH, "utf8"));
-  const census = JSON.parse(readFileSync(CENSUS_PATH, "utf8"));
-  const rebuilt = accountFromArtifacts(index, census);
+  const read = (path) => JSON.parse(readFileSync(path, "utf8"));
+  const index = read(INDEX_PATH);
+  const arm = read(ARM_INDEX_PATH);
+  const rebuilt = accountFromArtifacts({
+    shipped: { index, census: read(CENSUS_PATH) },
+    arm: { index: arm, census: read(ARM_CENSUS_PATH) },
+  });
 
   let committed = null;
   try {
@@ -225,7 +221,8 @@ function main() {
   } catch {
     throw new Error(
       `${ACCOUNT_PATH} does not exist, and ADR-0103 §9 commits it. The ` +
-        "generator writes it beside the two artifacts: pnpm usda:bundle."
+        "generator writes it beside the artifacts it accounts for: pnpm " +
+        "usda:bundle."
     );
   }
   if (committed !== rebuilt)
@@ -233,14 +230,16 @@ function main() {
       `${ACCOUNT_PATH} is not an account of the corpus that ships.` +
         firstDifference(committed, rebuilt) +
         "\n\n  Either the corpus moved and the account was not regenerated " +
-        "with it — pnpm usda:bundle writes both — or the account was edited " +
+        "with it — pnpm usda:bundle writes the account beside every artifact " +
+        "it is an account of — or the account was edited " +
         "by hand, in which case the edit is the thing to undo. Every figure " +
-        "in it is derived from public/usda/search-index.json and the census's " +
-        '"stage": "collapse" rows, so it is never the place to correct a ' +
-        "number."
+        "in it is derived from the rows the two indexes ship and the records " +
+        "the two censuses say a collapse took, so it is never the place to " +
+        "correct a number."
     );
   console.log(
-    `  ok  ${ACCOUNT_PATH} is the account of the ${index.foods.length.toLocaleString("en-GB")} rows that ship`
+    `  ok  ${ACCOUNT_PATH} is the account of the ${index.foods.length.toLocaleString("en-GB")} ` +
+      `rows that ship and the ${arm.foods.length.toLocaleString("en-GB")} the pairing arm holds`
   );
 }
 

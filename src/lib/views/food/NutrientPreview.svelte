@@ -9,6 +9,7 @@
     calorieDisplayDecimals,
   } from "../../stores/device-settings";
   import NutrientBreakdown from "./NutrientBreakdown.svelte";
+  import EstMark from "./EstMark.svelte";
 
   // How a set of derived nutrition figures is shown, wherever they come from —
   // a food scaled to an amount, a recipe divided by its yield. Two parts, one
@@ -24,32 +25,53 @@
   // shown twice and nothing a food actually carries is lost.
   let {
     breakdown,
+    estimated = undefined,
     testid = "nutrient-breakdown",
   }: {
     /** The figures to show, already scaled/derived by the caller. */
     breakdown: NutritionBreakdown;
+    /**
+     * The keys a **Pack pairing**'s reference food supplied rather than the
+     * manufacturer (ADR-0113 §5). Each such figure wears an `est` mark and a
+     * lighter weight, on both halves of the split above — the grid and the
+     * disclosure are one panel, so a borrowed nutrient the user happens to track
+     * may not shed its mark by being promoted into the grid.
+     *
+     * Omitted everywhere a figure cannot have been borrowed. Two surfaces pass
+     * one: a paired pack's own panel, and the recipe editor's live figures —
+     * where the set is the **union** over the rows, because the mark says *not
+     * every figure in this row was printed on a label* and a sum gets one mark
+     * per key, never a second, softer one saying how much (§5).
+     */
+    estimated?: ReadonlySet<string>;
     /** Test id for the disclosure, so a surface keeps its own selector. */
     testid?: string;
   } = $props();
 
   let pills = $derived(
-    buildNutrientPills(
-      breakdown,
-      $visibleNutrients,
-      $calorieDisplayDecimals,
-      true
-    )
+    buildNutrientPills(breakdown, $visibleNutrients, {
+      calorieDecimals: $calorieDisplayDecimals,
+      hideEmpty: true,
+      estimated,
+    })
   );
   let pillKeys = $derived(new Set(pills.map((p) => p.key)));
   let fullRows = $derived(
-    buildNutrientBreakdown(breakdown, $calorieDisplayDecimals, true, pillKeys)
+    buildNutrientBreakdown(breakdown, {
+      calorieDecimals: $calorieDisplayDecimals,
+      hideEmpty: true,
+      exclude: pillKeys,
+      estimated,
+    })
   );
 </script>
 
 <div class="nutrients">
   {#each pills as pill (pill.key)}
     <div class="n nutrient-{pill.key}">
-      <span title={pill.label}>{pill.label}</span><strong>{pill.value}</strong>
+      <span title={pill.label}>{pill.label}</span><strong class:est={pill.est}
+        >{pill.value}{#if pill.est}<EstMark />{/if}</strong
+      >
     </div>
   {/each}
 </div>
@@ -89,6 +111,13 @@
     flex: 0 0 auto;
     white-space: nowrap;
     font-weight: 700;
+  }
+  /* The same mark the full-nutrition rows carry, at the same weights: the grid
+     and the disclosure are one panel split by what the user tracks, so a
+     borrowed figure may not read differently depending on which half it landed
+     in (ADR-0113 §5). */
+  .n strong.est {
+    font-weight: 400;
   }
   .full-panel {
     margin-top: var(--space-s);

@@ -11,6 +11,7 @@
   import {
     toReferenceIngredient,
     sourceFromIngredients,
+    referenceFoodsFor,
     nameFromIngredients,
     parseLoggedQuantity,
     type RecipeIngredient,
@@ -259,8 +260,14 @@
           await dbClient.append(ingestEntity(ing.payload));
         }
         const refs = ingredients.map(toReferenceIngredient);
+        // Awaited here rather than read off the editor's own load, so a commit
+        // can never freeze a paired row's figures without the account of them:
+        // the rows and the envelopes are derived from one resolver (ADR-0113
+        // §6). Nothing loads unless a row is actually paired. The correction
+        // above asks the same question inside `correctOccasion`.
+        const references = await referenceFoodsFor(ingredients);
         const resolve = (ref: string) =>
-          sourceFromIngredients(ingredients, ref);
+          sourceFromIngredients(ingredients, ref, references);
         const resolveName = (ref: string) =>
           nameFromIngredients(ingredients, ref);
         // Instantiate: purely additive — log and retract nothing.

@@ -12,6 +12,7 @@
   import {
     toReferenceIngredient,
     sourceFromIngredients,
+    referenceFoodsFor,
     nameFromIngredients,
     isImpromptuTwin,
     type RecipeIngredient,
@@ -160,10 +161,6 @@
   // and the ingredient editing live in IngredientListEditor; this component only
   // needs the references and resolvers for the save/log step below.
   let referenceIngredients = $derived(ingredients.map(toReferenceIngredient));
-  // Each ingredient's real nutrition panel / display name, resolved in memory
-  // from its inlined twin payload — never mutating the food twin.
-  const resolveSource = (ref: string) =>
-    sourceFromIngredients(ingredients, ref);
   const resolveName = (ref: string) => nameFromIngredients(ingredients, ref);
 
   function addStep() {
@@ -289,7 +286,8 @@
       //    template-only: it re-seeds only FUTURE instantiations, so it logs
       //    nothing. Create is template-only for the opposite reason: it is
       //    reached from the screen header rather than from a meal, so there is no
-      //    meal it could honestly log into.
+      //    meal it could honestly log into. Consolidate logs too, and does it
+      //    above, in the store.
       if (mode === "define") {
         // The store derives the per-serving snapshot with the shared formula over
         // each ingredient's REAL nutrition/info panel and the same yield, then
@@ -297,11 +295,17 @@
         // the projection's derivation, so the frozen snapshot equals what the
         // builder showed at the moment it was logged. Panels are read in memory,
         // so real food twins are never mutated.
+        //
+        // Each panel is widened by whatever a **Pack pairing** on that twin
+        // supplies. Awaited here so a commit can never freeze a paired row's
+        // figures without the account of them (ADR-0113 §6); nothing loads
+        // unless one of the rows is actually paired.
+        const references = await referenceFoodsFor(ingredients);
         logged = await logRecipeConsumption(
           recipeId,
           referenceIngredients,
           yieldNum,
-          resolveSource,
+          (ref) => sourceFromIngredients(ingredients, ref, references),
           resolveName,
           meal_type,
           selectedDate

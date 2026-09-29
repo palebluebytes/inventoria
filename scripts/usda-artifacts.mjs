@@ -1,6 +1,7 @@
 /**
- * What the two USDA artifacts are shaped like, how they are written, and how big
- * they turn out.
+ * What the USDA artifacts are shaped like, how they are written, and how big they
+ * turn out: the Search index and the Nutrient store (ADR-0047), and the Pairing
+ * index and Pairing nutrient store beside them (ADR-0113 §11).
  *
  * Split from `usda-bundle.mjs`, which decides WHAT ships; this decides what the
  * bytes look like once that is settled. The two change for different reasons — a
@@ -8,7 +9,7 @@
  * reviewable-diff rule and ADR-0049 §4's per-phrase layout move the shape — and
  * the generator was past `CODING_STANDARDS.md` §4's ~1000 lines carrying both.
  *
- * `SCHEMA_VERSION` and the three builders below joined it for the second half of
+ * `SCHEMA_VERSION` and the builders below joined it for the second half of
  * that same reason (#151). They are what a schema bump edits: every one of the
  * five versions the number has had was a change to a FIELD on a row or a section
  * on the artifact, and not one of them moved a filter. The corpus arrives here
@@ -23,7 +24,7 @@
 import { brotliCompressSync, constants, gzipSync } from "node:zlib";
 
 // ---------------------------------------------------------------------------
-// The shape: what a row carries, and what the two files are made of
+// The shape: what a row carries, and what the files are made of
 // ---------------------------------------------------------------------------
 /**
  * Bumped when either artifact's shape changes, so a reader can refuse an old one.
@@ -52,9 +53,9 @@ import { brotliCompressSync, constants, gzipSync } from "node:zlib";
  * a row nor a vocabulary, and it is a bump rather than a silent addition for the
  * usual reason — a reader holding a capture made under 9 was searching a corpus
  * where `raw aubergine` could not retrieve anything, and one made under 10 was
- * not. Both files carry the version because both
- * are generated together from one corpus, and a pair that disagreed about their
- * version would be the bug the number exists to catch.
+ * not. Every file carries the version because all four are generated together
+ * from one reading of one set of archives, and two of them disagreeing about it
+ * would be the bug the number exists to catch.
  */
 export const SCHEMA_VERSION = 10;
 
@@ -106,7 +107,7 @@ export function collectNutrientDictionary(foods) {
 }
 
 // ---------------------------------------------------------------------------
-// The two artifacts
+// The artifacts
 // ---------------------------------------------------------------------------
 
 /**
@@ -190,6 +191,62 @@ export function buildNutrientEntry({ food }) {
 }
 
 /**
+ * Every index row of one corpus, with the one field a row cannot answer alone.
+ *
+ * ADR-0055 §3's key is decided here rather than in {@link buildIndexRow} because
+ * a name is a qualified form only relative to the OTHER names in the corpus.
+ * Descriptions alone go in — an `also` alias has no way to become a parent,
+ * which is what stops the fourteen rows that are a row AND the prefix of their
+ * own alias (`Oil, corn`, `Pineapple, raw`, `Nuts, almonds, whole, raw`) from
+ * demoting themselves.
+ *
+ * **Both corpora come through here**, which is what makes ADR-0113 §11's claim
+ * that the Pairing index carries the same fields true by construction rather
+ * than by a second builder agreeing with this one — and it is what caught the
+ * one thing §11 got wrong about them. The record calls `raw` inert over a set
+ * where every row is cooked; it lands on two, because USDA writes
+ * `Apples, raw, without skin, cooked, boiled` and `describedRaw` reads the
+ * description it published. `plain_sibling` is recomputed over whichever corpus
+ * arrives, so it answers about that one.
+ *
+ * @param {Survivor[]} survivors
+ * @param {AppModule} app
+ */
+function buildIndexRows(survivors, app) {
+  const rows = survivors.map((survivor) => {
+    const row = buildIndexRow(survivor, app);
+    // Schema 9's field. `usda-adjudication.mjs` reads `describedRaw` off USDA's
+    // own description before the strip takes the word, so the key keeps the
+    // signal the shipped name loses.
+    if (survivor.describedRaw) row.raw = true;
+    return row;
+  });
+  const qualified = app.plainSiblingsOf(rows.map((row) => row.description));
+  rows.forEach((row, i) => {
+    if (qualified[i]) row.plain_sibling = true;
+  });
+  return rows;
+}
+
+/**
+ * The nutrient store's two sections over one corpus: the id dictionary, and
+ * every record's amounts under USDA's own units.
+ *
+ * @param {Survivor[]} survivors
+ * @param {ReturnType<typeof generatedFrom>} generated_from
+ */
+function buildNutrientSections(survivors, generated_from) {
+  const dictionary = collectNutrientDictionary(survivors.map((s) => s.food));
+  const nutrients = {};
+  for (const id of [...dictionary.keys()].sort((a, b) => a - b))
+    nutrients[id] = dictionary.get(id);
+  const foods = {};
+  for (const survivor of survivors)
+    foods[survivor.food.fdcId] = buildNutrientEntry(survivor);
+  return { schema_version: SCHEMA_VERSION, generated_from, nutrients, foods };
+}
+
+/**
  * Both artifacts, built over one corpus.
  *
  * The vocabulary is passed in rather than derived here because it is derived
@@ -210,34 +267,7 @@ export function buildArtifacts(
   vocabulary_off,
   vocabulary_local
 ) {
-  const dictionary = collectNutrientDictionary(survivors.map((s) => s.food));
   const generated_from = generatedFrom(archives);
-  const nutrients = {};
-  for (const id of [...dictionary.keys()].sort((a, b) => a - b))
-    nutrients[id] = dictionary.get(id);
-  const foods = {};
-  for (const survivor of survivors)
-    foods[survivor.food.fdcId] = buildNutrientEntry(survivor);
-
-  // ADR-0055 §3's key, decided here rather than in `buildIndexRow` because it
-  // is the only field on a row that the row cannot answer: a name is a qualified
-  // form only relative to the OTHER names in the corpus. Descriptions alone go
-  // in — an `also` alias has no way to become a parent, which is what stops the
-  // fourteen rows that are a row AND the prefix of their own alias (`Oil, corn`,
-  // `Pineapple, raw`, `Nuts, almonds, whole, raw`) from demoting themselves.
-  const rows = survivors.map((survivor) => {
-    const row = buildIndexRow(survivor, app);
-    // Schema 9's field. `usda-adjudication.mjs` reads `describedRaw` off USDA's
-    // own description before the strip takes the word, so the key keeps the
-    // signal the shipped name loses.
-    if (survivor.describedRaw) row.raw = true;
-    return row;
-  });
-  const qualified = app.plainSiblingsOf(rows.map((row) => row.description));
-  rows.forEach((row, i) => {
-    if (qualified[i]) row.plain_sibling = true;
-  });
-
   return {
     index: {
       schema_version: SCHEMA_VERSION,
@@ -250,14 +280,38 @@ export function buildArtifacts(
       state_qualifiers: [...app.STATE_QUALIFIERS].sort(),
       vocabulary_off,
       vocabulary_local,
-      foods: rows,
+      foods: buildIndexRows(survivors, app),
     },
-    nutrientStore: {
+    nutrientStore: buildNutrientSections(survivors, generated_from),
+  };
+}
+
+/**
+ * The Pairing index and the Pairing nutrient store, built over the cooked
+ * records (ADR-0113 §11).
+ *
+ * **The same builders and one section fewer.** The rows are the shipped rows'
+ * builder, because the index carries the same fields; what it does not carry is
+ * a Vocabulary map or a state roster of its own. There is no path to declaring a
+ * pack cooked that has not already loaded the shipped index's header, so a
+ * second copy would be two maps read as one — and one consequence of sharing
+ * falls out rather than being discovered later: `state_qualifiers` holds only
+ * the six uncooked spellings, so nothing strips `cooked` or `boiled` from a
+ * query typed against this set.
+ *
+ * @param {Survivor[]} survivors
+ * @param archives - the manifest's archives, as {@link generatedFrom} reads them
+ * @param {AppModule} app
+ */
+export function buildPairingArtifacts(survivors, archives, app) {
+  const generated_from = generatedFrom(archives);
+  return {
+    index: {
       schema_version: SCHEMA_VERSION,
       generated_from,
-      nutrients,
-      foods,
+      foods: buildIndexRows(survivors, app),
     },
+    nutrientStore: buildNutrientSections(survivors, generated_from),
   };
 }
 
@@ -340,28 +394,24 @@ function renderVocabulary(vocabulary) {
   ]);
 }
 
-/** The search index, serialised as one food per line, sorted by `fdcId` (§3). */
-export function serialiseIndex(artifact) {
-  return serialiseDocument([
-    ["artifact", '"usda-search-index"'],
-    ["schema_version", String(artifact.schema_version)],
-    ["generated_from", renderProvenance(artifact.generated_from)],
-    ["state_qualifiers", JSON.stringify(artifact.state_qualifiers)],
-    ["vocabulary_off", renderVocabulary(artifact.vocabulary_off)],
-    ["vocabulary_local", renderVocabulary(artifact.vocabulary_local)],
-    [
-      "foods",
-      linePerEntry(
-        "[",
-        "]",
-        artifact.foods.map((row) => JSON.stringify(row))
-      ),
-    ],
-  ]);
-}
+/** An index's foods, one per line, in the `fdcId` order they arrive in (§3). */
+const renderFoods = (foods) =>
+  linePerEntry(
+    "[",
+    "]",
+    foods.map((row) => JSON.stringify(row))
+  );
 
-/** The nutrient store, serialised as one food per line, keyed by `fdcId` (§3). */
-export function serialiseNutrientStore(artifact) {
+/**
+ * Every section of a nutrient store but the name of the artifact itself.
+ *
+ * The two stores differ in that name and in nothing else, and the name is
+ * spelled by each entry point below rather than read off the object: a reader
+ * refuses a file by what it says it is, so a generator that took the claim from
+ * its own input could write a Pairing nutrient store calling itself the shipped
+ * one and nothing would notice.
+ */
+function nutrientStoreSections(artifact) {
   const keyed = (entries) =>
     linePerEntry(
       "{",
@@ -371,12 +421,57 @@ export function serialiseNutrientStore(artifact) {
           `${JSON.stringify(String(key))}: ${JSON.stringify(value)}`
       )
     );
-  return serialiseDocument([
-    ["artifact", '"usda-nutrient-store"'],
+  return [
     ["schema_version", String(artifact.schema_version)],
     ["generated_from", renderProvenance(artifact.generated_from)],
     ["nutrients", keyed(Object.entries(artifact.nutrients))],
     ["foods", keyed(Object.entries(artifact.foods))],
+  ];
+}
+
+/** The search index, serialised as one food per line, sorted by `fdcId` (§3). */
+export function serialiseIndex(artifact) {
+  return serialiseDocument([
+    ["artifact", '"usda-search-index"'],
+    ["schema_version", String(artifact.schema_version)],
+    ["generated_from", renderProvenance(artifact.generated_from)],
+    ["state_qualifiers", JSON.stringify(artifact.state_qualifiers)],
+    ["vocabulary_off", renderVocabulary(artifact.vocabulary_off)],
+    ["vocabulary_local", renderVocabulary(artifact.vocabulary_local)],
+    ["foods", renderFoods(artifact.foods)],
+  ]);
+}
+
+/**
+ * The Pairing index: the same envelope and the same rows, and none of the three
+ * sections that make the other file a search (ADR-0113 §11).
+ *
+ * The missing sections are what a reader sees first, which is the point: this
+ * shape cannot be handed to anything expecting a Search index, in the generator
+ * or in the app.
+ */
+export function serialisePairingIndex(artifact) {
+  return serialiseDocument([
+    ["artifact", '"usda-pairing-index"'],
+    ["schema_version", String(artifact.schema_version)],
+    ["generated_from", renderProvenance(artifact.generated_from)],
+    ["foods", renderFoods(artifact.foods)],
+  ]);
+}
+
+/** The nutrient store, serialised as one food per line, keyed by `fdcId` (§3). */
+export function serialiseNutrientStore(artifact) {
+  return serialiseDocument([
+    ["artifact", '"usda-nutrient-store"'],
+    ...nutrientStoreSections(artifact),
+  ]);
+}
+
+/** The Pairing nutrient store: the same file for the cooked records (§11). */
+export function serialisePairingNutrientStore(artifact) {
+  return serialiseDocument([
+    ["artifact", '"usda-pairing-nutrient-store"'],
+    ...nutrientStoreSections(artifact),
   ]);
 }
 

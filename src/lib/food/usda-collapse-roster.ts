@@ -98,10 +98,57 @@
 // entry for `roasted` outside `Nut and Seed Products`, say — would need the
 // category, which is a fact about the record and not about the segment, and
 // would put ADR-0104 §2's exemption in a second place to drift from.
+//
+// ---------------------------------------------------------------------------
+// The salt axis reads its siblings, and #517 is why
+// ---------------------------------------------------------------------------
+//
+// ADR-0113 §12 coined `with salt` / `without salt` as the fourth axis on the
+// ground that salting a pot while it boils happens after the purchase, and
+// claimed the coining would move 0 shipped rows. Measured, the unconditional
+// entry takes SEVEN: `Butter, light, stick`, three margarines, two vegetable oil
+// spreads and `Peanut butter, chunk style` each ship both ways today, and a pack
+// names whether it is salted. That is §12's own ground for narrowness — a pack
+// names its cooking method, so merging methods would erase a distinction the
+// pack supplies — turned on salt itself. The same three words name the pot on a
+// boiled vegetable and the shelf on a tub of margarine.
+//
+// So salt's two entries are the only ones that read the REST of the name, and
+// the condition is ADR-0104 §2's shop test borrowed whole rather than spelled
+// again: `COOKING_AFTER_BUYING` is `usda-food-kind.ts`'s own vocabulary with
+// `roasted` and `toasted` left out, because those two also name a food as it is
+// SOLD. With it the entries claim NOTHING in the shipped corpus at all — not
+// "nothing that merges": the 36 rows carrying a bare salt statement name no
+// cooking method beside it but roasting and toasting, which is the shop test's
+// own exemption. The zero is structural rather than an accident of how USDA
+// spelled a sibling. In the pairing arm, where every row is a cooked record by
+// construction, they absorb 147 of 1,725 (ADR-0113 §11).
+//
+// It is a fact about the NAME, which is what separates it from the category the
+// preparation axis would have needed: this module already splits a description
+// into its segments, and nothing here asks what the record is.
 // ---------------------------------------------------------------------------
 
-/** The axes this roster classifies. A fourth costs an ADR (§2). */
-export type CollapsingAxisName = "separation" | "trim" | "grade";
+import { COOKING_AFTER_BUYING } from "./usda-food-kind";
+
+/**
+ * Salt's condition, spelled once for both of its entries: does anything else in
+ * this name say the food was cooked after it was bought?
+ *
+ * `COOKING_AFTER_BUYING` reads INSIDE a sibling, and §10 is not bent by that.
+ * §10 governs what an entry CLAIMS — the segment it strikes out, which is still
+ * matched whole by `re`. This reads a different segment as evidence and never
+ * strikes it, so the trap §10 was written for (an entry renaming three egg rows
+ * off the word `grade`) has nothing to bite on.
+ */
+const cookedAfterBuying = (siblings: readonly string[]): boolean =>
+  siblings.some((segment) => COOKING_AFTER_BUYING.test(segment));
+
+/**
+ * The axes this roster classifies. A fourth costs an ADR (§2), and ADR-0113 §12
+ * is the one that paid.
+ */
+export type CollapsingAxisName = "separation" | "trim" | "grade" | "salt";
 
 /**
  * One roster entry: a pattern over a whole comma-segment, and the argument for
@@ -122,6 +169,22 @@ export interface CollapsingAxis {
   /** The whole-segment pattern (§10). */
   re: RegExp;
   /**
+   * A condition on the REST of the name, where the segment does not speak for
+   * itself. Absent on every entry but salt's two.
+   *
+   * §10's positional rule reads one segment and asks which direction it points
+   * in time, and for a dissection or a carcass grade that is the whole question.
+   * `with salt` is not: on a boiled vegetable it names the pot, and on a tub of
+   * margarine it names the shelf. The same three words point both ways, so the
+   * entry that claims them has to read what stands beside them (ADR-0113 §12's
+   * amendment).
+   *
+   * It takes the OTHER segments of the tail, never the head and never the
+   * record: a category is a fact about the record, and the header above is why
+   * the roster may not have one.
+   */
+  beside?: (siblings: readonly string[]) => boolean;
+  /**
    * Whether a record STATING this value may still represent its group (§5).
    *
    * §5 refuses a record that "positively states a non-preferred value on a
@@ -137,10 +200,15 @@ export interface CollapsingAxis {
  * ADR-0103 §2's collapsing axes, as patterns over a whole comma-segment.
  *
  * Tallies below are rows of `public/usda/search-index.json` as it ships today
- * (2,037 rows, schema 9), because a roster entry whose reach nobody measured is
- * a hole nobody can see. **51** rows still carry at least one of the three,
- * under the same seven head phrases the roster has always reached: `Pork` 19,
- * `Beef` 17, `Game meat` 6, `Lamb` 4, `Veal` 3, `Pork loin` 1 and `Chicken` 1.
+ * (2,023 rows, schema 10), because a roster entry whose reach nobody measured is
+ * a hole nobody can see. **51** rows still carry at least one of the three
+ * butchery axes, under the same seven head phrases the roster has always
+ * reached: `Pork` 19, `Beef` 17, `Game meat` 6, `Lamb` 4, `Veal` 3,
+ * `Pork loin` 1 and `Chicken` 1. **Salt claims none of them, and none of the
+ * other 1,972 either** — the header above says why that zero is structural, and
+ * `usda-collapse-roster.test.ts` asks the artifact rather than trusting this
+ * paragraph, which is what the two figures above were missing when #517 found
+ * them reading 2,037 and schema 9 against a corpus that had moved.
  *
  * **224 rows carried one before #436, and the fall to 51 is the strip rather
  * than a roster change.** §5 takes these segments out of the name a merged
@@ -237,6 +305,40 @@ export const COLLAPSING_AXES: readonly CollapsingAxis[] = [
     re: /^aust\. marble score /i,
     preferred: true,
   },
+  // ── salt: the pot, and never the shelf ───────────────────────────────────
+  // ADR-0113 §12, as its amendment settled it. These two claim no segment of the
+  // shipped corpus at all — 36 rows carry a bare salt statement and not one of
+  // them names a cooking method beside it, the header above being why that is
+  // structural. Where they do the work is the pairing set, every row of which is
+  // a cooked record by construction (ADR-0113 §11): 147 rows of 1,725.
+  //
+  // The two statements are entered separately because they are not the same
+  // claim about the record, which is the separation axis's arrangement on the
+  // axis that earns it a second time.
+  {
+    axis: "salt",
+    kind: "collapsing",
+    because:
+      "Salting a pot while it boils is something done to a food after it was " +
+      "bought, which is ADR-0103 §2's line applied. This is the value the pot " +
+      "was not salted at, so the group's name stays true of it.",
+    re: /^without salt$/i,
+    beside: cookedAfterBuying,
+    preferred: true,
+  },
+  {
+    axis: "salt",
+    kind: "collapsing",
+    because:
+      "The same act, stated from the other side. Collapsing, because the salt " +
+      "went in after you bought the food — but non-preferred, because a name " +
+      "with the salt struck out would claim an unsalted food over a panel that " +
+      "measured a salted one (§5), and sodium is the one nutrient ADR-0113 §4 " +
+      "forbids a pairing to spend.",
+    re: /^with salt$/i,
+    beside: cookedAfterBuying,
+    preferred: false,
+  },
 ];
 
 /**
@@ -255,14 +357,46 @@ export const withoutTrailingGloss = (segment: string): string =>
   segment.replace(/\s*\([^()]*\)$/, "").trim();
 
 /**
+ * The tail without the segment being asked about — what {@link claimingAxis}'s
+ * second argument wants.
+ *
+ * A segment is never its own sibling: `with salt` beside `with salt` would say
+ * nothing, and an entry reading itself is the substring trap (§10) one level up.
+ *
+ * Exported because every caller that walks a tail needs it and an index
+ * comparison is easy to write as a value comparison by mistake — which would
+ * drop a repeated segment out of its own siblings and read a different name.
+ * One spelling, for the reason ADR-0047 §4 gives about the roster itself.
+ */
+export const siblingsOf = (
+  tail: readonly string[],
+  at: number
+): readonly string[] => tail.filter((_, other) => other !== at);
+
+/**
  * Which axis claims this segment, or `null` where none does.
  *
  * The segment is matched WHOLE (§10). An unclaimed segment survives into the
  * residual description, which under-collapses rather than mis-collapsing — §3's
  * direction of failure, and the argument for grouping mechanically at all.
+ *
+ * `siblings` is the rest of the tail — {@link siblingsOf} builds it — and it
+ * carries NO DEFAULT even though only salt's two entries read it. A default of
+ * `[]` would answer `null` for a conditioned entry in every caller that forgot,
+ * silently and in the direction that looks like a clean corpus, so a caller with
+ * no name context has to say `[]` and mean it. Three of the four scripts that
+ * reach this have a tail; the fourth asks a strip roster's entry out of context
+ * and means it (#192).
  */
-export const claimingAxis = (segment: string): CollapsingAxis | null =>
-  COLLAPSING_AXES.find((entry) => entry.re.test(segment)) ?? null;
+export const claimingAxis = (
+  segment: string,
+  siblings: readonly string[]
+): CollapsingAxis | null =>
+  COLLAPSING_AXES.find(
+    (entry) =>
+      entry.re.test(segment) &&
+      (entry.beside === undefined || entry.beside(siblings))
+  ) ?? null;
 
 /**
  * A USDA description split into the head phrase that names the food and the
@@ -288,7 +422,12 @@ export const descriptionSegments = (
  */
 export const residualDescription = (description: string): string => {
   const { head, tail } = descriptionSegments(description);
-  return [head, ...tail.filter((segment) => !claimingAxis(segment))].join(", ");
+  return [
+    head,
+    ...tail.filter(
+      (segment, at) => !claimingAxis(segment, siblingsOf(tail, at))
+    ),
+  ].join(", ");
 };
 
 /**
@@ -335,8 +474,10 @@ export const collapseGroupKey = (description: string): string =>
  * head: it ships its fullest-panel record under that record's whole, unstripped
  * name, exactly as a group of one does (the same Amendment).
  */
-export const mayRepresentGroup = (description: string): boolean =>
-  descriptionSegments(description).tail.every((segment) => {
-    const entry = claimingAxis(segment);
+export const mayRepresentGroup = (description: string): boolean => {
+  const { tail } = descriptionSegments(description);
+  return tail.every((segment, at) => {
+    const entry = claimingAxis(segment, siblingsOf(tail, at));
     return entry === null || entry.preferred;
   });
+};

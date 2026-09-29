@@ -1,8 +1,9 @@
 #!/usr/bin/env node
 /**
- * Generating the bundled USDA search index and nutrient store (ADR-0047).
+ * Generating the bundled USDA search index and nutrient store (ADR-0047), and
+ * the Pairing index and Pairing nutrient store beside them (ADR-0113 §11).
  *
- *   pnpm usda:bundle              # regenerate both artifacts into public/usda/
+ *   pnpm usda:bundle              # regenerate all four artifacts into public/usda/
  *   pnpm usda:bundle --report     # measure and print, write nothing
  *
  * Flags: --dir <path> (where the archives are, default .usda-backup),
@@ -10,7 +11,7 @@
  *
  * Why this exists: ADR-0047 retires the FoodData Central API and ships USDA's
  * own bulk distribution instead, so food search works with no key, no quota and
- * no network. The two artifacts this writes are COMMITTED (§3) — a clone builds
+ * no network. Every artifact this writes is COMMITTED (§3) — a clone builds
  * with no archives, no network and no credentials, and a mirror refresh arrives
  * as a reviewable diff rather than a silent rebuild.
  *
@@ -43,7 +44,7 @@
  * corpus is final, because its filters ask what the FINISHED corpus retrieves.
  *
  * What the artifacts are SHAPED like and what the finished bytes look like is
- * `usda-artifacts.mjs` — the schema version, the three builders, and ADR-0047 §3's
+ * `usda-artifacts.mjs` — the schema version, the row and store builders, and ADR-0047 §3's
  * per-line layout and the size report beside it. This file decides what ships;
  * that one decides how it is written, and the two change for different reasons.
  * How the app's own filters, merge and ranking are reached at all is
@@ -53,6 +54,11 @@
  * decides when those passes run, and that file decides what they do. ADR-0103's
  * collapse, which is the opposite kind of thing — mechanical, and carrying no
  * judgement a human reached — is `usda-collapse.mjs`, on the same division.
+ *
+ * The second corpus is `usda-pairing-targets.mjs`, and it is one arm of this
+ * file rather than a script of its own: the two sets are cut from one reading of
+ * one set of archives, and a second command over the same 210 MB would be free
+ * to disagree with this one about which records they hold.
  */
 
 import { createHash } from "node:crypto";
@@ -69,11 +75,14 @@ import { countArchiveRecords } from "./usda-archive.mjs";
 import { assertAppExports, loadAppModule } from "./usda-app-module.mjs";
 import {
   buildArtifacts,
+  buildPairingArtifacts,
   kib,
   measure,
   parseMs,
   serialiseIndex,
   serialiseNutrientStore,
+  serialisePairingIndex,
+  serialisePairingNutrientStore,
 } from "./usda-artifacts.mjs";
 import {
   applyCollapsedNames,
@@ -81,11 +90,21 @@ import {
   assertCollapsedRowsShip,
   assertNamesClaimNoLess,
   assertNoAxisHidesInAGloss,
+  axisReach,
   collapseAccount,
   collapseCorpus,
+  collapseFigures,
   collapseReach,
   headPhraseCount,
 } from "./usda-collapse.mjs";
+import {
+  assertArmCollapseIsClosed,
+  assertArmFiguresAddUp,
+  assertShippedRowsUnmoved,
+  buildPairingTargets,
+  pairingCollapseCensus,
+  serialisePairingCollapse,
+} from "./usda-pairing-targets.mjs";
 import {
   compareToPublished,
   fetchPublishedArchives,
@@ -112,6 +131,21 @@ const COLLAPSE_ACCOUNT_PATH = join(
   "docs",
   "research",
   "190-corpus-account.md"
+);
+/**
+ * Where the Pairing arm's collapse is committed, one absorbed record per line.
+ *
+ * The account's second table is derived from it (ADR-0113 §12), and it is a file
+ * rather than a section of the drop census because that census is the account of
+ * the corpus that SHIPS: every record here is already in it, dropped by
+ * `cooked_form`, and filing it a second time would break the partition its own
+ * totals rest on.
+ */
+const PAIRING_COLLAPSE_PATH = join(
+  ROOT,
+  "docs",
+  "research",
+  "usda-pairing-collapse.json"
 );
 
 /**
@@ -220,7 +254,9 @@ export const BUNDLE_DATASETS = ["Foundation Foods", "SR Legacy"];
  * @property {(description: string) => { head: string, tail: string[] }} descriptionSegments
  * @property {(description: string) => string} residualDescription
  * @property {(segment: string) => string} withoutTrailingGloss
- * @property {(segment: string) => { axis: string, preferred: boolean } | null} claimingAxis
+ * @property {readonly { axis: string, preferred: boolean }[]} COLLAPSING_AXES
+ * @property {(segment: string, siblings: readonly string[]) => { axis: string, preferred: boolean } | null} claimingAxis
+ * @property {(tail: readonly string[], at: number) => readonly string[]} siblingsOf
  * @property {(rows: { fdcId: number, description: string, also?: readonly string[] }[], licensed: ReadonlySet<number>) => { renamed: ReadonlyMap<number, string>, tally: { stripped: number, refused: number } }} resolveCollapsedNames
  */
 
@@ -1015,6 +1051,77 @@ async function main() {
   const indexText = serialiseIndex(index);
   const nutrientText = serialiseNutrientStore(nutrientStore);
 
+  // ADR-0113 §11's second corpus, off the same archives and through the same
+  // passes: the records `isCookedForm` drops, kept where the Search index never
+  // held them. The rule is lifted HERE rather than inside the arm, because
+  // `buildCorpus` is the pass that reads it and a second place that stubbed it
+  // would be a second place the lift is written. Nothing else in the pipeline
+  // asks what kind of record it has, so every pass below `buildCorpus` runs
+  // against the app unstubbed.
+  const {
+    corpus: lifted,
+    targets,
+    absorbed,
+    tally: lifted_tally,
+  } = buildPairingTargets(
+    buildCorpus(groups, { ...app, isCookedForm: () => false }).survivors,
+    new Set(reference_foods.map((s) => s.food.fdcId)),
+    app
+  );
+  const shipped_unmoved = assertShippedRowsUnmoved(survivors, lifted);
+  const pairing = buildPairingArtifacts(targets, archives, app);
+  const pairingIndexText = serialisePairingIndex(pairing.index);
+  const pairingNutrientText = serialisePairingNutrientStore(
+    pairing.nutrientStore
+  );
+
+  // ADR-0113 §12's second table, and the census it is derived from. The arm's
+  // collapse leaves nothing behind in the index it writes — §5 strikes the
+  // claimed segments out of the survivor and the absorbed record is simply
+  // absent — so the account's absorbed column is unre-derivable unless this
+  // generation commits the rows it took (#517).
+  const namedRow = (row) => ({
+    fdcId: row.food.fdcId,
+    description: row.food.description,
+  });
+  const arm_collapsed = absorbed.map(({ row, into }) => ({
+    ...namedRow(row),
+    collapsed_into: into.food.fdcId,
+  }));
+  const arm_survivors = assertArmCollapseIsClosed(
+    arm_collapsed,
+    new Map(targets.map((row) => [row.food.fdcId, row.food.description]))
+  );
+  const arm = collapseFigures(
+    targets.map(namedRow),
+    arm_collapsed,
+    arm_survivors,
+    app
+  );
+  // Off the rows the collapse ABSORBED, never off the rows that ship: §5 has
+  // taken the claimed segments out of every survivor, so the same question asked
+  // of the index would answer nearly zero on every axis.
+  const shipped_axes = axisReach(
+    [...collapsed.values()].map(({ row }) => row.food.description),
+    app
+  );
+  const arm_groups = assertArmFiguresAddUp(
+    lifted_tally,
+    {
+      groups_merged,
+      groups_shipped_whole,
+      names_refused: collapsedNames.refused,
+    },
+    arm
+  );
+  const pairingCollapseText = serialisePairingCollapse(
+    pairingCollapseCensus(arm_collapsed, arm_survivors, {
+      schema_version: pairing.index.schema_version,
+      generated_from: pairing.index.generated_from,
+      targets: targets.length,
+    })
+  );
+
   const merged = index.foods.filter((row) => row.merged_from).length;
   const withPortions = index.foods.filter((row) => row.portions).length;
   const nutrientCount = survivors.reduce(
@@ -1135,12 +1242,39 @@ async function main() {
       `(${(nutrientCount / survivors.length).toFixed(1)} per food)`
   );
 
+  // ADR-0113 §11's set, reported at the granularity every filter above is:
+  // what the lift admitted, what the shipped collapse then did to it, and the
+  // count of shipped rows it was allowed to touch, which is zero by assertion
+  // rather than by hope.
+  console.log(
+    `\n  ${dropped.cooked_form} cooked records are re-admitted as Pairing ` +
+      `targets and collapse to ${targets.length.toLocaleString("en-GB")}, ` +
+      `reached only under a Declared state of cooked; all ${shipped_unmoved.toLocaleString("en-GB")} ` +
+      "shipped rows survive the lift under their own names"
+  );
+  // The arm's own collapse, at the granularity §9 asks of the other one. Its
+  // heads are a table rather than a roster (ADR-0113 §11), so the four widest are
+  // printed and the account carries all of them.
+  console.log(
+    `  ${arm.before - arm.after} of them are absorbed into ${arm_groups} groups ` +
+      `under ${arm.reach.length} head phrases, and salt claims ` +
+      `${arm.axes.salt} of the absorbed rows against ${shipped_axes.salt} ` +
+      "in the corpus that ships (ADR-0113 §12)"
+  );
+  for (const { head, rows, after, absorbed: took } of arm.reach.slice(0, 4))
+    console.log(
+      `    ${head.padEnd(8)} ${String(rows).padStart(4)} -> ` +
+        `${String(after).padStart(4)}  (${took} absorbed)`
+    );
+
   console.log(`\n${describeVocabulary(vocabulary)}\n${hand_written}`);
 
   console.log("");
   for (const [label, text] of [
     ["search index", indexText],
     ["nutrient store", nutrientText],
+    ["pairing index", pairingIndexText],
+    ["pairing store", pairingNutrientText],
   ]) {
     const size = measure(text);
     console.log(
@@ -1157,6 +1291,15 @@ async function main() {
   await mkdir(ARTIFACT_DIR, { recursive: true });
   await writeFile(join(ARTIFACT_DIR, "search-index.json"), indexText);
   await writeFile(join(ARTIFACT_DIR, "nutrient-store.json"), nutrientText);
+  // Beside them rather than anywhere else, and precached by neither Facet: each
+  // `precache` entry names a file or a hashed build asset, and not one of them
+  // is glob-shaped over `usda/`, so a new file landing in this directory cannot
+  // be swept into a band by accident (ADR-0113 §11).
+  await writeFile(join(ARTIFACT_DIR, "pairing-index.json"), pairingIndexText);
+  await writeFile(
+    join(ARTIFACT_DIR, "pairing-nutrient-store.json"),
+    pairingNutrientText
+  );
   // ADR-0103 §9's third requirement, written here rather than printed only: a
   // committed account is what makes "this rule removed forty foods" a thing a
   // diff shows moving (#156).
@@ -1169,20 +1312,29 @@ async function main() {
   // describes being regenerated is an account that goes green by being rewritten,
   // which is the shape of #156. Written from here, a moved number is a corpus
   // that moved.
+  await writeFile(PAIRING_COLLAPSE_PATH, pairingCollapseText);
   await writeFile(
     COLLAPSE_ACCOUNT_PATH,
-    collapseAccount(reach, {
-      before: named.length,
-      after: survivors.length,
-      heads: headPhraseCount(named, app),
-      groups_merged,
-      groups_shipped_whole,
-      names_refused: collapsedNames.refused,
-    })
+    collapseAccount(
+      {
+        reach,
+        before: named.length,
+        after: survivors.length,
+        heads: headPhraseCount(named, app),
+        groups_merged,
+        groups_shipped_whole,
+        names_refused: collapsedNames.refused,
+        axes: shipped_axes,
+      },
+      arm
+    )
   );
   console.log(
     `\nwritten to ${ARTIFACT_DIR}/search-index.json, ` +
-      `${ARTIFACT_DIR}/nutrient-store.json and ` +
+      `${ARTIFACT_DIR}/nutrient-store.json, ` +
+      `${ARTIFACT_DIR}/pairing-index.json, ` +
+      `${ARTIFACT_DIR}/pairing-nutrient-store.json, ` +
+      `${PAIRING_COLLAPSE_PATH} and ` +
       "docs/research/190-corpus-account.md"
   );
 }

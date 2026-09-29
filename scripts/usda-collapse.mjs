@@ -292,9 +292,13 @@ export function assertNamesClaimNoLess(before, after, licensed, app) {
         `its residual description is "${app.residualDescription(published)}"`
       );
     const kept = new Set(app.descriptionSegments(shipped).tail);
-    for (const segment of app.descriptionSegments(published).tail) {
+    const tail = app.descriptionSegments(published).tail;
+    for (const [at, segment] of tail.entries()) {
       if (kept.has(segment)) continue;
-      const entry = app.claimingAxis(segment);
+      // Read beside its siblings, as the strip read it: ADR-0113 §12's salt
+      // entries claim nothing out of context, so asking without the tail would
+      // report a struck-out `with salt` as a segment no entry claims.
+      const entry = app.claimingAxis(segment, app.siblingsOf(tail, at));
       if (!entry) refuse(`no roster entry claims the segment "${segment}"`);
       if (!entry.preferred)
         refuse(
@@ -331,12 +335,14 @@ export function assertNamesClaimNoLess(before, after, licensed, app) {
  */
 export function assertNoAxisHidesInAGloss(rows, app) {
   let read = 0;
-  for (const row of rows)
-    for (const segment of app.descriptionSegments(row.food.description).tail) {
+  for (const row of rows) {
+    const tail = app.descriptionSegments(row.food.description).tail;
+    for (const [at, segment] of tail.entries()) {
       read++;
-      if (app.claimingAxis(segment)) continue;
+      const siblings = app.siblingsOf(tail, at);
+      if (app.claimingAxis(segment, siblings)) continue;
       const bare = app.withoutTrailingGloss(segment);
-      const hidden = bare === segment ? null : app.claimingAxis(bare);
+      const hidden = bare === segment ? null : app.claimingAxis(bare, siblings);
       if (!hidden) continue;
       throw new Error(
         `"${row.food.description}" (${row.food.fdcId}) carries the segment ` +
@@ -349,6 +355,7 @@ export function assertNoAxisHidesInAGloss(rows, app) {
           "gloss makes it a different segment."
       );
     }
+  }
   return read;
 }
 
@@ -446,36 +453,188 @@ export function headPhraseCount(rows, app) {
 }
 
 /**
+ * How many of a set of rows each collapsing axis claims a segment of.
+ *
+ * Asked of the rows a collapse ABSORBED, never of the rows that ship: §5 strikes
+ * the claimed segments out of a survivor's name, so the same question asked of a
+ * finished corpus counts the residue — the groups of one and the refusals — and
+ * reports a reach of nearly nothing.
+ *
+ * **Every axis the roster names gets a key, zeros included, because the zero is
+ * the claim.** ADR-0113 §12 coins salt corpus-wide on the ground that it claims
+ * no shipped row, and an account that listed only the axes with a count would
+ * state the pairing arm's 147 while dropping the figure that licensed the
+ * coining.
+ *
+ * A row is counted once per axis however many segments it states, which is the
+ * question the account asks: the reach of an axis is the rows it acts on, and a
+ * cut written out at two trims is one row either way.
+ *
+ * @param {string[]} descriptions - the absorbed rows' names, as they were read
+ * @param {AppModule} app
+ * @returns {Record<string, number>} one count per axis, in the roster's order
+ */
+export function axisReach(descriptions, app) {
+  /** @type {Record<string, number>} */
+  const reach = {};
+  for (const entry of app.COLLAPSING_AXES) reach[entry.axis] ??= 0;
+  for (const description of descriptions) {
+    const { tail } = app.descriptionSegments(description);
+    const claimed = new Set();
+    tail.forEach((segment, at) => {
+      const entry = app.claimingAxis(segment, app.siblingsOf(tail, at));
+      if (entry) claimed.add(entry.axis);
+    });
+    for (const axis of claimed) reach[axis]++;
+  }
+  return reach;
+}
+
+/**
+ * How each collapse group's survivor ended up named, read off the corpus rather
+ * than off the pass that produced it.
+ *
+ * Two of the three counts the account's "And why" sections state — the third, the
+ * groups shipping under a residual name, is what is left once these are taken off
+ * the merged total. Each is a question about the SHIPPED name of a group's
+ * representative:
+ *
+ * - **A name with no collapsing segment left in it** is a group that shipped
+ *   under its residual. Either §5's strip took the segments, or the group merged
+ *   on §3's punctuation clause and had none to take — which is why the account
+ *   counts groups here and not names (the generator holds the two to each other
+ *   for the shipped arm, where both numbers exist).
+ * - **A representative that could not have stood for its group** is §5's coverage
+ *   hole: every record in the group states a non-preferred value, so the fullest
+ *   panel ships under its own whole name.
+ * - **A representative that WAS eligible and still carries its segments** is
+ *   ADR-0062 §3's refusal: the residual name was taken, so the strip was not
+ *   made. A refusal leaves the corpus byte-for-byte as it was, which is the whole
+ *   reason it is counted rather than inferred.
+ *
+ * @param {Map<number, string>} survivors - each group's representative, by `fdcId`
+ * @param {AppModule} app
+ * @returns {{ groups_shipped_whole: number, names_refused: number }}
+ */
+export function countSurvivorOutcomes(survivors, app) {
+  let groups_shipped_whole = 0;
+  let names_refused = 0;
+  for (const description of survivors.values()) {
+    if (app.residualDescription(description) === description) continue;
+    if (app.mayRepresentGroup(description)) names_refused++;
+    else groups_shipped_whole++;
+  }
+  return { groups_shipped_whole, names_refused };
+}
+
+/**
+ * The three counts §9's "And why" asks of a collapse, which travel together
+ * wherever one of them does.
+ *
+ * @typedef {object} GroupCounts
+ * @property {number} groups_merged - groups of more than one record
+ * @property {number} groups_shipped_whole - of those, §5's coverage holes
+ * @property {number} names_refused - of the rest, ADR-0062 §3's refusals
+ */
+
+/**
+ * Everything the account states about one arm: what the collapse reached, what it
+ * left, and which axes did the reaching.
+ *
+ * @typedef {GroupCounts & { reach: { head: string, rows: number, after: number, absorbed: number }[], before: number, after: number, heads: number, axes: Record<string, number> }} ArmFigures
+ *   `before` is the rows the collapse received and `after` the rows it left;
+ *   `heads` counts the head phrases in the corpus it received, and `axes` is
+ *   {@link axisReach} over the rows it absorbed.
+ */
+
+/**
+ * One arm's figures, from the rows it ships and the records its collapse took.
+ *
+ * Both arms are the same question asked of two corpora, and the answer is
+ * assembled here once: the reach per head, the totals, the three group counts and
+ * each axis's reach. What differs is the SURVIVOR ASSERTION, which each caller
+ * makes in its own words before handing the result in — the shipped arm's names
+ * the drop census, the pairing arm's names the claim that no group lies astride
+ * the two corpora.
+ *
+ * The `before` corpus is stated as "what ships, plus what was taken", because
+ * that is the one form both callers have: `usda-account-check.mjs` cannot read
+ * the archives, and a census is a record of the difference between the two. The
+ * absorbed rows arrive under the names they were read at rather than the shorter
+ * name a survivor ships under, which is what {@link collapseReach} and
+ * {@link axisReach} both want: §5's strip only ever takes segments out of a
+ * survivor's tail, so the head phrase is the same either way.
+ *
+ * @param {{ fdcId: number, description: string }[]} rows - the arm's shipped rows
+ * @param {{ fdcId: number, description: string }[]} absorbed - what its collapse took
+ * @param {Map<number, string>} survivors - each group's representative, by `fdcId`
+ * @param {AppModule} app
+ * @returns {ArmFigures}
+ */
+export function collapseFigures(rows, absorbed, survivors, app) {
+  // The panel is empty and unread: §4's chain has already run, and both callers
+  // look at a finished corpus rather than picking a representative, so filling
+  // the array would be a fixture pretending to a question nobody asks here.
+  const collapsible = (row) => ({
+    food: { fdcId: row.fdcId, description: row.description, foodNutrients: [] },
+  });
+  const after = rows.map(collapsible);
+  const before = [...after, ...absorbed.map(collapsible)];
+  return {
+    reach: collapseReach(before, after, app),
+    before: before.length,
+    after: after.length,
+    heads: headPhraseCount(before, app),
+    groups_merged: survivors.size,
+    ...countSurvivorOutcomes(survivors, app),
+    axes: axisReach(
+      absorbed.map((row) => row.description),
+      app
+    ),
+  };
+}
+
+/**
  * ADR-0103 §9's committed account, as Markdown.
  *
  * §9 asks for three things and this is the third: **generation emits a per-head
  * account — rows in, rows out, and why — and the account is committed**. Written
- * by the generator beside the two artifacts, for ADR-0047 §3's reason applied to
- * an account: a clone reads what the rule removed with no archives and no
- * network, and a roster change arrives as a reviewable diff rather than as a
+ * by the generator beside the artifacts it accounts for, for ADR-0047 §3's reason
+ * applied to an account: a clone reads what the rule removed with no archives and
+ * no network, and a roster change arrives as a reviewable diff rather than as a
  * number in a build log nobody kept.
  *
  * It stops at the head. The row-level answer — which `fdcId` each collapsed
- * record went into — is `docs/research/usda-drop-census.json`, and restating 381
- * rows here would be a second copy of it to drift from.
+ * record went into — is `docs/research/usda-drop-census.json` for the corpus that
+ * ships and `docs/research/usda-pairing-collapse.json` for the arm, and restating
+ * 1,071 rows here would be a second copy of them to drift from.
  *
- * **Every figure it states is one the shipped artifacts can prove on their own**
- * (#437). That is a constraint on this function rather than a property of it:
- * `scripts/usda-account-check.mjs` rebuilds the whole text from
- * `public/usda/search-index.json` and the census's `collapse` stage and compares
- * it byte for byte, so a figure only the archives can reach would be a figure
- * the gate has to skip — and a gate that skips a number is how the ranking audit
- * went blind (#156). The strip's own tally is the one that went: `stripped`
+ * **Every figure it states is one the committed artifacts can prove on their
+ * own** (#437). That is a constraint on this function rather than a property of
+ * it: `scripts/usda-account-check.mjs` rebuilds the whole text from each arm's
+ * index and each arm's census and compares it byte for byte, so a figure only the
+ * archives can reach would be a figure the gate has to skip — and a gate that
+ * skips a number is how the ranking audit went blind (#156). The strip's own
+ * tally is the one that went: `stripped`
  * counts NAMES that moved, and no committed artifact carries the name a survivor
  * had before the strip, so the account counts the GROUPS shipping under a
  * residual name instead. The generator still holds the two to each other, in
  * `usda-bundle.mjs`, where both numbers exist.
  *
- * @param {{ head: string, rows: number, after: number, absorbed: number }[]} reach
- * @param {{ before: number, after: number, heads: number, groups_merged: number, groups_shipped_whole: number, names_refused: number }} corpus
+ * **It accounts for two corpora, and the second one is not this generator's
+ * only reader.** ADR-0113 §11's Pairing arm runs the same passes over the cooked
+ * records, and §12 asks for its table here rather than in a file of its own,
+ * because the two arms differ in which axes reach them and that comparison is
+ * the account. Both arms' figures come from {@link collapseFigures}, and asking
+ * it of the cooked half alone is sound because no collapse group mixes the two
+ * corpora — the generator asserts that before it writes, and the gate asserts it
+ * again off the census it reads back.
+ *
+ * @param {ArmFigures} corpus - the corpus that ships
+ * @param {ArmFigures} arm - ADR-0113 §11's Pairing arm
  * @returns {string} the file's whole text
  */
-export function collapseAccount(reach, corpus) {
+export function collapseAccount(corpus, arm) {
   const n = (v) => v.toLocaleString("en-GB");
   // Padded to the column, which is what Prettier does to a Markdown table. The
   // file is generated AND committed, so emitting it any other way would mean
@@ -501,10 +660,17 @@ export function collapseAccount(reach, corpus) {
   // Wrapped here rather than written pre-wrapped, because the prose carries
   // interpolated counts: a hand-wrapped line goes ragged the moment a number
   // gains a digit, and the file is committed, so the ragged line is the diff.
+  //
+  // A word is a run of non-space that may swallow whole `code spans`, so a break
+  // never lands inside one. A split span still RENDERS, which is why the account
+  // carried one unnoticed from the day it was generated; what it costs is the
+  // reader of the diff, who is the only reason the file is committed.
+  // Punctuation touching a span stays with it, for the reason a plain word keeps
+  // its comma.
   const wrap = (text) => {
     const lines = [];
     let line = "";
-    for (const word of text.split(/\s+/)) {
+    for (const word of text.match(/(?:[^\s`]|`[^`]*`)+/g) ?? []) {
       if (line && `${line} ${word}`.length > 80) {
         lines.push(line);
         line = word;
@@ -512,6 +678,36 @@ export function collapseAccount(reach, corpus) {
     }
     if (line) lines.push(line);
     return lines.join("\n");
+  };
+  // One shape for both arms, because the two tables answer one question of two
+  // corpora and a second spelling of the columns is a second thing to drift.
+  const reachTable = (entries, totals, label) =>
+    table(
+      ["head", "rows", "after", "absorbed"],
+      [
+        ...entries.map((entry) => [
+          `\`${entry.head}\``,
+          n(entry.rows),
+          n(entry.after),
+          n(entry.absorbed),
+        ]),
+        [
+          `**${label}**`,
+          `**${n(totals.before)}**`,
+          `**${n(totals.after)}**`,
+          `**${n(totals.before - totals.after)}**`,
+        ],
+      ]
+    );
+  // Read off the roster's own order rather than from a list here, so a fifth
+  // axis appears in the account the moment it is coined (ADR-0103 §9).
+  const axisLine = (axes) => {
+    const parts = Object.entries(axes).map(
+      ([axis, rows]) => `${axis} ${n(rows)}`
+    );
+    return parts.length > 1
+      ? `${parts.slice(0, -1).join(", ")} and ${parts.at(-1)}`
+      : parts[0];
   };
 
   return `${[
@@ -532,29 +728,14 @@ export function collapseAccount(reach, corpus) {
     "",
     wrap(
       "It stops at the head. The row-level answer — which `fdcId` each collapsed " +
-        "record went into — is `usda-drop-census.json`, under " +
-        '`"stage": "collapse"`.'
+        "record went into — is a census per arm: `usda-drop-census.json` under " +
+        '`"stage": "collapse"` for the corpus that ships, and ' +
+        "`usda-pairing-collapse.json` for the pairing arm below."
     ),
     "",
     "## Rows in, rows out",
     "",
-    ...table(
-      ["head", "rows", "after", "absorbed"],
-      [
-        ...reach.map((entry) => [
-          `\`${entry.head}\``,
-          n(entry.rows),
-          n(entry.after),
-          n(entry.absorbed),
-        ]),
-        [
-          "**corpus**",
-          `**${n(corpus.before)}**`,
-          `**${n(corpus.after)}**`,
-          `**${n(corpus.before - corpus.after)}**`,
-        ],
-      ]
-    ),
+    ...reachTable(corpus.reach, corpus, "corpus"),
     "",
     "## And why",
     "",
@@ -593,24 +774,93 @@ export function collapseAccount(reach, corpus) {
     ),
     "",
     wrap(
-      `${reach.length} of the corpus's ${n(corpus.heads)} head phrases move, and ` +
+      `${corpus.reach.length} of the corpus's ${n(corpus.heads)} head phrases move, and ` +
         "what is left after ADR-0104 removed the cooked half is purely " +
         "butchery: separation, trim and grade. " +
-        `The other ${n(corpus.heads - reach.length)} have nothing to collapse ` +
+        `The other ${n(corpus.heads - corpus.reach.length)} have nothing to collapse ` +
         "and are not listed, because a table of them would be that many zeroes " +
         "padding the rows above. `scripts/usda-collapse.mjs` names the heads " +
         "that move, and the generation stops if another arrives."
     ),
     "",
+    "## The pairing arm",
+    "",
     wrap(
-      "Every figure above is re-derived from `public/usda/search-index.json` " +
-        "and `usda-drop-census.json` by `scripts/usda-account-check.mjs`, which " +
-        "`pnpm check` runs: the per-head counts off the shipped rows, the " +
-        'absorbed counts off the census\'s `"stage": "collapse"` rows, and this ' +
-        "file rebuilt from them and compared byte for byte. A committed " +
-        "artifact makes a change visible to a reviewer; only the gate makes a " +
-        "STALE one visible, and #156 is the case where the second half was " +
-        "missing."
+      "ADR-0113 §11 re-admits the records ADR-0104 kept out — the ones USDA " +
+        "cooked before it measured them — as a second corpus, run through these " +
+        "same passes and shipped as `public/usda/pairing-index.json`. This is " +
+        "the same account of that arm."
+    ),
+    "",
+    wrap(
+      "It is a second table rather than a wider first one because the two " +
+        `corpora are two sets of rows: not one of the ${n(arm.before - arm.after)} ` +
+        "records this collapse absorbed went into a row the Search index " +
+        "ships, and not one shipped row moved under the lift, so the arm " +
+        "accounts for itself."
+    ),
+    "",
+    ...reachTable(arm.reach, arm, "arm"),
+    "",
+    wrap(
+      `${n(arm.groups_merged)} groups hold more than one record, and the rest of ` +
+        `the arm is ${n(arm.after - arm.groups_merged)} groups of one. ` +
+        `${n(arm.groups_shipped_whole)} of those groups hold no record eligible ` +
+        "to represent them (§5) and ship their fullest panel under its own " +
+        "whole, unstripped name; the other " +
+        `${n(arm.groups_merged - arm.groups_shipped_whole - arm.names_refused)} ` +
+        "ship their representative under its residual name. " +
+        (arm.names_refused === 0
+          ? "No strip was refused for want of a free name (ADR-0062 §3)."
+          : `${n(arm.names_refused)} are refused for want of a free name ` +
+            "(ADR-0062 §3) and keep the name they had.")
+    ),
+    "",
+    wrap(
+      `${arm.reach.length} of the arm's ${n(arm.heads)} head phrases move, and the ` +
+        `other ${n(arm.heads - arm.reach.length)} are not listed, for the reason ` +
+        "the first table gives. No roster names these the way " +
+        "`scripts/usda-collapse.mjs` names the four above: a list that long is " +
+        "not a list anybody reads, and this table is the account, so a head " +
+        "arriving or leaving arrives as a diff of it rather than as a refused " +
+        "generation." +
+        (arm.reach.some((entry) => entry.after === 0)
+          ? " A head can also leave the arm entirely — `after` of 0 — where " +
+            "USDA spells one food two ways and §3's key, which ignores case " +
+            "and punctuation, files the survivor under the other spelling."
+          : "")
+    ),
+    "",
+    wrap(
+      `Of the ${n(arm.before - arm.after)} rows this collapse absorbed, ` +
+        `${axisLine(arm.axes)}; of the ${n(corpus.before - corpus.after)} the ` +
+        `shipped one absorbed, ${axisLine(corpus.axes)}. A row is counted once ` +
+        "per axis, however many segments it states. " +
+        // The one clause that names an axis, because §12's coining is about
+        // salt and rests on that zero. A roster that renamed the axis leaves
+        // both reads `undefined`, which fails the test and prints the sentence
+        // below — the safe direction, and one the byte comparison shows as a
+        // moved paragraph rather than as silence.
+        (corpus.axes.salt === 0 && arm.axes.salt > 0
+          ? "Salt claims nothing in the corpus that ships and is a fourth axis " +
+            "here, which is the honest edit ADR-0113 §12 names: the sentence " +
+            "above is exactly true of the shipped arm, and in this one it is " +
+            "butchery and salt."
+          : "ADR-0113 §12 coined salt corpus-wide on the ground that it moved " +
+            "no shipped row, and the figure above is what that ground now " +
+            "reads; re-read §12 before this account is trusted.")
+    ),
+    "",
+    wrap(
+      "Every figure above is re-derived from `public/usda/search-index.json`, " +
+        "`usda-drop-census.json`, `public/usda/pairing-index.json` and " +
+        "`usda-pairing-collapse.json` by `scripts/usda-account-check.mjs`, " +
+        "which `pnpm check` runs: each arm's per-head counts off the rows that " +
+        "ship in it, its absorbed counts off the census that records them, and " +
+        "this file rebuilt from the four and compared byte for byte. A " +
+        "committed artifact makes a change visible to a reviewer; only the gate " +
+        "makes a STALE one visible, and #156 is the case where the second half " +
+        "was missing."
     ),
   ].join("\n")}\n`;
 }

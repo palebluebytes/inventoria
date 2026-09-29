@@ -212,7 +212,16 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-/** The `ref` of every well-formed row in an ingredient list, in order. */
+/**
+ * The `ref` of every well-formed row in an ingredient list, in order.
+ *
+ * A frozen instantiation row may also carry a nested `pairing.ref` naming the
+ * reference food that filled it (ADR-0113 §6), and **that one is deliberately
+ * not read**: it is the same refusal `food/pairing` gets below — you ate the
+ * ingredient, not the USDA record, so walking it would ship a searchable food
+ * nobody ate, and the row's figures are already frozen, so the recipient needs
+ * nothing from it.
+ */
 function refsIn(value: unknown): string[] {
   if (!Array.isArray(value)) return [];
   return value.flatMap((row) =>

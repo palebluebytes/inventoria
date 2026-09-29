@@ -4,6 +4,7 @@
 **Date:** 2026-09-12  
 **Implemented:** [#434](https://github.com/palebluebytes/inventoria/issues/434) — `src/lib/food/usda-collapse-roster.ts` (§2's roster, §3's two keys, §5's eligibility test) reached through `scripts/usda-app-module.mjs`'s seam (§9); [#435](https://github.com/palebluebytes/inventoria/issues/435) — `scripts/usda-collapse.mjs` (§3's grouping, §4's chain, §6's corpus-wide firing, §9's survivor assertion and §9's account at `docs/research/190-corpus-account.md`), run last from `scripts/usda-bundle.mjs` and replayed by `scripts/usda-drop-census.mjs`, which is where every collapsed row names its survivor; [#436](https://github.com/palebluebytes/inventoria/issues/436) — §5's strip as `resolveCollapsedNames` in `src/lib/food/usda-shipped-name.ts`, licensed by `collapseCorpus` and asserted by `assertNamesClaimNoLess` and `assertNoAxisHidesInAGloss` in `scripts/usda-collapse.mjs`, so a collapsed group's row reads `Beef, composite of trimmed retail cuts` rather than `Beef, composite of trimmed retail cuts, separable lean and fat, trimmed to 0" fat, choice`; [#437](https://github.com/palebluebytes/inventoria/issues/437) — the account's staleness gate, `scripts/usda-account-check.mjs`, chained into `pnpm check`: it rebuilds the whole file from `public/usda/search-index.json` and the census's `"stage": "collapse"` rows and compares the bytes, which is what §9's third requirement asks of a reader who has neither the archives nor a reason to trust the file  
 **Amended by:** [ADR-0104](0104-the-corpus-is-ingredients-as-bought-and-not-yet-cooked.md), which keeps §2's as-bought line and replaces the §2–§4 collapse as the mechanism: the cooked records are removed rather than merged. It also corrects this record's Context, whose "the fix that reaches USDA's granularity is the fix that deletes quinoa" rests on a substring match of `/cooked/` that also matched the fourteen rows saying **un**cooked — against §10's own standing warning. Under a word boundary quinoa, teff, spelt and apricots all survive the cut
+**Amended by:** [ADR-0113](0113-a-pairing-annotates-a-packaged-food-from-a-reference-food-you-name.md) §12, which coins `salt` as the fourth Collapsing axis under §2's as-bought line. See the 2026-09-18 Amendment at the bottom of this record
 
 This record amends [ADR-0055](0055-who-eats-a-food-ranks-it-and-never-drops-it.md)
 §1 for a third time, and it is the **narrowest** of the three amendments rather
@@ -1015,3 +1016,126 @@ branch can reproduce. The 2026-09-14 gold-set amendment in
 measured its re-pin both ways over one corpus with one build — the only kind of
 comparison this subsection is arguing for. The like-for-like statement about the
 collapse is the one this Amendment opens with.
+
+## Amendment (2026-09-18, #510): salt is the fourth Collapsing axis
+
+§2 says an axis is one of two things, corpus-wide, and the line is _as bought_.
+`with salt` / `without salt` is a **collapsing** axis under that line: salting a
+pot while it boils is something done to a food after it was bought. It is coined
+here and the roster's `CollapsingAxisName` gains a fourth member, which
+`src/lib/food/usda-collapse-roster.ts` has priced at "an ADR" since it shipped.
+
+**Nothing in the decision above changes, and no shipped row moves.** The axis has
+never needed classifying because ADR-0104 removed the cooked records before the
+variant rules ever saw them, so there was no pair for it to act on. It becomes
+live because map [#240](https://github.com/palebluebytes/inventoria/issues/240)
+re-admits 1,182 of those records as a second set reached only as pairing targets,
+never through the food search
+([ADR-0113](0113-a-pairing-annotates-a-packaged-food-from-a-reference-food-you-name.md)
+§11), and inside that set the axis arrives at **145 pairs, 290 of the 1,182 rows,
+a quarter of it**.
+
+**Corpus-wide rather than scoped to the new set.** Because the coining removes
+**0** rows from `public/usda/search-index.json`, "a fourth axis corpus-wide" and
+"a merge scoped to the pairing set" are mechanically the same act today and differ
+only in what the glossary claims. Given that, the corpus-wide statement is the
+true one, and it is the one §2 supports: the classification is a property of the
+axis. Scoping it to the pairing set would assert that salting distinguishes a food
+when you pair but not when you shop, which is a claim about the **record** and is
+the kind of claim §2's second paragraph refuses.
+
+**Narrow to salt, and deliberately not to preparation at large.** Boiled, braised
+and roasted are also things done after buying, and they are **not** coined here. A
+pack names its own cooking method, so merging them would erase a distinction the
+pack itself supplies — which is the same reasoning §2 uses for drying, run the
+other way.
+
+**Where the claim becomes checkable.** `docs/research/190-corpus-account.md` gains
+a second table for the pairing arm and `scripts/usda-account-check.mjs` a third
+artifact to read, with the shipped table staying byte-identical across the change.
+That is §9's third requirement applied to the one assertion this amendment is most
+exposed on. One honest edit falls out of it: the account says what is left after
+ADR-0104 removed the cooked half is _purely butchery: separation, trim and grade_,
+and in the pairing arm it is butchery **and salt**.
+
+**What the merge costs inside the new set**, measured before it was taken
+([#497](https://github.com/palebluebytes/inventoria/issues/497)): 130 of the 145
+pairs agree within 10% on the twelve nutrients a pairing may spend, and ADR-0113
+§4 forbids a pairing spending the one they reliably differ on. Nothing is merged
+in the shipped corpus, so the shopper's search is untouched by this in both
+directions.
+
+## Amendment (2026-09-18, #517): the salt axis is conditioned on a cooking method
+
+The Amendment above coins salt and rests it on a premise that does not survive being
+run: "there was no pair for it to act on" in the shipped corpus. There are seven.
+`Butter, light, stick`, three margarines, two vegetable oil spreads and
+`Peanut butter, chunk style` each ship `with salt` and `without salt` today, and an
+entry reading the segment alone merges all seven — arriving as four head phrases
+`assertCollapseReach` does not name, which is how it was caught.
+
+The classification is unchanged and stays corpus-wide. What was wrong is the reach:
+§2's line is _as bought_, and salted butter is bought salted. What the roster gains
+is therefore two entries rather than one, both conditioned on another segment naming
+a cooking method the food was not bought in — `COOKING_AFTER_BUYING`, which is
+`usda-food-kind.ts`'s vocabulary minus the two words ADR-0104 §2 holds to be words a
+food is SOLD under. §10 is not weakened by it: the segment an entry CLAIMS is still
+matched whole, and what the condition additionally reads is a different segment, as
+evidence, striking nothing there. Nor does it reach a food category, which the roster
+has never read and still does not.
+
+With the condition the "0 shipped rows" figure is true and structural — the entries
+claim not one segment of the 2,023 rows that ship — and the second table and the
+_purely butchery_ edit the Amendment above promises stay owed, blocked on the Pairing
+index rather than on this. The argument for both is in
+[ADR-0113](0113-a-pairing-annotates-a-packaged-food-from-a-reference-food-you-name.md)'s
+own 2026-09-18 Amendment, which carries the measurements.
+
+## Amendment (2026-09-28, #517): §9's account covers two corpora, and its gate reads four artifacts
+
+The salt Amendment above says `scripts/usda-account-check.mjs` gains "a third
+artifact to read" when the second table lands. It gains a fourth, and the reason is
+a property of §9's own account rather than of the pairing arm: **a collapse leaves
+nothing behind in the index it writes.** §5 strikes the claimed segments out of the
+survivor's name and the absorbed record is simply absent, which is why the shipped
+table's absorbed column is read off `docs/research/usda-drop-census.json` and not
+off the corpus — and the arm, having no census, could not state one at all. So
+`usda:bundle` now commits `docs/research/usda-pairing-collapse.json` beside the
+account: one absorbed record per line with the target row it went into, which is
+this census's `"stage": "collapse"` rows for the one stage that arm has.
+
+§9 is otherwise unchanged and its requirement is met twice over: the account is
+committed, it is per-head, and it now says which axes reach each corpus. The
+measurements, the closure claim that licenses two tables rather than one wider one,
+and what stands in for the arm's missing second counter are in
+[ADR-0113](0113-a-pairing-annotates-a-packaged-food-from-a-reference-food-you-name.md)'s
+2026-09-28 Amendment.
+
+## Amendment (2026-09-29, #518): the salt axis's three figures, measured against the set that shipped
+
+The 2026-09-18 salt Amendment's figures were forward estimates, taken from the map
+before the arm's own collapse had ever run. All three are measurable now, from
+`public/usda/pairing-index.json` and `docs/research/usda-pairing-collapse.json`,
+and all three moved.
+
+- The set is **1,035**, not 1,182. The arm holds 1,725 records before its collapse
+  and 690 of them are absorbed across the four axes.
+- The axis arrives at **147** pairs, not 145 — the estimate was right within two.
+- It absorbs **147 of the arm's 1,725**, which is 8.5% of it. **294** records stand
+  in a salt pair, 17.0%. Neither reading is the "290 of the 1,182 rows, a quarter
+  of it" the Amendment states, and the quarter came from dividing by a set a
+  quarter smaller than the one that shipped.
+
+**The classification does not move, and neither does a shipped row.** Salt is the
+fourth `CollapsingAxisName` on the same argument, corpus-wide, conditioned on a
+cooking method by the Amendment after it, and the "0 rows leave
+`public/usda/search-index.json`" figure is the structural zero that Amendment made
+it. This corrects three counts and nothing else.
+
+**Why they were left standing through two later Amendments.** Both point at
+[ADR-0113](0113-a-pairing-annotates-a-packaged-food-from-a-reference-food-you-name.md)'s
+own Amendments as the place the measurements live, and that record does say the set
+is 1,035 rather than 1,182. What neither said is that the numbers **above** were
+superseded by it — so a reader of this record alone, which is what a reader of the
+collapsing axes has reason to be, still read a forward estimate as a measurement.
+A figure corrected in a neighbouring record is not corrected here.

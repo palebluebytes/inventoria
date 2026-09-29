@@ -341,3 +341,82 @@ export function buildArrival(received_at: number): Arrival {
     received_at,
   };
 }
+
+// ---------------------------------------------------------------------------
+// The frozen pairing (event/pairing, and a row's own `pairing`)
+// ---------------------------------------------------------------------------
+//
+// A **Pack pairing** lets a reference food's figures stand in for what a pack's
+// label left silent, and those figures reach the ledger the moment the pack is
+// logged: `event/metrics` freezes the panel a person read, borrowed rows and
+// all, indistinguishable there because that is what the marked panel already
+// does with them on screen (ADR-0113 §5). What makes that honest rather than
+// laundered is a sibling naming exactly which keys came from where — this
+// envelope (§6).
+//
+// It is {@link MergedSource} in the event's clothes, and deliberately so:
+// ADR-0045 §4 already requires a borrowed value to be traceable to the record it
+// was borrowed from, and this is the same fact about a different kind of source.
+// The names of the two overlapping fields are kept identical for that reason.
+//
+// The honesty test it is built against: *someone reading a raw exported ledger,
+// with no access to this app, must be able to tell which numbers a manufacturer
+// printed and which a pairing supplied.* They grep the event id out of the
+// NDJSON (ADR-0064 §1) and two lines come back — one carrying every number, the
+// other naming a USDA food, its URI and the keys that came from it. The
+// intersection is the answer and the difference is the label's.
+//
+// Only the SHAPE is here. The attribute it lands under, what reads it back and
+// what refuses to write one live in `frozen-pairing.ts`, beside `pairing.ts`'s
+// `FOOD_PAIRING_ATTR` and for the same reason: an attribute belongs with the
+// module that writes and reads it.
+
+/**
+ * What one logged occasion keeps of the pairing that filled it (ADR-0113 §6).
+ *
+ * Written under `event/pairing` for a **food**, and nested on each
+ * `event/instantiation` row for a **dish** — one shape, two places, never both
+ * on one event. `event/instantiation` is already the thing that says *this is a
+ * dish* and is already where the app branches, so a reader never has to guess
+ * which is in front of them.
+ *
+ * Three rules bind it, and each is a property of this shape rather than of a
+ * caller:
+ *
+ *  - **Omitted, never emitted empty.** A pairing that supplied nothing writes no
+ *    envelope at all, following {@link buildRawProvenance}'s own rule, so absence
+ *    means exactly one thing ledger-wide: *nothing here was supplied*. That is
+ *    why {@link freezePairing} hands back `undefined` rather than a record with
+ *    an empty `filled_fields`.
+ *  - **The name is frozen**, even though display identity is read live
+ *    everywhere else in this projection, because it belongs to a **third** entity
+ *    the corpus may drop — `fdcId 173740` has already left once — and the
+ *    raw-export reader this is written for has no live lookup at all.
+ *  - **The reference food's own per-100 figures never travel.** They duplicate
+ *    numbers `event/metrics` already holds, and their only use would be a
+ *    re-derivation ADR-0045's #147 amendment forbids.
+ */
+export interface FrozenPairing {
+  /** The reference food this occasion borrowed from, as an `fdc:` entity id. */
+  ref: string;
+  /**
+   * How the corpus named that food when the occasion was logged, frozen.
+   *
+   * Falls back to {@link ref} where the corpus could not answer — the same
+   * fallback a frozen instantiation row makes for an unresolvable ingredient
+   * name (ADR-0022). An id standing in for a name is honest: it says this app no
+   * longer knows what the row was called, which is a different thing from the
+   * pairing not having happened.
+   */
+  name: string;
+  /** Canonical URI of the record, so the reader can fetch it themselves. */
+  source_uri: string;
+  /**
+   * The panel keys this reference food supplied, in panel order — the same key
+   * under the same name the live marked panel hands a view, because it is the
+   * same fact about the same act, one read live and one frozen at log time.
+   *
+   * Never empty: an envelope with nothing in it is not written.
+   */
+  filled_fields: string[];
+}

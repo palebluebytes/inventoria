@@ -39,6 +39,8 @@ import {
   generatedFrom,
   serialiseIndex,
   serialiseNutrientStore,
+  serialisePairingIndex,
+  serialisePairingNutrientStore,
 } from "../../scripts/usda-artifacts.mjs";
 import {
   compileReferenceFoodQuery,
@@ -1102,5 +1104,78 @@ describe("the committed artifacts", () => {
     for (const row of index.foods)
       for (const key of Object.keys(row.macros))
         expect(ROW_MACRO_KEYS).toContain(key);
+  });
+
+  describe("the pairing pair beside them (ADR-0113 §11)", () => {
+    const pairingIndexText = read("pairing-index");
+    const pairingStoreText = read("pairing-nutrient-store");
+    const pairingIndex = JSON.parse(pairingIndexText);
+    const pairingStore = JSON.parse(pairingStoreText);
+
+    it("is exactly what the generator writes, byte for byte", () => {
+      expect(serialisePairingIndex(pairingIndex)).toBe(pairingIndexText);
+      expect(serialisePairingNutrientStore(pairingStore)).toBe(
+        pairingStoreText
+      );
+    });
+
+    it("names the same archives and the same schema as the shipped pair", () => {
+      // One corpus read once, cut two ways. A pairing arm generated from other
+      // archives, or under another schema, would be a second corpus wearing the
+      // first one's provenance.
+      expect(pairingIndex.generated_from).toEqual(index.generated_from);
+      expect(pairingIndex.schema_version).toBe(SCHEMA_VERSION);
+      expect(pairingStore.schema_version).toBe(SCHEMA_VERSION);
+    });
+
+    it("is sorted by fdcId, strictly ascending, with no duplicate food", () => {
+      const ids = pairingIndex.foods.map((row: { fdcId: number }) => row.fdcId);
+      expect(ids).toEqual([...ids].sort((a: number, b: number) => a - b));
+      expect(new Set(ids).size).toBe(ids.length);
+    });
+
+    it("holds one nutrient-store entry per row, and no orphans", () => {
+      const ids = pairingIndex.foods.map((row: { fdcId: number }) =>
+        String(row.fdcId)
+      );
+      expect(Object.keys(pairingStore.foods).sort()).toEqual([...ids].sort());
+    });
+
+    it("shares no food with the Search index", () => {
+      // The two files describe one corpus between them. A row in both would be
+      // a food the app could reach as a Reference food and as a Pairing target,
+      // which is the partition ADR-0113 §11 rests on failing silently.
+      const shipped = new Set(
+        index.foods.map((row: { fdcId: number }) => row.fdcId)
+      );
+      const both = pairingIndex.foods.filter((row: { fdcId: number }) =>
+        shipped.has(row.fdcId)
+      );
+      expect(both).toEqual([]);
+    });
+
+    it("holds the 1,035 rows ADR-0113 §11's amendment measures", () => {
+      // The headline figure of the ticket that shipped these files, and the one
+      // number a mirror refresh can move without any other gate noticing: the
+      // byte comparison above passes on whatever was generated, and the account
+      // gate reads the shipped corpus rather than this one.
+      expect(pairingIndex.foods).toHaveLength(1035);
+    });
+
+    it("carries raw on the two rows USDA describes as both", () => {
+      // §11 called `raw` an inert ranking key over this set, on the ground that
+      // no cooked description satisfies `describedRaw`. Two do: USDA writes
+      // `Apples, raw, without skin, cooked, boiled`, so the word is in the
+      // published name the generator reads the flag off, and the strip takes it
+      // out of the name that ships. The key is live on two rows of 1,035, which
+      // ADR-0113's #518 Amendment records. A third arriving means a mirror
+      // refresh has moved it and the amendment needs re-reading.
+      const raw = pairingIndex.foods.filter(
+        (row: { raw?: boolean }) => row.raw
+      );
+      expect(raw.map((row: { fdcId: number }) => row.fdcId)).toEqual([
+        173928, 173929,
+      ]);
+    });
   });
 });
