@@ -979,6 +979,16 @@ describe("correctInstantiation", () => {
   });
 });
 
+/** An account taken when the jar WAS paired, of the kind a correction may find
+ *  standing over figures that no longer borrow anything (ADR-0113 §6). Shared by
+ *  the two correction paths that mint a fresh reading. */
+const HELD_ACCOUNT = {
+  ref: "fdc:173740",
+  name: "Beans, kidney, all types, mature seeds, cooked, boiled, without salt",
+  source_uri: "https://api.nal.usda.gov/fdc/v1/food/173740",
+  filled_fields: ["iron", "potassium", "folate", "magnesium"],
+};
+
 describe("changeLoggedFoodAmount", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -1033,6 +1043,68 @@ describe("changeLoggedFoodAmount", () => {
     expect(datoms.map((d) => d.attribute)).not.toContain("event/target");
     expect(datoms.map((d) => d.attribute)).not.toContain("event/status");
     expect(datoms.map((d) => d.attribute)).not.toContain("event/replaced_by");
+  });
+
+  it("cancels an account the occasion still claims when the jar is no longer paired", async () => {
+    // The hole (ADR-0113 §6): this mints a NEW reading rather than re-scaling the
+    // old one, so a jar unpaired since the log produces label-only metrics. A
+    // correction that then said nothing about the account left the earlier
+    // envelope standing as the latest datom, and the occasion went on claiming
+    // four borrowed keys its own figures no longer hold.
+    vi.spyOn(dbClient, "query").mockResolvedValue([
+      { attribute: "nutrition/info", value: JSON.stringify(OATS_PANEL) },
+    ] as any);
+    const mockAppend = vi
+      .spyOn(dbClient, "append")
+      .mockResolvedValue(undefined);
+
+    await changeLoggedFoodAmount(
+      {
+        id: "event:consume_old",
+        target: "gtin:5010251341352",
+        quantity: "50g",
+        meal_type: "breakfast",
+        time: new Date("2026-09-18T08:00:00").getTime(),
+        pairing: HELD_ACCOUNT,
+      } as any,
+      100,
+      "g"
+    );
+
+    // The cancelling fact, in `food/pairing`'s own spelling (§7): clearing is not
+    // a deletion, it is a later datom that names nobody.
+    expect(
+      mockAppend.mock.calls[0][0].find((d) => d.attribute === "event/pairing")
+        ?.value
+    ).toBe("");
+  });
+
+  it("stays silent about the account where the occasion never had one", async () => {
+    // Which is what keeps §6's rule whole: absence goes on meaning exactly one
+    // thing ledger-wide, so an unpaired food's amount correction writes no
+    // `event/pairing` at all rather than an empty one.
+    vi.spyOn(dbClient, "query").mockResolvedValue([
+      { attribute: "nutrition/info", value: JSON.stringify(OATS_PANEL) },
+    ] as any);
+    const mockAppend = vi
+      .spyOn(dbClient, "append")
+      .mockResolvedValue(undefined);
+
+    await changeLoggedFoodAmount(
+      {
+        id: "event:consume_old",
+        target: "fdc:oats",
+        quantity: "50g",
+        meal_type: "breakfast",
+        time: new Date("2026-09-18T08:00:00").getTime(),
+      } as any,
+      100,
+      "g"
+    );
+
+    expect(mockAppend.mock.calls[0][0].map((d) => d.attribute)).not.toContain(
+      "event/pairing"
+    );
   });
 
   it("re-logs a drink in its panel's own unit, never as a gram weight", async () => {
@@ -1193,6 +1265,29 @@ describe("scaleLoggedFoods (ADR-0088 §5)", () => {
     await scaleLoggedFoods(twoFoods());
 
     expect(mockQuery).not.toHaveBeenCalled();
+  });
+
+  it("cancels an account a scaled occasion still claims, per row", async () => {
+    // The Scale tier hands back the source it already resolved, so an unpaired
+    // jar arrives here with no envelope — and the row it is correcting may still
+    // carry one (ADR-0113 §6). Read against the event rather than passed through,
+    // so the run cancels rather than falling silent.
+    const mockAppend = vi
+      .spyOn(dbClient, "append")
+      .mockResolvedValue(undefined);
+
+    const [oats, milk] = twoFoods();
+    oats.event.pairing = HELD_ACCOUNT;
+
+    await scaleLoggedFoods([oats, milk]);
+
+    const datoms = mockAppend.mock.calls[0][0];
+    const accountFor = (id: string) =>
+      datoms.find((d) => d.entity === id && d.attribute === "event/pairing")
+        ?.value;
+    expect(accountFor("oats")).toBe("");
+    // And the row that never had one is not given an empty account to carry.
+    expect(accountFor("milk")).toBeUndefined();
   });
 
   it("writes onto the events it was given, and mints none", async () => {
@@ -2911,6 +3006,82 @@ describe("a logged occasion freezes what the pairing supplied (ADR-0113 §6)", (
       // Unpair it and yesterday's meal changes not at all.
       expect(event.pairing).toEqual(FROZEN);
       expect(event.metrics).toMatchObject({ iron: 0.0033 });
+    });
+  });
+
+  /**
+   * The third tense: a **correction** to the occasion itself. §7's two
+   * consequences are about the jar moving under a settled occasion; these are
+   * about the occasion's own reading being re-minted, which is the one act that
+   * may honestly take the account away.
+   */
+  describe("an account a correction cancelled (§6)", () => {
+    const asLedger = (datoms: any[]) =>
+      asStored(datoms.map((d) => ({ ...d, value: JSON.stringify(d.value) })));
+
+    /** Yesterday's occasion, and the cancelling datom a correction appends onto
+     *  it once the reading behind it borrows nothing. */
+    const cancelledYesterday = async () => {
+      const appended: any[] = [];
+      append.mockImplementation(async (d: any) => {
+        appended.push(...d);
+      });
+      await logFoodConsumption(
+        "gtin:5010251341352",
+        "150g",
+        "lunch",
+        174,
+        13,
+        0.8,
+        23.4,
+        new Date("2026-09-17T12:00:00"),
+        undefined,
+        { calories: 174, protein: 13, fat: 0.8, carbs: 23.4, iron: 0.0033 },
+        undefined,
+        FROZEN
+      );
+      const entity = appended[0].entity;
+      return [
+        ...appended,
+        {
+          entity,
+          attribute: "event/metrics",
+          value: { calories: 174, protein: 13, fat: 0.8, carbs: 23.4 },
+          time: Date.parse("2026-09-18T09:00:00"),
+        },
+        {
+          entity,
+          attribute: "event/pairing",
+          value: "",
+          time: Date.parse("2026-09-18T09:00:00"),
+        },
+      ];
+    };
+
+    it("folds to no account at all, so one question answers the whole projection", async () => {
+      const [event] = computeConsumption(asLedger(await cancelledYesterday()));
+
+      // Not `""`, which would be a second spelling of the same absence for every
+      // reader downstream to learn.
+      expect(event.pairing).toBeUndefined();
+      expect("pairing" in event).toBe(false);
+      // And the reading it accounted for is gone with it: label-only metrics.
+      expect(event.metrics).not.toHaveProperty("iron");
+    });
+
+    it("is not carried into a copy of that meal", async () => {
+      // `copyPastMeal` re-logs verbatim from the projected event, so a cancelled
+      // account must not arrive at the log path as an empty one — that is the
+      // shape §6 refuses on a fresh occasion.
+      const [event] = computeConsumption(asLedger(await cancelledYesterday()));
+      append.mockReset();
+      append.mockResolvedValue(undefined);
+
+      await copyPastMeal([event], "dinner", new Date("2026-09-19T19:00:00"));
+
+      expect(
+        append.mock.calls[0][0].map((d: any) => d.attribute)
+      ).not.toContain("event/pairing");
     });
   });
 

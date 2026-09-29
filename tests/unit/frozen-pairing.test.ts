@@ -12,6 +12,7 @@
 import { describe, expect, it } from "vitest";
 import {
   borrowedKeys,
+  correctedPairing,
   freezePairing,
   loadReferenceFoods,
   pairedSource,
@@ -518,5 +519,37 @@ describe("the freeze is a value, not a view onto the twin (§7)", () => {
     );
 
     expect(source.pairing).toBeUndefined();
+  });
+});
+
+describe("what a correction says about the account (§6, §7)", () => {
+  // Two absences meet here and mean opposite things: a reading that borrowed
+  // nothing, and a correction that is not speaking about borrowing at all. These
+  // are the statements that keep them apart.
+  const envelope = pairedSource(twin(), references()).pairing;
+
+  it("carries the new reading's own account forward", () => {
+    expect(correctedPairing(envelope, undefined)).toBe(envelope);
+  });
+
+  it("prefers the new account over the one the occasion holds", () => {
+    const earlier = { ...envelope!, ref: "fdc:175189" };
+
+    expect(correctedPairing(envelope, earlier)).toBe(envelope);
+  });
+
+  it("cancels an account the occasion still claims when the reading borrowed nothing", () => {
+    // The hole this closes: unpair the jar, then correct the amount. The new
+    // metrics are label-only and the old envelope would otherwise stand over
+    // them as the latest datom, leaving the occasion claiming four borrowed keys
+    // its own figures no longer hold.
+    expect(correctedPairing(undefined, envelope)).toBe("");
+  });
+
+  it("says nothing at all where no account stands", () => {
+    // Which is what keeps §6's rule whole: an occasion that never borrowed
+    // carries no `event/pairing`, so absence goes on meaning exactly one thing
+    // rather than two.
+    expect(correctedPairing(undefined, undefined)).toBeUndefined();
   });
 });

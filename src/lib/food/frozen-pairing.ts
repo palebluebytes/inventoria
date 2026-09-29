@@ -32,6 +32,7 @@ import { markPanel, referenceFoodPanel } from "./marked-panel";
 import { NUTRITION_INFO_ATTR, type NutritionInfo } from "./nutrition";
 import {
   describedReferenceFood,
+  PAIRING_CLEARED,
   readFoodPairing,
   referenceFoodName,
 } from "./pairing";
@@ -241,6 +242,35 @@ export function pairedSource(
   return pairing
     ? { panel: marked.panel, density, pairing }
     : { panel, density };
+}
+
+/**
+ * What one **correction** says about an occasion's account, given the reading it
+ * has just minted and the account the occasion currently holds.
+ *
+ * This is the boundary two different absences meet at, and conflating them is the
+ * honesty defect §6 exists to prevent. {@link pairedSource} hands back no envelope
+ * to mean *this reading borrowed nothing*. A correction omits a key to mean
+ * *this correction says nothing about it, keep what the event already holds*
+ * (ADR-0111 §1). Pass the first straight into the second and a corrected occasion
+ * goes on claiming the account of a reading it no longer holds: unpair a jar, then
+ * correct the amount, and the event's newest `event/metrics` is label-only while
+ * its newest `event/pairing` still names four borrowed keys.
+ *
+ * So a reading that borrowed nothing **cancels** an account that stands, and says
+ * nothing where none does. The cancelling fact is {@link PAIRING_CLEARED} — already
+ * `food/pairing`'s own spelling for the same act (§7) rather than a second one
+ * coined here, and for the same reason: clearing is not a deletion, it is a later
+ * datom that names nobody. Staying silent where nothing stands is what keeps §6's
+ * rule whole on every occasion that never borrowed — those still carry no
+ * `event/pairing` at all, so absence goes on meaning exactly one thing.
+ */
+export function correctedPairing(
+  minted: FrozenPairing | undefined,
+  held: FrozenPairing | undefined
+): FrozenPairing | typeof PAIRING_CLEARED | undefined {
+  if (minted) return minted;
+  return held ? PAIRING_CLEARED : undefined;
 }
 
 /**

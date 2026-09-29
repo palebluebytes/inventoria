@@ -4,6 +4,7 @@ import {
   labelFromInstantiation,
   type Instantiation,
 } from "./recipe-instantiation";
+import { PAIRING_CLEARED } from "./pairing";
 import type { FrozenPairing } from "./provenance";
 import { sumNutrition, type NutritionBreakdown } from "./nutrition";
 
@@ -31,6 +32,12 @@ export interface ConsumptionEvent {
    * dish never carries one — its account is nested on each `instantiation` row —
    * and an unpaired food carries none, which is the same absence and means the
    * same thing: every number here was printed on a label.
+   *
+   * An occasion whose account a correction **cancelled** reads as absent here
+   * too, and that is the fold's doing rather than the ledger's: the cancelling
+   * datom holds `PAIRING_CLEARED`, exactly as clearing the jar's own pairing does
+   * (ADR-0113 §7), and this projection drops it so that every reader downstream
+   * asks one question — is there an account — instead of two.
    */
   pairing?: FrozenPairing;
   calories?: number;
@@ -161,6 +168,13 @@ export function computeConsumption(datoms: StoredDatom[]): ConsumptionEvent[] {
     .map((g) => {
       const f = g.fields as Record<string, any>;
       const event: ConsumptionEvent = { id: g.id, time: g.firstTime, ...f };
+      // A cancelled account is an absent one. `event/pairing` holds `""` where a
+      // correction wrote a reading that borrowed nothing over one that had
+      // (ADR-0113 §6, and §7's own spelling for the same act), and the contract
+      // this field states is that it is present only where something WAS
+      // borrowed — so the one place that distinction has to be read is here,
+      // rather than in each of the surfaces and the copy path below.
+      if (f.pairing === PAIRING_CLEARED) delete event.pairing;
       if (f.metrics) {
         event.calories = f.metrics.calories;
         event.protein = f.metrics.protein;

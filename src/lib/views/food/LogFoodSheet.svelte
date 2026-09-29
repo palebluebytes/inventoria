@@ -31,7 +31,11 @@
   import type { MealType } from "../../food/meal-type";
   import { wayInTitle, type WayIn } from "../../food/ways-in";
   import { amountAgainstBasis } from "../../food/density";
-  import { loadReferenceFoods, pairedSource } from "../../food/frozen-pairing";
+  import {
+    correctedPairing,
+    loadReferenceFoods,
+    pairedSource,
+  } from "../../food/frozen-pairing";
   import {
     basisUnit,
     enteredUnit,
@@ -458,8 +462,10 @@
             // The account of what a Pack pairing supplied into those figures,
             // travelling with them (ADR-0113 §6). The correction reads the
             // pairing as the sheet drew it, which is the same resolution the
-            // preview above was derived from.
-            pairing: source.pairing,
+            // preview above was derived from — and against the account the
+            // occasion still holds, so an edit that lands on an unpaired jar
+            // cancels the old envelope instead of leaving it over new metrics.
+            pairing: correctedPairing(source.pairing, edit.pairing),
           });
         } else {
           const newId = await logFoodConsumption(
@@ -595,6 +601,13 @@
               fat: macrosOnly ? choice.fat : undefined,
               carbs: macrosOnly ? choice.carbs : undefined,
             },
+            // A typed label or custom figure borrows from nobody, so this
+            // reading's account is empty — and where the occasion was a paired
+            // pack, that account has to be cancelled rather than left standing
+            // over figures it never accounted for (ADR-0113 §6). A label capture
+            // on a `gtin:` seed enriches in place, so the target here can be the
+            // very twin the pairing was on.
+            pairing: correctedPairing(undefined, edit.pairing),
           });
         } else {
           const newId = await logFoodConsumption(

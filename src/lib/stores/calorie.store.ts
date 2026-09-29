@@ -8,6 +8,7 @@ import {
   PAIRING_CLEARED,
 } from "../food/pairing";
 import {
+  correctedPairing,
   loadReferenceFoods,
   pairedSource,
   EVENT_PAIRING_ATTR,
@@ -251,10 +252,17 @@ export interface Correction {
    *  (ADR-0113 §6). It travels with them because it is a fact about the reading
    *  they are: a correction that rewrote the figures off a widened panel and
    *  said nothing here would leave the occasion claiming the account of a
-   *  reading it no longer holds. Omitted where the new reading borrowed
-   *  nothing, which — like every other key here — leaves what the event already
-   *  says (see {@link correctionDatoms}). */
-  pairing?: FrozenPairing;
+   *  reading it no longer holds.
+   *
+   *  Three states, not two, and that is the whole of why it is not simply a
+   *  `FrozenPairing`. An envelope names what this reading borrowed.
+   *  {@link PAIRING_CLEARED} **cancels** an account the occasion still carries,
+   *  for a reading that borrowed nothing — the same act, in the same spelling,
+   *  as unpairing the jar itself (§7). Omitted says nothing at all and leaves
+   *  what the event already holds, like every other key here. A caller reads the
+   *  three off its minted reading and the event in front of it through
+   *  {@link correctedPairing}, which is the only place the choice is made. */
+  pairing?: FrozenPairing | typeof PAIRING_CLEARED;
 }
 
 /**
@@ -281,6 +289,9 @@ function correctionDatoms(eventId: string, correction: Correction) {
     );
   if (correction.instantiation !== undefined)
     attributes["event/instantiation"] = correction.instantiation;
+  // All three of `Correction.pairing`'s states ride this one line: an envelope
+  // and the cancelling `""` are both values and are both written; omitted writes
+  // nothing and leaves what the event holds.
   if (correction.pairing !== undefined)
     attributes[EVENT_PAIRING_ATTR] = correction.pairing;
   return ingestEntity({ entity: eventId, attributes });
@@ -374,7 +385,11 @@ export async function scaleLoggedFoods(
         // pairing's widened panel and the account of it arrive together
         // (ADR-0113 §6). The tier's live preview and this freeze therefore read
         // one reading rather than two.
-        pairing: change.source.pairing,
+        //
+        // Read against the account the event still carries, because a scale of an
+        // unpaired-since jar mints a label-only reading and must cancel rather
+        // than fall silent — `correctedPairing` is where that choice is made.
+        pairing: correctedPairing(change.source.pairing, change.event.pairing),
       })
     );
   }
@@ -900,7 +915,12 @@ export async function changeLoggedFoodAmount(
     quantity: quantityLabel(amount, unit),
     macros: roundedHeadline(breakdown),
     breakdown,
-    pairing: source.pairing,
+    // The new reading's own account, or the cancelling fact where this reading
+    // borrowed nothing and the occasion still claims that it did (ADR-0113 §6).
+    // This is the path the hole was found on: unpair a jar, correct the amount,
+    // and a bare `source.pairing` left the earlier envelope standing as the
+    // latest datom over label-only metrics.
+    pairing: correctedPairing(source.pairing, event.pairing),
   });
 }
 
