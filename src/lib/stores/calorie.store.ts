@@ -76,52 +76,78 @@ export function consumptionForDay(
 // ---------------------------------------------------------------------------
 
 /**
- * Creates and appends a Consumption Event's datoms to the ledger. `instantiation`
- * is the optional `event/instantiation` snapshot a logged recipe carries beside
- * its frozen `event/metrics` headline (ADR-0022); a plain food logs without one.
+ * What one logged occasion is made of — the contract `logFoodConsumption` takes
+ * (CODING_STANDARDS §3.1).
  *
- * `breakdown` widens the frozen `event/metrics` to the food's **full** panel
- * scaled to the amount (ADR-0030 / #28): the four `{ calories, protein, fat,
- * carbs }` headline keys are written from the positional args, and every extra
- * nutrient the breakdown carried is merged in under its panel name. Omit it — as
- * a macro-only custom food (no source panel) does — and the snapshot stays
- * exactly the four-key headline; an extra a food never reported is never written,
- * so it reads as absent (never 0) forever.
- *
- * `protein`/`fat`/`carbs` are **omittable** (pass `undefined`): a manual-entry
- * intent (ADR-0035 §7) freezes `calories` only, so a macro passed as `undefined`
- * is left OUT of `event/metrics` entirely — the daily macro meters treat it as
- * not-counted (never coerced to 0), moving only the calorie ring. Every other
- * caller passes real numbers and is unchanged.
- *
- * `pairing` is what a **Pack pairing** supplied into `breakdown` (ADR-0113 §6).
- * It is a separate argument rather than a field of the breakdown because it is a
- * different KIND of fact — the numbers are the occasion's and this is an account
- * of where some of them came from — and they land as two sibling datoms for the
- * same reason: `event/metrics` stays one blob with every number in it, and a
- * reader greps the event id and gets both lines. Omitted on every unpaired food,
- * and on every pairing that happened to fill nothing.
- *
- * `entityId` is the id the event is logged under. Every caller but one omits it
- * and gets the fresh random mint below, which is right for an occasion the user
- * is recording now. The receive path supplies one instead, derived from the
- * payload it is accepting, so that accepting the same meal twice cannot log it
- * twice (ADR-0073 §5).
+ * It was twelve positional arguments, which is how the shape of a log came to be
+ * legible only at the declaration: the pairing arm's own call site read
+ * `…selectedDate, undefined, breakdown, undefined, source.pairing`. It is the
+ * sibling of {@link Correction} deliberately — a log and a correction of that log
+ * freeze the same facts, and `macros`/`breakdown` are the same pair under the same
+ * names in both.
  */
-export async function logFoodConsumption(
-  targetEntity: string,
-  quantity: string,
-  meal_type: string,
-  calories: number,
-  protein: number | undefined,
-  fat: number | undefined,
-  carbs: number | undefined,
-  selectedDate: Date,
-  instantiation?: Instantiation,
-  breakdown?: NutritionBreakdown,
-  entityId?: string,
-  pairing?: FrozenPairing
-): Promise<string> {
+export interface FoodLogEntry {
+  /** The food or recipe twin this occasion names. */
+  target: string;
+  quantity: string;
+  meal_type: string;
+  /**
+   * The headline the occasion freezes. `protein`/`fat`/`carbs` are **omittable**:
+   * a manual-entry intent (ADR-0035 §7) freezes `calories` only, and a macro left
+   * out is left OUT of `event/metrics` entirely — the daily macro meters treat it
+   * as not-counted rather than coercing it to 0, so only the calorie ring moves.
+   */
+  macros: FrozenHeadline;
+  /**
+   * The day the occasion is recorded on. The time of day is now's, so a day's
+   * events do not all cluster at 00:00 (ADR-0058 §10).
+   */
+  selectedDate: Date;
+  /** The `event/instantiation` snapshot a logged recipe carries beside its frozen
+   *  headline (ADR-0022). A plain food logs without one. */
+  instantiation?: Instantiation;
+  /**
+   * Widens the frozen `event/metrics` to the food's **full** panel scaled to the
+   * amount (ADR-0030 / #28): `macros` writes the four headline keys and every
+   * extra nutrient this carried is merged in under its panel name. Omit it — as a
+   * macro-only custom food with no source panel does — and the snapshot stays
+   * exactly the headline. An extra a food never reported is never written, so it
+   * reads as absent, never 0, forever.
+   */
+  breakdown?: NutritionBreakdown;
+  /**
+   * The id the event is logged under. Every caller but one omits it and gets the
+   * fresh random mint below, which is right for an occasion the user is recording
+   * now. The receive path supplies one instead, derived from the payload it is
+   * accepting, so that accepting the same meal twice cannot log it twice
+   * (ADR-0073 §5).
+   */
+  entityId?: string;
+  /**
+   * What a **Pack pairing** supplied into `breakdown` (ADR-0113 §6).
+   *
+   * Its own field rather than one of the breakdown's, because it is a different
+   * KIND of fact — the numbers are the occasion's and this is an account of where
+   * some of them came from — and they land as two sibling datoms for the same
+   * reason: `event/metrics` stays one blob with every number in it, and a reader
+   * greps the event id and gets both lines. Omitted on every unpaired food, and on
+   * every pairing that happened to fill nothing.
+   */
+  pairing?: FrozenPairing;
+}
+
+/** Creates and appends a Consumption Event's datoms to the ledger. */
+export async function logFoodConsumption({
+  target,
+  quantity,
+  meal_type,
+  macros,
+  selectedDate,
+  instantiation,
+  breakdown,
+  entityId,
+  pairing,
+}: FoodLogEntry): Promise<string> {
   // Use selected date's time, but keep current hour/minute/second so events don't all cluster at 00:00
   const now = new Date();
   const eventDate = new Date(selectedDate);
@@ -142,13 +168,10 @@ export async function logFoodConsumption(
 
   const attributes: Record<string, unknown> = {
     "event/type": "ConsumeAction",
-    "event/target": targetEntity,
+    "event/target": target,
     "event/quantity": quantity,
     "event/meal_type": meal_type,
-    "event/metrics": frozenMetrics(
-      { calories, protein, fat, carbs },
-      breakdown
-    ),
+    "event/metrics": frozenMetrics(macros, breakdown),
   };
   if (instantiation) attributes["event/instantiation"] = instantiation;
   // The account of what a Pack pairing supplied into the metrics above
@@ -439,18 +462,20 @@ export async function copyPastMeal(
   const ids: string[] = [];
   for (const item of items) {
     try {
-      const id = await logFoodConsumption(
-        item.target as string,
-        item.quantity as string,
+      const id = await logFoodConsumption({
+        target: item.target as string,
+        quantity: item.quantity as string,
         meal_type,
-        item.calories as number,
-        item.protein,
-        item.fat,
-        item.carbs,
+        macros: {
+          calories: item.calories as number,
+          protein: item.protein,
+          fat: item.fat,
+          carbs: item.carbs,
+        },
         selectedDate,
-        item.instantiation,
-        item.metrics,
-        mintEventId?.(item),
+        instantiation: item.instantiation,
+        breakdown: item.metrics,
+        entityId: mintEventId?.(item),
         // Carried verbatim beside the metrics it accounts for, never re-derived
         // from the twin's pairing as it stands now (ADR-0113 §7). A copy of a
         // meal is a copy of the reading that was taken, so it keeps naming the
@@ -458,8 +483,8 @@ export async function copyPastMeal(
         // been re-paired or unpaired. Dropping it would leave borrowed numbers
         // in the copy with nothing naming them, which is the one shape §6
         // refuses.
-        item.pairing
-      );
+        pairing: item.pairing,
+      });
       ids.push(id);
     } catch (e) {
       appError("copying a logged food failed", e);

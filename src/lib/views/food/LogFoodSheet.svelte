@@ -468,20 +468,17 @@
             pairing: correctedPairing(source.pairing, edit.pairing),
           });
         } else {
-          const newId = await logFoodConsumption(
-            f.entity,
+          const newId = await logFoodConsumption({
+            target: f.entity,
             quantity,
             meal_type,
-            breakdown.calories,
-            breakdown.protein,
-            breakdown.fat,
-            breakdown.carbs,
+            macros: breakdown,
             selectedDate,
-            undefined,
             breakdown,
-            undefined,
-            source.pairing
-          );
+            // The account of what a Pack pairing supplied into those figures
+            // (ADR-0113 §6), read as the sheet drew it.
+            pairing: source.pairing,
+          });
           onLogged?.([newId]);
         }
       } else {
@@ -610,16 +607,18 @@
             pairing: correctedPairing(undefined, edit.pairing),
           });
         } else {
-          const newId = await logFoodConsumption(
-            twinId,
-            capturedQuantity,
+          const newId = await logFoodConsumption({
+            target: twinId,
+            quantity: capturedQuantity,
             meal_type,
-            choice.calories,
-            macrosOnly ? choice.protein : undefined,
-            macrosOnly ? choice.fat : undefined,
-            macrosOnly ? choice.carbs : undefined,
-            selectedDate
-          );
+            macros: {
+              calories: choice.calories,
+              protein: macrosOnly ? choice.protein : undefined,
+              fat: macrosOnly ? choice.fat : undefined,
+              carbs: macrosOnly ? choice.carbs : undefined,
+            },
+            selectedDate,
+          });
           onLogged?.([newId]);
         }
       }

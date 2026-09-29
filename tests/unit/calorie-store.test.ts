@@ -88,16 +88,18 @@ describe("Calorie Store Actions", () => {
         .mockResolvedValue(undefined);
       const testDate = new Date("2026-05-31T12:00:00");
 
-      const entityId = await logFoodConsumption(
-        "fdc:12345",
-        "150g",
-        "breakfast",
-        250,
-        5,
-        2,
-        45,
-        testDate
-      );
+      const entityId = await logFoodConsumption({
+        target: "fdc:12345",
+        quantity: "150g",
+        meal_type: "breakfast",
+        macros: {
+          calories: 250,
+          protein: 5,
+          fat: 2,
+          carbs: 45,
+        },
+        selectedDate: testDate,
+      });
 
       expect(entityId).toMatch(/^event:consume_/);
       expect(mockAppend).toHaveBeenCalledTimes(1);
@@ -1830,16 +1832,18 @@ describe("store action → computeConsumption round-trip (Seam 2)", () => {
     const appended = captureAppends();
 
     const twinId = await saveCustomFood("Avocado Toast", 350, 8, 15, 30);
-    await logFoodConsumption(
-      twinId,
-      "1 serving",
-      "breakfast",
-      350,
-      8,
-      15,
-      30,
-      new Date("2026-05-31T12:00:00")
-    );
+    await logFoodConsumption({
+      target: twinId,
+      quantity: "1 serving",
+      meal_type: "breakfast",
+      macros: {
+        calories: 350,
+        protein: 8,
+        fat: 15,
+        carbs: 30,
+      },
+      selectedDate: new Date("2026-05-31T12:00:00"),
+    });
 
     const events = computeConsumption(asLedger(appended));
     expect(events).toHaveLength(1);
@@ -1862,16 +1866,18 @@ describe("store action → computeConsumption round-trip (Seam 2)", () => {
     async (_source, target) => {
       const appended = captureAppends();
 
-      await logFoodConsumption(
+      await logFoodConsumption({
         target,
-        "150g",
-        "lunch",
-        134,
-        1.7,
-        0.5,
-        34.2,
-        new Date("2026-05-31T12:00:00")
-      );
+        quantity: "150g",
+        meal_type: "lunch",
+        macros: {
+          calories: 134,
+          protein: 1.7,
+          fat: 0.5,
+          carbs: 34.2,
+        },
+        selectedDate: new Date("2026-05-31T12:00:00"),
+      });
 
       const events = computeConsumption(asLedger(appended));
       expect(events).toHaveLength(1);
@@ -1941,16 +1947,18 @@ describe("store action → computeConsumption round-trip (Seam 2)", () => {
     ]);
 
     // An ingredient logged earlier, then replaced by the recipe built from it.
-    const ingredientEventId = await logFoodConsumption(
-      "fdc:oats",
-      "50 g",
-      "breakfast",
-      190,
-      6.5,
-      3.5,
-      33.5,
-      day
-    );
+    const ingredientEventId = await logFoodConsumption({
+      target: "fdc:oats",
+      quantity: "50 g",
+      meal_type: "breakfast",
+      macros: {
+        calories: 190,
+        protein: 6.5,
+        fat: 3.5,
+        carbs: 33.5,
+      },
+      selectedDate: day,
+    });
     // Save + log through the real store actions. The store derives the frozen
     // headline AND the snapshot rows itself from the ingredient panels/names
     // (via the resolvers) — the test never calls the derivation helpers.
@@ -2155,18 +2163,19 @@ describe("store action → computeConsumption round-trip (Seam 2)", () => {
     const appended = captureAppends();
     // 150 g of a per-100g food → ×1.5, exactly what LogFoodSheet computes.
     const breakdown = scaleNutrition(OATS_FULL, 150 / 100);
-    await logFoodConsumption(
-      "fdc:oats",
-      "150g",
-      "breakfast",
-      breakdown.calories,
-      breakdown.protein,
-      breakdown.fat,
-      breakdown.carbs,
-      new Date("2026-05-31T12:00:00"),
-      undefined,
-      breakdown
-    );
+    await logFoodConsumption({
+      target: "fdc:oats",
+      quantity: "150g",
+      meal_type: "breakfast",
+      macros: {
+        calories: breakdown.calories,
+        protein: breakdown.protein,
+        fat: breakdown.fat,
+        carbs: breakdown.carbs,
+      },
+      selectedDate: new Date("2026-05-31T12:00:00"),
+      breakdown,
+    });
 
     const events = computeConsumption(asLedger(appended));
     expect(events).toHaveLength(1);
@@ -2210,18 +2219,19 @@ describe("store action → computeConsumption round-trip (Seam 2)", () => {
       ["fdc:oats", oats],
       ["fdc:berries", berries],
     ] as const) {
-      await logFoodConsumption(
+      await logFoodConsumption({
         target,
-        "portion",
-        "breakfast",
-        b.calories,
-        b.protein,
-        b.fat,
-        b.carbs,
-        day,
-        undefined,
-        b
-      );
+        quantity: "portion",
+        meal_type: "breakfast",
+        macros: {
+          calories: b.calories,
+          protein: b.protein,
+          fat: b.fat,
+          carbs: b.carbs,
+        },
+        selectedDate: day,
+        breakdown: b,
+      });
     }
 
     const total = totalNutrition(computeConsumption(asLedger(appended)));
@@ -2237,30 +2247,33 @@ describe("store action → computeConsumption round-trip (Seam 2)", () => {
     const day = new Date("2026-05-31T12:00:00");
     // (1) A macro-only food: logged with four macros and NO breakdown arg (a
     // custom food carries no source panel).
-    await logFoodConsumption(
-      "fdc:macro_only",
-      "150g",
-      "lunch",
-      134,
-      1.7,
-      0.5,
-      34.2,
-      day
-    );
+    await logFoodConsumption({
+      target: "fdc:macro_only",
+      quantity: "150g",
+      meal_type: "lunch",
+      macros: {
+        calories: 134,
+        protein: 1.7,
+        fat: 0.5,
+        carbs: 34.2,
+      },
+      selectedDate: day,
+    });
     // (2) A new food carrying fibre.
     const full = scaleNutrition(OATS_FULL, 0.5);
-    await logFoodConsumption(
-      "fdc:oats",
-      "50g",
-      "lunch",
-      full.calories,
-      full.protein,
-      full.fat,
-      full.carbs,
-      day,
-      undefined,
-      full
-    );
+    await logFoodConsumption({
+      target: "fdc:oats",
+      quantity: "50g",
+      meal_type: "lunch",
+      macros: {
+        calories: full.calories,
+        protein: full.protein,
+        fat: full.fat,
+        carbs: full.carbs,
+      },
+      selectedDate: day,
+      breakdown: full,
+    });
 
     const events = computeConsumption(asLedger(appended));
     const macroOnly = events.find((e) => e.target === "fdc:macro_only")!;
@@ -2348,16 +2361,18 @@ describe("label-food edit is lossless (basis + panel survive on the twin)", () =
       }),
       entityId: gtin,
     });
-    await logFoodConsumption(
-      twinId,
-      "100ml",
-      "snack",
-      190,
-      7,
-      16,
-      6,
-      new Date("2026-08-01T12:00:00")
-    );
+    await logFoodConsumption({
+      target: twinId,
+      quantity: "100ml",
+      meal_type: "snack",
+      macros: {
+        calories: 190,
+        protein: 7,
+        fat: 16,
+        carbs: 6,
+      },
+      selectedDate: new Date("2026-08-01T12:00:00"),
+    });
 
     // The dashboard's view of the logged food: a millilitre event named right.
     const ev = computeConsumption(asLedger(appended)).find(
@@ -2874,20 +2889,26 @@ describe("a logged occasion freezes what the pairing supplied (ADR-0113 §6)", (
     // two lines come back. One carries every number, the other names a USDA
     // food, its URI and the keys that came from it. The intersection is the
     // answer and the difference is the label's.
-    await logFoodConsumption(
-      "gtin:5010251341352",
-      "150g",
-      "lunch",
-      174,
-      13,
-      0.8,
-      23.4,
-      new Date("2026-09-18T12:00:00"),
-      undefined,
-      { calories: 174, protein: 13, fat: 0.8, carbs: 23.4, iron: 0.0033 },
-      undefined,
-      FROZEN
-    );
+    await logFoodConsumption({
+      target: "gtin:5010251341352",
+      quantity: "150g",
+      meal_type: "lunch",
+      macros: {
+        calories: 174,
+        protein: 13,
+        fat: 0.8,
+        carbs: 23.4,
+      },
+      selectedDate: new Date("2026-09-18T12:00:00"),
+      breakdown: {
+        calories: 174,
+        protein: 13,
+        fat: 0.8,
+        carbs: 23.4,
+        iron: 0.0033,
+      },
+      pairing: FROZEN,
+    });
 
     const rows = written();
     expect(rows["event/pairing"]).toEqual(FROZEN);
@@ -2903,16 +2924,18 @@ describe("a logged occasion freezes what the pairing supplied (ADR-0113 §6)", (
   it("writes no datom at all for a food nothing was borrowed for", async () => {
     // Omitted, never emitted empty: absence means exactly one thing
     // ledger-wide — *nothing here was supplied*.
-    await logFoodConsumption(
-      "gtin:5010251341352",
-      "150g",
-      "lunch",
-      174,
-      13,
-      0.8,
-      23.4,
-      new Date("2026-09-18T12:00:00")
-    );
+    await logFoodConsumption({
+      target: "gtin:5010251341352",
+      quantity: "150g",
+      meal_type: "lunch",
+      macros: {
+        calories: 174,
+        protein: 13,
+        fat: 0.8,
+        carbs: 23.4,
+      },
+      selectedDate: new Date("2026-09-18T12:00:00"),
+    });
 
     expect(Object.keys(written())).not.toContain("event/pairing");
   });
@@ -2958,20 +2981,26 @@ describe("a logged occasion freezes what the pairing supplied (ADR-0113 §6)", (
       append.mockImplementation(async (d: any) => {
         appended.push(...d);
       });
-      await logFoodConsumption(
-        "gtin:5010251341352",
-        "150g",
-        "lunch",
-        174,
-        13,
-        0.8,
-        23.4,
-        new Date("2026-09-17T12:00:00"),
-        undefined,
-        { calories: 174, protein: 13, fat: 0.8, carbs: 23.4, iron: 0.0033 },
-        undefined,
-        FROZEN
-      );
+      await logFoodConsumption({
+        target: "gtin:5010251341352",
+        quantity: "150g",
+        meal_type: "lunch",
+        macros: {
+          calories: 174,
+          protein: 13,
+          fat: 0.8,
+          carbs: 23.4,
+        },
+        selectedDate: new Date("2026-09-17T12:00:00"),
+        breakdown: {
+          calories: 174,
+          protein: 13,
+          fat: 0.8,
+          carbs: 23.4,
+          iron: 0.0033,
+        },
+        pairing: FROZEN,
+      });
       return appended;
     };
 
@@ -3026,20 +3055,26 @@ describe("a logged occasion freezes what the pairing supplied (ADR-0113 §6)", (
       append.mockImplementation(async (d: any) => {
         appended.push(...d);
       });
-      await logFoodConsumption(
-        "gtin:5010251341352",
-        "150g",
-        "lunch",
-        174,
-        13,
-        0.8,
-        23.4,
-        new Date("2026-09-17T12:00:00"),
-        undefined,
-        { calories: 174, protein: 13, fat: 0.8, carbs: 23.4, iron: 0.0033 },
-        undefined,
-        FROZEN
-      );
+      await logFoodConsumption({
+        target: "gtin:5010251341352",
+        quantity: "150g",
+        meal_type: "lunch",
+        macros: {
+          calories: 174,
+          protein: 13,
+          fat: 0.8,
+          carbs: 23.4,
+        },
+        selectedDate: new Date("2026-09-17T12:00:00"),
+        breakdown: {
+          calories: 174,
+          protein: 13,
+          fat: 0.8,
+          carbs: 23.4,
+          iron: 0.0033,
+        },
+        pairing: FROZEN,
+      });
       const entity = appended[0].entity;
       return [
         ...appended,

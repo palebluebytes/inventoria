@@ -385,18 +385,15 @@ export async function logRecipeConsumption(
     resolveName,
     occasion
   );
-  return logFoodConsumption(
-    recipeId,
+  return logFoodConsumption({
+    target: recipeId,
     quantity,
     meal_type,
-    snapshot.calories,
-    snapshot.protein,
-    snapshot.fat,
-    snapshot.carbs,
+    macros: snapshot,
     selectedDate,
     instantiation,
-    snapshot
-  );
+    breakdown: snapshot,
+  });
 }
 
 /**
