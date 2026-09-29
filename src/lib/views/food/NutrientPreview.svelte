@@ -49,23 +49,20 @@
   } = $props();
 
   let pills = $derived(
-    buildNutrientPills(
-      breakdown,
-      $visibleNutrients,
-      $calorieDisplayDecimals,
-      true,
-      estimated
-    )
+    buildNutrientPills(breakdown, $visibleNutrients, {
+      calorieDecimals: $calorieDisplayDecimals,
+      hideEmpty: true,
+      estimated,
+    })
   );
   let pillKeys = $derived(new Set(pills.map((p) => p.key)));
   let fullRows = $derived(
-    buildNutrientBreakdown(
-      breakdown,
-      $calorieDisplayDecimals,
-      true,
-      pillKeys,
-      estimated
-    )
+    buildNutrientBreakdown(breakdown, {
+      calorieDecimals: $calorieDisplayDecimals,
+      hideEmpty: true,
+      exclude: pillKeys,
+      estimated,
+    })
   );
 </script>
 

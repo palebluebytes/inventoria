@@ -669,7 +669,9 @@ describe("buildNutrientPills", () => {
   });
 
   it("threads the calorie precision to the calories pill only (calorieDecimals=0)", () => {
-    const pills = buildNutrientPills(scaled, ["protein", "fiber_content"], 0);
+    const pills = buildNutrientPills(scaled, ["protein", "fiber_content"], {
+      calorieDecimals: 0,
+    });
     expect(pills[0].value).toBe("134 kcal");
     expect(pills.slice(1).map((p) => p.value)).toEqual([
       formatNutrientValue(scaled.protein, "g"),
@@ -680,24 +682,18 @@ describe("buildNutrientPills", () => {
   it("hideEmpty drops a selected-but-absent nutrient's pill entirely", () => {
     // A single food's preview: `scaled` carries no sodium, so with hideEmpty the
     // sodium pill is gone (not a "–"), while present nutrients still show.
-    const pills = buildNutrientPills(
-      scaled,
-      ["sodium_content", "protein"],
-      undefined,
-      true
-    );
+    const pills = buildNutrientPills(scaled, ["sodium_content", "protein"], {
+      hideEmpty: true,
+    });
     expect(pills.map((p) => p.key)).toEqual(["calories", "protein"]);
     expect(pills.find((p) => p.key === "sodium_content")).toBeUndefined();
   });
 
   it("hideEmpty also drops a carried zero (0 g fat shows no pill)", () => {
     const withZero: NutritionBreakdown = { ...scaled, fat: 0 };
-    const pills = buildNutrientPills(
-      withZero,
-      ["fat", "protein"],
-      undefined,
-      true
-    );
+    const pills = buildNutrientPills(withZero, ["fat", "protein"], {
+      hideEmpty: true,
+    });
     expect(pills.map((p) => p.key)).toEqual(["calories", "protein"]);
     expect(pills.find((p) => p.key === "fat")).toBeUndefined();
   });
@@ -706,7 +702,9 @@ describe("buildNutrientPills", () => {
     // iron 0.00026 g reads as "0.26 mg" — a real value in its own unit, so it
     // must NOT be dropped as a "zero" just because it rounds to 0 g.
     const withIron: NutritionBreakdown = { ...scaled, iron: 0.00026 };
-    const pills = buildNutrientPills(withIron, ["iron"], undefined, true);
+    const pills = buildNutrientPills(withIron, ["iron"], {
+      hideEmpty: true,
+    });
     expect(pills.map((p) => p.key)).toEqual(["calories", "iron"]);
     expect(pills[1].value).toBe("0.26 mg");
   });
@@ -785,7 +783,9 @@ describe("buildNutrientBreakdown", () => {
       saturated_fat_content: 0,
       iron: 0.00026, // 0.26 mg — a real value in its unit, must survive
     };
-    const rows = buildNutrientBreakdown(scaled, undefined, true);
+    const rows = buildNutrientBreakdown(scaled, {
+      hideEmpty: true,
+    });
     expect(rows.map((r) => r.key)).toEqual(["calories", "fat", "iron"]);
     expect(rows.find((r) => r.key === "fat")!.value).toBe("0.6 g");
     expect(rows.find((r) => r.key === "iron")!.value).toBe("0.26 mg");
@@ -880,9 +880,10 @@ describe("buildNutrientBreakdown", () => {
       "fiber_content",
     ]);
     expect(
-      buildNutrientBreakdown(scaled, undefined, true, gridKeys).map(
-        (r) => r.key
-      )
+      buildNutrientBreakdown(scaled, {
+        hideEmpty: true,
+        exclude: gridKeys,
+      }).map((r) => r.key)
     ).toEqual(["sodium_content", "saturated_fat_content", "calcium"]);
   });
 
@@ -1017,13 +1018,10 @@ describe("the est mark a borrowed figure carries (ADR-0113 §5)", () => {
   };
 
   it("marks a filled row and leaves every other row unmarked", () => {
-    const rows = buildNutrientBreakdown(
-      scaled,
-      undefined,
-      false,
-      undefined,
-      new Set(["iron"])
-    );
+    const rows = buildNutrientBreakdown(scaled, {
+      hideEmpty: false,
+      estimated: new Set(["iron"]),
+    });
     expect(rows.find((r) => r.key === "iron")!.est).toBe(true);
     expect(rows.find((r) => r.key === "fiber_content")!.est).toBeUndefined();
     expect(rows.find((r) => r.key === "calories")!.est).toBeUndefined();
@@ -1034,13 +1032,10 @@ describe("the est mark a borrowed figure carries (ADR-0113 §5)", () => {
     // so a borrowed iron that happens to be tracked may not lose its mark by
     // being promoted into the grid. The mark is the sole carrier of provenance
     // on screen and it has no backstop.
-    const pills = buildNutrientPills(
-      scaled,
-      ["protein", "iron"],
-      undefined,
-      false,
-      new Set(["iron"])
-    );
+    const pills = buildNutrientPills(scaled, ["protein", "iron"], {
+      hideEmpty: false,
+      estimated: new Set(["iron"]),
+    });
     expect(pills.find((p) => p.key === "iron")!.est).toBe(true);
     expect(pills.find((p) => p.key === "protein")!.est).toBeUndefined();
   });

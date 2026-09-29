@@ -403,6 +403,57 @@ function nutrientRow(
 const EMPTY_KEY_SET: ReadonlySet<string> = new Set();
 
 /**
+ * How a nutrient list is shown, for the two builders that draw one.
+ *
+ * One contract rather than a tail of positional arguments, which is what these had
+ * grown: `buildNutrientBreakdown(scaled, undefined, true, gridKeys)` and
+ * `buildNutrientPills(scaled, ["iron"], undefined, true, marked)` say nothing at
+ * the call site about which knob is which (CODING_STANDARDS §3.1). Shared between
+ * the two because **the grid and the disclosure are one panel split by what the
+ * user tracks** (ADR-0113 §5) — every field here but `exclude` means the same thing
+ * on both halves, and a field that came to mean two things across them would be the
+ * drift one contract exists to stop.
+ */
+export interface NutrientListOptions {
+  /**
+   * The whole-number display setting, reaching the leading Calories row or pill
+   * alone: every nutrient formats at the fixed precision
+   * {@link formatNutrientValue} sets.
+   */
+  calorieDecimals?: number;
+  /**
+   * Drops any row or pill that reads as zero at its display precision — 0 g fat,
+   * 0 mg sodium, checked per-unit so a real 0.26 mg micronutrient survives — and,
+   * for a pill, one the breakdown never carried at all. A single food's surfaces
+   * then list only what that food has a value for rather than a "–" or a "0 g"
+   * that adds no information; the recipe per-serving preview leaves it false to
+   * keep a stable pill set as ingredients change. Calories always lead, never
+   * hidden.
+   */
+  hideEmpty?: boolean;
+  /**
+   * Drops any nutrient whose key this contains, `calories` included. The
+   * disclosure's own knob: a card showing a pill grid above it passes the grid's
+   * keys here, so the full-nutrition list holds the extras not already on screen
+   * and never repeats one. Meaningless to {@link buildNutrientPills}, whose
+   * membership is the caller's `selection`.
+   */
+  exclude?: ReadonlySet<string>;
+  /**
+   * The keys a **Pack pairing**'s reference food supplied, each of which carries
+   * {@link NutrientRow.est} (ADR-0113 §5). It changes neither the order nor the
+   * membership of a list — every nutrient sits in one list in normal panel order,
+   * and a borrowed figure differs from a printed one by the mark alone.
+   *
+   * On both builders rather than only the disclosure, because a borrowed nutrient
+   * that happens to be tracked must not shed its mark by being promoted into the
+   * grid. The mark is the sole carrier of provenance on screen and it has no
+   * backstop.
+   */
+  estimated?: ReadonlySet<string>;
+}
+
+/**
  * Builds the full nutrient breakdown for a (already-scaled) panel — the ordered
  * list a food's disclosure/expander renders (ticket #30, parent #21). Leads with
  * the always-on Calories row, then every catalogued nutrient the breakdown
@@ -441,10 +492,12 @@ const EMPTY_KEY_SET: ReadonlySet<string> = new Set();
  */
 export function buildNutrientBreakdown(
   breakdown: NutritionBreakdown,
-  calorieDecimals: number = FOOD_DISPLAY_DECIMALS,
-  hideEmpty: boolean = false,
-  exclude: ReadonlySet<string> = EMPTY_KEY_SET,
-  estimated: ReadonlySet<string> = EMPTY_KEY_SET
+  {
+    calorieDecimals = FOOD_DISPLAY_DECIMALS,
+    hideEmpty = false,
+    exclude = EMPTY_KEY_SET,
+    estimated = EMPTY_KEY_SET,
+  }: NutrientListOptions = {}
 ): NutrientRow[] {
   const rows: NutrientRow[] = [];
   if (!exclude.has("calories")) {
@@ -866,9 +919,11 @@ export interface NutrientPill {
 export function buildNutrientPills(
   breakdown: NutritionBreakdown,
   selection: string[] | undefined,
-  calorieDecimals: number = FOOD_DISPLAY_DECIMALS,
-  hideEmpty: boolean = false,
-  estimated: ReadonlySet<string> = EMPTY_KEY_SET
+  {
+    calorieDecimals = FOOD_DISPLAY_DECIMALS,
+    hideEmpty = false,
+    estimated = EMPTY_KEY_SET,
+  }: NutrientListOptions = {}
 ): NutrientPill[] {
   const pills: NutrientPill[] = [
     {
