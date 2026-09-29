@@ -164,5 +164,14 @@ enabled = false
 # What is **not** here and must never be: `MODEL_ROUTE_KEY`. It is a secret, set
 # with `wrangler secret put` (ADR-0115 §4.3); `docs/how-to-operate-the-model-route.md`
 # carries the minting, the verification and the rotation.
+#
+# **This binding is why `dev:relay` runs `--local`.** Workers AI has no local
+# implementation, so `wrangler dev` proxies it to the network and then demands a
+# `CLOUDFLARE_API_TOKEN` — which CI does not have and should not need, since the
+# e2e suite exercises the relay and the store and never `/api/model`. `--local`
+# disables remote bindings and the whole script boots credential-free. The route
+# still answers correctly there: the gate refuses with `401` before `env.AI` is
+# ever touched, which is §4.2's ordering paying for itself somewhere it was not
+# designed to.
 [ai]
 binding = "AI"
