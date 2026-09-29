@@ -62,10 +62,11 @@ const LANDING = ".main .face-grid";
  * `page.goto("/")` puts it back on the landing, and the fifteen specs that used
  * to open on food now open on the grid.
  *
- * The tile is looked for **inside whichever grid is up**, never on the page. The
- * header's own title is not a button, but a face's screen may well hold a control
- * with the same word on it, and a bare `getByRole("button", { name })` would be
- * ambiguous the first time one did.
+ * The tile is looked for **inside whichever grid is up**, never on the page. A
+ * face's screen may well hold a control with the same word on it, and so may the
+ * header — since #538 the title is a button on a page, though it is named for
+ * where it goes rather than for the face — so a bare
+ * `getByRole("button", { name })` would be ambiguous the first time one was.
  */
 export async function goToFace(page: Page, name: string): Promise<void> {
   const trigger = page.locator('button[aria-controls="face-switcher-panel"]');
@@ -132,8 +133,14 @@ export async function openRootFace(
  * string the tile, the trigger's accessible name and `goToFace` use.
  *
  * Scoped to `.face-header` rather than to a bare heading role, because a face's
- * screen may hold a heading with the same word on it — Rations' food screen
- * already draws an `<h1>` of its own under this one.
+ * screen may hold a heading with the same word on it. Rations' food screen drew
+ * an `<h1>` of its own under this one until #538, which is why `level: 1` was
+ * once enough to tell them apart and is not what this reads.
+ *
+ * It is also the way back off a page (ADR-0091 §5), so what it holds is a
+ * `<button>` there and a bare word on the day. `toHaveText` reads through
+ * either; a spec that wants the control asks for the button by its accessible
+ * name — "Rations, back to the day".
  */
 export function faceTitle(page: Page) {
   return page.locator(".face-header h1");

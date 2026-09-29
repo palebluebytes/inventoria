@@ -25,7 +25,7 @@ import {
 import { FACES, facesOf, facetOf } from "../../src/lib/facets/registry";
 import FaceGrid from "../../src/lib/layout/FaceGrid.svelte";
 import FaceHeader from "../../src/lib/layout/FaceHeader.svelte";
-import { tileNames } from "./support/faces";
+import { headerTitle, tileNames } from "./support/faces";
 
 const HEADER = "src/lib/layout/FaceHeader.svelte";
 const SWITCHER = "src/lib/layout/FaceSwitcher.svelte";
@@ -117,8 +117,7 @@ describe("the header is the one canonical name, and a trigger beside it", () => 
   }).body;
 
   it("titles the face with the roster's one spelling (§3)", () => {
-    expect(body).toMatch(/<h1 class="face-title[^"]*">Rations<\/h1>/);
-    expect(body).toContain("Rations");
+    expect(headerTitle(body)).toBe("Rations");
   });
 
   it("names the trigger for what it does, not for what it draws", () => {

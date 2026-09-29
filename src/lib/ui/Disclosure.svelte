@@ -31,7 +31,9 @@
   // **different parents at four of them**: the dashboard's toggle shares a head
   // row with the Full-day button while its region is the row's sibling, both ⓘ
   // sites sit beside a heading, and `FoodView`'s trigger is in the screen
-  // header with its region four hundred lines away. A component rendering both
+  // header with its region four hundred lines away — in a different component
+  // since #538, drawn by the shell's pinned header while the blurb it unfolds
+  // stays inside the scroll box. A component rendering both
   // adjacently fits one site of five, and modelling the rest would have meant a
   // `before` snippet, a `beside` snippet and a caller still able to put the
   // region somewhere else. So the region stays the caller's and `controls` is a

@@ -5,7 +5,7 @@
 **Amends:** [ADR-0078](0078-a-facet-contains-no-way-out.md) (§2's "Rations has no tab bar" is overturned: Rations gains a switcher. §1's no-way-**out** rule is untouched, and §8's gate is what makes the switcher safe rather than what it has to survive)  
 **Amends:** [ADR-0080](0080-a-facet-carries-a-jar-wide-control-only-where-losing-it-loses-data.md) (its split table relocates into the Settings face; the rule it states is unrevised, and §7's one named surface keeps its name and loses two sections)  
 **Amends:** [ADR-0089](0089-a-pinned-surface-measures-the-visible-band.md) (§2's floor is published by a surface that no longer exists; a ceiling replaces it, and §7's Back stack gains a stop that is not a `BottomSheet`)  
-**Amends:** [ADR-0091](0091-rations-widens-into-two-regions-and-grows-pages.md) (§8's closed page roster loses Recipes to a face; §5's rule that a shell says what it can hold is unrevised and is generalised)  
+**Amends:** [ADR-0091](0091-rations-widens-into-two-regions-and-grows-pages.md) (§8's closed page roster loses Recipes to a face; §5's rule that a shell says what it can hold is unrevised and is generalised, and so is its "the title is the way back" — the header that holds it is the shell's now, not the screen's)  
 **Amends:** [ADR-0101](0101-the-ways-into-a-day-are-one-bar-anchored-where-the-hand-is.md) (§7's bar is no longer the only permanent pinned surface in Rations, and it is no longer the lowest thing the shell measures)  
 **Amends:** [ADR-0102](0102-a-drop-shadow-is-reserved-where-a-box-must-contain-or-cover-it.md) (the pinned header is a box that covers, so it takes the shadow that record reserves; nothing else is added to the reservation)  
 **Amends:** [ADR-0077](0077-a-facet-precaches-its-own-weight.md) §5 (the one USDA artifact that record kept in the root leaves with the premise that kept it; the root now precaches none of the three, and §4, §3 and §7 are unrevised)
@@ -798,3 +798,71 @@ argument above reaches it — the pot went because the face is the same control 
 and the gear opens food-specific settings §10 deliberately leaves where they are, on a shell
 where the same gear opens another Facet's page rather than that shell's own Settings face. It
 is written down on the state it complicates rather than kept quiet.
+
+## Amendment, 2026-09-29: the food screen's title row, and the fifth retired title
+
+[#538](https://github.com/palebluebytes/inventoria/issues/538) finished §5 on the one face
+§3 was written about. `FoodView` drew `FOOD` in a title row of its own directly under the
+header's `RATIONS`, so from #529 until now the face this record names first was the only
+face still spelled twice. Its four controls are published like Media's gear, and the word
+itself — which is a control there, and nowhere else in the app — is published with them.
+
+**1. The retired titles were five, not three and not four.** §3 names three by hand; the
+#533 amendment above found `DAILY AGENDA` as a fourth, in a shape §3 was not looking for.
+`FOOD` is the fifth, and it hid in the opposite way: not in a box the census did not
+recognise, but in a screen the census was never pointed at. Both misses are the same one —
+§3's list was written from the faces that looked unfinished, and the spelling has nothing
+to do with whether a face is finished.
+
+**2. The way back has two owners, so it is published as a pair.** ADR-0091 §5's accessible
+name is the visible word plus the destination — "Food, back to the day" — and after the
+move those halves live in different places: the word is the roster's one spelling (§3),
+which only the header holds, and the destination is a fact about the food screen's own
+day, which only the face knows. So `layout/face-actions.ts` carries `{ to, go }` rather
+than a callback or a finished string, and the header composes `"Rations, back to the day"`.
+A face that published the whole name would be spelling itself again, one indirection
+further down.
+
+**3. §5's rule is unrevised and its box moved, which is ADR-0091 §5 read the way the
+record already reads its own.** "The title is the way back, and it is the only way off a
+page" is untouched: the icons are still navigation, the current one still inverts, and
+nothing else offers a way off. What changed is that the header holding all of it is the
+shell's rather than the screen's — the generalisation this record made in §5, arriving at
+the screen §5 quoted it from.
+
+**4. The tap floor has to be said twice, to two readers.** The control's floor was
+`min-height: var(--tap-min)` on the button when the button lived in the screen's own row.
+In the shell's header that is not enough and not sufficient on its own: the word must sit
+in the same line box whether or not it is a control, so the floor is a `line-height` on the
+title, which the button inherits — and `tap-floor.test.ts` sweeps declared boxes off the
+stylesheet and cannot see an inherited `line-height`, so it read the button as 21.6px and
+convicted it. Both declarations name `--tap-min`. The sweep is right to be blind here: a
+box whose floor is somewhere else is a box whose floor can be edited away from somewhere
+else.
+
+**5. The row keeps a box of its own inside the header's, and the amendment above is why.**
+"Svelte is what makes this cost nothing in styling" holds for Media, whose one control is a
+plain `<button>`. The food screen's ⓘ is a `ui/Disclosure`, and a class handed to a
+component carries no scoping hash — so the rules that dress all four are `:global` anchored
+on `.header-actions`, and that anchor has to be an element this file wrote. It costs one
+`<div>` inside the header's own.
+
+**6. The ⓘ and the panel it unfolds are in different components now**, with `aria-controls`
+crossing the tree. That is legal — an IDREF reaches anywhere in the document — and it makes
+`ui/Disclosure`'s founding argument literal: #316 refused to own the region because the two
+boxes had different parents at four sites of five, and at this one they no longer have the
+same component.
+
+**7. Two things the row was carrying that nothing could have drawn.**
+`.header-actions :global(.header-icon-btn .entry-icon)` sized a `WayInIcon` in the header,
+and [#536](https://github.com/palebluebytes/inventoria/issues/536) took the recipe pot out
+of that row — the rule has matched nothing since. And the deleted `.page-header`'s comment
+said its tight phone spacing was restored by "the desktop query below", where `FoodView`
+has no `@media` block at all and never had one. Moving a rule is when a reader finds out
+what it was doing; neither of these came across.
+
+**8. One reader for what the title says.** Three unit files matched the header's `<h1>` with
+a regex against its bare shape, and all three broke on the block anchors Svelte stamps
+inside an `{#if}` — the word was still there and none of them could see it.
+`tests/unit/support/faces.ts` gains `headerTitle`, beside the `tileNames` that is there for
+the same reason: what each file is asserting is the word, so the word is what they read.

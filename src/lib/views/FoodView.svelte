@@ -106,6 +106,8 @@
     foodCalculatedTargets,
   } from "../stores/device-settings";
 
+  import { publishFaceActions, publishFaceBack } from "../layout/face-actions";
+
   import Card from "../ui/Card.svelte";
   import { enterBackStop, leaveBackStop } from "../ui/back-stack";
   import Badge from "../ui/Badge.svelte";
@@ -299,6 +301,26 @@
 
   // Whether what is on screen is a page rather than the day.
   let onPage = $derived(canShowPage && page !== null);
+
+  // This face's four controls go to the shell's pinned header for as long as it
+  // is mounted, and the way off a page goes with them (ADR-0114 §5, §3). Until
+  // #538 they sat in a `.page-header` of this screen's own, under a second
+  // `<h1>` saying FOOD beneath the header's RATIONS — the one face §3 was
+  // written about and the last one spelling itself.
+  $effect(() => publishFaceActions(headerActions));
+
+  // **The title is the way back, and it is the only way off a page**
+  // (ADR-0091 §5). The icon that opened this page is a toggle to nowhere on its
+  // own: it is navigation now, and clicking the page you are already on goes
+  // nowhere, so the word has to carry the return.
+  //
+  // Republished on every crossing rather than read by the header, because the
+  // header holds all seven faces and none of its own state: `to` is a fact
+  // about this screen — the day is what a page is shown *instead of* — and the
+  // word it is appended to is the roster's.
+  $effect(() =>
+    publishFaceBack(onPage ? { to: "the day", go: () => (page = null) } : null)
+  );
 
   // The pages that have a control at this width, which is the roster the header
   // and the legend both loop — never `PAGES`. Two of the three keep a control
@@ -1200,172 +1222,151 @@
   {/if}
 {/snippet}
 
-<header class="page-header">
-  <!-- Title and icons are one row of their own, so they share a centre line
-       whether or not the blurb below is unfolded. The blurb is a sibling of that
-       row rather than a sibling of the title, which is what keeps the icons
-       beside the word FOOD instead of drifting to the middle of a paragraph. -->
-  <div class="header-bar">
-    <h1>
-      {#if onPage}
-        <!-- **The title is the way back, and it is the only way off a page**
-             (ADR-0091 §5). The icon that opened this page is a toggle to
-             nowhere on its own: it is navigation now, and clicking the page you
-             are already on goes nowhere, so the word has to carry the return.
+<!-- This face's four controls, drawn by the shell's pinned header above this
+     screen (ADR-0114 §5), where until #538 they sat in a title row of this
+     screen's own under a second `<h1>`. The buttons, their ids and the state
+     they read all stay here, which is what `face-actions.ts` exists to allow:
+     they read a page, a date and a disclosure that exist nowhere else.
 
-             It stays inside the `h1` and inherits its type rather than becoming
-             a control of its own shape, so the word does not move by gaining a
-             job. The hit area is the letters — no padding, because padding here
-             would either shift the title off the row's centre line or grow a
-             target with nothing in it.
-
-             The accessible name adds where it goes and keeps the visible word
-             in front of it: "Food, button" on a settings screen is a
-             destination nobody can guess, and a name that dropped "Food"
-             would no longer be the label anyone can see. -->
-        <button
-          type="button"
-          class="title-back"
-          aria-label="{entityName}, back to the day"
-          onclick={() => (page = null)}>{entityName}</button
-        >
-      {:else}
-        {entityName}
-      {/if}
-    </h1>
-    <div class="header-actions">
-      <!-- Today and About are the **day's** controls, and a page is not the day.
-           Today would move a date on a screen nobody can see, and About unfolds
-           a blurb describing the day's marks. Neither is a part removed by a
-           *width* — the day carries all four at every one of them, which is what
-           ADR-0091 §1 protects — they are simply not this screen's. -->
-      {#if !onPage}
-        <!-- Leads the row, so the three standing controls keep their places when it
-           comes and goes. A calendar with today's dot on it: the mark says where
-           the tap lands rather than that it is a return. -->
-        {#if !onToday}
-          <button
-            type="button"
-            class="header-icon-btn"
-            aria-label="Today"
-            onclick={() => (selectedDate = new Date())}
-          >
-            {@render todayMark()}
-          </button>
-        {/if}
-        <Disclosure
-          class="header-icon-btn"
-          open={aboutOpen}
-          controls={aboutId}
-          aria-label="About the food screen"
-          onToggle={() => (aboutOpen = !aboutOpen)}
-        >
-          {#snippet mark()}{@render infoMark()}{/snippet}
-        </Disclosure>
-      {/if}
-      <!-- The standing controls, drawn from the roster rather than listed again
-           here, so the header keeps its members and their left-to-right order by
-           construction — the same shape a meal header uses for its ways in. A
-           fourth page appears here and in the legend below without anyone
-           remembering to add it twice.
-
-           **The roster is the width's**, not `PAGES`: two of the three open a
-           sheet below the shell breakpoint and a page above it, and Reports has
-           no sheet at all, so its control is simply not here down there
-           (ADR-0091 §7). One control per page at every width it exists at, which
-           is what ADR-0091 §1 protects — Reports is not a part a width removes,
-           it is a way in to something a phone cannot hold.
-
-           Above the shell breakpoint they are **navigation**: the icon of the
-           page you are on is inverted — ink and paper, which is how this frame
-           states selection, and the same mark the month calendar's chosen day
-           wears. `aria-current="page"` is what says it to a screen reader; it is
-           absent rather than false everywhere else, including on a phone, where
-           these open sheets and there is no current anything.
-
-           Each stays a plain click that opens the surface it names, so a page
-           keeps exactly one control either side of the breakpoint (ADR-0091 §1)
-           and the icon never becomes a toggle — the title is the way back. -->
-      {#each shownPages as p (p)}
+     **The row keeps a box of its own**, inside the one the header puts it in,
+     and that is forced rather than tidy. The ⓘ is a `ui/Disclosure`, and a
+     class handed to a component carries no scoping hash — so a bare
+     `.header-icon-btn` rule here would dress its plain-`<button>` neighbours
+     and silently skip it. The rules anchor on `.header-actions` with `:global`,
+     and that anchor has to be an element this file wrote. -->
+{#snippet headerActions()}
+  <div class="header-actions">
+    <!-- Today and About are the **day's** controls, and a page is not the day.
+         Today would move a date on a screen nobody can see, and About unfolds
+         a blurb describing the day's marks. Neither is a part removed by a
+         *width* — the day carries all four at every one of them, which is what
+         ADR-0091 §1 protects — they are simply not this screen's. -->
+    {#if !onPage}
+      <!-- Leads the row, so the three standing controls keep their places when
+           it comes and goes. A calendar with today's dot on it: the mark says
+           where the tap lands rather than that it is a return. -->
+      {#if !onToday}
         <button
           type="button"
           class="header-icon-btn"
-          id={iconIdOf(p)}
-          aria-label={pageLabel(p)}
-          aria-current={onPage && page === p ? "page" : undefined}
-          onclick={() => (page = p)}
+          aria-label="Today"
+          onclick={() => (selectedDate = new Date())}
         >
-          {@render pageMark(p)}
+          {@render todayMark()}
         </button>
-      {/each}
+      {/if}
+      <Disclosure
+        class="header-icon-btn"
+        open={aboutOpen}
+        controls={aboutId}
+        aria-label="About the food screen"
+        onToggle={() => (aboutOpen = !aboutOpen)}
+      >
+        {#snippet mark()}{@render infoMark()}{/snippet}
+      </Disclosure>
+    {/if}
+    <!-- The standing controls, drawn from the roster rather than listed again
+         here, so the header keeps its members and their left-to-right order by
+         construction — the same shape a meal header uses for its ways in. A
+         fourth page appears here and in the legend below without anyone
+         remembering to add it twice.
+
+         **The roster is the width's**, not `PAGES`: two of the three open a
+         sheet below the shell breakpoint and a page above it, and Reports has
+         no sheet at all, so its control is simply not here down there
+         (ADR-0091 §7). One control per page at every width it exists at, which
+         is what ADR-0091 §1 protects — Reports is not a part a width removes,
+         it is a way in to something a phone cannot hold.
+
+         Above the shell breakpoint they are **navigation**: the icon of the
+         page you are on is inverted — ink and paper, which is how this frame
+         states selection, and the same mark the month calendar's chosen day
+         wears. `aria-current="page"` is what says it to a screen reader; it is
+         absent rather than false everywhere else, including on a phone, where
+         these open sheets and there is no current anything.
+
+         Each stays a plain click that opens the surface it names, so a page
+         keeps exactly one control either side of the breakpoint (ADR-0091 §1)
+         and the icon never becomes a toggle — the title is the way back. -->
+    {#each shownPages as p (p)}
+      <button
+        type="button"
+        class="header-icon-btn"
+        id={iconIdOf(p)}
+        aria-label={pageLabel(p)}
+        aria-current={onPage && page === p ? "page" : undefined}
+        onclick={() => (page = p)}
+      >
+        {@render pageMark(p)}
+      </button>
+    {/each}
+  </div>
+{/snippet}
+
+<!-- Folded away on a page as well as when nobody asked for it: the blurb and
+     the legend under it describe the day's marks, and the ⓘ that unfolds them
+     is not on a page to be pressed. The fold state survives the trip, so
+     coming back to the day comes back to the panel you left. -->
+<div id={aboutId} class="page-about" hidden={!aboutOpen || onPage}>
+  <p class="page-about-blurb">
+    Track your daily nutritional intake, build custom recipes, and log food
+    photos locally.
+  </p>
+  <!-- What the marks beside the title mean. The row for Today is listed even
+       while the button is not on screen, and says so itself: a legend that
+       changed shape with the header would leave a reader who meets the
+       calendar for the first time with nothing to look it up in. Each mark is
+       `aria-hidden`; the name beside it is what a screen reader announces. -->
+  <p class="legend-head">Beside the title</p>
+  <dl class="legend">
+    <div class="legend-row">
+      <dt>
+        <span class="legend-mark">{@render todayMark()}</span>
+        Today
+      </dt>
+      <dd>
+        Returns to today, and appears only while you are looking at another day.
+      </dd>
     </div>
-  </div>
-  <!-- Folded away on a page as well as when nobody asked for it: the blurb and
-       the legend under it describe the day's marks, and the ⓘ that unfolds them
-       is not on a page to be pressed. The fold state survives the trip, so
-       coming back to the day comes back to the panel you left. -->
-  <div id={aboutId} class="page-about" hidden={!aboutOpen || onPage}>
-    <p class="page-about-blurb">
-      Track your daily nutritional intake, build custom recipes, and log food
-      photos locally.
-    </p>
-    <!-- What the marks beside the title mean. The row for Today is listed even
-         while the button is not on screen, and says so itself: a legend that
-         changed shape with the header would leave a reader who meets the
-         calendar for the first time with nothing to look it up in. Each mark is
-         `aria-hidden`; the name beside it is what a screen reader announces. -->
-    <p class="legend-head">Beside the title</p>
-    <dl class="legend">
+    <div class="legend-row">
+      <dt>
+        <span class="legend-mark">{@render infoMark()}</span>
+        About
+      </dt>
+      <dd>Unfolds this panel.</dd>
+    </div>
+    <!-- The two pages, from the same roster the header's controls come from,
+         so the legend cannot describe a mark that is not there or miss one
+         that is. Their names are the controls' own accessible names, which is
+         what a legend is for: the word a screen reader says and the word the
+         panel writes down are one string. -->
+    {#each shownPages as p (p)}
       <div class="legend-row">
         <dt>
-          <span class="legend-mark">{@render todayMark()}</span>
-          Today
+          <span class="legend-mark">{@render pageMark(p)}</span>
+          {pageLabel(p)}
         </dt>
-        <dd>
-          Returns to today, and appears only while you are looking at another
-          day.
-        </dd>
+        <dd>{pageLegend(p)}</dd>
       </div>
+    {/each}
+  </dl>
+  <!-- The ways into a meal, drawn from WAYS_IN rather than listed again here,
+       so the legend keeps the bar's roster and its left-to-right order by
+       construction. A sixth way in would appear here without anyone
+       remembering to add it. -->
+  <p class="legend-head">On the way-in bar</p>
+  <dl class="legend">
+    {#each WAYS_IN as kind (kind)}
       <div class="legend-row">
         <dt>
-          <span class="legend-mark">{@render infoMark()}</span>
-          About
+          <span class="legend-mark"><WayInIcon {kind} /></span>
+          {wayInTitle(kind)}
         </dt>
-        <dd>Unfolds this panel.</dd>
+        <dd>{wayInLegend(kind)}</dd>
       </div>
-      <!-- The two pages, from the same roster the header's controls come from,
-           so the legend cannot describe a mark that is not there or miss one
-           that is. Their names are the controls' own accessible names, which is
-           what a legend is for: the word a screen reader says and the word the
-           panel writes down are one string. -->
-      {#each shownPages as p (p)}
-        <div class="legend-row">
-          <dt>
-            <span class="legend-mark">{@render pageMark(p)}</span>
-            {pageLabel(p)}
-          </dt>
-          <dd>{pageLegend(p)}</dd>
-        </div>
-      {/each}
-    </dl>
-    <!-- The ways into a meal, drawn from WAYS_IN rather than listed again here,
-         so the legend keeps the bar's roster and its left-to-right order by
-         construction. A sixth way in would appear here without anyone
-         remembering to add it. -->
-    <p class="legend-head">On the way-in bar</p>
-    <dl class="legend">
-      {#each WAYS_IN as kind (kind)}
-        <div class="legend-row">
-          <dt>
-            <span class="legend-mark"><WayInIcon {kind} /></span>
-            {wayInTitle(kind)}
-          </dt>
-          <dd>{wayInLegend(kind)}</dd>
-        </div>
-      {/each}
-    </dl>
-  </div>
-</header>
+    {/each}
+  </dl>
+</div>
 
 <!-- Main Dashboard — the day, and what a page is shown *instead of*
      (ADR-0091 §5). Unmounted rather than hidden: a day left in the tree behind
@@ -1667,29 +1668,21 @@
 {/if}
 
 <style>
-  .page-header {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-2xs);
-    /* Tight on a phone, where everything above the meals is overhead. The
-       desktop query below restores the roomier rhythm. */
+  /* The blurb and the legend, folded away by default behind the header's ⓘ.
+     `hidden` is what the toggle's aria-expanded describes, so it leaves the
+     accessibility tree with the box.
+
+     **It is the whole of what the title row left behind** (#538). The rule that
+     held this panel's spacing described a header that no longer exists, and the
+     rule the panel now carries has to fire only when the panel does: a border
+     and a margin on a box that is `display: none` nine visits in ten would have
+     been a stray line above the first meal. */
+  .page-about {
     margin-bottom: var(--space-xs);
     animation: fadeIn 0.4s ease-out;
     border-bottom: var(--edge);
     padding-bottom: var(--space-2xs);
   }
-  /* `center` is what puts the title's centre line through the icons: the word
-     and the icon squares are different heights, and top-aligning them left the
-     icons sitting low against it. */
-  .header-bar {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: var(--space-s);
-  }
-  /* The blurb, folded away by default behind the header's ⓘ. `hidden` is what
-     the toggle's aria-expanded describes, so it leaves the accessibility tree
-     with the box. */
   .page-about[hidden] {
     display: none;
   }
@@ -1750,15 +1743,19 @@
     width: 1.15rem;
     height: 1.15rem;
   }
+  /* The face's own controls, in the box the shell's header draws them in
+     (ADR-0114 §5). It keeps a box of its own inside that one because the rules
+     below need an anchor this file wrote — see the snippet's own comment — and
+     what it still decides is the row: the members' order is the markup's, the
+     gap is here, and where the row sits is the header's. */
   .header-actions {
     flex: 0 0 auto;
     display: flex;
     align-items: center;
     gap: var(--space-3xs);
   }
-  /* Top-right icons — the ⓘ that unfolds the blurb and the gear that opens the
-     food settings sheet. Bare (no box), opposite the title, aligned to the
-     header's top.
+  /* The header icons — the calendar that snaps back to today, the ⓘ that
+     unfolds the blurb, and one per page. Bare (no box).
 
      **Anchored under `.header-actions` and reached with `:global` since #316.**
      The ⓘ is `ui/Disclosure` now, and a class handed to a component carries no
@@ -1785,13 +1782,6 @@
     width: 1.5rem;
     height: 1.5rem;
   }
-  /* The recipe mark rides a child WayInIcon, which sizes itself for the meal
-     header's smaller squares, so it is reached here with `:global` and sized to
-     match its two neighbours. */
-  .header-actions :global(.header-icon-btn .entry-icon) {
-    width: 1.5rem;
-    height: 1.5rem;
-  }
   .header-actions :global(.header-icon-btn:hover) {
     color: var(--text-secondary);
   }
@@ -1814,60 +1804,6 @@
     transform: scale(0.92);
   }
   .header-actions :global(.header-icon-btn:focus-visible) {
-    outline: 2px solid var(--ink);
-    outline-offset: 2px;
-  }
-  /* The title, and the title once it is also the way back. Every type
-     declaration is written for both, because ADR-0091 §5's rule is that the
-     word does not move by becoming a control: a button that picked up the UA's
-     font, its box or its metrics would be a different word in the same place. */
-  h1,
-  .title-back {
-    font-size: var(--step-2);
-    font-weight: 700;
-    color: var(--text-primary);
-    /* No trailing margin: the header column's own gap spaces the blurb, and a
-       margin here would drop the title off the row's centre line. */
-    min-width: 0;
-    letter-spacing: -0.05em;
-    text-transform: uppercase;
-    /* Centring the BOXES is not centring the letters. An all-caps word has no
-       descenders, so its glyphs sit roughly 5px above the middle of its own line
-       box (measured: glyph centre 72.2, icon centre 76.8), and the title reads
-       high against the icons even with align-items: center. Trimming the box to
-       the cap-height/baseline block makes the box the letters, so centring it
-       centres what the eye actually sees. Chromium and Safari honour this;
-       anywhere else it is ignored and the title sits as it did before. */
-    text-box-trim: trim-both;
-    text-box-edge: cap alphabetic;
-  }
-  /* And what it gives up to be one. `font-family` and `line-height` are the two
-     a button does NOT inherit, so they are named; the rest is the UA's button
-     box being taken away, down to the trim above making its box the letters
-     again. A `display: block` child is what lets that trim be the button's own
-     rather than something the `h1` has to apply through it.
-     `text-align: inherit` for a control that fills its line: without it a button
-     centres its label, and the word would move by exactly the slack. */
-  .title-back {
-    /* A title that is also the way back, so it is a control and floored like one. */
-    min-height: var(--tap-min);
-    display: block;
-    margin: 0;
-    padding: 0;
-    border: none;
-    background: none;
-    font-family: inherit;
-    line-height: inherit;
-    text-align: inherit;
-    cursor: pointer;
-  }
-  /* The hover and the focus ring are the header icons', because the title is a
-     control in the same row and answering the pointer differently would make it
-     read as a different kind of thing. */
-  .title-back:hover {
-    color: var(--text-secondary);
-  }
-  .title-back:focus-visible {
     outline: 2px solid var(--ink);
     outline-offset: 2px;
   }

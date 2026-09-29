@@ -1,6 +1,11 @@
 /// <reference types="node" />
 import { test, expect } from "@playwright/test";
-import { goToFace, openRootFace, waitForDbReady } from "./support/shell";
+import {
+  faceTitle,
+  goToFace,
+  openRootFace,
+  waitForDbReady,
+} from "./support/shell";
 import type { MealType } from "../src/lib/food/meal-type";
 import { openWayIn, selectMeal, wayInControl } from "./support/ways-in";
 
@@ -266,12 +271,10 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
   }) => {
     await openRootFace(page, "Rations");
 
-    // Verify page header
-    const dashboardTitle = page.getByRole("heading", {
-      name: "Food",
-      exact: true,
-    });
-    await expect(dashboardTitle).toBeVisible();
+    // The shell's pinned header, and the face's one spelling in it (ADR-0114
+    // §3). It said FOOD until #538 — a second `<h1>` under the header's
+    // RATIONS, on the one face the record was written about.
+    await expect(faceTitle(page)).toHaveText("Rations");
 
     // Calories are the leading meter, filling toward the baked 2000 kcal target.
     await expect(page.locator(".macro-item.calories .macro-now")).toHaveText(

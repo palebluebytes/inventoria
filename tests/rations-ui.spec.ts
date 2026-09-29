@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { faceTitle } from "./support/shell";
 
 // #309, ADR-0083 §9. One spec, no config change: `food/index.html` sits at the
 // repo root, so the dev server the suite already starts serves `/food/`, and
@@ -22,9 +23,10 @@ test.describe("Rations, the food Facet's own entry point", () => {
     // the root's shell at a different path.
     await expect(page).toHaveTitle("Rations");
     await expect(page.locator(".rations")).toBeVisible();
-    await expect(
-      page.getByRole("heading", { name: "Food", level: 1 })
-    ).toBeVisible();
+    // And the face's one spelling in the pinned header (ADR-0114 §3). This read
+    // `Food` at `level: 1` until #538, which is the shape that told two `<h1>`s
+    // apart — the shell's and the food screen's own.
+    await expect(faceTitle(page)).toHaveText("Rations");
   });
 
   test("the switcher offers three faces, and every one is inside this Facet", async ({

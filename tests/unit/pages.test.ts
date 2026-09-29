@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
 import { readFileSync } from "node:fs";
 import { decl, ruleOf, rulesOf, styleOf } from "./support/stylesheet";
+import { readCode } from "./support/source";
 import {
   atLeast,
   BREAKPOINTS,
@@ -36,32 +37,12 @@ import {
  */
 
 const FOOD_VIEW = "src/lib/views/FoodView.svelte";
+const FACE_HEADER = "src/lib/layout/FaceHeader.svelte";
 const SHEET = "src/lib/ui/BottomSheet.svelte";
 const RATIONS_SHELL = "src/Rations.svelte";
 const ROOT_SHELL = "src/App.svelte";
 
 const source = (file: string) => readFileSync(file, "utf8");
-
-/**
- * The one rule in `file` whose selector list is exactly `[selector]`.
- *
- * `ruleOf` wants a selector to appear in exactly one rule, and `.title-back`
- * appears in two on purpose: the shared type block it is in with `h1`, and its
- * own. Asking for the rule that is *only* about it is what separates "the type
- * they share" from "the box the button gives up".
- */
-function ownRule(file: string, selector: string) {
-  const found = rulesOf(styleOf(file)).filter(
-    (r) =>
-      r.at === null && r.selectors.length === 1 && r.selectors[0] === selector
-  );
-  if (found.length !== 1) {
-    throw new Error(
-      `${file} has ${found.length} rules for "${selector}" alone, expected 1`
-    );
-  }
-  return found[0];
-}
 
 /**
  * A `matchMedia` that answers `matches` and records what it was asked.
@@ -316,52 +297,77 @@ describe("a page has exactly one control, and it is in the header", () => {
   it("opens a page with a click that goes somewhere, never a toggle", () => {
     // "The icon that opened one is a toggle to nowhere on its own" (#345): the
     // control sets the page it names and nothing else, so pressing the icon of
-    // the page you are already on is a no-op and the title carries the return.
+    // the page you are already on is a no-op and the title carries the return
+    // — from the shell's header since #538, published by this screen rather
+    // than drawn in it.
     const view = source(FOOD_VIEW);
     expect(view).not.toMatch(/page === p \? null :/);
-    expect(view).toContain("onclick={() => (page = null)}");
+    expect(view).toContain("onclick={() => (page = p)}");
   });
 });
 
 describe("the title is the way back, and the only way off a page", () => {
+  // **The word is the shell's and the destination is the face's** (#538). Until
+  // then the food screen drew a title row of its own to put the button in, and
+  // was the one face still spelled twice — so these claims read two files now:
+  // what this screen publishes, and what the header does with it.
+
+  it("publishes a way back on a page, and draws no title to put it on", () => {
+    // The face says only where it returns to. The name the button carries is
+    // the roster's one spelling (ADR-0114 §3), which lives in the header, so a
+    // screen that also spelled it would be the second copy this ticket deleted.
+    const view = source(FOOD_VIEW);
+    expect(view).toContain(
+      'publishFaceBack(onPage ? { to: "the day", go: () => (page = null) } : null)'
+    );
+    // The absences are read over the code alone: this screen's comments say
+    // what its title row was and where it went, and a sentence naming the thing
+    // that is gone is not the thing coming back.
+    const code = readCode(FOOD_VIEW);
+    expect(code).not.toContain("<h1");
+    expect(code).not.toContain("title-back");
+  });
+
   it("is the title itself, inside the heading and not beside it", () => {
     // A back arrow in the header actions would be a second control saying what
     // the word already says, and it would move the word by taking its place in
     // the row.
-    const view = source(FOOD_VIEW);
-    expect(view).toMatch(/<h1>[\s\S]*?class="title-back"[\s\S]*?<\/h1>/);
+    const header = source(FACE_HEADER);
+    expect(header).toMatch(
+      /<h1 class="face-title">[\s\S]*?class="title-back"[\s\S]*?<\/h1>/
+    );
+    // And the visible word in front of the destination, which is ADR-0091 §5's
+    // pattern surviving the move: "Rations, back to the day", composed from the
+    // roster's name and the face's own noun.
+    expect(header).toContain(
+      'aria-label="{face.name}, back to {$faceBack.to}"'
+    );
   });
 
   it("does not move the word by making it a control", () => {
-    // ADR-0091 §5. Every type declaration the title has is written for both, in
-    // one rule, so the two cannot be changed apart — and the trim that makes the
-    // box the letters is among them, which is what keeps the word on the icons'
-    // centre line either way.
-    const shared = ruleOf(FOOD_VIEW, "h1");
-    expect(shared.selectors).toContain(".title-back");
-    for (const prop of [
-      "font-size",
-      "font-weight",
-      "letter-spacing",
-      "text-transform",
-      "text-box-trim",
-      "text-box-edge",
-    ]) {
-      expect(decl(shared, prop)).toBeDefined();
-    }
+    // ADR-0091 §5. The button is the heading's only child, so the type is
+    // inherited rather than restated: one declaration, which the two cannot be
+    // changed apart from. `font` is the shorthand because `font-family` and
+    // `line-height` are the two a UA button does not inherit.
+    const back = ruleOf(FACE_HEADER, ".title-back");
+    expect(decl(back, "font")).toBe("inherit");
+    expect(decl(back, "text-align")).toBe("inherit");
 
-    // And the button's own box, given up rather than styled: a UA button brings
-    // padding, a border and a background, and any of the three would shift the
-    // word or draw a box around it. Looked up by its whole selector list, since
-    // `.title-back` appears in two rules and the shared one above is the other.
-    const back = ownRule(FOOD_VIEW, ".title-back");
+    // And the rest of the button's own box, given up rather than styled: a UA
+    // button brings padding, a border and a background, and any of the three
+    // would shift the word or draw a box around it.
     expect(decl(back, "padding")).toBe("0");
     expect(decl(back, "margin")).toBe("0");
     expect(decl(back, "border")).toBe("none");
     expect(decl(back, "background")).toBe("none");
-    // The two a button does not inherit, so they have to be asked for.
-    expect(decl(back, "font-family")).toBe("inherit");
-    expect(decl(back, "line-height")).toBe("inherit");
+
+    // The line box is the title's, at the tap floor, so the word sits in the
+    // same place on a page and off one — the floor cannot arrive with the
+    // button without moving the word on exactly the screens where it is one.
+    expect(decl(ruleOf(FACE_HEADER, ".face-title"), "line-height")).toBe(
+      "var(--tap-min)"
+    );
+    expect(decl(back, "min-height")).toBe("var(--tap-min)");
   });
 
   it("leaves the surface no way off of its own", () => {

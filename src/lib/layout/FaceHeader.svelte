@@ -1,7 +1,7 @@
 <script lang="ts">
   import FaceMaturity from "./FaceMaturity.svelte";
   import FaceSwitcher from "./FaceSwitcher.svelte";
-  import { faceActions } from "./face-actions";
+  import { faceActions, faceBack } from "./face-actions";
   import { clearShellCeiling, publishShellCeiling } from "./shell-ceiling";
   import type { FaceId, RosteredFace } from "../facets/registry";
 
@@ -25,6 +25,12 @@
   // §5's order puts it: it qualifies the name, so it follows the name, and it is
   // outside the `<h1>` so the heading stays the face's one spelling and nothing
   // else.
+  //
+  // **And the title is the way back off a page** (ADR-0091 §5), which is the one
+  // job in this row that belongs to the face rather than to the shell. It is
+  // drawn here because there is one `<h1>` in the app and this is it: until #538
+  // the food screen kept a title row of its own to put the button in, so the one
+  // face §3 was written about was the one face still spelled twice.
 
   let {
     face,
@@ -62,8 +68,30 @@
   <!-- The one canonical name (§3), read off the roster rather than spelled: the
        tile, this title, the accessible name of the trigger and the `<h1>` are
        one string, which is what retires `Media Tracker`, `Physical Digital
-       Twins` and `Notes & Checklist`. -->
-  <h1 class="face-title">{face.name}</h1>
+       Twins` and `Notes & Checklist`.
+
+       **The word becomes the way back on a page, and stays the word**
+       (ADR-0091 §5). It is a button inside the heading rather than beside it: a
+       back arrow in the actions would be a second control saying what the word
+       already says, and would move the word by taking its place in the row. The
+       accessible name keeps the visible word in front of the destination —
+       "Rations, button" on a settings page is somewhere nobody can guess, and a
+       name that dropped the word would no longer be the label anyone can see.
+
+       The face publishes only where it returns to; the name is the roster's, so
+       this box composes the two. -->
+  <h1 class="face-title">
+    {#if $faceBack}
+      <button
+        type="button"
+        class="title-back"
+        aria-label="{face.name}, back to {$faceBack.to}"
+        onclick={$faceBack.go}>{face.name}</button
+      >
+    {:else}
+      {face.name}
+    {/if}
+  </h1>
   <!-- §11's second drawing, from the component the switcher tile's band comes
        from. A badge here rather than a band: a rectangle across a tap-sized mark
        would be four illegible pixels, and this row has the width for a label
@@ -103,7 +131,14 @@
     box-shadow: var(--shadow-1);
   }
   /* The title, and the way back off a page (ADR-0091 §5) once a face has pages
-     to be on. It takes the slack so the actions hold the right edge. */
+     to be on. It takes the slack so the actions hold the right edge.
+
+     **The line box is the tap floor**, declared here rather than on the button,
+     which is ADR-0091 §5's "the word does not move by becoming a control" read
+     as a measurement: a floor that arrived with the button would drop the word
+     onto a different line on exactly the screens where it is a control. The row
+     is already this tall — `ui/Disclosure` declares the same floor on the
+     trigger — so no face's header changes height for it. */
   .face-title {
     flex: 1;
     min-width: 0;
@@ -111,10 +146,52 @@
     overflow: hidden;
     font-size: var(--step-1);
     font-weight: 700;
+    line-height: var(--tap-min);
     letter-spacing: -0.03em;
     text-overflow: ellipsis;
     text-transform: uppercase;
     white-space: nowrap;
+  }
+  /* What the word gives up to be a control. `font: inherit` is the whole of the
+     type, and it is stronger than the six declarations it replaces: the button
+     is the heading's only child, so the two cannot be changed apart because
+     there is only one declaration to change. The shorthand is what reaches
+     `font-family` and `line-height`, the two a UA button does not inherit —
+     and the rest of that box is given up rather than restyled, since a border,
+     a padding or a background would draw a box around the word or shift it.
+
+     `text-align: inherit` for a control that fills its line: without it a
+     button centres its label and the word moves by exactly the slack.
+     `text-overflow` is not an inherited property, so the ellipsis the title
+     declares has to be asked for again on the box that now holds the text. */
+  .title-back {
+    /* The floor stated on the control, which is where `tap-floor.test.ts` reads
+       one: the line box above already makes this box `--tap-min` tall, and a
+       sweep over the sheet cannot see an inherited `line-height`. So the two
+       say one number for two readers — the title's, so the word sits the same
+       whether or not it is a control, and this one, so the control declares its
+       own floor (ADR-0089 §3). */
+    min-height: var(--tap-min);
+    display: block;
+    overflow: hidden;
+    margin: 0;
+    padding: 0;
+    border: none;
+    background: none;
+    font: inherit;
+    text-align: inherit;
+    text-overflow: ellipsis;
+    cursor: pointer;
+  }
+  /* The hover and the focus ring are the header icons', because the title is a
+     control in the same row and answering the pointer differently would make it
+     read as a different kind of thing. */
+  .title-back:hover {
+    color: var(--text-secondary);
+  }
+  .title-back:focus-visible {
+    outline: 2px solid var(--ink);
+    outline-offset: 2px;
   }
   /* It qualifies the title and must never be the thing that takes its room: the
      title has the slack and this holds its natural width, so a long name
