@@ -214,7 +214,18 @@ stays a captured field with no cap (ADR-0032 "Out of scope"), and an
 `added_sugar_content` key remains a data-first twin-expansion effort. Note for
 whoever takes it: under this criterion that key does **not** inherit a cap
 automatically, because the WHO's figure is for free sugars and added sugars is again a
-neighbouring quantity. That effort will need to argue its own source.
+neighbouring quantity. **That effort no longer needs to argue one.** #558 measured what
+would supply the key and found the cap question moot: USDA publishes no added-sugars
+number in either ingested archive — nutrient 1235 "Sugars, added" is absent from all 247
+distinct nutrient ids across both, and from all 2,023 corpus rows — because it is a
+Branded Foods field and Branded is not ingested. So the key could only ever be populated
+from barcode-scanned OFF products, where the figure already arrives and is archived
+unread in `provenance/raw`. A cap is a denominator, and no reference food can feed this
+one, so `added_sugar_content` **arrives with no cap** whenever it is coined — for the
+borrow clause, and now also for want of anything to divide. Minting `free_sugar_content`
+instead, the quantity the WHO caps by name and the one key that would fit this criterion
+exactly, is refused on the same data: neither source publishes free sugars. The
+measurement is `docs/research/558-an-added-sugar-key-and-what-would-supply-it.md`.
 
 ---
 

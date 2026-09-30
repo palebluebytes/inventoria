@@ -403,7 +403,16 @@ Three findings worth keeping:
   is a neighbouring quantity, and the FDA's exact 50 g added-sugars DRV is no longer a
   source this app reaches. The DGA 2025–2030 has meanwhile abandoned the daily frame
   entirely, publishing only "one meal should contain no more than 10 grams of added
-  sugars". That effort must argue its own source.
+  sugars". That effort must argue its own source — and [#558](https://github.com/palebluebytes/inventoria/issues/558)
+  now has, reaching the opposite of what the question implied. It does not need a source,
+  because it cannot have a cap: USDA publishes no added-sugars number in either ingested
+  archive (nutrient 1235 is absent from all 247 ids across both, and from all 2,023 corpus
+  rows), so the key could only ever be populated from barcode-scanned OFF products and no
+  reference food can feed the denominator. `free_sugar_content` — the quantity the WHO caps
+  by name, and the one key this criterion would admit outright — is refused on the same
+  data. The measurement is `docs/research/558-an-added-sugar-key-and-what-would-supply-it.md`;
+  what stays open is only whether a figure appearing for barcode-scanned food alone earns a
+  panel row at all.
 - **No artifact staleness gate, and no visual baseline.** Neither byte-compared
   artifact reads `nutrition-targets.ts` or `target-rationale.ts`, and no catalogue
   baseline has ever photographed the full-day modal, so nothing under ADR-0099 §8 is
