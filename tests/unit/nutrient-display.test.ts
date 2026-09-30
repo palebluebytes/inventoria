@@ -570,6 +570,8 @@ describe("buildDayRdaView — Limits section (ADR-0032, #43)", () => {
     expect(sodium.absent).toBe(false);
     expect(sodium.over).toBe(false);
     expect(sodium.fill).toBeCloseTo((1.85 / 2) * 100, 5);
+    // Under the cap the bar already carries the proportion — no figure (#506).
+    expect(sodium.overPct).toBeUndefined();
   });
 
   it("marks a limit over its cap with over + amber (bar full)", () => {
@@ -578,6 +580,50 @@ describe("buildDayRdaView — Limits section (ADR-0032, #43)", () => {
     expect(sat.target).toBe("22 g");
     expect(sat.over).toBe(true);
     expect(sat.fill).toBe(100);
+  });
+
+  it("states how far over a breached cap is, as a whole percent (#506)", () => {
+    // The bar clamps at 100, so this figure is the only thing telling a day just
+    // over from one four times over. 25 g against 22 g is 113.6 %, rounded.
+    const sat = rda().limits.find((r) => r.key === "saturated_fat_content")!;
+    expect(sat.overPct).toBe(114);
+
+    // And it scales: a day four times over reads as such rather than as "over".
+    const quadruple = buildDayRdaView(
+      { ...day, saturated_fat_content: 88 },
+      baked,
+      { limits: bakedLimits }
+    );
+    const far = quadruple.limits.find(
+      (r) => r.key === "saturated_fat_content"
+    )!;
+    expect(far.fill).toBe(100);
+    expect(far.overPct).toBe(400);
+  });
+
+  it("states nothing at the cap exactly — over is strictly greater", () => {
+    const atCap = buildDayRdaView(
+      { ...day, saturated_fat_content: 22 },
+      baked,
+      { limits: bakedLimits }
+    );
+    const sat = atCap.limits.find((r) => r.key === "saturated_fat_content")!;
+    expect(sat.over).toBe(false);
+    expect(sat.overPct).toBeUndefined();
+  });
+
+  it("states nothing on a reach-toward row that is over its target", () => {
+    // The same amber means "reached a goal" up there and "breached a cap" here
+    // (ADR-0032 §4), so the magnitude is diagnostic in one case only.
+    const view = rda();
+    const protein = view.macros.find((r) => r.key === "protein")!;
+    expect(protein.over).toBe(false);
+    const overshot = buildDayRdaView({ ...day, protein: 400 }, baked, {
+      limits: bakedLimits,
+    });
+    const big = overshot.macros.find((r) => r.key === "protein")!;
+    expect(big.over).toBe(true);
+    expect(big.overPct).toBeUndefined();
   });
 
   it("omits an absent limit entirely — never shown as — / cap (story 5)", () => {
