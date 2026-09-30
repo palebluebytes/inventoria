@@ -18,7 +18,6 @@
     type ReceiveOpening,
   } from "./lib/p2p/receive-link";
   import { isIosSafariTab } from "./lib/p2p/safari-tab";
-  import type { Page } from "./lib/food/pages";
   import { openAppWake } from "./lib/p2p/wake-errand";
   import type { OpenWake } from "./lib/p2p/wake-cadence";
   import { watchCarriedDeletions } from "./lib/stores/carried-deletion-notice";
@@ -26,6 +25,7 @@
   import FaceHeader from "./lib/layout/FaceHeader.svelte";
   import FoodView from "./lib/views/FoodView.svelte";
   import RecipeLibrarySheet from "./lib/views/food/RecipeLibrarySheet.svelte";
+  import JarSettings from "./lib/views/settings/JarSettings.svelte";
   import CodeHandover from "./lib/views/food/CodeHandover.svelte";
   import ReloadPrompt from "./lib/ui/ReloadPrompt.svelte";
 
@@ -94,69 +94,52 @@
   // of both switchers, because the preference is about the device rather than
   // about the install. Two of Rations' three are hideable — Settings is where
   // hiding is undone — and hiding the face you are standing on is allowed and
-  // moves you nowhere, which is a consequence of `face` being derived from the
-  // standing below rather than from this list.
+  // moves you nowhere, which is a consequence of this list being read where the
+  // grid is drawn rather than where a face is chosen.
   const faces = $derived(shownFaces(facesOf(facet), $hiddenFaces));
 
   /**
-   * What this shell is standing on: one of the food screen's pages, the day
-   * (`null`), or the one face of its three that is not a page at all.
+   * Which of this shell's three faces is up.
    *
-   * **One variable, and the reason is `FoodView`'s own** (ADR-0091 §5's "one
-   * opening, not two booleans"). Settings is a page here and a face at the same
-   * time, so the tile and the gear land on one state and the header cannot
-   * disagree with the screen; Recipes stopped being a page at #536 and needs a
-   * value of its own, which widens this union rather than adding a second flag
-   * beside it. Two states would be two things that can both say yes, and the one
-   * that says it wrongly is the one nobody can see.
+   * **A plain `FaceId` since #555, which is what the cut bought.** It used to
+   * hold the food screen's page as well, because the Settings tile and the gear
+   * opened one surface and the two controls had to land on one state. They open
+   * two surfaces now — the gear opens Rations' own settings, the tile opens the
+   * jar's Settings face — so the page is the food screen's own business again
+   * and this says nothing about it.
    *
-   * Reports is a page and **not** a face, so it maps back to Rations: a reader on
-   * the Reports page is still standing on the Rations face, and the tile that is
-   * inverted says so.
+   * That is a narrowing and a loss at once: a page and a face can now disagree,
+   * because they are two variables in two files. The one place that has to know
+   * about both is the Back stop below, which reads the way back rather than
+   * guessing from here.
    */
-  let standing = $state<Page | "recipes" | null>(null);
-  let face = $derived<FaceId>(
-    standing === "recipes"
-      ? "recipes"
-      : standing === "settings"
-        ? "settings"
-        : "rations"
-  );
+  let face = $state<FaceId>("rations");
 
   /**
-   * The page the food screen is showing, which is the whole of {@link standing}
-   * except the one value that unmounts the screen.
+   * A tile's landing, which is the face itself and nothing more.
    *
-   * Handed down as a getter/setter pair rather than held as a second `$state`, so
-   * `standing` stays the only place the answer lives: the screen writes its own
-   * openings back into it — the gear, the Reports control and the title's way off
-   * a page — and reads `null` for a state it is not mounted in.
-   */
-  let foodPage = $derived<Page | null>(
-    standing === "recipes" ? null : standing
-  );
-
-  /**
-   * A tile's landing.
+   * **Leaving Rations declines an arriving meal** (ADR-0073 §10). The code is
+   * this shell's state and the surface it opens is the food screen's, so
+   * unmounting that screen kills the socket and would otherwise leave the code
+   * here to re-open a surface whose payload is gone — which `leaveReceiving`'s
+   * own comment names as the thing that must not happen. Two of the three tiles
+   * unmount the food screen now, and this is the one place all three are
+   * chosen, so the clearing is written here: leaving is declining, by every
+   * route there is.
    *
-   * Recipes lands on the face itself; the other two land on the food screen's
-   * opening, which is what makes the Settings tile and the gear one control
-   * rather than two ([#550](https://github.com/palebluebytes/inventoria/issues/550)
-   * is whether that is one control too few). Picking Rations clears the opening,
-   * so the tile that says Rations lands on the day rather than on whatever page
-   * was last left open.
+   * Picking Rations while standing on it is not a leaving and clears nothing.
    */
   function showFace(id: FaceId) {
-    standing =
-      id === "recipes" ? "recipes" : id === "settings" ? "settings" : null;
+    if (id !== "rations") receiveLink = null;
+    face = id;
   }
 
   // ── Back means the start destination ─────────────────────────────────────
   //
   // **One stop, and it walks one rung per press** (ADR-0114 §14). This shell's
-  // start destination is the Rations face on the day — `standing === null` —
-  // which is where `/food/`'s own `start_url` opens, so this is the manifest
-  // member read as a screen rather than a second concept.
+  // start destination is the Rations face on the day, which is where `/food/`'s
+  // own `start_url` opens, so this is the manifest member read as a screen
+  // rather than a second concept.
   //
   // **This is the shell with rungs, and so the only one that reads a way back.**
   // The root's version of this effect is the same stop with the `faceBack` half
@@ -171,16 +154,20 @@
   // is; it says nothing about whether a face is somewhere you went, so it is not
   // inherited here.
   //
-  // **The predicate reads `standing`, never the face.** `face` is derived from
-  // `standing`, so the two states that are a page and a face at once — Settings,
-  // and Reports under the Rations face — are one stop each: Settings publishes
-  // `{ to: "the day" }` because `FoodView` is mounted on it, and Reports likewise.
-  // A stop per page would have pushed two for the first of those. §14 states the
-  // predicate as the face *or* a way back; here `standing` is already both,
-  // because it is the one variable the page and the face are written on
-  // (ADR-0091 §5's "one opening, not two booleans"), so a way back cannot exist
-  // while this says we are at the start destination. Testing for one anyway would
-  // assert that the two can disagree.
+  // **The predicate is the face *or* a way back, and since #555 it has to be
+  // both.** §14 always stated it that way; this shell got away with reading one
+  // variable while the page and the face were written on one state, and they are
+  // not any more — the gear's page is the food screen's own business now, so on
+  // the Rations face `face` says "start destination" while `FoodView` publishes
+  // a rung above it. Reading the face alone would strand a reader on the Reports
+  // page with a Back press that leaves the app; reading the way back alone would
+  // lose the stop that gets Recipes and Settings home. So both are read, and the
+  // two are never counted: there is one stop while either says there is
+  // somewhere up from here.
+  //
+  // What that does *not* do is push two for a face that is also a page. There is
+  // no such face left — that was Settings, and cutting it in two is what put this
+  // shell back on §14's own sentence.
   //
   // The way back is read **above** the guard so that it stays a dependency of an
   // effect that returns early: the stop has to be replaced when a page opens, and
@@ -192,8 +179,10 @@
   // since hiding takes a face out of the grid and never out of reach.
   $effect(() => {
     const up = $faceBack;
-    if (standing === null) return;
-    const id = enterBackStop("place", () => (up ? up.go() : (standing = null)));
+    if (face === "rations" && up === null) return;
+    const id = enterBackStop("place", () =>
+      up ? up.go() : showFace("rations")
+    );
     return () => leaveBackStop(id);
   });
 
@@ -407,18 +396,20 @@
         {/if}
 
         <!-- The link lands here (ADR-0084 §5), and the surface it opens is the
-             food screen's. ADR-0073 §10's clause is satisfied by the shape rather
-             than by an effect: the payload, the socket and the code all die with
-             the screen that holds them. The Scan door's own code is cleared inside
-             FoodView.
+             food screen's. The payload and the socket die with the screen that
+             holds them; the **code** does not, because it is this shell's state
+             and not that screen's, so `showFace` clears it on the way out
+             (ADR-0073 §10).
 
              It used to read "there is no Tab to wander off", which was true of a
-             shell whose whole content was one screen. There is a switcher now, and
-             since #536 one of its three tiles unmounts this screen — so wandering
-             off **declines** the meal, which is the same clause reaching the same
-             answer by the route §10 already named ("leaving is declining, by any
-             route"). The other two tiles are the food screen's own openings and
-             leave it mounted. -->
+             shell whose whole content was one screen. There is a switcher now,
+             and since #555 **two** of its three tiles unmount this screen — so
+             wandering off declines the meal, which is the same clause reaching
+             the same answer by the route §10 already named ("leaving is
+             declining, by any route"). The shape is what changed, rather than the
+             claim: with one such tile the code outliving the screen was a defect
+             nobody had met, and with two it is the ordinary way out of the
+             face. -->
         {#if face === "recipes"}
           <!-- The recipe library, and **the shell mounts it** (ADR-0114 §4, #536).
                It was one of the food screen's pages until #536, reached from a pot
@@ -433,19 +424,42 @@
                (ADR-0073 §10 — "leaving is declining, by any route") and what makes
                coming back land on the day. -->
           <RecipeLibrarySheet />
+        {:else if face === "settings"}
+          <!-- The Settings face, and **the shell mounts it** (ADR-0114 §10,
+               #555). It is the jar-wide block and nothing else here: the pairing
+               card and the face-visibility toggles, with no install to offer
+               because nothing is nested inside this Facet. Two cards is what the
+               face is under Rations, and §10's "contents vary by Facet" is that
+               being true rather than a shortfall — the root's own door wraps the
+               same block in everything ADR-0080 §2 gives the root alone.
+
+               It follows `SettingsView`: section headings and no title of its
+               own, because the name of this face is the shell header's to say
+               (ADR-0114 §3).
+
+               **A screen at every width**, which is the whole of what #555
+               bought. The gear used to open this face, so below the shell
+               breakpoint it drew as a modal sheet over the day, under a header
+               saying Settings, with the day's own controls in it and no way
+               back — a face that was not a screen, which is exactly what #536
+               spent a control to refuse. The gear opens Rations' own settings
+               now and keeps its legitimate sheet-below/page-above shape, because
+               a **page** may be a sheet and a **face** may not. -->
+          <JarSettings facetId="food" />
         {:else}
           <!-- `hasPages` is this shell saying what it can hold (ADR-0091 §5). Above
-               the shell breakpoint the food screen shows Settings or Reports
-               instead of the day, and the header's icons are the navigation between
-               them. The root mounts the same screen inside its Rations face and
-               passes nothing, because a page a tile away from the root's own
-               Settings would be a second door to a surface that already has one. -->
+               the shell breakpoint the food screen shows Rations' own settings or
+               Reports instead of the day, and the header's icons are the
+               navigation between them. Neither is the Settings face above: that
+               is the jar's and this shell mounts it, while these are the Facet's
+               and the screen holds them. The root mounts the same screen inside
+               its Rations face and passes nothing, because a page a tile away
+               from the root's own Settings would be a second door to a surface
+               that already has one. -->
           <FoodView
             {dbReady}
             {receiveLink}
             hasPages
-            shell="food"
-            bind:page={() => foodPage, (p) => (standing = p)}
             onReceiveClose={() => (receiveLink = null)}
           />
         {/if}

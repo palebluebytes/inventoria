@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { faceTitle } from "./support/shell";
+import { faceTitle, goToFace } from "./support/shell";
 
 // #309, ADR-0083 §9. One spec, no config change: `food/index.html` sits at the
 // repo root, so the dev server the suite already starts serves `/food/`, and
@@ -64,10 +64,14 @@ test.describe("Rations, the food Facet's own entry point", () => {
   test("the gear opens the food screen's own settings, not the root's", async ({
     page,
   }) => {
-    // The root reaches its Settings face through the switcher; so does this
-    // shell, and the gear is the *other* way in — Rations' own settings page.
-    // What a Rations user has instead is the surface the food screen already
-    // carried (ADR-0078 §2).
+    // **Two surfaces, one control each** (ADR-0114's #555 amendment). Both
+    // shells reach the jar's Settings face through the switcher; the gear is not
+    // a second way to it, it is the way to a different surface — Rations' own
+    // settings, which is the food config the food screen has always carried
+    // (ADR-0078 §2). The duplication this comment used to write down — "the gear
+    // is the *other* way in" — was a shipped violation of ADR-0091 §1 with no
+    // record behind it, and the cut is what retires it: §1's subject is an
+    // action, and a reader cannot see which box a mark is published from.
     //
     // **The surface, not its shape.** This project's viewport is above the shell
     // breakpoint, so what the gear opens here is the settings *page*; the
@@ -80,12 +84,45 @@ test.describe("Rations, the food Facet's own entry point", () => {
     // `pnpm check:facets`: it is the jar-wide surface, which no domain owns, and
     // whether a block of it belongs inside a Facet is the judgement ADR-0083 §10
     // declined to gate. What is observable is this — the gear opens Rations
-    // settings, titled off the registry (ADR-0080 §7), and there is no other
-    // door.
+    // settings, titled off the registry (ADR-0080 §7), and it is the only door
+    // to that surface.
     await page.locator("#food-settings-btn").click();
     await expect(
       page.getByRole("heading", { name: "Rations settings" })
     ).toBeVisible();
+  });
+
+  test("the Settings tile opens the jar's face, and it is a screen", async ({
+    page,
+  }) => {
+    // The other half of the cut (ADR-0114's #555 amendment). The tile opens the
+    // jar-wide surface — the pairing card and the face-visibility toggles — and
+    // it carries none of the food config the gear opens, which is what makes the
+    // two controls two actions rather than one duplicated.
+    await goToFace(page, "Settings");
+    await expect(
+      page.getByRole("heading", { name: "Paired devices" })
+    ).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Faces" })).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "Rations settings" })
+    ).toHaveCount(0);
+
+    // **A screen at every width**, which is the defect this cut removed and the
+    // reason the assertion is width-blind: until #555 the tile wrote the food
+    // screen's page, so below the shell breakpoint the face drew as a modal
+    // sheet over the day, under a header saying Settings, with the day's own
+    // controls in it and no way back. A face that is not a screen is what #536
+    // spent a control to refuse, so the day must be gone rather than behind it.
+    // The food screen is unmounted, so its four header controls are gone with
+    // it — the gear among them, which is the one that would still be standing if
+    // this face were drawn over the day.
+    await expect(page.locator("#food-settings-btn")).toHaveCount(0);
+    // And nothing is portalled over anything: below the breakpoint the old shape
+    // was a `BottomSheet`, which is a dialog wherever `Modal` puts it. Above the
+    // breakpoint it was an inline page and this was green either way, which is
+    // why the `Mobile Chrome` project is the one that carries this line.
+    await expect(page.getByRole("dialog")).toHaveCount(0);
   });
 
   test("the scan's own numbers are on the Facet that writes them (#207)", async ({

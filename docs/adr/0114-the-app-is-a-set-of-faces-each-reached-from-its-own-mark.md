@@ -942,3 +942,95 @@ a regex against its bare shape, and all three broke on the block anchors Svelte 
 inside an `{#if}` — the word was still there and none of them could see it.
 `tests/unit/support/faces.ts` gains `headerTitle`, beside the `tileNames` that is there for
 the same reason: what each file is asserting is the word, so the word is what they read.
+
+## Amendment, 2026-09-30: the gear and the tile become two surfaces
+
+[#550](https://github.com/palebluebytes/inventoria/issues/550) asked whether Rations' gear
+and its Settings tile were one control too many, and
+[#555](https://github.com/palebluebytes/inventoria/issues/555) built the answer. **Neither
+control is deleted: the surface is.** The gear opens Rations' own settings and the tile
+opens the jar's Settings face, so Rations reaches the state the root has always been in, and
+§1's one-way-in rule is satisfied by the two surfaces differing rather than by a mark going
+away.
+
+**1. §10's "Moving in" list names `LogSettingsSection` as de-duplicated by the move, and it
+is back to two call sites.** That list is a true record of what was believed when the face
+was drawn, so it is amended here rather than edited there. The card follows the **Facet's
+screens** and not the **shell's door** — a consent is a fact about egress from a Facet
+rather than about the document the switch is drawn in, which is what the component itself
+says — so it belongs wherever that Facet's own settings are. Under Rations that is the
+gear's page; at the root it is the Settings face, because the root has no other door. The
+rule, stated once: _a Facet's log door sits wherever that Facet's own settings live._
+
+**2. The predicate that split them was a seam showing through.** `JarSettings` held two
+surfaces, not one: three blocks belonging to the drawing shell's own door, and the log card,
+which belonged to the Facet's screens. `ownDoor` marked the join and read as a rule. Cut
+along it and there is nothing left to judge — every block in that component is the shell's
+own now, and a face's shell is always its own Facet — so
+[ADR-0108](0108-a-volume-food-is-weighed-by-the-class-you-say-it-is.md) §1's hazard
+becomes **unexpressible rather than judged**, the same move §8 made for cross-Facet links.
+`shell` leaves `JarSettings`, `FoodSettingsSheet` and `FoodView` together.
+
+**3. The slot survives with a new tenant, which is what keeps the root's screen unchanged to
+the pixel.** The scan readout rode a snippet slot to stay directly above the log card its
+channel is listed in ([ADR-0071](0071-a-scan-session-is-recorded-locally-and-carries-no-barcode.md) §6); both
+have moved to the gear's page, where that adjacency is two lines in a row. The root passes
+its own log card into the vacated slot, so the order on that screen is the order it has
+always been drawn in.
+
+**4. ADR-0091 §1 governs the action, not the header's roster.** The tile is the shell's
+control and the gear is the face's, published from opposite sides of the scroll container,
+which is why `layout/face-actions.ts` exists at all. A reader cannot see which box a mark is
+published from, and should not have to learn that two marks mean one thing. So the rule
+reaches across that boundary, and what it convicts is a duplication whose two controls are
+drawn by different components.
+[ADR-0091](0091-rations-widens-into-two-regions-and-grows-pages.md)
+already holds this record's backlink, so no new one is owed.
+
+**5. The face under Rations is two cards, and that is §10 being true.** `facesOf(food)` minus
+the unhideable one gives two visibility rows, and nothing is nested inside `food`, so there
+is no install offer. Accepted whole: filling it out with blocks lifted from "Your data" —
+whose own paragraph argues for its four members' adjacency — would buy bulk and spend
+meaning. "Contents vary by Facet" was written to allow exactly this.
+
+**6. A face's own settings are named for the face; the jar's are named Settings.** Under
+Rations the qualifier reads as _this app's_ settings while it is now the narrower half, and
+the plain tile beside it is the broader one. The sentence above is what un-inverts them, and
+it is `ownDoor` promoted from a predicate into the naming. ADR-0080 §8 already reads the
+title off the registry, so a second Facet inherits it with no decision.
+
+**7. The gear performed a face switch, and below the breakpoint that face was not a
+screen.** Writing the tile's landing into the food screen's page meant `page = "settings"`
+derived the face to Settings, so under the shell breakpoint the Settings face drew as a
+modal sheet over the day, under a header saying Settings, with the day's own controls in it
+and no way back. §4's argument for deleting Recipes' second door was that a face is the same
+control at every width; this was the same defect one face along, and it is the cut that
+removes it. The gear's surface keeps its sheet-below/page-above shape, because a **page** may
+be a sheet and a **face** may not.
+
+**8. "Leaving is declining" was asserted and not true.** The receive code is the shell's
+state and nothing cleared it when the food screen unmounted, so a face switch killed the
+socket and kept the code, and coming back re-opened the receiving surface — which
+`leaveReceiving`'s own comment names as the thing that must not happen. It arrived with §4's
+face and went unmet because one tile was a rare way out; this cut makes it two and the
+ordinary one. The shell clears the code on every landing that is not Rations, so
+[ADR-0073](0073-a-sent-meal-is-a-narrowed-closure-that-lands-re-minted.md) §10's sentence
+stands rather than being merely asserted. The cost taken in the open: a mis-tap on a tile
+throws away a meal somebody is holding open, with no undo. The alternative invents a
+resumable hand-off nobody has designed, by accident.
+
+**9. The Back stop now reads two variables where it read one.** §14's predicate is "the face
+**or** a way back", and Rations got away with reading only its own `standing` while the page
+and the face were written on it. They are two variables in two files now, so on the Rations
+face the shell says _start destination_ while the food screen publishes a rung above it.
+Both are read. The branch §14's build deleted as unreachable stays deleted: there is no face
+that is also a page any more, so nothing pushes two stops for one screen.
+
+**10. The sweep that is derived from a roster missed the new surface, twice over.** The
+layout-invariant loop is derived from `PAGES`, and the gear's page is still in it under the
+name _Rations settings_ — so nothing would have gone red while the Settings **face**, a
+different surface since this cut and the one that is a screen at every width, went unswept
+entirely. It is the warning #536 wrote into that file arriving again: a derived roster
+notices an arrival and says nothing about a departure, and this time the departure left a
+same-named surface standing in its place. Both faces that are not pages have a line of their
+own now.

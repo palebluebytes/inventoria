@@ -14,6 +14,7 @@
   import LedgerImport from "./ledger/LedgerImport.svelte";
   import StorageStatus from "./storage/StorageStatus.svelte";
   import JarSettings from "./settings/JarSettings.svelte";
+  import LogSettingsSection from "./logs/LogSettingsSection.svelte";
   import Button from "../ui/Button.svelte";
   import Alert from "../ui/Alert.svelte";
   import Badge from "../ui/Badge.svelte";
@@ -204,21 +205,31 @@
 </Card>
 
 <!-- **The jar-wide half of this face** (ADR-0114 §10), which both shells draw and
-     neither owns: the pairing surface, the log card, the face-visibility toggles
-     and the offer to install Rations. Its blocks used to be spelled out here and
-     again on Rations' settings sheet, with a Facet id the only difference between
-     the two copies.
+     neither owns: the pairing surface, the face-visibility toggles and the offer
+     to install Rations. Its blocks used to be spelled out here and again on
+     Rations' settings sheet, with a Facet id the only difference between the two
+     copies.
 
-     `facetId` and `shell` are both `root` because this screen is the root's own
-     door. They part company once, on Rations' sheet, which the root draws inside
-     its Rations face — and that is the case the pairing surface turns on
-     (ADR-0108 §1).
+     `facetId` is `root` because this screen is the root's own door, and since
+     #555 that is the only kind of surface this component is ever drawn on —
+     there is no second id to part company with and no `shell` beside it.
 
-     The log card here is the jar-wide one: the root holds all six content
-     domains, so it lists every channel and its Review and Export is jar-wide
-     (ADR-0080 §2), switched by the root's own door — no longer the only one
-     food's channel has. -->
-<JarSettings facetId="root" shell="root" />
+     **The root refills the slot, and that is what keeps this screen unchanged
+     to the pixel.** The log card used to be inside the block, between the
+     pairing surface and the toggles; it follows the Facet's own settings rather
+     than the shell's door, so under Rations it went with the gear's page. The
+     root has no other door for food's channel to sit behind — it *is* the
+     root's own settings — so the same card is passed back in at the same place,
+     through the slot the scan readout vacated.
+
+     The card here is the jar-wide one: the root holds all six content domains,
+     so it lists every channel and its Review and Export is jar-wide
+     (ADR-0080 §2). -->
+<JarSettings facetId="root">
+  {#snippet interleave()}
+    <LogSettingsSection facetId="root" />
+  {/snippet}
+</JarSettings>
 
 <Card class="mt-4">
   <h2>Developer Options</h2>

@@ -484,14 +484,43 @@ describe("a page is Rations' and the width's, and both are required", () => {
     // is the failure the worn-class sweep had at `625665fd`; what this claim is
     // about is the call site, so it reads the call site. Each tag is asserted
     // present before anything is asserted absent, because a regex that stopped
-    // matching would otherwise turn both halves green.
+    // matching would otherwise turn both halves green — and the anchor is
+    // `dbReady`, the one prop both shells pass, because the other candidate
+    // (`shell`) was retired at #555 and an absent anchor is how a census goes
+    // vacuous.
     const tagIn = (file: string) =>
       source(file).match(/<FoodView[\s\S]*?\/>/)?.[0] ?? "";
 
-    expect(tagIn(RATIONS_SHELL)).toContain("shell=");
+    expect(tagIn(RATIONS_SHELL)).toContain("dbReady");
     expect(tagIn(RATIONS_SHELL)).toContain("hasPages");
-    expect(tagIn(ROOT_SHELL)).toContain("shell=");
+    expect(tagIn(ROOT_SHELL)).toContain("dbReady");
     expect(tagIn(ROOT_SHELL)).not.toContain("hasPages");
+  });
+
+  it("reads both the face and the way back where a page can outlive one", () => {
+    // ADR-0114 §14's predicate is "the face **or** a way back", and until #555
+    // Rations could read one variable for both: the page and the face were
+    // written on the same `standing`, so a way back could not exist while it
+    // said we were at the start destination. The cut puts the page back in this
+    // screen and leaves the face in the shell, so the two are in two files and
+    // can now disagree — on the Rations face with Reports open, the shell is at
+    // its start destination and a rung above it at the same time.
+    //
+    // Reading the face alone strands a reader on Reports with a Back press that
+    // leaves the app; reading the way back alone loses the stop that gets
+    // Recipes and Settings home. So the guard names both, and the claim is read
+    // over code rather than source text, because this file explains the rule in
+    // prose two lines above the line that implements it.
+    const rations = readCode(RATIONS_SHELL);
+    expect(rations).toContain('if (face === "rations" && up === null) return;');
+
+    // The root has no rung above a face at all — `faceBack`'s one publisher is
+    // the food screen, which publishes only while a page is open, and a page
+    // needs the `hasPages` this shell never passes — so its guard is the face
+    // alone and the second half would be a branch that cannot run.
+    const root = readCode(ROOT_SHELL);
+    expect(root).toContain("if (face === null) return;");
+    expect(root).not.toContain("faceBack");
   });
 
   it("walks a narrowing window back to the day", () => {

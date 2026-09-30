@@ -234,21 +234,29 @@ function sweepRations() {
     await expectNoOverflow(page, "the day");
   });
 
-  // **The one of Rations' three faces that is not a screen this loop already
-  // reaches**, and it needs its own test because #536 took it out of `PAGES`.
+  // **The two of Rations' three faces that are not screens the loop below
+  // reaches**, each needing a line of its own, and each because a face left the
+  // page roster the loop is derived from: Recipes at #536, Settings at #555.
   //
-  // That removal is worth reading as a warning: the loop below is derived from the
-  // roster, so Recipes stopped being swept here — on both this shell and, in the
+  // Those removals are worth reading as a warning. The loop below is derived from
+  // `PAGES`, so Recipes stopped being swept here — on both this shell and, in the
   // catalogue, in the picture it used to take — with no edit to either file and no
   // failure. A derived roster notices a page that arrives and says nothing about
-  // one that leaves for somewhere the derivation cannot see.
+  // one that leaves for somewhere the derivation cannot see. #555 is the same
+  // shape twice over: the gear's page is still swept below under the name
+  // "Rations settings", so nothing here would have gone red while the Settings
+  // **face** — a different surface since the cut, and the one that is a screen at
+  // every width — went unswept entirely.
   //
-  // The other two need no line of their own: the Rations face is the day above,
-  // and the Settings face is the settings page the loop below reaches through the
-  // gear (which is one control too many — see #550 — but not this file's problem).
+  // The third needs no line: the Rations face is the day above.
   test("Recipes keeps all content within the viewport", async ({ page }) => {
     await goToFace(page, "Recipes");
     await expectNoOverflow(page, "Recipes");
+  });
+
+  test("Settings keeps all content within the viewport", async ({ page }) => {
+    await goToFace(page, "Settings");
+    await expectNoOverflow(page, "Settings");
   });
 
   for (const p of PAGES) {

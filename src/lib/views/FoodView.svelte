@@ -1,6 +1,5 @@
 <script lang="ts">
   import { onMount, untrack } from "svelte";
-  import type { FacetId } from "../facets/registry";
   import { createQueryStore } from "../stores/datoms.store";
   import { HLC_ORDER_DESC } from "../db/hlc";
   import {
@@ -122,8 +121,6 @@
     receiveLink = null,
     onReceiveClose,
     hasPages = false,
-    shell,
-    page = $bindable(null),
   }: {
     dbReady: boolean;
     /**
@@ -153,50 +150,33 @@
      * there would be a second door to a surface that already has one.
      */
     hasPages?: boolean;
-    /**
-     * Which Facet's shell mounted this screen (ADR-0076 §6).
-     *
-     * `hasPages` above is this shell saying what it can *hold*; this is it
-     * saying who it *is*, and the two are not the same question — the root
-     * draws the whole of this screen in its Food tab without being Rations.
-     * Required rather than defaulted, because both shells are two lines apart
-     * and the settings sheet below decides which Facet an act performed on it
-     * runs in (ADR-0108 §1).
-     */
-    shell: FacetId;
-    /**
-     * Which page is open, or `null` for the day (ADR-0091 §5).
-     *
-     * **One variable, not two booleans**, and that is what makes the shape
-     * legal. As sheets they could never both be open — a sheet covers the
-     * screen and neither has a door to the other — but as pages the header is
-     * standing navigation, so Reports is one click away from Settings. Two
-     * booleans would let both be true and draw both pages down the column; a
-     * single opening makes "a page replaces a page" free rather than something
-     * an effect has to keep tidying up. Rations' shell widens the same one
-     * variable rather than adding a flag beside it, for the same reason.
-     *
-     * It is a prop rather than local state because one of the two openings is
-     * also a **face**, and a shell's switcher has to be able to reach it
-     * (ADR-0114 §10). Rations binds it so the Settings tile lands on the opening
-     * the gear already opens, rather than on a second one beside it.
-     *
-     * **That is one surface with two controls, and it is the last one**
-     * ([#536](https://github.com/palebluebytes/inventoria/issues/536) took the
-     * other). It is not the shape Recipes was in: Rations' gear opens
-     * food-specific settings that ADR-0114 §10 deliberately leaves where they
-     * are, and the same gear on the root opens a page of another Facet's rather
-     * than that shell's own Settings face — so deleting it would take a control
-     * away from the root to settle a duplication that only exists here. Left
-     * standing and written down rather than quietly kept:
-     * [#550](https://github.com/palebluebytes/inventoria/issues/550).
-     *
-     * The root binds nothing and gets the `null` default: it has no pages at any
-     * width, and it reaches both the recipe library and its own Settings as
-     * faces. Unbound this is exactly the local state it was.
-     */
-    page?: Page | null;
   } = $props();
+
+  /**
+   * Which page is open, or `null` for the day (ADR-0091 §5).
+   *
+   * **One variable, not two booleans**, and that is what makes the shape legal.
+   * As sheets they could never both be open — a sheet covers the screen and
+   * neither has a door to the other — but as pages the header is standing
+   * navigation, so Reports is one click away from Settings. Two booleans would
+   * let both be true and draw both pages down the column; a single opening makes
+   * "a page replaces a page" free rather than something an effect has to keep
+   * tidying up.
+   *
+   * **Local state, which is what it was before #532 and is again since #555.**
+   * It was a bindable prop for one reason: the Settings tile and the gear opened
+   * one surface, so a shell's switcher had to be able to reach the opening this
+   * screen holds. That surface is cut in two now — the gear opens Rations' own
+   * settings and the tile opens the jar's Settings face — so no shell has any
+   * business writing this, and the only two controls that set it are the header
+   * icons two hundred lines below.
+   *
+   * What the cut costs is a fact this screen no longer publishes: the shell can
+   * no longer tell a page apart from the day by reading its own state. It reads
+   * the way back instead (`publishFaceBack` below), which is the same rung said
+   * where the rung is.
+   */
+  let page = $state<Page | null>(null);
 
   // ── The corpus this screen searches ───────────────────────────────────────
   //
@@ -248,8 +228,8 @@
 
   // ── Settings: one state, two shapes ───────────────────────────────────────
   //
-  // The opening itself is `page`, and it is a **prop** — the argument for its
-  // shape is on the declaration above. The header's gear opens the Facet's one
+  // The opening itself is `page`, and it is this screen's own — the argument for
+  // that is on the declaration above. The header's gear opens the Facet's one
   // named, full-height settings surface (ADR-0080 §7); **what that surface is**
   // is the only thing the width decides. Above the shell breakpoint it is a page
   // shown instead of the day, below it it is the sheet it has always been, and
@@ -1403,12 +1383,7 @@
   <!-- Rations settings: the OFF login, the contribution default, the nutrition
        targets, Rations' own Local Logs card and its Your data block — the
        Facet's one named, full-height surface (ADR-0080 §7). -->
-  <FoodSettingsSheet
-    {dbReady}
-    {shell}
-    inline={onPage}
-    onClose={() => (page = null)}
-  />
+  <FoodSettingsSheet {dbReady} inline={onPage} onClose={() => (page = null)} />
 {:else if page === "reports" && onPage}
   <!-- Reports, and the one page with no sheet behind it: it is a page or it is
        nothing (ADR-0091 §7), so unlike the two above it takes no `inline` and
@@ -1472,8 +1447,15 @@
 
 <!-- The receiving surface (ADR-0074 §4, ADR-0073 §10): the meal itself, with
      nothing in front of it, and the hold for the payload behind it. Leaving is
-     declining, by any route — including a tab change, which unmounts this whole
-     screen under it. -->
+     declining, by any route — this surface's own Leave, and a face switch, which
+     unmounts this whole screen under it.
+
+     **The second of those is the shell's to finish, and until #555 it did not.**
+     The code arrives on `Rations.svelte` and is handed down; unmounting this
+     screen kills the socket inside the panel and leaves the code sitting on the
+     shell, so coming back re-opened a surface whose payload was already gone.
+     `leaveReceiving` below clears both of its own sources; the one it cannot
+     reach is the prop, and the shell clears that when it leaves this face. -->
 {#if receiving}
   <ReceivedMealPanel
     opening={receiving}

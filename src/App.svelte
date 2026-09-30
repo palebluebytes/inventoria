@@ -217,8 +217,8 @@
   // and Rations' version of this effect does exactly that. Here it would be a
   // branch that cannot run: `faceBack` has one publisher, the food screen, which
   // publishes only while a page is open, and a page needs `hasPages` — which
-  // this shell does not pass at any width (`FoodView`'s `page` prop says so, and
-  // ADR-0091 §5 is why). The root reaches its Settings and the recipe library as
+  // this shell does not pass at any width (`FoodView`'s `hasPages` prop says so,
+  // and ADR-0091 §5 is why). The root reaches its Settings and the recipe library as
   // faces, not as pages. So the branch is deleted rather than carried: a face is
   // the only rung this shell has, and if it ever grows one the line to add is
   // Rations'.
@@ -335,7 +335,10 @@
                advertise a rival copy of itself from inside the face that copy is
                of; it is on the Settings face now, enumerated off the roster by
                `JarSettings`. What stays true here is that the face is otherwise
-               unchanged: same screen, same components, no pointer.
+               unchanged: same screen, same components, no pointer. Since #555
+               this shell names no Facet here either — the gear's page holds
+               nothing that has to know which shell drew it, so `shell` is gone
+               from all three of the files that threaded it.
 
                ADR-0077 §5 kept `usda/search-index.json` in the root's precache
                "precisely because food is the root's landing screen", and as of
@@ -345,7 +348,7 @@
                on every boot from `runStartupErrands` runs from this screen's own
                `onMount` instead — so mounting the Rations face *is* what fetches
                the search index here. -->
-          <FoodView {dbReady} shell="root" onReceiveClose={() => {}} />
+          <FoodView {dbReady} onReceiveClose={() => {}} />
         {/if}
 
         <!-- Recipes is a face rather than one of Rations' pages (ADR-0114 §4),

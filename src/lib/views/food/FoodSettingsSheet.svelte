@@ -11,9 +11,9 @@
   import SecretField from "../../ui/SecretField.svelte";
   import NutritionTargetEditor from "./NutritionTargetEditor.svelte";
   import FoodDataSection from "./FoodDataSection.svelte";
-  import JarSettings from "../settings/JarSettings.svelte";
+  import LogSettingsSection from "../logs/LogSettingsSection.svelte";
   import ScanSessionsCard from "../logs/ScanSessionsCard.svelte";
-  import { facetOf, type FacetId } from "../../facets/registry";
+  import { facetOf } from "../../facets/registry";
 
   // **Rations settings** (ADR-0080 §7): the one named, full-height surface the
   // food screen's gear opens, from either entry point.
@@ -52,23 +52,10 @@
      */
     dbReady,
     inline = false,
-    /**
-     * Which Facet's shell is drawing this sheet, threaded from the entry point
-     * (ADR-0076 §6).
-     *
-     * The sheet is Rations' settings screen whichever shell draws it — the
-     * title below says so — but it is Rations' **Settings face** only under
-     * Rations. Under the root it is a page inside the Rations face, and an act
-     * performed there ran in the root (ADR-0108 §1), so the pairing surface and
-     * the visibility toggles belong to the root's own door. This prop is the
-     * whole of what says which; `JarSettings` draws the conclusion.
-     */
-    shell,
   }: {
     onClose: () => void;
     dbReady: boolean;
     inline?: boolean;
-    shell: FacetId;
   } = $props();
 
   // The Facet whose settings these are — always Rations, whichever entry point
@@ -203,32 +190,24 @@
        second enumeration of Facets. -->
   <FoodDataSection {dbReady} />
 
-  <!-- **The jar-wide half of this face** (ADR-0114 §10): the pairing surface,
-       the log card, the face-visibility toggles, and — where there is one to
-       offer — an install. One component, drawn here and on the root's own
-       Settings screen, because the two used to spell the same blocks out twice
-       with a Facet id the only difference between the copies.
+  <!-- **Food's own two readouts, and the whole of what this sheet gained at
+       #555.** The scan card sits directly above the log card its channel is
+       listed in, so its Clear is one card away from the numbers it zeroes
+       (ADR-0071 §6) — the adjacency that used to be bought with a snippet slot
+       and is now simply two lines in a row.
 
-       Everything above this line is Rations': the nutrition editor, the OFF
-       login, "Your data" and its Facet-scoped wipe stay on this sheet, because
-       ADR-0114 §10 moves the jar-wide blocks into the face and leaves the
-       food-specific settings where the gear already opens them.
+       **The log card is here because a consent follows its channel.** It is a
+       fact about egress from a Facet rather than about the document the switch
+       is drawn in, so food's door belongs wherever food's own settings are —
+       which is this surface, under either shell. It rode the jar-wide block
+       until #555 and was the one thing in there that was never about the
+       drawing shell's door; taking it out is what let that block stop judging
+       which door it was on.
 
-       `shell` is threaded rather than sniffed, and it is the whole of why this
-       sheet is one surface under Rations and a *page* under the root: the root
-       draws it in its Rations face, where an act performed runs in the root
-       (ADR-0108 §1), so the pairing card and the visibility toggles belong to
-       the root's own door and not to this one. `JarSettings` judges that; this
-       sheet only says which shell it is in.
-
-       The scan card rides the slot rather than the list, so it keeps its
-       adjacency (ADR-0071 §6): it sits directly above the log card its channel
-       is listed in, so its Clear is one card away from the numbers it zeroes. -->
-  <JarSettings facetId="food" {shell} elevated>
-    {#snippet interleave()}
-      <ScanSessionsCard />
-    {/snippet}
-  </JarSettings>
+       `elevated` is the hosting fact the Facet id does not decide (#329): the
+       review this card opens has to clear the sheet it is already inside. -->
+  <ScanSessionsCard />
+  <LogSettingsSection facetId="food" elevated />
 </BottomSheet>
 
 <style>

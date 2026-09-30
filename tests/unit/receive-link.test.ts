@@ -20,6 +20,7 @@ import {
 } from "../../src/lib/p2p/receive-link";
 import { sendCodeFragment, sendCodeLink } from "../../src/lib/p2p/send-code";
 import { mintRoomCode } from "../../src/lib/p2p/room-code";
+import { readCode } from "./support/source";
 
 const ORIGIN = "https://inventoria.example";
 
@@ -101,6 +102,28 @@ describe("the clean is what makes the read safe to keep", () => {
         },
       })
     ).toThrow("replaceState refused");
+  });
+});
+
+describe("leaving Rations is declining (ADR-0073 §10)", () => {
+  it("clears the code on every landing that is not the Rations face", () => {
+    // **Asserted because it was false.** The code is the shell's state and the
+    // surface it opens is the food screen's, so a face switch killed the socket
+    // inside the panel and left the code sitting here — and coming back
+    // remounted the screen with the link still truthy and re-opened the
+    // receiving surface, which `leaveReceiving`'s own comment names as the thing
+    // that must not happen. §10's sentence was asserted rather than true.
+    //
+    // It arrived with #536's face and went unmet while one tile was a rare way
+    // out; #555 makes it two and the ordinary one, so the clearing is written
+    // at the one place all three landings are chosen.
+    //
+    // Read over code rather than source text: this shell explains the rule in
+    // prose beside the markup that depends on it.
+    const shell = readCode("src/Rations.svelte");
+    expect(shell).toMatch(
+      /function showFace\(id: FaceId\) \{\s*if \(id !== "rations"\) receiveLink = null;/
+    );
   });
 });
 

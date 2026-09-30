@@ -30,10 +30,16 @@ const DATA = readCode("src/lib/views/food/FoodDataSection.svelte");
 const IMPORT = readCode("src/lib/views/ledger/LedgerImport.svelte");
 const BADGE = readCode("src/lib/views/storage/PersistenceBadge.svelte");
 const STORAGE = readCode("src/lib/views/storage/StorageStatus.svelte");
-// The jar-wide half of the Settings face (ADR-0114 §10), which is where the two
-// blocks this sheet used to spell out for itself now live — once, for both
-// shells. Comments taken out: every claim below is about its markup.
+// The jar-wide half of the Settings face (ADR-0114 §10), which is where the
+// pairing card this sheet used to spell out for itself now lives — once, for
+// both shells. Comments taken out: every claim below is about its markup.
 const JAR = readCode("src/lib/views/settings/JarSettings.svelte");
+// The root's own settings door, which is the other host of that block and the
+// one that refills its slot (#555).
+const ROOT_DOOR = readCode("src/lib/views/SettingsView.svelte");
+// Rations' own door, which since #555 is a face this shell mounts rather than
+// a block riding the gear's sheet.
+const RATIONS_SHELL = readCode("src/Rations.svelte");
 
 describe("the surface the food gear opens (ADR-0080 §7)", () => {
   it("takes its title from the registry rather than typing the name", () => {
@@ -57,31 +63,45 @@ describe("the surface the food gear opens (ADR-0080 §7)", () => {
   });
 
   it("carries Rations' own Local Logs card, raised over the sheet", () => {
-    // **Through `JarSettings` now** (ADR-0114 §10), which is where the card's one
-    // call site is: this sheet and the root's Settings screen used to draw it
-    // twice with a Facet id the only difference. The claim is unchanged and it is
-    // in two halves, because the value and its use are now in two files.
+    // **Here again since #555**, and directly rather than through the jar-wide
+    // block. A consent is a fact about egress from a Facet rather than about the
+    // document the switch is drawn in, so food's door belongs wherever food's
+    // own settings are — which is this surface under either shell, and is what
+    // made the card the one member of that block that was never about the
+    // drawing shell's door.
     //
     // `elevated` is what puts the review this card opens above the settings
     // sheet rather than beside it on the same layer (`ui/BottomSheet.svelte`).
-    // It stays a prop of the *host* rather than a fact about food: the same
-    // blocks are a page at the root and a bottom sheet here.
-    expect(SHEET).toMatch(/<JarSettings[^>]*facetId="food"/);
-    expect(SHEET).toMatch(/<JarSettings[^>]*\belevated\b/);
-    expect(JAR).toMatch(/<LogSettingsSection[^>]*\{facetId\}/);
-    expect(JAR).toMatch(/<LogSettingsSection[^>]*\{elevated\}/);
+    // It is the host's fact rather than food's: the same card is a page at the
+    // root and a bottom sheet here.
+    expect(SHEET).toMatch(/<LogSettingsSection[^>]*facetId="food"/);
+    expect(SHEET).toMatch(/<LogSettingsSection[^>]*\belevated\b/);
+    // And it is off the jar-wide block, which is the cut itself: what is left
+    // there is the shell's own door and nothing that follows a Facet's screens.
+    expect(JAR).not.toContain("LogSettingsSection");
   });
 
-  it("keeps the scan card between the pairing surface and the log card", () => {
-    // ADR-0071 §6's adjacency, which is the reason `JarSettings` takes a slot at
-    // all: the scan readout sits directly above the log card its channel is
-    // listed in, so its Clear is one card away from the numbers it zeroes. A
-    // shared block that simply held both cards would have cost that.
-    expect(SHEET).toMatch(
-      /\{#snippet interleave\(\)\}\s*<ScanSessionsCard \/>/
-    );
+  it("keeps the scan card directly above the log card its channel is in", () => {
+    // ADR-0071 §6's adjacency: the scan readout sits directly above the log card
+    // its channel is listed in, so its Clear is one card away from the numbers it
+    // zeroes. It used to cost a snippet slot, because the two cards were in
+    // different components; both are on this surface now, so it costs two lines
+    // in a row.
+    expect(SHEET).toMatch(/<ScanSessionsCard \/>\s*<LogSettingsSection/);
+    expect(SHEET).not.toContain("interleave");
+  });
+
+  it("leaves the slot standing at the root, with the log card as its tenant", () => {
+    // What keeps the root's screen unchanged to the pixel. The card sat between
+    // the pairing surface and the toggles inside the block; taking it out left a
+    // hole there, and the root — which has no other door for its own channels —
+    // passes the same card back in at the same place, through the slot the scan
+    // readout vacated.
     expect(JAR).toMatch(
-      /<PairedDevicesSection[\s\S]*\{@render interleave\?\.\(\)\}[\s\S]*<LogSettingsSection/
+      /<PairedDevicesSection[\s\S]*\{@render interleave\?\.\(\)\}[\s\S]*<FaceVisibilitySection/
+    );
+    expect(ROOT_DOOR).toMatch(
+      /\{#snippet interleave\(\)\}\s*<LogSettingsSection facetId="root" \/>/
     );
   });
 });
@@ -266,30 +286,40 @@ describe("Rations carries the whole pairing surface (ADR-0105 §10)", () => {
     // what the surface needs, and it is never worked out from the URL
     // (ADR-0076 §6).
     expect(JAR).toMatch(/<PairedDevicesSection[^>]*\{facetId\}/);
-    expect(SHEET).toMatch(/<JarSettings[^>]*facetId="food"/);
+    expect(RATIONS_SHELL).toMatch(/<JarSettings facetId="food" \/>/);
+    expect(ROOT_DOOR).toMatch(/<JarSettings facetId="root">/);
   });
 
-  it("draws it under Rations' shell and not under the root's", () => {
-    // §1 again, from the side the sheet cannot settle on its own: the root
-    // draws the whole of this screen in its Food tab, and an act performed
-    // there ran in the root, because a Facet is an install (ADR-0076 §1) and
-    // not a tab. Two cards in one root document would disagree about what a
-    // pairing means, and §4 would have the food one silently re-scope a
-    // jar-wide lane the other made.
-    // The judgement moved into `JarSettings` with the card (ADR-0114 §10) and
-    // came out one predicate rather than a literal: a surface scoped to the Facet
-    // you are standing in is that Facet's own settings door, and the same surface
-    // scoped to another Facet and drawn inside your shell is that Facet's page.
-    // The sheet says which shell it is in; the block draws the conclusion.
-    expect(JAR).toMatch(/const ownDoor = \$derived\(facetId === shell\)/);
-    expect(JAR).toMatch(
-      /\{#if ownDoor\}\s*<PairedDevicesSection[^>]*\/>\s*\{\/if\}/
-    );
-    expect(SHEET).toMatch(/<JarSettings[^>]*\{shell\}/);
-    // The shell is threaded rather than sniffed, and both entry points say
-    // which they are: a screen cannot ask what mounted it.
-    expect(readSource("src/App.svelte")).toMatch(/<FoodView[^>]*shell="root"/s);
-    expect(readSource("src/Rations.svelte")).toMatch(/shell="food"/);
+  it("is unconditional, because the hazard it was gated on cannot arise", () => {
+    // §1's hazard was a pairing card drawn in the root's Rations face: an act
+    // performed there runs in the root, because a Facet is an install
+    // (ADR-0076 §1) and not a face, so two cards in one root document would
+    // disagree about what a pairing means and §4 would have the food one
+    // silently re-scope a jar-wide lane the other made.
+    //
+    // That was judged by a predicate (`ownDoor`) until #555. The surface it
+    // judged is cut: this block is only ever a shell's own door now — the root's
+    // Settings screen and Rations' Settings face — and a face's shell is always
+    // its own Facet, so there is no document in which a second card could be
+    // drawn. **Unexpressible rather than judged**, which is ADR-0114 §8's move
+    // for cross-Facet links reaching the same answer here.
+    expect(JAR).not.toContain("ownDoor");
+    expect(JAR).not.toContain("shell");
+    expect(JAR).toMatch(/^<PairedDevicesSection \{facetId\} \/>$/m);
+    // And the prop is gone from the three files that threaded it to reach this
+    // one: the surface it was for is the gear's page, which holds none of these
+    // blocks.
+    for (const file of [
+      "src/App.svelte",
+      "src/Rations.svelte",
+      "src/lib/views/FoodView.svelte",
+      "src/lib/views/food/FoodSettingsSheet.svelte",
+    ]) {
+      expect({ file, threaded: /\bshell[=:]/.test(readCode(file)) }).toEqual({
+        file,
+        threaded: false,
+      });
+    }
   });
 
   it("keeps one pairing card per document, so the ways in keep one id each", () => {
@@ -323,20 +353,25 @@ describe("Rations carries the whole pairing surface (ADR-0105 §10)", () => {
     expect(drawsTheAct).toEqual([
       "src/lib/views/pairing/PairedDevicesSection.svelte",
     ]);
-    // And both callers reach that one file rather than a sibling beside them.
-    // One caller now, where there were two: `JarSettings` is drawn by this sheet
-    // and by the root's Settings screen, and neither of them names the pairing
-    // module any more.
+    // And both hosts reach that one file rather than a sibling beside them.
+    // One caller now, where there were two: `JarSettings` is drawn by the root's
+    // Settings screen and by Rations' Settings face, and neither of them names
+    // the pairing module any more.
     expect(readSource("src/lib/views/settings/JarSettings.svelte")).toContain(
       'import PairedDevicesSection from "../pairing/PairedDevicesSection.svelte"'
     );
     for (const host of [
-      "src/lib/views/food/FoodSettingsSheet.svelte",
+      "src/Rations.svelte",
       "src/lib/views/SettingsView.svelte",
     ]) {
       expect(readSource(host)).not.toContain("PairedDevicesSection");
       expect(readSource(host)).toContain("JarSettings");
     }
+    // And off the surface it used to ride, which is the cut: the gear's page
+    // draws food's own settings and nothing jar-wide.
+    expect(
+      readSource("src/lib/views/food/FoodSettingsSheet.svelte")
+    ).not.toContain("JarSettings");
   });
 
   it("renders the act, the list and both of §11's states under either Facet", async () => {
