@@ -1,9 +1,15 @@
 /**
  * The baked, cited daily nutrition targets and the override→baked resolver
- * (ADR-0031 §1/§2, ticket #40). This module is a faithful transcription of the
- * two primary-source reference docs — `docs/reference/fda-daily-values.md` and
- * `docs/reference/active-adult-macros.md` — so a corrected DV or AMDR moves the
- * doc and this module together.
+ * (ADR-0031 §1/§2, ticket #40). This module is a faithful transcription of three
+ * primary-source reference docs — `docs/reference/fda-daily-values.md`,
+ * `docs/reference/active-adult-macros.md` and, for the limits below,
+ * `docs/reference/daily-nutrient-limits.md`.
+ *
+ * A corrected figure moves **three** files, not two: the reference doc, this
+ * module, and `src/lib/food/target-rationale.ts`, which restates the same numbers
+ * as prose behind the ⓘ on each settings section and is not derived from these
+ * maps. The prose is argued rather than generated, so it is coupled by this note
+ * and by review, not by code.
  *
  * Every value is in its **consumer's canonical unit**: grams for mass, **kcal**
  * for `energy` (ADR-0021: one fixed unit per field). Keys are food-panel
@@ -12,8 +18,10 @@
  *   three macros, fibre, and the twelve label micronutrients — a target you fill
  *   *up* toward; and
  * - the **stay-under set** ({@link BAKED_NUTRIENT_LIMITS_G}, ADR-0032) — sodium,
- *   saturated fat, cholesterol, and trans fat — a cap you keep *under*, amber once
- *   exceeded. Total sugar is deliberately absent (no citable total-sugar limit).
+ *   saturated fat and trans fat — a cap you keep *under*, amber once exceeded, with
+ *   the overshoot stated as a percentage past that point (#506). Cholesterol and
+ *   total sugar are deliberately absent; that map's own doc comment carries the
+ *   criterion which decides membership and why those two fail it.
  */
 
 /**
@@ -165,24 +173,41 @@ export function resolveNutrientTargets(
  * The baked, cited daily nutrient **limits** — the stay-under set (ADR-0032, #43),
  * a cap the day fills toward and passes into the amber over-state. Every value in
  * grams, keyed by breakdown key; transcribed from
- * `docs/reference/daily-nutrient-limits.md`. Sodium, saturated fat, and cholesterol
- * are FDA Daily Reference Values (21 CFR 101.9(c)(9)); trans fat has no FDA DV, so
- * its cap is the WHO <1%-of-energy ceiling (≈ 2.2 g at 2000 kcal, rounded to 2 g).
- * There is no energy/calorie limit — the set has no always-on member. Total sugar
- * is absent: the FDA 50 g DV is for *added* sugars, a quantity the panel doesn't
- * carry, and no citable *total*-sugar limit exists.
+ * `docs/reference/daily-nutrient-limits.md`, and restated in prose for the reader
+ * by `target-rationale.ts` — a corrected cap moves all three.
+ *
+ * **What qualifies as a cap** (ADR-0032 §1, as amended by #506): a nutrient gets a
+ * baked cap when a named authority publishes a numeric daily ceiling for the
+ * quantity the panel actually carries. **The authority is the WHO**, and only the
+ * WHO — a ceiling this app would have to invent, soften, or borrow from a
+ * neighbouring quantity is not a cap. Where the WHO publishes a share of energy
+ * rather than a mass it is converted at the 2,000-kcal reference diet the rest of
+ * this module is anchored to, rounded **down**, and the derivation is written into
+ * the reference doc. The criterion is scoped to this set: the reach-toward targets
+ * above are ADR-0031/0033's and rest on the FDA DVs and the IOM AMDRs.
+ *
+ * That criterion is why the set is three and not five. **Cholesterol has no cap**
+ * because the WHO publishes no dietary-cholesterol ceiling — the FDA's 300 mg DRV
+ * is a labelling reference value this app no longer reaches for, and every
+ * intake-guidance body has withdrawn the figure (the 2015–2020 DGA dropped it, the
+ * 2025–2030 edition does not mention cholesterol at all). It stays fully visible as
+ * an uncapped figure in the day modal's "Not tracked" section. **Total sugar has no
+ * cap** because the WHO's ceiling is for *free* sugars and the panel carries *total*
+ * sugars — a neighbouring quantity, so borrowing it is refused. There is no
+ * energy/calorie limit either: the set has no always-on member.
  */
 export const BAKED_NUTRIENT_LIMITS_G: Record<string, number> = {
-  sodium_content: 2.3, // 2300 mg — § 101.9(c)(9) DRV
-  saturated_fat_content: 20, // 20 g — § 101.9(c)(9) DRV
-  cholesterol_content: 0.3, // 300 mg — § 101.9(c)(9) DRV
-  trans_fat_content: 2, // WHO <1% energy ≈ 2.2 g / 2000 kcal, rounded
+  sodium_content: 2, // WHO: "less than 2000 mg/day" of sodium (not salt)
+  saturated_fat_content: 22, // WHO 10% energy: 200 kcal / 9 kcal/g = 22.2 g, rounded down
+  trans_fat_content: 2, // WHO 1% energy: 20 kcal / 9 kcal/g = 2.2 g, rounded down
 };
 
 /**
  * The stay-under key set — the only keys a limit (baked or override) may carry.
- * Used to filter a stored limits override blob down to the four
- * limit nutrients, exactly as {@link REACH_TOWARD_KEYS} filters the targets blob.
+ * Used to filter a stored limits override blob down to the three limit nutrients,
+ * exactly as {@link REACH_TOWARD_KEYS} filters the targets blob. A stored override
+ * for a key that has since left the set (cholesterol, #506) is dropped by that
+ * filter, which is the intended outcome: the nutrient has no cap.
  */
 export const LIMIT_KEYS: ReadonlySet<string> = new Set(
   Object.keys(BAKED_NUTRIENT_LIMITS_G)

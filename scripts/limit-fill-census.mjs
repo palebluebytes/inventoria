@@ -64,7 +64,6 @@ const EXPORT_PATH =
 const LIMITS = {
   sodium_content: { id: "1093", toGrams: 0.001, label: "sodium" },
   saturated_fat_content: { id: "1258", toGrams: 1, label: "saturated fat" },
-  cholesterol_content: { id: "1253", toGrams: 0.001, label: "cholesterol" },
   trans_fat_content: { id: "1257", toGrams: 1, label: "trans fat" },
 };
 
@@ -73,13 +72,22 @@ const LIMITS = {
  * fill is not covering for a failed capture.
  *
  * EU Regulation 1169/2011's mandatory nutrition declaration is energy, fat,
- * saturates, carbohydrate, sugars, protein and salt. Cholesterol and trans fat
- * are not in it. Both ARE mandatory on a US panel (21 CFR 101.9(c)), as are
- * sodium and saturated fat — so sodium and saturated fat are mandatory under
- * every declaration this app meets, and their silence is a defect wherever the
- * jar was sold.
+ * saturates, carbohydrate, sugars, protein and salt. Trans fat is not in it. It IS
+ * mandatory on a US panel (21 CFR 101.9(c)), as are sodium and saturated fat — so
+ * sodium and saturated fat are mandatory under every declaration this app meets,
+ * and their silence is a defect wherever the jar was sold.
+ *
+ * **This set held two limits until #506.** Cholesterol was the other, and it is
+ * gone from here because it is gone from {@link BAKED_NUTRIENT_LIMITS_G}: the WHO
+ * publishes no dietary-cholesterol ceiling, so the nutrient has no cap to fill
+ * toward and this script has nothing to measure about it. That follows from #506
+ * and revises nothing #495 decided — #495 settled that a fill may supply a limit,
+ * partitioned by nutrient, and that rule now reaches one lawfully-silent limit
+ * rather than two. The shipped never-fill rule is unaffected either way: it keys
+ * off the EU declaration in `src/lib/food/marked-panel.ts`, not off this set or
+ * `LIMIT_KEYS`.
  */
-const LAWFULLY_SILENT = new Set(["cholesterol_content", "trans_fat_content"]);
+const LAWFULLY_SILENT = new Set(["trans_fat_content"]);
 
 /**
  * The OFF record behind a twin, under either spelling of the attribute that

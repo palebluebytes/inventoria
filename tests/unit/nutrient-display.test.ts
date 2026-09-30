@@ -535,57 +535,69 @@ describe("buildDayRdaView — Limits section (ADR-0032, #43)", () => {
   const baked = resolveNutrientTargets({});
   const bakedLimits = resolveNutrientLimits({});
 
-  // A day carrying three of the four limit nutrients: sodium under its cap,
-  // saturated fat over it, trans fat a reported zero; cholesterol absent.
+  // A day carrying all three limit nutrients: sodium under its cap, saturated fat
+  // over it, trans fat a reported zero. Cholesterol is carried too and is NOT a
+  // limit since #506 — it is here so the Not-tracked fallthrough can be pinned.
   const day: NutritionBreakdown = {
     calories: 1650,
     protein: 98,
     fat: 71,
     carbs: 180,
     fiber_content: 19,
-    sodium_content: 1.85, // 1850 mg — under the 2300 mg cap
-    saturated_fat_content: 25, // 25 g — OVER the 20 g cap
+    sodium_content: 1.85, // 1850 mg — under the 2000 mg cap
+    saturated_fat_content: 25, // 25 g — OVER the 22 g cap
     trans_fat_content: 0, // reported zero — under the 2 g cap
-    // cholesterol_content absent — never reported
+    cholesterol_content: 0.25, // 250 mg — no cap exists for it at all
   };
 
   // Only the resolved limits map is threaded in; decimals/gapLimit/selection
   // fall back to their defaults.
   const rda = (limits = bakedLimits) => buildDayRdaView(day, baked, { limits });
 
-  it("carries the present limits toward their caps, omitting absent ones", () => {
+  it("carries the present limits toward their caps", () => {
     const keys = rda().limits.map((r) => r.key);
     expect(keys).toContain("sodium_content");
     expect(keys).toContain("saturated_fat_content");
     expect(keys).toContain("trans_fat_content");
-    // Cholesterol was never carried — a "bad" nutrient at zero stays quiet.
+    // Carried, but it has no cap since #506 — so not a limit row.
     expect(keys).not.toContain("cholesterol_content");
   });
 
   it("renders a present limit under its cap as value / cap, a bar, not over", () => {
     const sodium = rda().limits.find((r) => r.key === "sodium_content")!;
     expect(sodium.value).toBe("1850 mg");
-    expect(sodium.target).toBe("2300 mg");
+    expect(sodium.target).toBe("2000 mg");
     expect(sodium.absent).toBe(false);
     expect(sodium.over).toBe(false);
-    expect(sodium.fill).toBeCloseTo((1.85 / 2.3) * 100, 5);
+    expect(sodium.fill).toBeCloseTo((1.85 / 2) * 100, 5);
   });
 
   it("marks a limit over its cap with over + amber (bar full)", () => {
     const sat = rda().limits.find((r) => r.key === "saturated_fat_content")!;
     expect(sat.value).toBe("25 g");
-    expect(sat.target).toBe("20 g");
+    expect(sat.target).toBe("22 g");
     expect(sat.over).toBe(true);
     expect(sat.fill).toBe(100);
   });
 
   it("omits an absent limit entirely — never shown as — / cap (story 5)", () => {
+    const { sodium_content: _dropped, ...noSodium } = day;
+    const view = buildDayRdaView(noSodium, baked, { limits: bakedLimits });
+    expect(view.limits.map((r) => r.key)).not.toContain("sodium_content");
+    // And it isn't dumped into Not tracked either — absent means omitted.
+    expect(view.untracked.map((r) => r.key)).not.toContain("sodium_content");
+  });
+
+  it("falls a carried nutrient with no target and no cap to Not tracked (#506)", () => {
+    // Cholesterol left the limit set because the WHO publishes no ceiling for it.
+    // It keeps every gram of its visibility and loses only the amber, which took
+    // no code: the untracked loop takes any catalogue nutrient the day carried
+    // that has neither a target nor a positive limit.
     const view = rda();
     expect(view.limits.map((r) => r.key)).not.toContain("cholesterol_content");
-    // And it isn't dumped into Not tracked either — absent means omitted.
-    expect(view.untracked.map((r) => r.key)).not.toContain(
-      "cholesterol_content"
-    );
+    const chol = view.untracked.find((r) => r.key === "cholesterol_content")!;
+    expect(chol).toBeDefined();
+    expect(chol.value).toBe("250 mg");
   });
 
   it("moves carried limits out of Not tracked once a cap resolves", () => {
