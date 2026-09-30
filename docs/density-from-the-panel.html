@@ -1,0 +1,2930 @@
+<title>The Panel Knows the Weight</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link
+  rel="stylesheet"
+  href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;0,8..60,700;1,8..60,400;1,8..60,600&family=Source+Code+Pro:wght@400;600&display=swap"
+/>
+
+<style>
+  /* ── tokens ──────────────────────────────────────────────────────────────
+     Taken from the app's own src/app.css rather than invented: hard black on
+     white paper, 2px edges, no radius, and one acid-green accent spent only on
+     the figure the app pins. */
+  :root {
+    --paper: #ffffff;
+    --ink: #000000;
+    --zinc: #52525b;
+    --zinc-faint: #71717a;
+    --rule-faint: #d4d4d8;
+    --wash: #f4f4f5;
+    --acid: #ccff00;
+    --acid-ink: #000000;
+    --flag: #b45309;
+    --flag-wash: #fef3c7;
+
+    --serif: "Source Serif 4", Georgia, "Times New Roman", serif;
+    --mono: "Source Code Pro", ui-monospace, SFMono-Regular, Menlo, monospace;
+
+    --edge: 2px solid var(--ink);
+    --edge-thin: 1px solid var(--ink);
+    --hair: 1px solid var(--rule-faint);
+
+    --step--2: 0.6875rem;
+    --step--1: 0.8125rem;
+    --step-0: 1.0625rem;
+    --step-1: 1.25rem;
+    --step-2: 1.5rem;
+    --step-3: 2rem;
+    --step-4: 2.75rem;
+    --step-5: 3.75rem;
+
+    --measure: 34rem;
+    --wide: 60rem;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --paper: #0a0a0a;
+      --ink: #fafafa;
+      --zinc: #a1a1aa;
+      --zinc-faint: #8b8b93;
+      --rule-faint: #3f3f46;
+      --wash: #17171a;
+      --acid: #ccff00;
+      --acid-ink: #000000;
+      --flag: #fbbf24;
+      --flag-wash: #2a1f07;
+    }
+  }
+  :root[data-theme="dark"] {
+    --paper: #0a0a0a;
+    --ink: #fafafa;
+    --zinc: #a1a1aa;
+    --zinc-faint: #8b8b93;
+    --rule-faint: #3f3f46;
+    --wash: #17171a;
+    --acid: #ccff00;
+    --acid-ink: #000000;
+    --flag: #fbbf24;
+    --flag-wash: #2a1f07;
+  }
+
+  /* ── ground ─────────────────────────────────────────────────────────────── */
+  * {
+    box-sizing: border-box;
+  }
+
+  body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--serif);
+    font-size: var(--step-0);
+    line-height: 1.6;
+    font-optical-sizing: auto;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .sheet {
+    max-width: var(--wide);
+    margin: 0 auto;
+    padding: clamp(1.25rem, 4vw, 3.5rem) clamp(1rem, 4vw, 2.5rem) 6rem;
+    display: flex;
+    flex-direction: column;
+    gap: clamp(2.5rem, 5vw, 4rem);
+  }
+
+  /* The prose column sits at a reading measure; instruments break wider. */
+  .col {
+    max-width: var(--measure);
+    display: flex;
+    flex-direction: column;
+    gap: 1.1rem;
+  }
+
+  p {
+    margin: 0;
+    text-wrap: pretty;
+  }
+  h1,
+  h2,
+  h3 {
+    margin: 0;
+    text-wrap: balance;
+    line-height: 1.12;
+    font-weight: 700;
+  }
+
+  strong {
+    font-weight: 700;
+  }
+  em {
+    font-style: italic;
+  }
+
+  code,
+  .num {
+    font-family: var(--mono);
+    font-variant-numeric: tabular-nums;
+  }
+  code {
+    font-size: 0.88em;
+    background: var(--wash);
+    padding: 0.08em 0.3em;
+    border: var(--hair);
+  }
+
+  a {
+    color: inherit;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+  a:focus-visible,
+  button:focus-visible,
+  input:focus-visible {
+    outline: 3px solid var(--ink);
+    outline-offset: 3px;
+  }
+
+  .eyebrow {
+    font-family: var(--mono);
+    font-size: var(--step--2);
+    font-weight: 600;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--zinc);
+  }
+
+  /* ── masthead ───────────────────────────────────────────────────────────── */
+  .masthead {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+    padding-bottom: clamp(1.5rem, 3vw, 2.25rem);
+    border-bottom: var(--edge);
+  }
+  .masthead h1 {
+    font-size: clamp(2.25rem, 7vw, var(--step-5));
+    letter-spacing: -0.02em;
+  }
+  .kicker {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem 1.25rem;
+    align-items: baseline;
+  }
+  .standfirst {
+    max-width: 36rem;
+    font-size: clamp(var(--step-0), 2.2vw, var(--step-1));
+    line-height: 1.5;
+    color: var(--zinc);
+  }
+  .standfirst b {
+    color: var(--ink);
+    font-weight: 600;
+  }
+
+  /* The one-line answer, carried on the accent. */
+  .answer {
+    align-self: flex-start;
+    background: var(--acid);
+    color: var(--acid-ink);
+    border: var(--edge);
+    box-shadow: 3px 3px 0 var(--ink);
+    padding: 0.7rem 1rem;
+    font-family: var(--mono);
+    font-size: var(--step--1);
+    font-weight: 600;
+    max-width: 44rem;
+    line-height: 1.5;
+  }
+
+  /* ── section heads ──────────────────────────────────────────────────────── */
+  .head {
+    display: flex;
+    flex-direction: column;
+    gap: 0.55rem;
+    max-width: var(--measure);
+  }
+  .head h2 {
+    font-size: clamp(var(--step-2), 4vw, var(--step-3));
+    letter-spacing: -0.015em;
+  }
+  .head .eyebrow {
+    display: flex;
+    align-items: baseline;
+    gap: 0.6rem;
+  }
+  /* A proof numeral: the three proofs are genuinely independent, so they count. */
+  .numeral {
+    font-family: var(--mono);
+    font-weight: 600;
+    font-size: var(--step--2);
+    letter-spacing: 0.1em;
+    border: var(--edge-thin);
+    padding: 0.05rem 0.4rem;
+  }
+
+  section {
+    display: flex;
+    flex-direction: column;
+    gap: 1.6rem;
+  }
+
+  /* ── instruments: hard-ruled boxes that break the measure ───────────────── */
+  .panel {
+    border: var(--edge);
+    background: var(--paper);
+    display: flex;
+    flex-direction: column;
+  }
+  .panel > .panel-head {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem 1rem;
+    align-items: baseline;
+    justify-content: space-between;
+    padding: 0.6rem 1rem;
+    border-bottom: var(--edge);
+    background: var(--wash);
+  }
+  .panel-title {
+    font-family: var(--mono);
+    font-size: var(--step--1);
+    font-weight: 600;
+    letter-spacing: 0.04em;
+  }
+  .panel-note {
+    font-family: var(--mono);
+    font-size: var(--step--2);
+    color: var(--zinc);
+  }
+  .panel-body {
+    padding: 1rem;
+    overflow-x: auto;
+  }
+  .panel-foot {
+    padding: 0.7rem 1rem;
+    border-top: var(--hair);
+    font-size: var(--step--1);
+    color: var(--zinc);
+    line-height: 1.5;
+  }
+  .panel-foot b {
+    color: var(--ink);
+    font-weight: 600;
+  }
+
+  svg {
+    display: block;
+    width: 100%;
+    height: auto;
+    min-width: 34rem;
+  }
+
+  /* ── the mixing worked example ──────────────────────────────────────────── */
+  .mix {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
+    gap: 0;
+  }
+  .mix > div {
+    padding: 0.9rem 1rem;
+    border-right: var(--hair);
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+  .mix > div:last-child {
+    border-right: 0;
+  }
+  .mix .food {
+    font-family: var(--mono);
+    font-size: var(--step--2);
+    font-weight: 600;
+    line-height: 1.35;
+    min-height: 2.7em;
+  }
+  .mix dl {
+    margin: 0;
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 0.15rem 0.6rem;
+    font-family: var(--mono);
+    font-size: var(--step--2);
+    color: var(--zinc);
+  }
+  .mix dt {
+    white-space: nowrap;
+  }
+  .mix dd {
+    margin: 0;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    color: var(--ink);
+  }
+  .mix .out {
+    margin-top: auto;
+    padding-top: 0.5rem;
+    border-top: var(--edge-thin);
+    font-family: var(--mono);
+    font-size: var(--step--1);
+    font-weight: 600;
+    display: flex;
+    justify-content: space-between;
+    gap: 0.5rem;
+  }
+  .mix .out .got {
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* ── the rule, as code ──────────────────────────────────────────────────── */
+  .code {
+    border: var(--edge);
+    background: var(--wash);
+    font-family: var(--mono);
+    font-size: var(--step--1);
+    line-height: 1.75;
+    overflow-x: auto;
+  }
+  .code pre {
+    margin: 0;
+    padding: 1rem;
+  }
+  .code .kw {
+    font-weight: 600;
+  }
+  .code .cm {
+    color: var(--zinc-faint);
+    font-style: italic;
+  }
+  .code mark {
+    background: var(--acid);
+    color: var(--acid-ink);
+    padding: 0 0.15em;
+  }
+
+  /* ── tables ─────────────────────────────────────────────────────────────── */
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    font-family: var(--mono);
+    font-size: var(--step--1);
+    font-variant-numeric: tabular-nums;
+  }
+  caption {
+    text-align: left;
+    font-family: var(--mono);
+    font-size: var(--step--2);
+    color: var(--zinc);
+    padding-bottom: 0.6rem;
+  }
+  th,
+  td {
+    padding: 0.4rem 0.75rem 0.4rem 0;
+    text-align: right;
+    white-space: nowrap;
+  }
+  th:first-child,
+  td:first-child {
+    text-align: left;
+    padding-right: 1.25rem;
+    white-space: normal;
+  }
+  thead th {
+    font-weight: 600;
+    font-size: var(--step--2);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--zinc);
+    border-bottom: var(--edge-thin);
+  }
+  tbody tr + tr td {
+    border-top: var(--hair);
+  }
+  tbody tr.flagged td {
+    background: var(--flag-wash);
+    color: var(--ink);
+  }
+  tbody tr.flagged td:first-child {
+    font-weight: 600;
+  }
+  tfoot td {
+    border-top: var(--edge-thin);
+    font-weight: 600;
+    padding-top: 0.5rem;
+  }
+
+  /* ── the live instrument ────────────────────────────────────────────────── */
+  .reader {
+    display: grid;
+    grid-template-columns: minmax(16rem, 1fr) minmax(15rem, 20rem);
+    gap: 0;
+  }
+  @media (max-width: 46rem) {
+    .reader {
+      grid-template-columns: 1fr;
+    }
+  }
+  .reader .controls {
+    padding: 1rem;
+    border-right: var(--edge);
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+  @media (max-width: 46rem) {
+    .reader .controls {
+      border-right: 0;
+      border-bottom: var(--edge);
+    }
+  }
+  .presets {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+  }
+  .presets button {
+    font-family: var(--mono);
+    font-size: var(--step--2);
+    font-weight: 600;
+    padding: 0.4rem 0.6rem;
+    min-height: 2.25rem;
+    border: var(--edge-thin);
+    background: var(--paper);
+    color: var(--ink);
+    cursor: pointer;
+  }
+  .presets button:hover {
+    background: var(--wash);
+  }
+  .presets button[aria-pressed="true"] {
+    background: var(--ink);
+    color: var(--paper);
+  }
+
+  .slider {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+  }
+  .slider .row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 0.75rem;
+    font-family: var(--mono);
+    font-size: var(--step--2);
+  }
+  .slider .row span:first-child {
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--zinc);
+  }
+  .slider .row output {
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+  }
+  .slider input[type="range"] {
+    width: 100%;
+    margin: 0;
+    accent-color: var(--ink);
+    min-height: 1.75rem;
+  }
+
+  .verdict {
+    padding: 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.85rem;
+  }
+  .verdict .said {
+    font-family: var(--mono);
+    font-size: var(--step--2);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--zinc);
+  }
+  .verdict .cls {
+    background: var(--acid);
+    color: var(--acid-ink);
+    border: var(--edge);
+    padding: 0.5rem 0.75rem;
+    font-family: var(--mono);
+    font-weight: 600;
+    font-size: var(--step-1);
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 0.75rem;
+  }
+  .verdict .cls .fig {
+    font-size: var(--step-0);
+  }
+  .verdict dl {
+    margin: 0;
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 0.3rem 0.75rem;
+    font-family: var(--mono);
+    font-size: var(--step--2);
+  }
+  .verdict dt {
+    color: var(--zinc);
+  }
+  .verdict dd {
+    margin: 0;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    font-weight: 600;
+  }
+  .verdict .near {
+    font-family: var(--mono);
+    font-size: var(--step--2);
+    color: var(--zinc);
+    line-height: 1.4;
+    margin-top: -0.45rem;
+  }
+  .verdict .why {
+    font-family: var(--serif);
+    font-size: var(--step--1);
+    line-height: 1.5;
+    color: var(--zinc);
+    border-top: var(--hair);
+    padding-top: 0.7rem;
+  }
+  .verdict .why b {
+    color: var(--ink);
+    font-weight: 600;
+  }
+
+  /* ── the closing note on what a panel cannot see ────────────────────────── */
+  .blind {
+    border: var(--edge);
+    border-left: 8px solid var(--flag);
+    padding: 1.1rem 1.25rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.85rem;
+    max-width: 44rem;
+  }
+  .blind .eyebrow {
+    color: var(--flag);
+  }
+  .blind p {
+    font-size: var(--step--1);
+    line-height: 1.6;
+  }
+
+  /* The crux block: three readings of one bottle, side by side. */
+  .crux {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+    gap: 0;
+  }
+  .crux > div {
+    padding: 1rem;
+    border-right: var(--hair);
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+  }
+  .crux > div:last-child {
+    border-right: 0;
+  }
+  .crux .who {
+    font-family: var(--mono);
+    font-size: var(--step--2);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--zinc);
+  }
+  .crux .v {
+    font-family: var(--mono);
+    font-weight: 600;
+    font-size: var(--step-2);
+    font-variant-numeric: tabular-nums;
+    line-height: 1;
+  }
+  .crux .off {
+    font-family: var(--mono);
+    font-size: var(--step--2);
+    line-height: 1.4;
+  }
+  .crux .bad {
+    color: var(--flag);
+    font-weight: 600;
+  }
+  .crux .truth {
+    background: var(--wash);
+  }
+
+  .figs {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+    gap: 0;
+    border: var(--edge);
+  }
+  .figs > div {
+    padding: 0.9rem 1rem;
+    border-right: var(--hair);
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+  }
+  .figs > div:last-child {
+    border-right: 0;
+  }
+  .figs .n {
+    font-family: var(--mono);
+    font-weight: 600;
+    font-size: var(--step-2);
+    font-variant-numeric: tabular-nums;
+    line-height: 1;
+  }
+  .figs .l {
+    font-family: var(--mono);
+    font-size: var(--step--2);
+    color: var(--zinc);
+    line-height: 1.4;
+  }
+
+  .colophon {
+    border-top: var(--edge);
+    padding-top: 1.25rem;
+    font-family: var(--mono);
+    font-size: var(--step--2);
+    color: var(--zinc);
+    line-height: 1.7;
+    max-width: 44rem;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    * {
+      animation: none !important;
+      transition: none !important;
+    }
+  }
+</style>
+
+<div class="sheet">
+  <header class="masthead">
+    <div class="kicker">
+      <span class="eyebrow">Inventoria &middot; Density Class</span>
+      <span class="eyebrow">ADR-0108 &sect;2 &middot; ticket #505</span>
+    </div>
+    <h1>The Panel Knows the Weight</h1>
+    <p class="standfirst">
+      A bottle publishes its figures <b>per 100&nbsp;ml</b>. To show you grams,
+      the app needs grams per millilitre &mdash; and nothing on the label states
+      one. It does not guess from the product&rsquo;s name, and it does not ask
+      you. It reads three numbers off the nutrition panel. Here is why that
+      works, and how you can check it rather than take it.
+    </p>
+    <p class="answer">
+      A nutrition panel is a density measurement written in a different unit. It
+      says how many grams of fat, sugar and protein sit in 100&nbsp;g of food;
+      the remainder is water. Each of those has a known density. Add up the
+      volumes and the weight of a millilitre falls out &mdash; no name, no
+      language, no model.
+    </p>
+  </header>
+
+  <!-- ── the physical argument ───────────────────────────────────────────── -->
+  <section>
+    <div class="head">
+      <span class="eyebrow">The idea</span>
+      <h2>Density is a mixing problem, and the panel is the recipe</h2>
+    </div>
+
+    <div class="col">
+      <p>
+        Nothing in a bottle is exotic. Four things make up almost all of any
+        drinkable food, and each has a density that has been known for a
+        century:
+      </p>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head">
+        <span class="panel-title"
+          >Component densities, g/ml at room temperature</span
+        >
+        <span class="panel-note">the whole of the physics</span>
+      </div>
+      <div class="panel-body">
+        <table>
+          <thead>
+            <tr>
+              <th>Component</th>
+              <th>g/ml</th>
+              <th>What it does to the weight</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Fat</td>
+              <td>0.920</td>
+              <td>Lightens &mdash; floats on water</td>
+            </tr>
+            <tr>
+              <td>Water</td>
+              <td>0.998</td>
+              <td>The baseline</td>
+            </tr>
+            <tr>
+              <td>Protein</td>
+              <td>1.350</td>
+              <td>Heavies, but is never much of a drink</td>
+            </tr>
+            <tr>
+              <td>Sugar (sucrose)</td>
+              <td>1.590</td>
+              <td>Heavies hard &mdash; dissolves and packs in</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="panel-foot">
+        A panel gives grams of fat, carbohydrate and protein per 100&nbsp;g of
+        food. What is left over is water. Divide each component&rsquo;s grams by
+        its density to get its volume, add the volumes, and
+        <b>100&nbsp;g &divide; that volume is the food&rsquo;s density</b>. That
+        is it. No fitting, no training, no corpus.
+      </div>
+    </div>
+
+    <div class="col">
+      <p>
+        Worked through on four real records from the reference tables the app
+        already ships &mdash; <em>predicted</em> is that arithmetic,
+        <em>measured</em> is what the lab found:
+      </p>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head">
+        <span class="panel-title">Four foods, predicted against measured</span>
+        <span class="panel-note">USDA FoodData Central, per 100 g</span>
+      </div>
+      <div class="mix">
+        <div>
+          <span class="food">Oil, olive,<br />salad or cooking</span>
+          <dl>
+            <dt>Fat</dt>
+            <dd>100.0 g</dd>
+            <dt>Carbohydrate</dt>
+            <dd>0.0 g</dd>
+            <dt>Water (balance)</dt>
+            <dd>0.0 g</dd>
+            <dt>Volume</dt>
+            <dd>108.7 ml</dd>
+          </dl>
+          <div class="out">
+            <span>predicted</span><span class="got">0.9200</span>
+          </div>
+          <div class="out" style="border-top: 0; padding-top: 0">
+            <span>measured</span><span class="got">0.9130</span>
+          </div>
+        </div>
+        <div>
+          <span class="food">Beverages, water,<br />tap, drinking</span>
+          <dl>
+            <dt>Fat</dt>
+            <dd>0.0 g</dd>
+            <dt>Carbohydrate</dt>
+            <dd>0.0 g</dd>
+            <dt>Water (balance)</dt>
+            <dd>100.0 g</dd>
+            <dt>Volume</dt>
+            <dd>100.2 ml</dd>
+          </dl>
+          <div class="out">
+            <span>predicted</span><span class="got">0.9980</span>
+          </div>
+          <div class="out" style="border-top: 0; padding-top: 0">
+            <span>measured</span><span class="got">1.0009</span>
+          </div>
+        </div>
+        <div>
+          <span class="food">Orange juice</span>
+          <dl>
+            <dt>Fat</dt>
+            <dd>0.2 g</dd>
+            <dt>Carbohydrate</dt>
+            <dd>10.4 g</dd>
+            <dt>Water (balance)</dt>
+            <dd>88.7 g</dd>
+            <dt>Volume</dt>
+            <dd>96.2 ml</dd>
+          </dl>
+          <div class="out">
+            <span>predicted</span><span class="got">1.0400</span>
+          </div>
+          <div class="out" style="border-top: 0; padding-top: 0">
+            <span>measured</span><span class="got">1.0482</span>
+          </div>
+        </div>
+        <div>
+          <span class="food">Honey</span>
+          <dl>
+            <dt>Fat</dt>
+            <dd>0.0 g</dd>
+            <dt>Carbohydrate</dt>
+            <dd>82.4 g</dd>
+            <dt>Water (balance)</dt>
+            <dd>17.3 g</dd>
+            <dt>Volume</dt>
+            <dd>69.4 ml</dd>
+          </dl>
+          <div class="out">
+            <span>predicted</span><span class="got">1.4413</span>
+          </div>
+          <div class="out" style="border-top: 0; padding-top: 0">
+            <span>measured</span><span class="got">1.4265</span>
+          </div>
+        </div>
+      </div>
+      <div class="panel-foot">
+        Honey is heavy for one reason and it is on its own label:
+        <b>82.4&nbsp;g of sugar squeezed into 69&nbsp;ml of space.</b> Olive oil
+        is light for the mirror reason. Neither fact needs the word
+        &ldquo;honey&rdquo; or the word &ldquo;oil&rdquo;.
+      </div>
+    </div>
+  </section>
+
+  <!-- ── PROOF I ─────────────────────────────────────────────────────────── -->
+  <section>
+    <div class="head">
+      <span class="eyebrow"
+        ><span class="numeral">Proof I</span> Separation</span
+      >
+      <h2>The three kinds do not overlap &mdash; not even close</h2>
+    </div>
+
+    <div class="col">
+      <p>
+        The reference tables state a volume portion <em>and</em> its weight in
+        grams for <span class="num">124</span> of the foods the app ships.
+        Dividing one by the other gives a measured density for each: not a
+        model&rsquo;s opinion, a laboratory figure. Plotted on one axis, they
+        fall into three clumps with visible air between them.
+      </p>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head">
+        <span class="panel-title">124 measured densities, g/ml</span>
+        <span class="panel-note"
+          >one tick per food &middot; acid mark = the figure the app pins</span
+        >
+      </div>
+      <div class="panel-body">
+        <svg
+          id="bands"
+          role="img"
+          aria-label="Three non-overlapping bands of measured density: oils from 0.913 to 0.947, drinks from 0.981 to 1.048, syrups from 1.298 to 1.465."
+        ></svg>
+      </div>
+      <div class="panel-foot">
+        The widest oil is <b>0.9468</b>. The lightest drink is <b>0.9806</b>.
+        The heaviest drink is <b>1.0482</b> and the lightest syrup is
+        <b>1.2976</b>. There is no food in either gap. A class here is not a
+        bucket somebody drew &mdash; it is a cluster that was already there.
+      </div>
+    </div>
+  </section>
+
+  <!-- ── the rule ────────────────────────────────────────────────────────── -->
+  <section>
+    <div class="head">
+      <span class="eyebrow">The rule</span>
+      <h2>Nine lines, and the whole of what the app decides</h2>
+    </div>
+
+    <div class="col">
+      <p>
+        Because the clumps are separated, telling them apart needs no
+        cleverness. Three comparisons put a food in one of them, and the class
+        carries the pinned figure. This is the actual shipped code, from
+        <code>src/lib/food/density.ts</code>:
+      </p>
+    </div>
+
+    <div class="code">
+      <pre><span class="cm">// Gated by the caller on a volume basis: a per-100-g panel never reaches here.</span>
+<span class="kw">export function</span> densityClassFromPanel(panel): DensityClassId | <span class="kw">undefined</span> {
+  <span class="kw">const</span> kcal = panel.calories;
+  <span class="kw">if</span> (<span class="kw">typeof</span> kcal !== <span class="kw">"number"</span>) <span class="kw">return undefined</span>;
+  <span class="kw">const</span> fat  = panel.fat_content <span class="kw">??</span> 0;
+  <span class="kw">const</span> carb = panel.carbohydrate_content <span class="kw">??</span> 0;
+  <span class="kw">if</span> (<mark>fat &gt;= 80</mark>) <span class="kw">return</span> <span class="kw">"oil"</span>;                       <span class="cm">// 0.92 g/ml</span>
+  <span class="kw">if</span> (<mark>kcal &gt;= 250 &amp;&amp; fat &lt; 5 &amp;&amp; carb &gt;= 55</mark>) <span class="kw">return</span> <span class="kw">"syrup"</span>; <span class="cm">// 1.39 g/ml</span>
+  <span class="kw">return</span> <span class="kw">"liquid"</span>;                                  <span class="cm">// 1.00 g/ml</span>
+}</pre>
+    </div>
+
+    <div class="col">
+      <p>
+        Note what is <em>not</em> in there. No <code>description</code>. No
+        <code>product_name</code>. The whole file contains zero references to
+        either, which is why a Bulgarian olive oil and a Portuguese one classify
+        identically: <span class="num">91.6</span>&nbsp;g of fat is
+        <span class="num">91.6</span>&nbsp;g of fat in every language.
+      </p>
+    </div>
+  </section>
+
+  <!-- ── PROOF II ────────────────────────────────────────────────────────── -->
+  <section>
+    <div class="head">
+      <span class="eyebrow"><span class="numeral">Proof II</span> Margin</span>
+      <h2>Each threshold sits in an empty corridor, not on a boundary</h2>
+    </div>
+
+    <div class="col">
+      <p>
+        This is the part worth dwelling on, because it is what makes the rule
+        <em>robust</em> rather than merely correct today. A fitted classifier
+        puts its boundary where the classes meet. These three lines are nowhere
+        near anything. Each sits in a wide band of values that
+        <strong>no food in the corpus occupies at all</strong>.
+      </p>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head">
+        <span class="panel-title"
+          >Where each line sits, against where the foods are</span
+        >
+        <span class="panel-note"
+          >solid = occupied &middot; open = nothing here &middot; acid = the
+          shipped threshold</span
+        >
+      </div>
+      <div class="panel-body">
+        <svg
+          id="corridors"
+          role="img"
+          aria-label="Three corridor charts. Fat: non-oils reach 7 percent, oils start at 99, threshold 80. Carbohydrate among low-fat foods: non-syrups reach 14.4, syrups start at 66.9, threshold 55. Energy among low-fat foods: non-syrups reach 160 kcal, syrups start at 260, threshold 250."
+        ></svg>
+      </div>
+      <div class="panel-foot">
+        The fat line could be drawn <b>anywhere from 8 to 98</b> and not one
+        food would change class. That is a margin of 92 percentage points on a
+        scale of 100.
+      </div>
+    </div>
+
+    <div class="col">
+      <p>
+        Which is testable directly: move the thresholds, or delete them, and
+        count how many of the 124 measured foods end up assigned a figure
+        further from their own measurement than a different class&rsquo;s figure
+        would have been.
+      </p>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head">
+        <span class="panel-title"
+          >Six variants of the rule, scored on the same 124 foods</span
+        >
+        <span class="panel-note"
+          >wrong = a nearer figure existed and was not chosen</span
+        >
+      </div>
+      <div class="panel-body">
+        <table>
+          <caption>
+            Run from
+            <code>scratch/505/</code>
+            against the shipped corpus, schema 10.
+          </caption>
+          <thead>
+            <tr>
+              <th>Variant</th>
+              <th>Wrong of 124</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>
+                As shipped &mdash; <code>fat&nbsp;&ge;&nbsp;80</code>,
+                <code
+                  >kcal&nbsp;&ge;&nbsp;250 &amp;&amp; fat&nbsp;&lt;&nbsp;5
+                  &amp;&amp; carb&nbsp;&ge;&nbsp;55</code
+                >
+              </td>
+              <td>0</td>
+            </tr>
+            <tr>
+              <td>
+                Drop the <code>kcal&nbsp;&ge;&nbsp;250</code> clause entirely
+              </td>
+              <td>0</td>
+            </tr>
+            <tr>
+              <td>
+                Drop the <code>fat&nbsp;&lt;&nbsp;5</code> clause entirely
+              </td>
+              <td>0</td>
+            </tr>
+            <tr>
+              <td>
+                Drop the <code>carb&nbsp;&ge;&nbsp;55</code> clause entirely
+              </td>
+              <td>0</td>
+            </tr>
+            <tr>
+              <td>Move the oil line from 80 down to 50</td>
+              <td>0</td>
+            </tr>
+            <tr>
+              <td>Move the syrup carbohydrate line from 55 down to 40</td>
+              <td>0</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="panel-foot">
+        Every variant scores zero, and that is the finding &mdash;
+        <b>the thresholds are not load-bearing, the separation is.</b> The extra
+        clauses are not tuning; they are there so a food the corpus does not
+        contain (a cream liqueur, a nut butter thinned into a sauce) cannot walk
+        into the syrup branch on one number alone.
+      </div>
+    </div>
+  </section>
+
+  <!-- ── PROOF III ───────────────────────────────────────────────────────── -->
+  <section>
+    <div class="head">
+      <span class="eyebrow"
+        ><span class="numeral">Proof III</span> Physics</span
+      >
+      <h2>The composition predicts the measurement to two decimal places</h2>
+    </div>
+
+    <div class="col">
+      <p>
+        Separation says the classes are real. This says the panel is genuinely
+        <em>reading</em> the density rather than correlating with it. Take the
+        mixing arithmetic from the top of this page, run it on all 124 foods
+        using only their panels, and compare against the laboratory figure.
+      </p>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head">
+        <span class="panel-title"
+          >Predicted from the panel, against measured in a lab</span
+        >
+        <span class="panel-note"
+          >124 foods &middot; the diagonal is a perfect prediction</span
+        >
+      </div>
+      <div class="panel-body">
+        <svg
+          id="physics"
+          role="img"
+          aria-label="Scatter of density predicted from composition against measured density, clustering tightly along the diagonal with a root-mean-square error of 0.0178 grams per millilitre."
+        ></svg>
+      </div>
+      <div class="panel-foot">
+        Root-mean-square error <b>0.0178&nbsp;g/ml</b> across the lot, from
+        nothing but the panel. And the predicted medians land on the pinned
+        figures almost exactly: <b>0.9200</b> against a pinned 0.92,
+        <b>1.0082</b> against 1.00, <b>1.3893</b>
+        against 1.39. The app did not choose those three numbers to fit the data
+        &mdash; mixing physics chose them, and the corpus agreed.
+      </div>
+    </div>
+  </section>
+
+  <!-- ── the instrument ──────────────────────────────────────────────────── -->
+  <section>
+    <div class="head">
+      <span class="eyebrow">Try it</span>
+      <h2>Feed it a panel and watch the rule fire</h2>
+    </div>
+
+    <div class="col">
+      <p>
+        Three numbers in, one class out. Move a slider and you can find the
+        corridors yourself &mdash; notice how far you have to push before
+        anything changes.
+      </p>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head">
+        <span class="panel-title">Panel reader</span>
+        <span class="panel-note">opens on olive oil</span>
+      </div>
+      <div class="reader">
+        <div class="controls">
+          <div
+            class="presets"
+            id="presets"
+            role="group"
+            aria-label="Load a real panel"
+          ></div>
+          <div class="slider">
+            <label class="row" for="s-fat"
+              ><span>Fat, g per 100</span
+              ><output id="o-fat">100.0</output></label
+            >
+            <input
+              type="range"
+              id="s-fat"
+              min="0"
+              max="100"
+              step="0.1"
+              value="100"
+            />
+          </div>
+          <div class="slider">
+            <label class="row" for="s-carb"
+              ><span>Carbohydrate, g per 100</span
+              ><output id="o-carb">0.0</output></label
+            >
+            <input
+              type="range"
+              id="s-carb"
+              min="0"
+              max="100"
+              step="0.1"
+              value="0"
+            />
+          </div>
+          <div class="slider">
+            <label class="row" for="s-kcal"
+              ><span>Energy, kcal per 100</span
+              ><output id="o-kcal">884</output></label
+            >
+            <input
+              type="range"
+              id="s-kcal"
+              min="0"
+              max="900"
+              step="1"
+              value="884"
+            />
+          </div>
+          <div class="slider">
+            <label class="row" for="s-prot"
+              ><span>Protein, g per 100</span
+              ><output id="o-prot">0.0</output></label
+            >
+            <input
+              type="range"
+              id="s-prot"
+              min="0"
+              max="30"
+              step="0.1"
+              value="0"
+            />
+          </div>
+        </div>
+        <div class="verdict">
+          <span class="said">The rule returns</span>
+          <div class="cls">
+            <span id="v-class">oil</span
+            ><span class="fig" id="v-fig">0.92 g/ml</span>
+          </div>
+          <dl>
+            <dt>Mixing physics says</dt>
+            <dd id="v-pred">0.9200</dd>
+            <dt>Nearest real measurement</dt>
+            <dd id="v-near">0.9130</dd>
+            <dt>250 ml would weigh</dt>
+            <dd id="v-250">230 g</dd>
+          </dl>
+          <p class="near" id="v-near-name">Oil, palm</p>
+          <p class="why" id="v-why"></p>
+        </div>
+      </div>
+      <div class="panel-foot">
+        The <b>250 ml</b> line is the only one a user ever sees. Everything
+        above it is the app&rsquo;s working, and the app shows it on the basis
+        caption as <code>Per 100 ml (&asymp;92 g)</code> &mdash; where the
+        <code>&asymp;</code> is now a button, because a reading the app made
+        unasked is one you must be able to overrule.
+      </div>
+    </div>
+  </section>
+
+  <!-- ── honest limits ───────────────────────────────────────────────────── -->
+  <section>
+    <div class="head">
+      <span class="eyebrow">The cost of being wrong</span>
+      <h2>
+        What it costs when the figure is off, in the only unit that matters
+      </h2>
+    </div>
+
+    <div class="col">
+      <p>
+        A class figure is an average, so it is wrong about every individual food
+        by a little. The question is never &ldquo;is it exact&rdquo; &mdash; it
+        is &ldquo;how many kilocalories does the error buy or lose on something
+        a person would actually pour?&rdquo; Priced at each food&rsquo;s own
+        energy density:
+      </p>
+    </div>
+
+    <div class="figs">
+      <div>
+        <span class="n">3.5</span
+        ><span class="l"
+          >kcal on a tbsp<br />worst oil &mdash; corn and canola, 0.9468</span
+        >
+      </div>
+      <div>
+        <span class="n">3.8</span
+        ><span class="l"
+          >kcal on a tbsp<br />worst syrup &mdash; high-fructose corn,
+          1.2976</span
+        >
+      </div>
+      <div>
+        <span class="n">4.6</span
+        ><span class="l"
+          >kcal on a 100 ml glass<br />worst drink &mdash; late-harvest white,
+          1.0415</span
+        >
+      </div>
+      <div>
+        <span class="n">10</span
+        ><span class="l"
+          >kcal &mdash; the bar below which<br />the app may not ask a
+          question</span
+        >
+      </div>
+    </div>
+
+    <div class="col">
+      <p>
+        Every one clears the bar, and the bar itself is the interesting
+        decision: ten kilocalories is beneath the width of the answers this app
+        already gives you. Your panel is rounded to whole kilocalories. Your
+        pour was an estimate. A question that buys less than that buys nothing
+        you can perceive &mdash; so it is not asked.
+      </p>
+      <p>
+        One caveat stated plainly rather than buried: on a full
+        <span class="num">250</span>&nbsp;ml of that late-harvest dessert wine
+        the error reaches <span class="num">11.6</span>&nbsp;kcal, over the bar.
+        Nobody drinks a <span class="num">250</span>&nbsp;ml glass of dessert
+        wine, which is why the figure above is priced on
+        <span class="num">100</span>&nbsp;ml &mdash; but the larger number
+        exists and this is where it is written down.
+      </p>
+    </div>
+
+    <div class="col">
+      <p>
+        There is also one food where the rule and the name disagree, and it is
+        the best single argument in favour of reading numbers:
+      </p>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head">
+        <span class="panel-title">Where the name and the panel disagree</span>
+        <span class="panel-note"
+          >3 foods of 139 selected by name; the panel wins all three</span
+        >
+      </div>
+      <div class="panel-body">
+        <table>
+          <thead>
+            <tr>
+              <th>Food</th>
+              <th>Name says</th>
+              <th>Panel says</th>
+              <th>Measured</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr class="flagged">
+              <td>Syrups, sugar free</td>
+              <td>syrup &middot; 1.39</td>
+              <td>drink &middot; 1.00</td>
+              <td>1.0144</td>
+            </tr>
+            <tr>
+              <td>Nuts, almonds, honey roasted</td>
+              <td>syrup &middot; 1.39</td>
+              <td>drink &middot; 1.00</td>
+              <td>not a liquid</td>
+            </tr>
+            <tr>
+              <td>Dressing, honey mustard, fat-free</td>
+              <td>syrup &middot; 1.39</td>
+              <td>drink &middot; 1.00</td>
+              <td>not a liquid</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="panel-foot">
+        Sugar-free syrup is <b>51 kcal per 100 g</b> and really does weigh
+        <b>1.0144</b> &mdash; the panel is right and the word on the jar is a
+        marketing term. A model reading the label would have to know that; the
+        rule cannot help knowing it. The name-matching regexes in this repo
+        exist only to select which reference foods a pinned figure was
+        <em>averaged over</em>, at build time. They never run against a product
+        you scan.
+      </div>
+    </div>
+
+    <div class="blind">
+      <span class="eyebrow">And here is the real hole</span>
+      <p>
+        Two things a panel physically cannot report, because neither is a
+        nutrient.
+        <strong>Air</strong>: an ice cream&rsquo;s panel is a custard&rsquo;s,
+        so nothing in it says the tub is half whipped air near 0.65&nbsp;g/ml.
+        <strong>Dilution</strong>: a squash&rsquo;s panel is a juice&rsquo;s
+        &mdash; both are sugar-water &mdash; and nothing in it says you are
+        going to add four parts water. A cordial nearer 1.20 read as a drink at
+        1.00 is about <strong>90&nbsp;kcal out on a 300&nbsp;ml pour</strong>,
+        nine times the bar.
+      </p>
+      <p>
+        For those the app refuses to answer and asks you instead, gated on the
+        source&rsquo;s own category tags. Which is where it is genuinely weak:
+        <strong>48,922 of the 201,821 millilitre products</strong> in Open Food
+        Facts &mdash; 24.2% &mdash; carry no usable category tags at all, and
+        they are ordinary things: Orangina, Red Bull, Bi&egrave;re 33cl, Martini
+        Rosato. An untagged cordial in that share gets read from its panel and
+        weighed wrong. Nothing in a panel can close that gap, and this is the
+        one place in the whole feature where reading the words on the label
+        &mdash; in whatever language they are printed &mdash; would earn its
+        keep.
+      </p>
+    </div>
+  </section>
+
+  <!-- ── the obvious next question ───────────────────────────────────────── -->
+  <section>
+    <div class="head">
+      <span class="eyebrow">The obvious next question</span>
+      <h2>Then why keep the table? Why not just compute it?</h2>
+    </div>
+
+    <div class="col">
+      <p>
+        If the mixing arithmetic predicts a density to
+        <span class="num">0.0178</span>&nbsp;g/ml from the panel, the three
+        pinned figures look redundant. Compute a density for every bottle from
+        its own label and throw the table away. It is the right question to ask,
+        and it was worth measuring rather than arguing &mdash; so both were
+        scored against the same 124 laboratory figures.
+      </p>
+      <p>
+        <strong>The answer flips depending on which unit you score in.</strong>
+      </p>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head">
+        <span class="panel-title"
+          >The class table against per-food mixing physics</span
+        >
+        <span class="panel-note"
+          >same 124 foods &middot; kcal priced at each food&rsquo;s own
+          energy</span
+        >
+      </div>
+      <div class="panel-body">
+        <table>
+          <thead>
+            <tr>
+              <th>Approach</th>
+              <th>RMS g/ml</th>
+              <th>Mean error</th>
+              <th>Worst case</th>
+              <th>Closest on</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Class table &mdash; three pinned figures</td>
+              <td>0.0211</td>
+              <td>1.44 kcal</td>
+              <td>11.6 kcal</td>
+              <td>96 of 124</td>
+            </tr>
+            <tr>
+              <td>Mixing physics &mdash; computed per food</td>
+              <td>0.0178</td>
+              <td>1.53 kcal</td>
+              <td>21.9 kcal</td>
+              <td>28 of 124</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="panel-foot">
+        The physics wins on <b>g/ml</b> and loses on <b>kilocalories</b>, which
+        is the unit every decision in this app is priced in. It is also closer
+        on only <b>23% of foods</b>. The reason is that a pinned figure is the
+        <em>median of real measurements</em>, so it quietly absorbs everything
+        the model gets wrong; the physics is an honest description of an
+        idealised liquid, and the median is an empirical fit to actual ones.
+      </div>
+    </div>
+
+    <div class="col">
+      <p>
+        One food carries most of that difference, and it is the whole argument
+        in a single bottle:
+      </p>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head">
+        <span class="panel-title"
+          >Alcoholic beverage, wine, dessert, sweet</span
+        >
+        <span class="panel-note">the case that decides it</span>
+      </div>
+      <div class="crux">
+        <div class="truth">
+          <span class="who">Measured in a lab</span>
+          <span class="v">0.9975</span>
+          <span class="off">What the bottle actually weighs.</span>
+        </div>
+        <div>
+          <span class="who">Class table says</span>
+          <span class="v">1.00</span>
+          <span class="off">Out by <b>1.0 kcal</b> on a glass.</span>
+        </div>
+        <div>
+          <span class="who">Mixing physics says</span>
+          <span class="v bad">1.0522</span>
+          <span class="off bad">Out by 21.9 kcal &mdash; twice the bar.</span>
+        </div>
+      </div>
+      <div class="panel-foot">
+        <b>Ethanol is 0.789 g/ml, and it is not a macronutrient.</b> It appears
+        nowhere on a nutrition panel. The model computes water as
+        <code>100 &minus; fat &minus; carb &minus; protein</code>, so it counts
+        the alcohol&rsquo;s mass as water, reads a dessert wine as sugar-water
+        and predicts it heavy. Every wine, beer and spirit breaks the same way
+        &mdash; and those are precisely the things people pour 250&nbsp;ml of.
+        The table never had to know alcohol exists, because its figures were
+        measured on real bottles with the alcohol already in them.
+      </div>
+    </div>
+
+    <div class="col">
+      <p>
+        Then there is the data the app is actually fed. Open Food Facts panels
+        are entered by people, and fields go missing. Deleting one field from
+        all 124 foods:
+      </p>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head">
+        <span class="panel-title"
+          >What a missing field does to each approach</span
+        >
+        <span class="panel-note"
+          >mean error over the 124, after the field is removed</span
+        >
+      </div>
+      <div class="panel-body">
+        <table>
+          <thead>
+            <tr>
+              <th>Field removed</th>
+              <th>Foods that change class</th>
+              <th>Table</th>
+              <th>Physics</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Protein</td>
+              <td>0</td>
+              <td>1.44 kcal</td>
+              <td>1.64 kcal</td>
+            </tr>
+            <tr class="flagged">
+              <td>Carbohydrate</td>
+              <td>9</td>
+              <td>21.6 kcal</td>
+              <td>21.5 kcal</td>
+            </tr>
+            <tr class="flagged">
+              <td>Fat</td>
+              <td>41</td>
+              <td>59.5 kcal</td>
+              <td>58.1 kcal</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="panel-foot">
+        The rule reads fat, carbohydrate and energy, so
+        <b
+          >a missing protein field is invisible to it &mdash; zero foods change
+          class</b
+        >, while the physics degrades, because protein is a term in its sum.
+        Stated honestly, the two shaded rows are a draw: strip carbohydrate or
+        fat and <b>both approaches collapse</b>. What differs is the shape of
+        the failure. A wrong class is discrete, visible and one tap from being
+        corrected; a wrong computed figure is a plausible number nobody can
+        spot.
+      </div>
+    </div>
+
+    <div class="col">
+      <p>
+        And it would take the correction away. Three cells work because they
+        name things you can recognise while holding the bottle &mdash;
+        <em>a drink</em>, <em>an oil</em>, <em>a syrup</em>. If the app had
+        computed <span class="num">1.0522</span> for that wine, disagreeing with
+        it would mean typing the right grams per millilitre, which is exactly
+        the trade ADR-0108 &sect;12 refuses: being asked to validate a figure
+        you have no way to check.
+      </p>
+      <p>
+        There is nothing to gate, either. The three figures are re-derived from
+        the shipped corpus on every build, and the build stops if one moves. A
+        formula has no corpus to check against &mdash; it would be four
+        constants and an ideal-mixing assumption, trusted on faith.
+      </p>
+      <p>
+        A middle option was tested too, and also refused: use the gap between
+        the physics and the class figure as a signal to <em>ask</em>. It
+        correlates with the table&rsquo;s real error at
+        <span class="num">r&nbsp;=&nbsp;0.62</span>, and flagging the worst 10%
+        catches 31% of the total error against 10% for asking at random. Three
+        times better than chance &mdash; but four of the six foods it flags
+        hardest are ones the table gets right to within 1.8&nbsp;kcal, and the
+        total error it is chasing averages 1.44&nbsp;kcal a food. Thirteen
+        questions to recover a fraction of something already under the bar is
+        the exact trade #505 removed.
+      </p>
+    </div>
+
+    <div class="blind">
+      <span class="eyebrow">So what is the physics for</span>
+      <p>
+        It is the <strong>explanation, not the implementation</strong>. It is
+        why 0.92, 1.00 and 1.39 are the right three numbers rather than three
+        arbitrary ones, and it is what showed that the classes are real corners
+        of a composition space rather than buckets somebody drew. The syrup
+        residual is the clearest case: 0.0453&nbsp;g/ml, the worst of the three,
+        because concentrated sugar solutions genuinely contract when mixed.
+        Ideal mixing over-predicts them, and the measured median absorbs what
+        the model cannot express.
+      </p>
+      <p>
+        One gap remains open and it is the same one the tag census exposes:
+        <strong>all 124 of these foods are USDA reference records.</strong>
+        Neither approach has yet been scored against real Open Food Facts panels
+        at scale, which is the measurement worth taking before anything here is
+        revisited.
+      </p>
+    </div>
+  </section>
+
+  <!-- ── the gate ────────────────────────────────────────────────────────── -->
+  <section>
+    <div class="head">
+      <span class="eyebrow"
+        >Why &ldquo;provably&rdquo; and not &ldquo;probably&rdquo;</span
+      >
+      <h2>The figures are re-measured on every build, or the build fails</h2>
+    </div>
+
+    <div class="col">
+      <p>
+        Three numbers &mdash; 0.92, 1.00, 1.39 &mdash; are written down in
+        <code>density-class.ts</code>, together with the pattern that selected
+        the foods each was averaged over and the statistics that admitted it:
+        how many foods, how wide the spread, the coefficient of variation.
+        Nothing computes them at runtime, on purpose, because a figure computed
+        from a corpus that gets regenerated would drift between releases with
+        nobody deciding it should.
+      </p>
+      <p>
+        Instead <code>scripts/density-class-check.mjs</code> re-selects those
+        foods out of the shipped corpus on every <code>pnpm check</code> and
+        re-derives every figure. If the corpus changes and a median moves,
+        <strong>the build stops</strong>. The 124 measurements on this page are
+        the same ones that gate runs on, and you can run it yourself:
+      </p>
+    </div>
+
+    <div class="code">
+      <pre>
+$ pnpm check:density
+  ok  3 Density Class figures still measure what they were pinned at (238 portions),
+      and the 1 refused classes still fail the bar</pre
+      >
+    </div>
+
+    <div class="col">
+      <p>
+        That last clause matters too. A fourth class &mdash;
+        <em>spirits</em> &mdash; was measured, failed on spread, and was
+        refused; the gate keeps checking that it still fails, because a refusal
+        that quietly became wrong is as much a silence as a figure that quietly
+        moved.
+      </p>
+    </div>
+
+    <p class="colophon">
+      Figures on this page were measured against the shipped search index,
+      schema 10, 2,023 reference foods &mdash; 124 of them stating both a volume
+      portion and its weight. Component densities are standard room-temperature
+      values; the mixing model assumes ideal mixing, which is why syrups carry
+      the largest residual (0.0453 g/ml RMS): concentrated sugar solutions
+      genuinely do not mix ideally. Sources: USDA FoodData Central (Foundation
+      and SR Legacy) for every measurement, Open Food Facts for the
+      4,747,804-product tag census. Decisions and their reasoning live in
+      ADR-0108 and its 2026-09-30 amendment; the code is
+      <code>src/lib/food/density.ts</code> and
+      <code>src/lib/food/density-class.ts</code>.
+    </p>
+  </section>
+</div>
+
+<script>
+  "use strict";
+
+  // The 124 reference foods that state BOTH a volume portion and its weight in
+  // grams, so each carries a measured density. Rows are
+  // [description, fat, carbohydrate, protein, kcal, measured g/ml], all per 100 g,
+  // dumped straight out of the shipped search index (schema 10, 2,023 foods).
+  const FOODS = [
+    ["Oil, palm", 100, 0, 0, 884, 0.913],
+    ["Oil, olive, salad or cooking", 100, 0, 0, 884, 0.913],
+    [
+      "Oil, soybean, salad or cooking, (partially hydrogenated)",
+      100,
+      0,
+      0,
+      884,
+      0.9197,
+    ],
+    ["Oil, rice bran", 100, 0, 0, 884, 0.9197],
+    ["Oil, wheat germ", 100, 0, 0, 884, 0.9197],
+    ["Oil, sesame, salad or cooking", 100, 0, 0, 884, 0.9197],
+    ["Oil, sunflower, linoleic (less than 60%)", 100, 0, 0, 884, 0.9197],
+    ["Oil, cottonseed, salad or cooking", 100, 0, 0, 884, 0.9197],
+    ["Oil, sunflower, linoleic, (approx. 65%)", 100, 0, 0, 884, 0.9197],
+    [
+      "Oil, safflower, salad or cooking, linoleic, (over 70%)",
+      100,
+      0,
+      0,
+      884,
+      0.9197,
+    ],
+    ["Oil, grapeseed", 100, 0, 0, 884, 0.9197],
+    ["Oil, walnut", 100, 0, 0, 884, 0.9197],
+    ["Oil, almond", 100, 0, 0, 884, 0.9197],
+    ["Oil, apricot kernel", 100, 0, 0, 884, 0.9197],
+    ["Oil, cocoa butter", 100, 0, 0, 884, 0.9197],
+    ["Oil, poppyseed", 100, 0, 0, 884, 0.9197],
+    ["Oil, tomatoseed", 100, 0, 0, 884, 0.9197],
+    ["Oil, teaseed", 100, 0, 0, 884, 0.9197],
+    ["Oil, hazelnut", 100, 0, 0, 884, 0.9197],
+    ["Oil, babassu", 100, 0, 0, 884, 0.9197],
+    ["Oil, sheanut", 100, 0, 0, 884, 0.9197],
+    [
+      "Oil, sunflower, linoleic, (partially hydrogenated)",
+      100,
+      0,
+      0,
+      884,
+      0.9197,
+    ],
+    ["Oil, nutmeg butter", 100, 0, 0, 884, 0.9197],
+    ["Fish oil, herring", 100, 0, 0, 902, 0.9197],
+    ["Fish oil, menhaden", 100, 0, 0, 902, 0.9197],
+    ["Fish oil, salmon", 100, 0, 0, 902, 0.9197],
+    ["Oil, vegetable, soybean, refined", 100, 0, 0, 884, 0.9197],
+    ["Oil, cupu assu", 100, 0, 0, 884, 0.9197],
+    [
+      "Oil, soybean, salad or cooking, (partially hydrogenated) and cottonseed",
+      100,
+      0,
+      0,
+      884,
+      0.9197,
+    ],
+    ["Oil, ucuhuba butter", 100, 0, 0, 884, 0.9197],
+    ["Oil, oat", 100, 0, 0, 884, 0.9197],
+    ["Fish oil, cod liver", 100, 0, 0, 902, 0.9197],
+    ["Fish oil, sardine", 100, 0, 0, 902, 0.9197],
+    ["Oil, flaxseed, cold pressed", 100, 0, 0.11, 884, 0.9206],
+    ["Vegetable oil, palm kernel", 100, 0, 0, 862, 0.9206],
+    ["Oil, mustard", 100, 0, 0, 884, 0.9214],
+    ["Oil, sunflower, high oleic (70% and over)", 100, 0, 0, 884, 0.9214],
+    ["Oil, avocado", 100, 0, 0, 884, 0.9214],
+    [
+      "Oil, flaxseed, contains added sliced flaxseed",
+      99,
+      0.39,
+      0.37,
+      878,
+      0.9261,
+    ],
+    ["Oil, corn, peanut, and olive", 100, 0, 0, 884, 0.9299],
+    ["Oil, corn and canola", 100, 0, 0, 884, 0.9468],
+    ["Beverages, Wine, non-alcoholic", 0, 1.1, 0.5, 6, 0.9806],
+    ["Alcoholic beverage, wine, cooking", 0, 6.3, 0.5, 50, 0.9874],
+    [
+      "Alcoholic beverage, wine, table, white, Fume Blanc",
+      0,
+      2.27,
+      0.07,
+      82,
+      0.9907,
+    ],
+    [
+      "Alcoholic beverage, wine, table, white, Sauvignon Blanc",
+      0,
+      2.05,
+      0.07,
+      81,
+      0.9907,
+    ],
+    [
+      "Alcoholic beverage, wine, table, white, Chardonnay",
+      0,
+      2.16,
+      0.07,
+      84,
+      0.9907,
+    ],
+    [
+      "Alcoholic beverage, wine, table, white, Pinot Gris (Grigio)",
+      0,
+      2.06,
+      0.07,
+      83,
+      0.9907,
+    ],
+    [
+      "Alcoholic beverage, wine, table, white, Pinot Blanc",
+      0,
+      1.94,
+      0.07,
+      81,
+      0.9907,
+    ],
+    ["Alcoholic Beverage, wine, table, red, Gamay", 0, 2.38, 0.07, 78, 0.9941],
+    ["Alcoholic Beverage, wine, table, red, Merlot", 0, 2.51, 0.07, 83, 0.9941],
+    ["Alcoholic beverage, wine, table, red", 0, 2.61, 0.07, 85, 0.9941],
+    [
+      "Alcoholic Beverage, wine, table, red, Barbera",
+      0,
+      2.79,
+      0.07,
+      85,
+      0.9941,
+    ],
+    [
+      "Alcoholic Beverage, wine, table, red, Zinfandel",
+      0,
+      2.86,
+      0.07,
+      88,
+      0.9941,
+    ],
+    ["Alcoholic Beverage, wine, table, red, Claret", 0, 3.01, 0.07, 83, 0.9941],
+    [
+      "Alcoholic Beverage, wine, table, red, Mouvedre",
+      0,
+      2.64,
+      0.07,
+      88,
+      0.9941,
+    ],
+    [
+      "Alcoholic Beverage, wine, table, red, Cabernet Sauvignon",
+      0,
+      2.6,
+      0.07,
+      83,
+      0.9941,
+    ],
+    [
+      "Alcoholic Beverage, wine, table, red, Cabernet Franc",
+      0,
+      2.45,
+      0.07,
+      83,
+      0.9941,
+    ],
+    [
+      "Alcoholic Beverage, wine, table, red, Pinot Noir",
+      0,
+      2.31,
+      0.07,
+      82,
+      0.9941,
+    ],
+    ["Alcoholic Beverage, wine, table, red, Syrah", 0, 2.58, 0.07, 83, 0.9941],
+    ["Alcoholic beverage, wine, table, white", 0, 2.6, 0.07, 82, 0.9941],
+    [
+      "Alcoholic Beverage, wine, table, red, Lemberger",
+      0,
+      2.46,
+      0.07,
+      80,
+      0.9941,
+    ],
+    [
+      "Alcoholic Beverage, wine, table, red, Sangiovese",
+      0,
+      2.62,
+      0.07,
+      86,
+      0.9941,
+    ],
+    [
+      "Alcoholic Beverage, wine, table, red, Carignane",
+      0,
+      2.4,
+      0.07,
+      74,
+      0.9941,
+    ],
+    ["Alcoholic beverage, beer, light", 0, 1.64, 0.24, 29, 0.9975],
+    ["Alcoholic beverage, wine, light", 0, 1.17, 0.07, 49, 0.9975],
+    ["Alcoholic beverage, beer, light, low carb", 0, 0.73, 0.17, 27, 0.9975],
+    ["Alcoholic beverage, wine, dessert, sweet", 0, 13.7, 0.2, 160, 0.9975],
+    ["Alcoholic beverage, wine, table, all", 0, 2.72, 0.07, 83, 0.9975],
+    [
+      "Alcoholic Beverage, wine, table, red, Petite Sirah",
+      0,
+      2.68,
+      0.07,
+      85,
+      0.9975,
+    ],
+    [
+      "Alcoholic beverage, wine, table, white, Chenin Blanc",
+      0,
+      3.31,
+      0.07,
+      80,
+      0.9975,
+    ],
+    [
+      "Alcoholic beverage, wine, table, white, Muller Thurgau",
+      0,
+      3.48,
+      0.07,
+      76,
+      0.9975,
+    ],
+    [
+      "Alcoholic Beverage, wine, table, red, Burgundy",
+      0,
+      3.69,
+      0.07,
+      86,
+      0.9975,
+    ],
+    [
+      "Alcoholic beverage, wine, table, white, Gewurztraminer",
+      0,
+      2.6,
+      0.07,
+      81,
+      0.9975,
+    ],
+    [
+      "Alcoholic beverage, wine, table, white, Semillon",
+      0,
+      3.12,
+      0.07,
+      82,
+      0.9975,
+    ],
+    ["Alcoholic beverage, wine, dessert, dry", 0, 11.7, 0.2, 152, 0.9975],
+    ["Beverages, water, tap, drinking", 0, 0, 0, 0, 1.0009],
+    ["Beverages, water, tap, well", 0, 0, 0, 0, 1.0009],
+    ["Beverages, water, tap, municipal", 0, 0, 0, 0, 1.0009],
+    [
+      "Alcoholic beverage, wine, table, white, Riesling",
+      0,
+      3.74,
+      0.07,
+      80,
+      1.0009,
+    ],
+    [
+      "Malt beverage, includes non-alcoholic beer",
+      0.12,
+      8.05,
+      0.21,
+      37,
+      1.0013,
+    ],
+    ["Beverages, tea, hibiscus, brewed", 0, 0, 0, 0, 1.0017],
+    [
+      "Beverages, coffee, brewed, prepared with tap water, decaffeinated",
+      0,
+      0,
+      0.1,
+      0,
+      1.002,
+    ],
+    [
+      "Beverages, coffee, brewed, prepared with tap water",
+      0.02,
+      0,
+      0.12,
+      1,
+      1.002,
+    ],
+    [
+      "Beverages, tea, black, brewed, prepared with tap water",
+      0,
+      0.3,
+      0,
+      1,
+      1.002,
+    ],
+    ["Beverages, tea, herb, other than chamomile, brewed", 0, 0.2, 0, 1, 1.002],
+    [
+      "Beverages, tea, black, brewed, prepared with distilled water",
+      0,
+      0.3,
+      0,
+      1,
+      1.002,
+    ],
+    ["Beverages, tea, herb, brewed, chamomile", 0, 0.2, 0, 1, 1.002],
+    [
+      "Beverages, tea, black, brewed, prepared with tap water, decaffeinated",
+      0,
+      0.3,
+      0,
+      1,
+      1.002,
+    ],
+    [
+      "Alcoholic beverage, beer, light, higher alcohol",
+      0,
+      0.77,
+      0.25,
+      46,
+      1.0031,
+    ],
+    ["Alcoholic beverage, beer, all", 0, 3.55, 0.46, 43, 1.0043],
+    ["Syrups, sugar free", 0, 12, 0.8, 51, 1.0144],
+    [
+      "Alcoholic beverage, wine, table, white, Muscat",
+      0,
+      5.23,
+      0.07,
+      82,
+      1.0144,
+    ],
+    ["Beverages, tea, green, brewed, regular", 0, 0, 0.22, 1, 1.0182],
+    ["Acerola juice", 0.3, 4.8, 0.4, 23, 1.022],
+    ["Alcoholic beverages, wine, rose", 0, 3.8, 0.36, 83, 1.0245],
+    ["Milk, cow, whole, 3.7% milkfat", 3.66, 4.65, 3.28, 64, 1.0313],
+    ["Milk, goat, fluid", 4.14, 4.45, 3.56, 69, 1.0313],
+    ["Milk, indian buffalo, fluid", 6.89, 5.18, 3.75, 97, 1.0313],
+    ["Milk, cow, lowfat, 1% milkfat", 0.97, 4.99, 3.37, 42, 1.0313],
+    ["Lemon juice", 0.24, 6.9, 0.35, 22, 1.0313],
+    [
+      "Alcoholic beverage, wine, table, white, late harvest, Gewurztraminer",
+      0,
+      11.4,
+      0.07,
+      108,
+      1.0313,
+    ],
+    ["Lime juice", 0.07, 8.42, 0.42, 25, 1.0322],
+    ["Alcoholic beverages, beer, higher alcohol", 0, 0.27, 0.9, 58, 1.0347],
+    ["Milk, sheep, fluid", 7, 5.36, 5.98, 108, 1.0356],
+    ["Milk, buttermilk, fluid, whole", 3.31, 4.88, 3.21, 62, 1.0356],
+    ["Milk, cow, nonfat (fat free or skim)", 0.18, 4.86, 3.37, 35, 1.0356],
+    ["Milk, cow, reduced fat, 2% milkfat", 1.98, 4.8, 3.3, 50, 1.0398],
+    [
+      "Alcoholic beverage, wine, table, white, late harvest",
+      0,
+      13.4,
+      0.07,
+      112,
+      1.0415,
+    ],
+    ["Grapefruit juice, pink", 0.1, 9.2, 0.5, 39, 1.044],
+    ["Passion-fruit juice, purple", 0.05, 13.6, 0.39, 51, 1.0444],
+    ["Passion-fruit juice, yellow", 0.18, 14.4, 0.67, 60, 1.0444],
+    ["Tangerine juice", 0.2, 10.1, 0.5, 43, 1.0444],
+    ["Grapefruit juice, white", 0.1, 9.2, 0.5, 39, 1.0444],
+    ["Beverages, coffee, brewed, breakfast blend", 0, 0.17, 0.3, 2, 1.0482],
+    ["Orange juice", 0.2, 10.4, 0.7, 45, 1.0482],
+    ["Syrups, corn, high-fructose", 0, 76, 0, 281, 1.2976],
+    ["Syrups, maple", 0.06, 67, 0.04, 260, 1.342],
+    ["Syrups, grenadine", 0, 66.9, 0, 268, 1.3559],
+    ["Syrups, corn, dark", 0, 77.6, 0, 286, 1.3695],
+    ["Syrups, sorghum", 0, 74.9, 0, 290, 1.4075],
+    ["Syrups, malt", 0, 71.3, 6.2, 318, 1.4117],
+    ["Molasses", 0.1, 74.7, 0, 290, 1.4244],
+    ["Honey", 0, 82.4, 0.3, 304, 1.4265],
+    ["Syrups, corn, light", 0.2, 76.8, 0, 283, 1.4646],
+  ];
+
+  // ── the palette, read out of the live tokens so the charts follow the theme ──
+  const tok = (name) =>
+    getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+
+  // FOODS rows: [name, fat, carb, prot, kcal, measuredDensity]
+  const NAME = 0,
+    FAT = 1,
+    CARB = 2,
+    PROT = 3,
+    KCAL = 4,
+    DENS = 5;
+
+  const FIGURE = { oil: 0.92, liquid: 1.0, syrup: 1.39 };
+  const LABEL = { oil: "Oil", liquid: "Drink", syrup: "Syrup or honey" };
+  // The gutter is 150px and "Syrup or honey" does not fit in it at 14px.
+  const SHORT = { oil: "Oil", liquid: "Drink", syrup: "Syrup" };
+  // Non-ASCII is escaped in every SVG string below: an SVG built by script
+  // inherits the document's encoding, and one served without a charset renders
+  // a raw en-dash as mojibake.
+  const EN_DASH = "\u2013",
+    GE = "\u2265";
+
+  /** The shipped rule, verbatim. */
+  function classOf(fat, carb, kcal) {
+    if (fat >= 80) return "oil";
+    if (kcal >= 250 && fat < 5 && carb >= 55) return "syrup";
+    return "liquid";
+  }
+
+  /** Density from composition, by ideal mixing. The argument of this whole page. */
+  const RHO = { water: 0.998, fat: 0.92, carb: 1.59, prot: 1.35 };
+  function predict(fat, carb, prot) {
+    const water = Math.max(0, 100 - fat - carb - prot);
+    const vol =
+      water / RHO.water + fat / RHO.fat + carb / RHO.carb + prot / RHO.prot;
+    return vol > 0 ? 100 / vol : 0;
+  }
+
+  const svgNS = "http://www.w3.org/2000/svg";
+  function el(tag, attrs, text) {
+    const n = document.createElementNS(svgNS, tag);
+    for (const k in attrs) n.setAttribute(k, String(attrs[k]));
+    if (text !== undefined) n.textContent = text;
+    return n;
+  }
+
+  // ── chart I: three bands on one density axis ───────────────────────────────
+  function drawBands() {
+    const svg = document.getElementById("bands");
+    if (!svg) return;
+    svg.textContent = "";
+    const ink = tok("--ink"),
+      zinc = tok("--zinc"),
+      acid = tok("--acid");
+    const faint = tok("--rule-faint"),
+      wash = tok("--wash");
+
+    const W = 920,
+      H = 320,
+      L = 150,
+      R = 40,
+      TOP = 52,
+      AXIS = 272;
+    svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
+    const lo = 0.88,
+      hi = 1.52;
+    const x = (v) => L + ((v - lo) / (hi - lo)) * (W - L - R);
+
+    const rows = [
+      { id: "oil", y: TOP + 30 },
+      { id: "liquid", y: TOP + 104 },
+      { id: "syrup", y: TOP + 178 },
+    ];
+
+    // gridlines first, so every mark sits over them
+    for (let v = 0.9; v <= 1.5001; v += 0.1) {
+      const gx = x(v);
+      svg.appendChild(
+        el("line", {
+          x1: gx,
+          y1: TOP,
+          x2: gx,
+          y2: AXIS,
+          stroke: faint,
+          "stroke-width": 1,
+        })
+      );
+      svg.appendChild(
+        el(
+          "text",
+          {
+            x: gx,
+            y: AXIS + 22,
+            fill: zinc,
+            "font-family": "Source Code Pro, monospace",
+            "font-size": 13,
+            "text-anchor": "middle",
+          },
+          v.toFixed(2)
+        )
+      );
+    }
+    svg.appendChild(
+      el(
+        "text",
+        {
+          x: W - R,
+          y: AXIS + 40,
+          fill: zinc,
+          "font-family": "Source Code Pro, monospace",
+          "font-size": 12,
+          "text-anchor": "end",
+          "letter-spacing": "0.1em",
+        },
+        "GRAMS PER MILLILITRE"
+      )
+    );
+
+    // The two empty corridors, as vertical strips crossing every row. Drawn
+    // before the bands so the bands sit over them, and labelled above the plot
+    // where nothing else competes for the space.
+    const gaps = [
+      { from: 0.9468, to: 0.9806 },
+      { from: 1.0482, to: 1.2976 },
+    ];
+    for (const g of gaps) {
+      const a = x(g.from),
+        b = x(g.to);
+      svg.appendChild(
+        el("rect", {
+          x: a,
+          y: TOP,
+          width: b - a,
+          height: AXIS - TOP,
+          fill: "none",
+          stroke: ink,
+          "stroke-width": 1,
+          "stroke-dasharray": "4 4",
+        })
+      );
+      const mid = (a + b) / 2;
+      svg.appendChild(
+        el(
+          "text",
+          {
+            x: mid,
+            y: TOP - 26,
+            fill: ink,
+            "font-family": "Source Code Pro, monospace",
+            "font-size": 12,
+            "font-weight": 600,
+            "text-anchor": "middle",
+          },
+          "no food here"
+        )
+      );
+      svg.appendChild(
+        el(
+          "text",
+          {
+            x: mid,
+            y: TOP - 10,
+            fill: zinc,
+            "font-family": "Source Code Pro, monospace",
+            "font-size": 11,
+            "text-anchor": "middle",
+          },
+          `${g.from.toFixed(4)} ${EN_DASH} ${g.to.toFixed(4)}`
+        )
+      );
+    }
+
+    // the axis
+    svg.appendChild(
+      el("line", {
+        x1: L,
+        y1: AXIS,
+        x2: W - R,
+        y2: AXIS,
+        stroke: ink,
+        "stroke-width": 2,
+      })
+    );
+
+    for (const row of rows) {
+      const members = FOODS.filter(
+        (f) => classOf(f[FAT], f[CARB], f[KCAL]) === row.id
+      );
+      const ds = members.map((f) => f[DENS]).sort((a, b) => a - b);
+      const min = ds[0],
+        max = ds[ds.length - 1];
+
+      // the occupied band
+      svg.appendChild(
+        el("rect", {
+          x: x(min) - 4,
+          y: row.y - 22,
+          width: x(max) - x(min) + 8,
+          height: 44,
+          fill: wash,
+          stroke: ink,
+          "stroke-width": 2,
+        })
+      );
+
+      // one tick per food
+      for (const f of members) {
+        svg.appendChild(
+          el("line", {
+            x1: x(f[DENS]),
+            y1: row.y - 15,
+            x2: x(f[DENS]),
+            y2: row.y + 15,
+            stroke: ink,
+            "stroke-width": 1.5,
+            "stroke-opacity": 0.55,
+          })
+        );
+      }
+
+      // the pinned figure, in the accent, above the band
+      const px = x(FIGURE[row.id]);
+      svg.appendChild(
+        el("line", {
+          x1: px,
+          y1: row.y - 30,
+          x2: px,
+          y2: row.y + 22,
+          stroke: ink,
+          "stroke-width": 2,
+        })
+      );
+      svg.appendChild(
+        el("polygon", {
+          points: `${px},${row.y - 38} ${px + 8},${row.y - 30} ${px},${row.y - 22} ${px - 8},${row.y - 30}`,
+          fill: acid,
+          stroke: ink,
+          "stroke-width": 2,
+        })
+      );
+      svg.appendChild(
+        el(
+          "text",
+          {
+            x: px + 14,
+            y: row.y - 26,
+            fill: ink,
+            "font-family": "Source Code Pro, monospace",
+            "font-size": 13,
+            "font-weight": 600,
+          },
+          FIGURE[row.id].toFixed(2)
+        )
+      );
+
+      // the row label, in the gutter
+      svg.appendChild(
+        el(
+          "text",
+          {
+            x: L - 14,
+            y: row.y - 2,
+            fill: ink,
+            "font-family": "Source Code Pro, monospace",
+            "font-size": 14,
+            "font-weight": 600,
+            "text-anchor": "end",
+          },
+          SHORT[row.id]
+        )
+      );
+      svg.appendChild(
+        el(
+          "text",
+          {
+            x: L - 14,
+            y: row.y + 15,
+            fill: zinc,
+            "font-family": "Source Code Pro, monospace",
+            "font-size": 12,
+            "text-anchor": "end",
+          },
+          `n = ${members.length}`
+        )
+      );
+
+      void min;
+      void max;
+    }
+  }
+
+  // ── chart II: the three corridors ─────────────────────────────────────────
+  function drawCorridors() {
+    const svg = document.getElementById("corridors");
+    if (!svg) return;
+    svg.textContent = "";
+    const ink = tok("--ink"),
+      zinc = tok("--zinc"),
+      acid = tok("--acid");
+    const faint = tok("--rule-faint"),
+      paper = tok("--paper");
+
+    const W = 920,
+      L = 156,
+      R = 128,
+      ROW = 122,
+      TOP = 40;
+    const strips = [
+      {
+        label: "Fat",
+        unit: "g per 100 g",
+        max: 100,
+        low: [0, 7],
+        high: [99, 100],
+        line: 80,
+        lineLabel: "fat " + GE + " 80",
+        dp: 1,
+        ticks: [0, 20, 40, 60, 80, 100],
+      },
+      {
+        label: "Carbohydrate",
+        unit: "g per 100 g",
+        max: 100,
+        low: [0, 14.4],
+        high: [66.9, 82.4],
+        line: 55,
+        lineLabel: "carb " + GE + " 55",
+        dp: 1,
+        ticks: [0, 20, 40, 60, 80, 100],
+      },
+      {
+        label: "Energy",
+        unit: "kcal per 100 g",
+        max: 900,
+        low: [0, 160],
+        high: [260, 318],
+        line: 250,
+        lineLabel: "kcal " + GE + " 250",
+        dp: 0,
+        ticks: [0, 200, 400, 600, 800],
+      },
+    ];
+    const H = TOP + strips.length * ROW - 38;
+    svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
+
+    strips.forEach((s, i) => {
+      const y = TOP + i * ROW + 34;
+      const x = (v) => L + (v / s.max) * (W - L - R);
+      // Rounded, not printed raw: 66.9 - 14.4 is 52.50000000000001 in binary
+      // floating point, and a chart that shows that has lost the reader.
+      const fmt = (v) =>
+        s.dp ? String(Number(v.toFixed(1))) : String(Math.round(v));
+
+      // ticks
+      for (const t of s.ticks) {
+        svg.appendChild(
+          el("line", {
+            x1: x(t),
+            y1: y - 18,
+            x2: x(t),
+            y2: y + 18,
+            stroke: faint,
+            "stroke-width": 1,
+          })
+        );
+        svg.appendChild(
+          el(
+            "text",
+            {
+              x: x(t),
+              y: y + 38,
+              fill: zinc,
+              "font-family": "Source Code Pro, monospace",
+              "font-size": 11,
+              "text-anchor": "middle",
+            },
+            String(t)
+          )
+        );
+      }
+
+      // the empty corridor, an open box so the eye reads absence
+      const ca = x(s.low[1]),
+        cb = x(s.high[0]);
+      svg.appendChild(
+        el("rect", {
+          x: ca,
+          y: y - 18,
+          width: cb - ca,
+          height: 36,
+          fill: "none",
+          stroke: ink,
+          "stroke-width": 1,
+          "stroke-dasharray": "4 4",
+        })
+      );
+
+      // the two occupied ranges, each labelled above with its own extent only —
+      // short labels, because on the energy strip the two blocks sit 71px apart
+      // and anything descriptive would collide across the corridor
+      // The threshold, in the accent. Drawn before the blocks so its stem passes
+      // UNDER them and under their labels: on the energy strip the line at 250
+      // ran straight through the `260-318` label and ate its first digit.
+      const lx = x(s.line);
+      svg.appendChild(
+        el("line", {
+          x1: lx,
+          y1: y - 42,
+          x2: lx,
+          y2: y + 22,
+          stroke: ink,
+          "stroke-width": 2,
+        })
+      );
+      const lw = s.lineLabel.length * 7.4 + 16;
+      svg.appendChild(
+        el("rect", {
+          x: lx - lw / 2,
+          y: y - 64,
+          width: lw,
+          height: 22,
+          fill: acid,
+          stroke: ink,
+          "stroke-width": 2,
+        })
+      );
+      svg.appendChild(
+        el(
+          "text",
+          {
+            x: lx,
+            y: y - 49,
+            fill: tok("--acid-ink"),
+            "font-family": "Source Code Pro, monospace",
+            "font-size": 12,
+            "font-weight": 600,
+            "text-anchor": "middle",
+          },
+          s.lineLabel
+        )
+      );
+
+      // Each label is pushed to its block's OUTER end rather than centred over
+      // it: on the energy strip the two blocks sit 71px apart, and two centred
+      // labels there overlap in the corridor between them.
+      for (const [range, side] of [
+        [s.low, "start"],
+        [s.high, "end"],
+      ]) {
+        const a = x(range[0]),
+          b = x(range[1]);
+        svg.appendChild(
+          el("rect", {
+            x: a,
+            y: y - 18,
+            width: Math.max(b - a, 3),
+            height: 36,
+            fill: ink,
+            stroke: ink,
+            "stroke-width": 2,
+          })
+        );
+        svg.appendChild(
+          el(
+            "text",
+            {
+              x: side === "start" ? a + 4 : b - 4,
+              y: y - 26,
+              fill: ink,
+              "font-family": "Source Code Pro, monospace",
+              "font-size": 11,
+              "text-anchor": side,
+            },
+            `${fmt(range[0])}${EN_DASH}${fmt(range[1])}`
+          )
+        );
+      }
+
+      // the gutter
+      svg.appendChild(
+        el(
+          "text",
+          {
+            x: L - 16,
+            y: y - 2,
+            fill: ink,
+            "font-family": "Source Code Pro, monospace",
+            "font-size": 14,
+            "font-weight": 600,
+            "text-anchor": "end",
+          },
+          s.label
+        )
+      );
+      svg.appendChild(
+        el(
+          "text",
+          {
+            x: L - 16,
+            y: y + 15,
+            fill: zinc,
+            "font-family": "Source Code Pro, monospace",
+            "font-size": 11,
+            "text-anchor": "end",
+          },
+          s.unit
+        )
+      );
+
+      // the corridor's width, in the right margin where nothing competes
+      const gap = s.high[0] - s.low[1];
+      svg.appendChild(
+        el(
+          "text",
+          {
+            x: W - 14,
+            y: y - 2,
+            fill: ink,
+            "font-family": "Source Code Pro, monospace",
+            "font-size": 14,
+            "font-weight": 600,
+            "text-anchor": "end",
+          },
+          fmt(gap) + " wide"
+        )
+      );
+      svg.appendChild(
+        el(
+          "text",
+          {
+            x: W - 14,
+            y: y + 15,
+            fill: zinc,
+            "font-family": "Source Code Pro, monospace",
+            "font-size": 11,
+            "text-anchor": "end",
+          },
+          "and empty"
+        )
+      );
+    });
+
+    void paper;
+  }
+
+  // ── chart III: predicted against measured ─────────────────────────────────
+  function drawPhysics() {
+    const svg = document.getElementById("physics");
+    if (!svg) return;
+    svg.textContent = "";
+    const ink = tok("--ink"),
+      zinc = tok("--zinc"),
+      acid = tok("--acid");
+    const faint = tok("--rule-faint");
+
+    const W = 920,
+      H = 420,
+      L = 92,
+      R = 150,
+      TOP = 26,
+      BOT = 58;
+    svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
+    const lo = 0.88,
+      hi = 1.52;
+    const px = (v) => L + ((v - lo) / (hi - lo)) * (W - L - R);
+    const py = (v) => H - BOT - ((v - lo) / (hi - lo)) * (H - BOT - TOP);
+
+    for (let v = 0.9; v <= 1.5001; v += 0.1) {
+      svg.appendChild(
+        el("line", {
+          x1: px(v),
+          y1: TOP,
+          x2: px(v),
+          y2: H - BOT,
+          stroke: faint,
+          "stroke-width": 1,
+        })
+      );
+      svg.appendChild(
+        el("line", {
+          x1: L,
+          y1: py(v),
+          x2: W - R,
+          y2: py(v),
+          stroke: faint,
+          "stroke-width": 1,
+        })
+      );
+      svg.appendChild(
+        el(
+          "text",
+          {
+            x: px(v),
+            y: H - BOT + 22,
+            fill: zinc,
+            "font-family": "Source Code Pro, monospace",
+            "font-size": 12,
+            "text-anchor": "middle",
+          },
+          v.toFixed(1)
+        )
+      );
+      svg.appendChild(
+        el(
+          "text",
+          {
+            x: L - 12,
+            y: py(v) + 4,
+            fill: zinc,
+            "font-family": "Source Code Pro, monospace",
+            "font-size": 12,
+            "text-anchor": "end",
+          },
+          v.toFixed(1)
+        )
+      );
+    }
+
+    // The perfect-prediction diagonal, in the accent: it is the claim the dots
+    // are being tested against, which is the one thing on this chart the accent
+    // is for. The dots themselves are measurements and stay in ink.
+    svg.appendChild(
+      el("line", {
+        x1: px(lo),
+        y1: py(lo),
+        x2: px(hi),
+        y2: py(hi),
+        stroke: acid,
+        "stroke-width": 6,
+      })
+    );
+    svg.appendChild(
+      el("line", {
+        x1: px(lo),
+        y1: py(lo),
+        x2: px(hi),
+        y2: py(hi),
+        stroke: ink,
+        "stroke-width": 1,
+        "stroke-dasharray": "6 5",
+      })
+    );
+
+    let sq = 0;
+    for (const f of FOODS) {
+      const p = predict(f[FAT], f[CARB], f[PROT]);
+      sq += (p - f[DENS]) ** 2;
+      svg.appendChild(
+        el("circle", {
+          cx: px(f[DENS]),
+          cy: py(p),
+          r: 4,
+          fill: ink,
+          "fill-opacity": 0.72,
+          stroke: "none",
+        })
+      );
+    }
+    const rms = Math.sqrt(sq / FOODS.length);
+
+    svg.appendChild(
+      el("line", {
+        x1: L,
+        y1: H - BOT,
+        x2: W - R,
+        y2: H - BOT,
+        stroke: ink,
+        "stroke-width": 2,
+      })
+    );
+    svg.appendChild(
+      el("line", {
+        x1: L,
+        y1: TOP,
+        x2: L,
+        y2: H - BOT,
+        stroke: ink,
+        "stroke-width": 2,
+      })
+    );
+    svg.appendChild(
+      el(
+        "text",
+        {
+          x: (L + W - R) / 2,
+          y: H - 14,
+          fill: ink,
+          "font-family": "Source Code Pro, monospace",
+          "font-size": 12,
+          "text-anchor": "middle",
+          "letter-spacing": "0.1em",
+        },
+        "MEASURED IN A LAB, g/ml"
+      )
+    );
+    svg.appendChild(
+      el(
+        "text",
+        {
+          x: 22,
+          y: (TOP + H - BOT) / 2,
+          fill: ink,
+          "font-family": "Source Code Pro, monospace",
+          "font-size": 12,
+          "text-anchor": "middle",
+          "letter-spacing": "0.1em",
+          transform: `rotate(-90 22 ${(TOP + H - BOT) / 2})`,
+        },
+        "PREDICTED FROM THE PANEL, g/ml"
+      )
+    );
+
+    // the legend sits in the right margin the plot leaves free
+    const lx = W - R + 16;
+    const lines = [
+      ["n", String(FOODS.length) + " foods"],
+      ["RMS", rms.toFixed(4) + " g/ml"],
+      ["", ""],
+      ["oil", "0.0048"],
+      ["drink", "0.0165"],
+      ["syrup", "0.0453"],
+    ];
+    svg.appendChild(
+      el(
+        "text",
+        {
+          x: lx,
+          y: TOP + 14,
+          fill: zinc,
+          "font-family": "Source Code Pro, monospace",
+          "font-size": 11,
+          "letter-spacing": "0.1em",
+        },
+        "RESIDUAL"
+      )
+    );
+    lines.forEach((ln, i) => {
+      if (!ln[0] && !ln[1]) return;
+      svg.appendChild(
+        el(
+          "text",
+          {
+            x: lx,
+            y: TOP + 38 + i * 20,
+            fill: zinc,
+            "font-family": "Source Code Pro, monospace",
+            "font-size": 12,
+          },
+          ln[0]
+        )
+      );
+      svg.appendChild(
+        el(
+          "text",
+          {
+            x: W - 16,
+            y: TOP + 38 + i * 20,
+            fill: ink,
+            "font-family": "Source Code Pro, monospace",
+            "font-size": 12,
+            "font-weight": 600,
+            "text-anchor": "end",
+          },
+          ln[1]
+        )
+      );
+    });
+  }
+
+  // ── the live panel reader ─────────────────────────────────────────────────
+  const PRESETS = [
+    { n: "Olive oil", fat: 100, carb: 0, prot: 0, kcal: 884 },
+    { n: "Tap water", fat: 0, carb: 0, prot: 0, kcal: 0 },
+    { n: "Whole milk", fat: 3.2, carb: 4.8, prot: 3.2, kcal: 61 },
+    { n: "Orange juice", fat: 0.2, carb: 10.4, prot: 0.7, kcal: 45 },
+    { n: "Honey", fat: 0, carb: 82.4, prot: 0.3, kcal: 304 },
+    { n: "Maple syrup", fat: 0.06, carb: 67, prot: 0, kcal: 260 },
+    { n: "Sugar-free syrup", fat: 0, carb: 12, prot: 0, kcal: 51 },
+  ];
+
+  const $ = (id) => document.getElementById(id);
+
+  function readerState() {
+    return {
+      fat: Number($("s-fat").value),
+      carb: Number($("s-carb").value),
+      prot: Number($("s-prot").value),
+      kcal: Number($("s-kcal").value),
+    };
+  }
+
+  function whyText(s, cls) {
+    if (cls === "oil")
+      return `<b>${s.fat.toFixed(1)} g of fat</b> per 100 clears the 80 line, and above that line a food is essentially oil with impurities. The nearest non-oil in the corpus carries 7 g.`;
+    if (cls === "syrup")
+      return `All three hold: <b>${s.kcal} kcal</b> at or over 250, fat under 5, and <b>${s.carb.toFixed(1)} g of carbohydrate</b> at or over 55. Dense sugar with no fat has nowhere to be but a syrup.`;
+    const misses = [];
+    if (!(s.kcal >= 250)) misses.push(`${s.kcal} kcal is under 250`);
+    if (!(s.fat < 5))
+      misses.push(`${s.fat.toFixed(1)} g of fat is not under 5`);
+    if (!(s.carb >= 55))
+      misses.push(`${s.carb.toFixed(1)} g of carbohydrate is under 55`);
+    const tail = misses.length
+      ? ` The syrup branch was not reached: ${misses.join("; ")}.`
+      : "";
+    return `Mostly water, so it weighs about what water weighs.${tail}`;
+  }
+
+  function updateReader() {
+    const s = readerState();
+    $("o-fat").textContent = s.fat.toFixed(1);
+    $("o-carb").textContent = s.carb.toFixed(1);
+    $("o-prot").textContent = s.prot.toFixed(1);
+    $("o-kcal").textContent = String(s.kcal);
+
+    const cls = classOf(s.fat, s.carb, s.kcal);
+    const fig = FIGURE[cls];
+    $("v-class").textContent = LABEL[cls].toLowerCase();
+    $("v-fig").textContent = fig.toFixed(2) + " g/ml";
+    $("v-pred").textContent = predict(s.fat, s.carb, s.prot).toFixed(4);
+
+    // the closest real measurement to what the physics says, so the reader can
+    // see that the prediction lands on something USDA actually weighed
+    const p = predict(s.fat, s.carb, s.prot);
+    let near = FOODS[0];
+    for (const f of FOODS)
+      if (Math.abs(f[DENS] - p) < Math.abs(near[DENS] - p)) near = f;
+    $("v-near").textContent = near[DENS].toFixed(4);
+    $("v-near-name").textContent = near[NAME];
+    $("v-250").textContent = Math.round(250 * fig) + " g";
+    $("v-why").innerHTML = whyText(s, cls);
+
+    for (const b of document.querySelectorAll("#presets button")) {
+      const p2 = PRESETS[Number(b.dataset.i)];
+      const on =
+        p2.fat === s.fat &&
+        p2.carb === s.carb &&
+        p2.prot === s.prot &&
+        p2.kcal === s.kcal;
+      b.setAttribute("aria-pressed", on ? "true" : "false");
+    }
+  }
+
+  function buildPresets() {
+    const host = $("presets");
+    PRESETS.forEach((p, i) => {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.textContent = p.n;
+      b.dataset.i = String(i);
+      b.setAttribute("aria-pressed", "false");
+      b.addEventListener("click", () => {
+        $("s-fat").value = String(p.fat);
+        $("s-carb").value = String(p.carb);
+        $("s-prot").value = String(p.prot);
+        $("s-kcal").value = String(p.kcal);
+        updateReader();
+      });
+      host.appendChild(b);
+    });
+  }
+
+  function drawAll() {
+    drawBands();
+    drawCorridors();
+    drawPhysics();
+  }
+
+  buildPresets();
+  updateReader();
+  for (const id of ["s-fat", "s-carb", "s-prot", "s-kcal"])
+    $(id).addEventListener("input", updateReader);
+
+  drawAll();
+
+  // Redraw on a theme change so the charts follow the tokens they were read from.
+  const mq = window.matchMedia("(prefers-color-scheme: dark)");
+  if (mq.addEventListener) mq.addEventListener("change", drawAll);
+  new MutationObserver(drawAll).observe(document.documentElement, {
+    attributes: true,
+    attributeFilter: ["data-theme"],
+  });
+</script>

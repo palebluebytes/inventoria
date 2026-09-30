@@ -767,6 +767,61 @@ which is `secrets.ts`'s precedent for the retired USDA key — _"no migration �
 pre-release; the old datoms are simply abandoned"_. A translation layer would
 have kept a second meaning of "class" alive to serve rows nobody has.
 
+### A per-food density computed from the panel was measured and refused
+
+The panel rule raises an obvious question: if a nutrition panel states the grams
+of fat, carbohydrate and protein in 100 g and the remainder is water, and each
+of those has a known density, then a food's density is computable directly by
+ideal mixing. Three pinned figures would be redundant. Measured over the same
+124 reference foods that state both a volume portion and its weight:
+
+|                                   | RMS g/ml   | mean error    | worst case    | closest on |
+| --------------------------------- | ---------- | ------------- | ------------- | ---------- |
+| Class table, three pinned figures | 0.0211     | **1.44 kcal** | **11.6 kcal** | **96**     |
+| Mixing physics, computed per food | **0.0178** | 1.53 kcal     | 21.9 kcal     | 28         |
+
+**The physics wins on g/ml and loses on kilocalories**, which is the unit
+DENSITY_COST_BAR is written in, and it is closer on only 23% of foods. A pinned
+figure is the median of real measurements and so absorbs whatever the model gets
+wrong; the model is an honest account of an idealised liquid.
+
+One food carries the argument. `Alcoholic beverage, wine, dessert, sweet` is
+measured at 0.9975; the table says 1.00 and is out by 1.0 kcal on a glass, and
+the physics says 1.0522 and is out by **21.9 kcal**, twice the bar. **Ethanol is
+0.789 g/ml and is not a macronutrient**, so it appears on no panel: computing
+water as the balance counts the alcohol as water, reads a dessert wine as
+sugar-water and predicts it heavy. Every wine, beer and spirit fails the same
+way, and they are what a 250 ml pour is made of. The pinned figures never had to
+know alcohol exists, because they were measured on bottles containing it.
+
+Two further refusals follow from the same measurement. Deleting the protein
+field changes the class of **zero** foods, because the rule reads fat,
+carbohydrate and energy — where the physics degrades, protein being a term in
+its sum, and Open Food Facts panels omit protein routinely. And a computed
+figure cannot be corrected: the three-cell picker works because a person can
+recognise a drink, an oil and a syrup while holding the bottle, where
+disagreeing with a computed 1.0522 means typing a g/ml figure, which is the
+trade §12 refuses.
+
+A middle option was tested and also refused: using the gap between the physics
+and the class figure as a signal to ask. It correlates with the table's real
+error at r = 0.62, and asking about the worst 10% catches 31% of the total error
+against 10% at random — but four of the six it flags hardest are foods the table
+gets right to within 1.8 kcal, and the error it chases averages 1.44 kcal a
+food. Spending questions there is the trade this amendment exists to remove.
+
+What the mixing model keeps is the **explanation**: it is why 0.92, 1.00 and 1.39
+are those numbers and not three arbitrary ones, and its largest residual is
+informative — 0.0453 g/ml on syrups, because concentrated sugar solutions
+contract on mixing and the measured median absorbs what ideal mixing cannot say.
+The whole derivation, with the corridors the thresholds sit in and the physics
+scored food by food, is written up in
+[docs/density-from-the-panel.html](../density-from-the-panel.html).
+
+**The measurement this rests on is USDA-only.** All 124 foods are reference
+records; neither approach has been scored against Open Food Facts panels at
+scale, and that is the measurement to take before any of this is revisited.
+
 ### What this costs
 
 A glass of milk is weighed 5 kcal light, permanently and uncorrectably at the
