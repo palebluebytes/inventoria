@@ -21,14 +21,12 @@
   // model's per-food density. §9 puts the figure on the basis caption the moment
   // you choose, and the source explainer carries the account.
   let {
-    prefill = undefined,
     label = "What kind of liquid is this?",
     testid = undefined,
     onAnswer,
   }: {
     /** The class the food's own source names, where it names exactly one. It
      *  seeds the row and is never an answer until the user confirms one. */
-    prefill?: DensityClassId | undefined;
     /** The question, as this screen asks it. */
     label?: string;
     /** Forwarded as data-testid on the class row. */
@@ -56,7 +54,7 @@
   // an answer: it opens the row on a cell, and `onAnswer` carries it out only
   // because the screen asking is about to put a confirm under it.
   // svelte-ignore state_referenced_locally
-  let chosen = $state<Choice | null>(prefill ?? null);
+  let chosen = $state<Choice | null>(null);
   // A stable id to tie the exit's label to its field. Minted per instance rather
   // than written in, because two screens ask this question and a fixed id in a
   // component that can be mounted twice is a duplicate waiting for the day both

@@ -198,7 +198,7 @@ describe("the reference food is read against the label's own basis", () => {
     const { panel, filled_fields } = markPanel(
       label({ serving_size: PER_100ML }),
       reference(),
-      { class: "water-like" }
+      { class: "liquid" }
     );
     // 100 ml of a water-like liquid is 100 g of it, so the factor is 1.
     expect(panel.iron).toBeCloseTo(0.00222, 6);

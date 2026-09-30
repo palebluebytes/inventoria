@@ -65,6 +65,7 @@
     isMeasuredUnit,
     isPer100Basis,
     parseBasisQuantity,
+    NUTRITION_INFO_ATTR,
     portionMeasure,
     servingSizeGrams,
     servingSizePortion,
@@ -78,7 +79,8 @@
     deriveIngredientMacros,
     type IngredientSource,
   } from "../food/recipe-nutrition";
-  import { readFoodDensity } from "../food/density";
+  import { densityFor } from "../food/density";
+  import { offCategoryTagsFromTwin } from "../food/open-food-facts";
   import { loadReferenceFoods, pairedSource } from "../food/frozen-pairing";
   import type { NovaVerdict } from "../food/nova-verdict";
   import type { DietaryVerdict } from "../food/off-signals";
@@ -369,6 +371,20 @@
   }
   // The food whose amount is being changed in the picker sheet (null = closed).
   let amountEdit = $state<AmountEdit | null>(null);
+
+  // The density the origin sheet describes, resolved once (#505). It matters
+  // that this is `densityFor` rather than the raw attribute: most volume foods
+  // now carry a class the panel derived, and the sheet has to say which of the
+  // two it is looking at.
+  let amountEditDensity = $derived(
+    densityFor(
+      amountEdit?.payload.attributes,
+      amountEdit?.payload.attributes?.[NUTRITION_INFO_ATTR] as
+        | NutritionInfo
+        | undefined,
+      offCategoryTagsFromTwin(amountEdit?.payload.attributes)
+    )
+  );
 
   // Whether the pairing search is open over the food in the amount sheet. It is
   // about the food under it, so closing that sheet or opening another row's
@@ -1581,7 +1597,8 @@
        the amount sheet the tag sits in — the same seam the staging screen uses. -->
   <SourceExplainerSheet
     kind={sourceExplain}
-    density={readFoodDensity(amountEdit?.payload.attributes)}
+    density={amountEditDensity.density}
+    densityAsserted={amountEditDensity.asserted}
     onEdit={amountEdit ? editFoodFromAmountSheet : undefined}
     onClose={() => (sourceExplain = null)}
   />

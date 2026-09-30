@@ -66,7 +66,6 @@
     portions = [],
     caption = null,
     density = undefined,
-    prefill = undefined,
     onAssertDensity = undefined,
   }: {
     amount: number;
@@ -96,7 +95,6 @@
     density?: FoodDensity | undefined;
     /** The class the food's own source names, where it names exactly one — the
      *  picker opens on it, and it is never written until the user has seen it. */
-    prefill?: DensityClassId | undefined;
     /** The user has said what kind of liquid this is. The host owns where that
      *  lands — a twin already in the ledger takes a datom, a staged one carries
      *  it to its commit — so this control never writes one itself. */
@@ -225,7 +223,14 @@
     }
     // The tap on `g` IS the question. The control that offers the capability is
     // the one that earns it.
-    answer = prefill ? { class: prefill } : null;
+    //
+    // **Nothing is pre-selected, and since #505 there is nothing to pre-select
+    // with.** The class used to arrive from a source's category tags and sit in
+    // the picker waiting to be confirmed; now it derives from the panel and is
+    // applied without asking, so a food that reaches this question is one the
+    // panel could not read — an aerated dessert, or a twin with no panel at all.
+    // For those there is no proposal to offer, only a question.
+    answer = null;
     asking = true;
   }
 
@@ -391,7 +396,6 @@
          and the untagged case. -->
     <div class="asking" data-testid="density-picker">
       <DensityQuestion
-        {prefill}
         testid="density-classes"
         onAnswer={(next) => (answer = next)}
       />

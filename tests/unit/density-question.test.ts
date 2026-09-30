@@ -52,24 +52,34 @@ describe("the question offers every class and a way past them", () => {
     ).toEqual([]);
   });
 
-  it("opens on the source's proposal where it named exactly one", () => {
-    const { body } = render(DensityQuestion, {
-      props: { prefill: "oil", onAnswer: () => {} },
-    });
-    const oil = cells(body).find((m) => m[1] === "oil")?.[0] ?? "";
-    expect(oil).toContain('data-state="checked"');
+  // #505 deleted the pre-fill. The class now derives from the nutrition panel and
+  // is applied without asking, so a food that reaches this question is one the
+  // panel could not read — and for those there is no proposal to offer, only a
+  // question. Nothing arrives selected.
+  it("opens with nothing chosen, because there is nothing to propose", () => {
+    const { body } = render(DensityQuestion, { props: { onAnswer: () => {} } });
+    for (const [cell] of cells(body))
+      expect(cell).toContain('data-state="unchecked"');
+  });
+
+  it("offers the three classes that ship, and a way out of them", () => {
+    const { body } = render(DensityQuestion, { props: { onAnswer: () => {} } });
+    expect(cells(body).map((m) => m[1])).toEqual([
+      "liquid",
+      "oil",
+      "syrup",
+      "other",
+    ]);
   });
 
   it("keeps the typed exit's field out of the way until it is chosen", () => {
-    // Five short options is a row of cells; a number field beside them would be
-    // asking for a figure before anybody has said the classes do not fit.
+    // A number field beside the cells would be asking for a figure before
+    // anybody has said the classes do not fit.
+    //
+    // Only the closed half is asserted here. Opening it needs a click, and this
+    // renders on the server — the prop that used to fake that state was the
+    // pre-fill, and it is gone rather than kept alive for a test.
     const closed = render(DensityQuestion, { props: { onAnswer: () => {} } });
     expect(closed.body).not.toContain('data-testid="density-figure"');
-
-    const open = render(DensityQuestion, {
-      props: { prefill: "other" as never, onAnswer: () => {} },
-    });
-    expect(open.body).toContain('data-testid="density-figure"');
-    expect(open.body).toContain("Grams per millilitre");
   });
 });

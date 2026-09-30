@@ -111,6 +111,31 @@ export function selectClass(foods, pattern) {
 }
 
 /**
+ * Every food any of a class's patterns reaches, deduplicated.
+ *
+ * `liquid` is selected four ways since #505, and two of those ways can reach one
+ * row — `juice` and `beer-wine` both match a wine cooler's description. A union
+ * that counted it twice would inflate the n the bar is set against, so the key
+ * is `fdcId` and the first pattern to reach a row wins it.
+ *
+ * @param {readonly object[]} foods
+ * @param {readonly object[]} patterns
+ */
+export function selectClassUnion(foods, patterns) {
+  const seen = new Map();
+  for (const pattern of patterns)
+    for (const food of selectClass(foods, pattern)) {
+      // Keyed on the row itself where it states no `fdcId`. Keying on `fdcId`
+      // alone collapsed every such row onto one `undefined`, which a fixture
+      // corpus of three unnumbered oils caught immediately — and which would
+      // have silently under-counted the n every bar is set against.
+      const key = food.fdcId ?? food;
+      if (!seen.has(key)) seen.set(key, food);
+    }
+  return [...seen.values()];
+}
+
+/**
  * The four numbers ADR-0108 §2 records beside a class figure, measured over the
  * foods that class selected.
  *
@@ -167,7 +192,7 @@ export function classStats(foods) {
 export function driftFindings(foods, classes, bar = undefined) {
   const findings = [];
   for (const pinned of classes) {
-    const selected = selectClass(foods, pinned.pattern);
+    const selected = selectClassUnion(foods, pinned.patterns);
     const say = (kind, was, now) =>
       findings.push({ id: pinned.id, kind, pinned: was, measured: now });
 
@@ -196,7 +221,11 @@ export function driftFindings(foods, classes, bar = undefined) {
     if (cvPercent !== pinned.evidence.cvPercent)
       say("cv", pinned.evidence.cvPercent, cvPercent);
 
-    const held = pinned.bar ?? bar;
+    // A class carrying `cost` was admitted on ADR-0108 §2's #505 amendment
+    // rather than on statistics, so holding it to the CV ceiling would fail the
+    // build for the exact reason it ships. Its figure, members and spread are
+    // still watched above — what is waived is only the bar it never met.
+    const held = pinned.cost ? undefined : (pinned.bar ?? bar);
     if (held && (stats.foods < held.minFoods || cvPercent > held.maxCvPercent))
       say("bar", held, { foods: stats.foods, cvPercent });
   }

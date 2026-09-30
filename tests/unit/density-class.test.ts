@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import {
   DENSITY_CLASSES,
   DENSITY_CLASS_BAR,
+  DENSITY_COST_BAR,
   REFUSED_DENSITY_CLASSES,
 } from "../../src/lib/food/density-class";
 // A plain-Node gate script, deliberately outside the app's tsconfig: it reads a
@@ -223,7 +224,7 @@ describe("driftFindings", () => {
     // Worked by hand from 0.92, 0.92, 0.93: spread (0.93 − 0.92) / 0.92 = 1.1%,
     // mean 0.92333, population sd 0.004714, so CV = 0.51%.
     evidence: { foods: 3, portions: 3, spreadPercent: 1.1, cvPercent: 0.51 },
-    pattern: { category: "Test", name: /^Test oil,/i },
+    patterns: [{ category: "Test", name: /^Test oil,/i }],
   };
 
   it("says nothing while the corpus still states what was pinned", () => {
@@ -324,14 +325,39 @@ describe("the shipped Density Class table", () => {
     ).toEqual([]);
   });
 
-  it("clears the bar on every class that ships", () => {
+  // Since #505 there are **two** bars, and a class clears exactly one of them.
+  // The statistical bar is still what lets a figure be applied silently; the
+  // cost bar is what admits a class the first one refuses and the app needs
+  // anyway, and a class carrying `cost` is declaring which one it came in on.
+  it("clears one of the two bars, and says which", () => {
     for (const cls of DENSITY_CLASSES) {
       expect(cls.evidence.foods).toBeGreaterThanOrEqual(
         DENSITY_CLASS_BAR.minFoods
       );
-      expect(cls.evidence.cvPercent).toBeLessThanOrEqual(
-        DENSITY_CLASS_BAR.maxCvPercent
-      );
+      if (cls.cost) {
+        // Admitted on cost. It may fail the CV ceiling — syrup does, at 8.99% —
+        // but its worst wrong answer has to be worth less than a question.
+        expect(cls.cost.worstKcal).toBeLessThan(
+          DENSITY_COST_BAR.maxKcalOnAServing
+        );
+      } else {
+        expect(cls.evidence.cvPercent).toBeLessThanOrEqual(
+          DENSITY_CLASS_BAR.maxCvPercent
+        );
+      }
     }
+  });
+
+  // The collapse does not lean on the cost bar, and saying so keeps that bar's
+  // job narrow: `liquid` pools four former classes and still measures inside
+  // ADR-0108 §2's own ceiling.
+  it("admits the pooled liquid on statistics alone", () => {
+    const liquid = DENSITY_CLASSES.find((c) => c.id === "liquid");
+    expect(liquid?.cost).toBeUndefined();
+    expect(liquid?.evidence.cvPercent).toBeLessThanOrEqual(
+      DENSITY_CLASS_BAR.maxCvPercent
+    );
+    // Four ways of selecting, because its 73 foods were selected four ways.
+    expect(liquid?.patterns).toHaveLength(4);
   });
 });

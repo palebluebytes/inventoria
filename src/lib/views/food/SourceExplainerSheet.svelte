@@ -19,6 +19,7 @@
     kind,
     standIn,
     density,
+    densityAsserted = true,
     onEdit,
     onClose,
   }: {
@@ -40,6 +41,14 @@
      * renders no paragraph.
      */
     density?: FoodDensity;
+    /**
+     * Whether that density is the user's answer or the app's reading of the
+     * panel (#505). The copy turns on it: before the panel rule the only way a
+     * food had a class was that somebody picked one, so "you said" was always
+     * true — now it usually is not, and a sheet claiming otherwise would be
+     * asserting a measurement nobody made.
+     */
+    densityAsserted?: boolean;
     /**
      * Correct this food from its label. Offered for EVERY origin, not just a
      * hand entry: a source panel the user can see is wrong is exactly the one
@@ -81,7 +90,7 @@
 
   let copy = $derived(COPY[kind]);
   let note = $derived(standIn ? curatedStandInNote(standIn) : null);
-  let weighing = $derived(densityNote(density));
+  let weighing = $derived(densityNote(density, densityAsserted));
 </script>
 
 <!-- The shared explainer frame supplies the over-sheet elevation and the one

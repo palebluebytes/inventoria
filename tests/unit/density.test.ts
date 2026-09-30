@@ -14,7 +14,9 @@ import {
   FOOD_DENSITY_ATTR,
   amountAgainstBasis,
   convertAmount,
-  densityClassFromCategoryTags,
+  densityClassFromPanel,
+  densityFor,
+  panelCannotAnswer,
   densityGramsPerMl,
   densityNote,
   openingUnit,
@@ -57,8 +59,8 @@ describe("the twin stores the class and the figure is derived (§4)", () => {
 describe("a malformed density reads as no density, never a wrong figure", () => {
   it("reads a class and a figure back off a twin", () => {
     expect(
-      readFoodDensity({ [FOOD_DENSITY_ATTR]: { class: "juice" } })
-    ).toEqual({ class: "juice" });
+      readFoodDensity({ [FOOD_DENSITY_ATTR]: { class: "liquid" } })
+    ).toEqual({ class: "liquid" });
     expect(readFoodDensity({ [FOOD_DENSITY_ATTR]: { g_per_ml: 1.2 } })).toEqual(
       {
         g_per_ml: 1.2,
@@ -70,8 +72,11 @@ describe("a malformed density reads as no density, never a wrong figure", () => 
     // A value written by an older build, or arriving from one of your own
     // devices, naming a class since retired. The food falls back to the
     // standing state — millilitres, fully loggable (§6) — and never to 1.0.
+    // `milk-like` was one of the five, and #505 retired it without a
+    // translation: a pre-release ledger holding one simply loses that food's
+    // density rather than having it re-read as something the user never said.
     expect(
-      readFoodDensity({ [FOOD_DENSITY_ATTR]: { class: "syrup" } })
+      readFoodDensity({ [FOOD_DENSITY_ATTR]: { class: "milk-like" } })
     ).toBeUndefined();
   });
 
@@ -118,79 +123,134 @@ describe("the one place a volume becomes a weight (§1)", () => {
   });
 });
 
-describe("the source pre-fills only where its tags name exactly one class", () => {
-  it("proposes the class an unambiguous tag names", () => {
+describe("the panel names the class, and nobody is asked (#505)", () => {
+  // ADR-0108 asked a five-way question of every volume food. #499 measured that
+  // the answer was already on the twin: three lines over the panel.
+  it("calls four-fifths fat an oil", () => {
+    expect(densityClassFromPanel({ calories: 884, fat_content: 100 })).toBe(
+      "oil"
+    );
+  });
+
+  it("calls dense sugar with no fat a syrup", () => {
     expect(
-      densityClassFromCategoryTags(["en:beverages", "en:olive-oils"])
-    ).toBe("oil");
-    expect(densityClassFromCategoryTags(["EN:Waters"])).toBe("water-like");
+      densityClassFromPanel({
+        calories: 260,
+        fat_content: 0.06,
+        carbohydrate_content: 67,
+      })
+    ).toBe("syrup");
   });
 
-  it("proposes nothing for squash, which carries juice and cordial together", () => {
-    // 18.6% of millilitre cordials do. A juice rule would put 1.04 on a
-    // concentrate nearer 1.20, and a wrong pre-fill converts a question into a
-    // nod — which is worse than asking.
+  // 42 kcal is nowhere near 250, which is what keeps every soft drink out of the
+  // class a jar of honey is in.
+  it("calls a cola a liquid, not a syrup", () => {
     expect(
-      densityClassFromCategoryTags(["en:fruit-juices", "en:cordials"])
-    ).toBeUndefined();
+      densityClassFromPanel({
+        calories: 42,
+        fat_content: 0,
+        carbohydrate_content: 10.6,
+      })
+    ).toBe("liquid");
   });
 
-  it("proposes nothing for a coconut tin sold for cooking", () => {
-    // `en:plant-based-creams-for-cooking` beside a drinkable tag makes a
-    // cooking tin indistinguishable from a drinking carton.
+  // The rule is right where the food's own name is wrong: 51 kcal is a liquid
+  // however the label spells it, and the error against 1.00 is 0.1 kcal.
+  it("calls sugar-free syrup a liquid, which its name does not", () => {
     expect(
-      densityClassFromCategoryTags([
-        "en:beverages",
-        "en:plant-based-creams-for-cooking",
-      ])
-    ).toBeUndefined();
+      densityClassFromPanel({
+        calories: 51,
+        fat_content: 0,
+        carbohydrate_content: 12,
+      })
+    ).toBe("liquid");
   });
 
-  it("proposes nothing where two classes match", () => {
-    expect(
-      densityClassFromCategoryTags(["en:milks", "en:orange-juices"])
-    ).toBeUndefined();
+  it("reads nothing off a panel that states no energy", () => {
+    expect(densityClassFromPanel({ fat_content: 100 })).toBeUndefined();
+    expect(densityClassFromPanel({})).toBeUndefined();
+  });
+});
+
+describe("two things a panel cannot classify, and both get asked", () => {
+  // Air has no macros, so an ice cream's panel looks like a custard's. This is
+  // all that survives of the category-tag route.
+  it("finds an ice cream, because air has no macros", () => {
+    expect(panelCannotAnswer(["en:ice-creams"])).toBe(true);
+    expect(panelCannotAnswer(["en:beverages", "EN:Frozen-Desserts"])).toBe(
+      true
+    );
   });
 
-  it("proposes nothing for the 41% the classes do not name", () => {
-    // Half of them are drinkables the five classes do not cover and half are
-    // not drinks at all, yet sold in millilitres.
-    expect(densityClassFromCategoryTags(["en:energy-drinks"])).toBeUndefined();
-    expect(densityClassFromCategoryTags(["en:ice-creams"])).toBeUndefined();
-    expect(densityClassFromCategoryTags(["en:vinegars"])).toBeUndefined();
-    expect(densityClassFromCategoryTags(["en:spirits"])).toBeUndefined();
+  // The case that nearly got through: a squash's panel is a juice's panel, and
+  // nothing in it says you will dilute this. Read as a liquid it is ~90 kcal out
+  // on a 300 ml pour, nine times the bar the silent path rests on.
+  it("finds a concentrate, because its panel describes the bottle", () => {
+    expect(panelCannotAnswer(["en:beverages", "en:cordials"])).toBe(true);
+    expect(panelCannotAnswer(["en:fruit-juices", "en:squashes"])).toBe(true);
+    expect(panelCannotAnswer(["en:condensed-milks"])).toBe(true);
   });
 
-  it("proposes nothing for the 24% carrying no usable tags", () => {
-    // Orangina, Red Bull, Bière 33cl — ordinary products, not oddities.
-    expect(densityClassFromCategoryTags([])).toBeUndefined();
-    expect(densityClassFromCategoryTags(undefined)).toBeUndefined();
-    expect(densityClassFromCategoryTags(["en:unknown-thing"])).toBeUndefined();
+  it("says nothing about a food the panel can read", () => {
+    expect(panelCannotAnswer(["en:milks"])).toBe(false);
+    expect(panelCannotAnswer(["en:fruit-juices"])).toBe(false);
+    expect(panelCannotAnswer([])).toBe(false);
+    expect(panelCannotAnswer(undefined)).toBe(false);
+  });
+});
+
+describe("what a food is weighed with, resolved in one place (#505)", () => {
+  const perMl = { serving_size: "100 ml", calories: 42 };
+  const perGram = { serving_size: "100 g", calories: 350 };
+
+  it("derives a class from the panel, and writes no datom to do it", () => {
+    const reading = densityFor(undefined, perMl, []);
+    expect(reading).toEqual({
+      density: { class: "liquid" },
+      asserted: false,
+      mustAsk: false,
+    });
   });
 
-  it("does not need a beverages ancestor to reach a milk", () => {
-    // `en:milks` never inherits `en:beverages`, so a rule anchored on the
-    // beverages tree would see no milk at all.
-    expect(densityClassFromCategoryTags(["en:milks"])).toBe("milk-like");
+  // A `food/density` datom exists only because somebody disagreed with us, so it
+  // outranks anything derivable — it is a person's answer, not a cache.
+  it("lets a correction outrank the derivation", () => {
+    const reading = densityFor(
+      { [FOOD_DENSITY_ATTR]: { g_per_ml: 1.25 } },
+      perMl,
+      []
+    );
+    expect(reading).toEqual({
+      density: { g_per_ml: 1.25 },
+      asserted: true,
+      mustAsk: false,
+    });
   });
 
-  it("does not read a plant drink as a milk", () => {
-    // The tag is `en:oat-based-drinks`, never `en:oat-milks`, and a plant milk
-    // never inherits `en:dairies`.
-    expect(
-      densityClassFromCategoryTags(["en:oat-based-drinks"])
-    ).toBeUndefined();
-    expect(
-      densityClassFromCategoryTags(["en:milks", "en:oat-based-drinks"])
-    ).toBeUndefined();
+  // The load-bearing gate. Over the whole corpus this rule calls dry noodles
+  // "syrup" and would be wrong by 400 kcal; they never reach it.
+  it("asks nothing of a food that is not sold by volume", () => {
+    expect(densityFor(undefined, perGram, [])).toEqual({
+      density: undefined,
+      asserted: false,
+      mustAsk: false,
+    });
   });
 
-  it("does not read a concentrate or a powder as a milk", () => {
-    // The milk-like class was measured without them: 1.0651 puts the first
-    // evaporated milk outside the class it would otherwise widen.
-    expect(
-      densityClassFromCategoryTags(["en:milks", "en:condensed-milks"])
-    ).toBeUndefined();
+  it("asks rather than applies for an aerated food", () => {
+    expect(densityFor(undefined, perMl, ["en:ice-creams"])).toEqual({
+      density: undefined,
+      asserted: false,
+      mustAsk: true,
+    });
+  });
+
+  it("has nothing to offer a volume food with no panel", () => {
+    expect(densityFor(undefined, undefined, [])).toEqual({
+      density: undefined,
+      asserted: false,
+      mustAsk: false,
+    });
   });
 });
 
@@ -229,7 +289,7 @@ describe("context sets the opening unit and memory overrides it (§7)", () => {
     expect(openingUnit("recipe", "ml", { class: "oil" }, null)).toBe("g");
     // Unqualified "grams the default" would open a can of Coke in grams, and
     // nobody weighs a can of Coke.
-    expect(openingUnit("log", "ml", { class: "juice" }, null)).toBe("ml");
+    expect(openingUnit("log", "ml", { class: "liquid" }, null)).toBe("ml");
   });
 
   it("takes the memory of this context over the context's default", () => {
@@ -241,8 +301,8 @@ describe("context sets the opening unit and memory overrides it (§7)", () => {
     // The scenario the flat rule gets wrong: a food with any history at all
     // takes it, and the context rule never runs. A recipe list has no memory of
     // a can nobody has cooked with, so the context decides.
-    expect(openingUnit("log", "ml", { class: "juice" }, "ml")).toBe("ml");
-    expect(openingUnit("recipe", "ml", { class: "juice" }, null)).toBe("g");
+    expect(openingUnit("log", "ml", { class: "liquid" }, "ml")).toBe("ml");
+    expect(openingUnit("recipe", "ml", { class: "liquid" }, null)).toBe("g");
   });
 });
 

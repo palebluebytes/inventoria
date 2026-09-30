@@ -100,7 +100,7 @@ describe("a food published by volume is offered the question", () => {
         amount: 250,
         unit: "ml",
         panelUnit: "ml",
-        density: { class: "juice" },
+        density: { class: "liquid" },
       },
     });
     expect(unitCells(classified.body)).toHaveLength(2);
@@ -135,7 +135,7 @@ describe("the amount is in the unit the host handed down", () => {
         amount: 330,
         unit: "ml",
         panelUnit: "ml",
-        density: { class: "juice" },
+        density: { class: "liquid" },
         onAssertDensity: () => {},
       },
     });

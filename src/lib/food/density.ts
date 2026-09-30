@@ -20,7 +20,12 @@ import {
   type DensityClass,
   type DensityClassId,
 } from "./density-class";
-import { basisUnit, convertMeasured, type MeasuredUnit } from "./nutrition";
+import {
+  basisUnit,
+  convertMeasured,
+  type MeasuredUnit,
+  type NutritionInfo,
+} from "./nutrition";
 
 /** Where a food's density lives on its twin. */
 export const FOOD_DENSITY_ATTR = "food/density";
@@ -202,11 +207,9 @@ export function amountAgainstBasis(
  * the type check here until somebody writes the words for it.
  */
 export const DENSITY_CLASS_OPTIONS: Record<DensityClassId, string> = {
-  "water-like": "Water — still, sparkling, tea, coffee",
-  "milk-like": "Milk — cow, goat, sheep, buttermilk",
-  juice: "Juice — orange, apple, grape",
+  liquid: "A drink — water, tea, coffee, milk, juice, beer, wine",
   oil: "Oil — olive, sunflower, rapeseed",
-  "beer-wine": "Beer or wine",
+  syrup: "Syrup or honey",
 };
 
 /**
@@ -228,7 +231,10 @@ export const DENSITY_CLASS_OPTIONS: Record<DensityClassId, string> = {
  * `null` for a food carrying no density, which is most of them and renders no
  * paragraph at all.
  */
-export function densityNote(density: FoodDensity | undefined): string | null {
+export function densityNote(
+  density: FoodDensity | undefined,
+  asserted = true
+): string | null {
   if (!density) return null;
   if ("g_per_ml" in density) {
     return (
@@ -241,14 +247,22 @@ export function densityNote(density: FoodDensity | undefined): string | null {
   const entry = densityClassOf(density.class);
   if (!entry) return null;
   const words = DENSITY_CLASS_OPTIONS[density.class].split(" — ")[0];
-  return (
-    `You said this is ${words.toLowerCase()}, which the app reads as ` +
+  const measured =
     `${entry.figure} g per millilitre. That figure is measured over the ` +
     `${entry.evidence.foods} foods of that kind the USDA reference tables ` +
-    "state a volume measure for, not read off this label — so a weight shown " +
-    "here is this app's reading of what you said, and the panel beside it is " +
-    "still the source's own, unchanged."
-  );
+    "state a volume measure for, not read off this label — so the weight shown " +
+    "here is a reading, and the panel beside it is still the source's own, " +
+    "unchanged.";
+  // **Who said so is the part that must not be got wrong** (#505). Before the
+  // panel rule the only way a food had a class was that somebody picked one, so
+  // "you said" was always true. Now it is usually false, and a screen claiming
+  // the user asserted something the app worked out would be exactly the "guess
+  // wearing the costume of a measurement" ADR-0108 §2 refused.
+  return asserted
+    ? `You said this is ${words.toLowerCase()}, which the app reads as ${measured}`
+    : `This app read the nutrition panel and took this for ${words.toLowerCase()}, ` +
+        `at ${measured} Nobody asked you, because on a drink the difference is ` +
+        "worth a few kilocalories — but if it is wrong you can say so.";
 }
 
 // ---------------------------------------------------------------------------
@@ -256,176 +270,177 @@ export function densityNote(density: FoodDensity | undefined): string | null {
 // ---------------------------------------------------------------------------
 
 /**
- * The Open Food Facts category tags that name each class.
+ * The class a food's own nutrition panel names (#505, amending ADR-0108 §6).
  *
- * Reading these is not the app inferring a class. An OFF product arrives
- * carrying its own classification, and mapping `en:olive-oils` to the oil class
- * is the same act as `offPanelBasis` reading `product_quantity_unit` — a source
- * assertion consulted, not a judgement invented (ADR-0108's pre-fill amendment).
+ * **This is what stopped the app asking.** ADR-0108 asked a five-way question
+ * of every volume food, and its pre-fill amendment required the answer to be
+ * confirmed rather than applied — a floor of one question per volume food,
+ * forever. #499 then measured that the question was not worth asking, and that
+ * the answer was already on the twin: three lines over the panel recover the
+ * class for all but a handful of foods, and the panel is the one thing every
+ * twin has.
  *
- * Three structural facts about OFF's taxonomy constrain everything below, and
- * each of them breaks an assumption that looks safe:
+ * Three clauses, in order, and the order matters:
  *
- *  - it is a **DAG with 65 roots**, not one beverages tree, so nothing can be
- *    anchored by walking up to a common parent;
- *  - **`en:milks` never inherits `en:beverages`**, and a plant milk never
- *    inherits `en:dairies`, so there is no tag that means "milk-like" from
- *    above;
- *  - the obvious names do not exist — it is `en:oat-based-drinks`, never
- *    `en:oat-milks`.
+ *  - **fat >= 80 g/100 means oil.** Nothing else in a kitchen is four-fifths
+ *    fat by mass. A butter or a margarine would be, and is not sold by volume.
+ *  - **>= 250 kcal with almost no fat and a lot of carbohydrate means syrup.**
+ *    Honey, maple, molasses and corn syrup all sit there; a cola does not,
+ *    because 42 kcal is nowhere near 250.
+ *  - **anything else is a liquid**, which is the common case and the one the
+ *    collapsed class was measured for.
  *
- * So the tags are matched exactly and named one at a time. A tag absent from
- * this table names no class, which is the standing answer for the 41% of
- * millilitre products the five classes do not cover.
+ * **The caller must gate this on a volume basis, and that gate is load-bearing.**
+ * Over the whole corpus this rule calls dry noodles and freeze-dried chives
+ * "syrup" and would be wrong by 400 kcal; they cannot reach it because a panel
+ * per 100 g is never asked. `offPanelBasis` is what decides that, and a caller
+ * that skips it is not using this function, it is misusing it.
+ *
+ * Checked against the corpus by `scratch/505/verify-505-rule.mjs`: over the 139
+ * foods the class evidence patterns select, the rule agrees on **136**, and all
+ * three disagreements are the **name patterns** over-selecting rather than the
+ * rule failing — honey-roasted almonds and honey-mustard dressing are not
+ * syrups, and sugar-free syrup at 51 kcal is a liquid, which the rule gets right
+ * and the word "syrup" in its name does not.
+ *
+ * It returns `undefined` for a panel with nothing on it, because a food that
+ * states no energy states nothing this rule can read.
  */
-const CLASS_TAGS: Record<DensityClassId, readonly string[]> = {
-  "water-like": [
-    "en:waters",
-    "en:spring-waters",
-    "en:mineral-waters",
-    "en:natural-mineral-waters",
-    "en:sparkling-waters",
-    "en:still-waters",
-    "en:coffees",
-    "en:coffee-drinks",
-    "en:teas",
-    "en:black-teas",
-    "en:green-teas",
-    "en:herbal-teas",
-  ],
-  "milk-like": [
-    "en:milks",
-    "en:whole-milks",
-    "en:semi-skimmed-milks",
-    "en:skimmed-milks",
-    "en:raw-milks",
-    "en:pasteurised-milks",
-    "en:uht-milks",
-    "en:goat-milks",
-    "en:sheep-milks",
-    "en:buttermilks",
-  ],
-  juice: [
-    "en:fruit-juices",
-    "en:orange-juices",
-    "en:apple-juices",
-    "en:grape-juices",
-    "en:vegetable-juices",
-  ],
-  oil: [
-    "en:oils",
-    "en:vegetable-oils",
-    "en:olive-oils",
-    "en:extra-virgin-olive-oils",
-    "en:sunflower-oils",
-    "en:rapeseed-oils",
-    "en:corn-oils",
-    "en:sesame-oils",
-    "en:groundnut-oils",
-    "en:grape-seed-oils",
-  ],
-  "beer-wine": [
-    "en:beers",
-    "en:lagers",
-    "en:ales",
-    "en:wines",
-    "en:red-wines",
-    "en:white-wines",
-    "en:rose-wines",
-    "en:sparkling-wines",
-  ],
-};
+export function densityClassFromPanel(panel: {
+  calories?: number;
+  fat_content?: number;
+  carbohydrate_content?: number;
+}): DensityClassId | undefined {
+  const kcal = panel.calories;
+  if (typeof kcal !== "number") return undefined;
+  const fat = panel.fat_content ?? 0;
+  const carb = panel.carbohydrate_content ?? 0;
+  if (fat >= 80) return "oil";
+  if (kcal >= 250 && fat < 5 && carb >= 55) return "syrup";
+  return "liquid";
+}
 
 /**
- * Tags naming a kind of product **no class covers**, whose presence disqualifies
- * whatever else the tag list matched.
+ * What density a food should be weighed with, and where it came from (#505).
  *
- * This list is what stops the pre-fill being worse than useless, and squash is
- * why it exists. 18.6% of millilitre cordials carry `en:fruit-juices` **and**
- * `en:cordials` together, so a rule that only counted class matches would see
- * one class, call it unambiguous, and put 1.04 on a concentrate nearer 1.20.
- * Coconut milk carries `en:plant-based-creams-for-cooking` beside a drinkable
- * tag, making a cooking tin indistinguishable from a drinking carton.
+ * **One place, because there are now three ways a food can have a density and
+ * only one of them is a datom.** Before #505 the answer was simply "read the
+ * attribute"; now the attribute is the exception rather than the rule, and a
+ * screen that derived the class for itself would be a second copy of a rule that
+ * has a threshold in it.
  *
- * Carrying one of these does not make a product unclassifiable — the user can
- * still say what it is. It makes it un-PRE-fillable, which is the whole of the
- * claim: a wrong pre-fill converts a question into a nod, and a nod is what
- * ADR-0108 §2's "a guess wearing the costume of a measurement" describes.
+ * The order is the whole design:
+ *
+ *  1. **A correction wins, always.** A `food/density` datom exists only because
+ *     somebody disagreed with us (§4 as amended), so it outranks anything
+ *     derivable. That is also what makes the datom worth keeping: it is not a
+ *     cache of a derivation, it is a person's answer.
+ *  2. **A food not sold by volume has no density question at all**, and this is
+ *     the load-bearing gate. Over the whole corpus the panel rule calls dry
+ *     noodles and freeze-dried chives "syrup" and would be wrong by 400 kcal;
+ *     they never reach it, because their panel is per 100 g. A caller that skips
+ *     this gate is not using the rule, it is misusing it.
+ *  3. **What no panel can classify is asked, never applied.** Air has no macros
+ *     and a concentrate's panel describes the bottle rather than the glass, so
+ *     an ice cream and a squash are the two volume foods still worth a question
+ *     — see {@link PANEL_CANNOT_ANSWER_TAGS}.
+ *  4. **Otherwise the panel decides, silently.** This is the case #499 measured
+ *     and the reason the five-way picker is gone.
+ *
+ * `asserted` is what the `≈` explainer reads to say whether the figure is the
+ * app's reading or the user's own answer, and `mustAsk` is what a control reads
+ * to decide between converting and asking.
  */
-export const CONTRA_TAGS: readonly string[] = [
-  // Concentrates and cordials: a juice tag on something you dilute.
+export interface DensityReading {
+  /** What to convert with, or `undefined` when nothing may be applied. */
+  density: FoodDensity | undefined;
+  /** True when a datom said so, which means a person did. */
+  asserted: boolean;
+  /** True when the app must ask rather than apply anything. */
+  mustAsk: boolean;
+}
+
+export function densityFor(
+  attributes: Record<string, unknown> | undefined,
+  panel: NutritionInfo | undefined,
+  tags: readonly string[] | undefined
+): DensityReading {
+  const asserted = readFoodDensity(attributes);
+  if (asserted) return { density: asserted, asserted: true, mustAsk: false };
+
+  const nothing = { density: undefined, asserted: false, mustAsk: false };
+  if (!panel || basisUnit(panel.serving_size) !== "ml") return nothing;
+
+  if (panelCannotAnswer(tags))
+    return { density: undefined, asserted: false, mustAsk: true };
+
+  const derived = densityClassFromPanel(panel);
+  return derived
+    ? { density: { class: derived }, asserted: false, mustAsk: false }
+    : nothing;
+}
+
+/**
+ * The Open Food Facts category tags naming a food **no nutrition panel can
+ * classify**, which is the one job left of the tag route (#505, amending
+ * ADR-0108's pre-fill amendment).
+ *
+ * Everything the tag route used to do — naming oils, milks, juices, waters,
+ * beers — {@link densityClassFromPanel} now does better, on every twin rather
+ * than on the 35.76% carrying discriminating tags. What is left is two
+ * populations where the panel is **physically unable** to answer, and both of
+ * them cost far more than {@link DENSITY_COST_BAR} if guessed:
+ *
+ *  - **Aerated.** Air has no macros, so an ice cream's panel is a custard's.
+ *    A pinned 0.65 would still leave 10-17 kcal, so there is no figure to apply
+ *    however it is obtained.
+ *  - **Concentrates.** A squash's panel is a juice's panel — both are
+ *    sugar-water — and nothing in it says "you will dilute this". A cordial near
+ *    1.20 read as a liquid at 1.00 is about **90 kcal** out on a 300 ml pour,
+ *    nine times the bar. This is the population the retired `CONTRA_TAGS` was
+ *    built for, and #505 was wrong to call that list redundant: the half about
+ *    oils and syrups was, and the half about dilution was not.
+ *
+ * **These force a question, never answer one.** Neither group has a pinned
+ * figure and neither may get one, so the answer the app takes is §4's typed
+ * override — the user says what it weighs, because nobody else can.
+ *
+ * Reading these is not the app inferring anything. An OFF product arrives
+ * carrying its own classification, and `en:cordials` is a source assertion
+ * consulted, exactly as `offPanelBasis` reads `product_quantity_unit`.
+ */
+export const PANEL_CANNOT_ANSWER_TAGS: readonly string[] = [
+  // Aerated: air has no macros.
+  "en:ice-creams",
+  "en:frozen-desserts",
+  "en:sorbets",
+  "en:frozen-yogurts",
+  "en:whipped-creams",
+  "en:mousses",
+  // Concentrates: the panel describes the bottle, not the glass. 18.6% of
+  // millilitre cordials carry `en:fruit-juices` beside one of these, which is
+  // why a juice rule on tags alone put 1.04 on something nearer 1.20.
   "en:cordials",
   "en:squashes",
   "en:concentrates",
   "en:fruit-juice-concentrates",
-  "en:syrups",
-  // Milk that is not milk — a concentrate, a powder, or a plant drink, none of
-  // which the milk-like class measured (`density-class.ts` excludes the first
-  // two from the class by pattern for the same reason).
   "en:condensed-milks",
   "en:evaporated-milks",
-  "en:milk-powders",
-  "en:plant-based-beverages",
-  "en:plant-based-milk-alternatives",
-  "en:oat-based-drinks",
-  "en:soy-based-beverages",
-  "en:almond-based-beverages",
-  // Creams, cooking and otherwise: sold by volume, nowhere near a milk.
-  "en:creams",
-  "en:plant-based-creams-for-cooking",
-  // Sold in millilitres and not a drink at all — the 41% the classes do not
-  // name. An aerated ice cream sits near 0.55, where a five-class scheme would
-  // be wrong by almost half.
-  "en:ice-creams",
-  "en:frozen-desserts",
-  "en:sauces",
-  "en:condiments",
-  "en:vinegars",
-  "en:soups",
-  // Alcohol the beer/wine class was measured without. Spirits were measured and
-  // refused outright at CV 2.63% (`REFUSED_DENSITY_CLASSES`).
-  "en:spirits",
-  "en:liqueurs",
-  "en:aperitifs",
-  // Fortified drinks the classes never reached.
-  "en:energy-drinks",
-  "en:sodas",
 ];
 
 /**
- * The class a source's own tags name, or undefined where they name none, more
- * than one, or one beside something no class covers.
+ * Do a source's own tags say the panel cannot classify this food?
  *
- * **Undefined is the common answer and is not a failure.** ADR-0108 measured the
- * full 2026-09-14 dump — 4,747,804 products — and found that of the 201,821 sold
- * in millilitres, 77.47% carry tags at all while only 35.76% resolve to exactly
- * one class. The gap between those two numbers is the finding: having tags and
- * having *discriminating* tags are different properties.
- *
- * Those figures describe **the tag population, not this function's output**.
- * {@link CONTRA_TAGS} narrows it further, by an amount nobody has counted: the
- * measurement behind the 35.76% was of a rule that reads class tags alone, and
- * the disqualifier list was added afterwards on the strength of the squash case
- * rather than on a second count. So 35.76% is the ceiling here and not the
- * figure, and anyone re-costing this design should measure the rule that ships
- * rather than the one that was measured.
- *
- * The caller opens the picker on what this returns and **never writes it**
- * (ADR-0108's pre-fill amendment). A pre-fill is a proposal the user confirms,
- * and it is confirmable in a way a figure is not: a class is checkable by
- * somebody holding the bottle — you can see "juice" on a bottle of squash and
- * know it is wrong — where `1.04 g/ml` could never be checked by anyone.
+ * `false` is the common answer and means "the panel decides", not "this is a
+ * liquid" — the caller still has to gate on a volume basis before reading a
+ * panel at all.
  */
-export function densityClassFromCategoryTags(
+export function panelCannotAnswer(
   tags: readonly string[] | undefined
-): DensityClassId | undefined {
-  if (!tags?.length) return undefined;
+): boolean {
+  if (!tags?.length) return false;
   const held = new Set(tags.map((tag) => tag.trim().toLowerCase()));
-  if (CONTRA_TAGS.some((tag) => held.has(tag))) return undefined;
-  const matched = (Object.keys(CLASS_TAGS) as DensityClassId[]).filter((id) =>
-    CLASS_TAGS[id].some((tag) => held.has(tag))
-  );
-  return matched.length === 1 ? matched[0] : undefined;
+  return PANEL_CANNOT_ANSWER_TAGS.some((tag) => held.has(tag));
 }
 
 // ---------------------------------------------------------------------------

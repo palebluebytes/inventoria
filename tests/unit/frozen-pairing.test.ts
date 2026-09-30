@@ -188,11 +188,11 @@ describe("the numbers and the account are minted together", () => {
 
   it("carries the twin's density through, since the freeze scales against it", () => {
     const source = pairedSource(
-      twin({ "food/density": { class: "milk-like" } }),
+      twin({ "food/density": { class: "liquid" } }),
       references()
     );
 
-    expect(source.density).toEqual({ class: "milk-like" });
+    expect(source.density).toEqual({ class: "liquid" });
   });
 
   it("hands back no panel at all for a twin that carries none", () => {

@@ -1,6 +1,7 @@
 <script lang="ts">
   import { mintEntity } from "../../facets/entity-id";
   import {
+    offCategoryTagsFromTwin,
     submitToOpenFoodFacts,
     parseCategoryList,
     offReferenceImagesFromTwin,
@@ -38,7 +39,7 @@
   import {
     amountAgainstBasis,
     openingUnit,
-    readFoodDensity,
+    densityFor,
     FOOD_DENSITY_ATTR,
     type AmountContext,
     type FoodDensity,
@@ -370,7 +371,11 @@
       | NutritionInfo
       | undefined;
     const basis = basisUnit(info?.serving_size);
-    const density = readFoodDensity(payload.attributes);
+    const density = densityFor(
+      payload.attributes,
+      info,
+      offCategoryTagsFromTwin(payload.attributes)
+    ).density;
     // The unit is settled first, and only then is the amount asked for: a
     // remembered amount measured against the other unit is refused rather than
     // converted (ADR-0060 §1/§2), and takes the unit's generic default.
@@ -469,6 +474,18 @@
     staged?.payload.attributes[NUTRITION_INFO_ATTR] as NutritionInfo | undefined
   );
 
+  // What the staged food is weighed with, resolved once (#505). Everything below
+  // reads this rather than the raw attribute: since the class derives from the
+  // panel, a volume food usually has a density nobody wrote down, and a caller
+  // still reading `readFoodDensity` would silently refuse to convert it.
+  let stagedDensity = $derived(
+    densityFor(
+      staged?.payload.attributes,
+      stagedInfo,
+      offCategoryTagsFromTwin(staged?.payload.attributes)
+    )
+  );
+
   // The commit button's headline scales by the staged panel's OWN basis, the
   // same divisor FoodAmountPanel's preview directly above it uses (#148). A
   // hardcoded /100 here disagreed with that preview on every panel not measured
@@ -478,7 +495,7 @@
       amount,
       amountUnit,
       stagedInfo?.serving_size,
-      readFoodDensity(staged?.payload.attributes)
+      stagedDensity.density
     ) / parseBasisQuantity(stagedInfo?.serving_size)
   );
 
@@ -3183,7 +3200,8 @@
   <SourceExplainerSheet
     kind={sourceExplain}
     standIn={curatedStandInFor(staged?.entity)}
-    density={readFoodDensity(staged?.payload.attributes)}
+    density={stagedDensity.density}
+    densityAsserted={stagedDensity.asserted}
     onEdit={staged ? editStaged : undefined}
     onClose={() => (sourceExplain = null)}
   />

@@ -7,11 +7,7 @@
     type NutritionInfo,
     type Portion,
   } from "../../food/nutrition";
-  import {
-    densityClassFromCategoryTags,
-    readFoodDensity,
-    type FoodDensity,
-  } from "../../food/density";
+  import { densityFor, type FoodDensity } from "../../food/density";
   import { offCategoryTagsFromTwin } from "../../food/open-food-facts";
   import { deriveNovaVerdict, type NovaVerdict } from "../../food/nova-verdict";
   import {
@@ -179,13 +175,17 @@
     asserted = undefined;
   });
 
-  // The density and the source's own proposal, both read off the payload every
-  // other mark on this card reads from. A proposal is not a class: it opens the
-  // picker and is never written until the user has seen it (ADR-0108's pre-fill
-  // amendment).
-  let density = $derived(asserted ?? readFoodDensity(payload.attributes));
-  let prefill = $derived(
-    densityClassFromCategoryTags(offCategoryTagsFromTwin(payload.attributes))
+  // The density this card weighs with, resolved in one place (#505). Since the
+  // class derives from the panel, most volume foods are weighable here without
+  // anybody having been asked — and `asserted` is the answer that has not
+  // round-tripped yet, which still outranks a derivation exactly as a datom does.
+  let density = $derived(
+    asserted ??
+      densityFor(
+        payload.attributes,
+        panel,
+        offCategoryTagsFromTwin(payload.attributes)
+      ).density
   );
 
   function assertDensity(next: FoodDensity) {
@@ -428,7 +428,6 @@
       bind:amount
       bind:unit
       {density}
-      {prefill}
       onAssertDensity={onAssertDensity ? assertDensity : undefined}
     />
   {/key}

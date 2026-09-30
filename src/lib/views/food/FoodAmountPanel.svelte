@@ -51,7 +51,6 @@
     unit = $bindable(),
     estimated = undefined,
     density = undefined,
-    prefill = undefined,
     onAssertDensity = undefined,
   }: {
     /** The food's `nutrition/info` panel, per its serving basis. Omit for a
@@ -74,7 +73,6 @@
     /** What this food's twin asserts about its density (ADR-0108 §4). */
     density?: FoodDensity | undefined;
     /** The class this food's own source names, where it names exactly one. */
-    prefill?: DensityClassId | undefined;
     /** The user has said what kind of liquid this is; the host writes it. */
     onAssertDensity?: (density: FoodDensity) => void;
   } = $props();
@@ -113,7 +111,6 @@
   {portions}
   {caption}
   {density}
-  {prefill}
   {onAssertDensity}
 />
 

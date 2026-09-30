@@ -1959,30 +1959,34 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     await expect(chips).toContainText("330 ml");
     await expect(page.locator(".basis")).toHaveText("Per 100 ml");
 
-    // Say it is a juice, and the field takes grams.
+    // **Nobody is asked** (#505). The panel says 45 kcal with almost no fat, so
+    // the rule reads it as a drink and applies 1.00 without a picker — which is
+    // the whole of what that ticket changed, and the reason this test no longer
+    // confirms anything.
     const units = page.locator('[data-testid="amount-units"]');
     await units.locator('[data-value="g"]').click();
-    await page
-      .locator('[data-testid="density-picker"] [data-testid="density-confirm"]')
-      .click();
+    await expect(page.locator('[data-testid="density-picker"]')).toHaveCount(0);
 
     // §8: the chip is still there, in the unit the field now takes, marked `≈`
     // because the source stated a volume and the weight beside it is this app's
-    // reading of what the user said. 330 ml of juice at 1.04 is 343.2 g.
-    await expect(chips).toContainText("≈343.2 g");
+    // reading. 330 ml of a drink at 1.00 is 330 g.
+    await expect(chips).toContainText("≈330 g");
     await chips.getByRole("button", { name: /1 can/ }).click();
-    await expect(page.getByLabel("Amount in grams")).toHaveValue("343.2");
+    await expect(page.getByLabel("Amount in grams")).toHaveValue("330");
 
     // §9: the caption says what the basis weighs, and the `≈` is the whole of
     // the surface signal — no badge, tag or tint joins it.
-    await expect(page.locator(".basis")).toHaveText("Per 100 ml (≈104 g)");
+    await expect(page.locator(".basis")).toHaveText("Per 100 ml (≈100 g)");
 
-    // The rest is one tap deeper, in the source explainer.
+    // The rest is one tap deeper, in the source explainer — and it says the app
+    // read the panel rather than claiming the user said anything, because under
+    // #505 they did not.
     await page.locator('[data-testid="source-tag"]').click();
     const note = page.locator('[data-testid="density-note"]');
-    await expect(note).toContainText("juice");
-    await expect(note).toContainText("1.04");
+    await expect(note).toContainText("read the nutrition panel");
+    await expect(note).toContainText("a drink");
     await expect(note).toContainText("USDA");
+    await expect(note).not.toContainText("You said");
   });
 
   test("a bottle the source cannot tell apart opens the picker empty", async ({

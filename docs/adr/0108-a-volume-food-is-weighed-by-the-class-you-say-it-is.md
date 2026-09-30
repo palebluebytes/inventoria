@@ -619,3 +619,127 @@ of the food and not of the screen. It is not breached. The density is one fact o
 one twin and both units stay available everywhere; what is scoped is only which
 unit the field opens on, which was already a per-context rule the moment context
 was allowed to set a default at all.
+
+## Amendment (2026-09-30): the question is not worth asking, so the panel answers it
+
+The record's title says a volume food is weighed by the class **you say it is**.
+Since [#505](https://github.com/palebluebytes/inventoria/issues/505) it usually
+is not: the class is read off the food's own nutrition panel and applied without
+anybody being asked, and what a person says is reserved for the cases no panel
+can settle. The title stands as the shape of the thing — a class, never a figure
+— and the _asking_ is what has gone.
+
+Everything below was measured against the shipped corpus (2,023 foods, schema 10) by `scratch/505/`, not inherited from the ticket. Two of the ticket's own
+figures did not survive that, and one of its recommendations was wrong.
+
+### §2 gains a second bar, and the collapse does not need it
+
+The statistical bar — n >= 8, CV <= 2% — stands unchanged, and is still what
+lets a figure be applied silently at all. Beside it sits a **cost** bar:
+`DENSITY_COST_BAR`, ten kilocalories on a realistic serving. Never ask a
+question whose worst wrong answer is worth less than that, because ten
+kilocalories is beneath the width of the answers this app already gives — a
+panel rounded to whole numbers, a portion somebody estimated.
+
+**The five classes become three.** `water-like`, `milk-like`, `juice` and
+`beer-wine` pool into one `liquid` at 1.00: **73 foods, 100 portions, measured
+1.0009, spread 6.9%, CV 1.90%**. That clears §2's own ceiling, so the collapse
+is admitted on **statistics and not on cost** — the ticket framed it the other
+way round, and keeping the cost bar's job narrow matters more than the
+convenience of one justification for everything.
+
+What the collapse costs, priced at each food's own energy over a serving
+somebody would have: **5.0 kcal on a 250 ml glass of whole milk**, 5.4 on orange
+juice. Exactly **one** of the 73 exceeds ten — a late-harvest dessert wine at
+11.6 kcal per 250 ml — and at the 100 ml anyone actually pours it is 4.6. The
+bar is "on a realistic serving", and 250 ml of dessert wine is not one.
+
+**`syrup` is admitted, and this reverses a refusal §2 made correctly.** Its CV is
+8.99% over a 44.4% spread, nowhere near the ceiling, and honey at 1.4265 against
+maple at 1.3420 really are different liquids. What changed is not the statistics
+but the question they answered: refusing the class did not stop the app needing
+an answer, it made the app open a five-cell picker in which **no cell was right**
+for a jar of honey. A figure 3.8 kcal out on a tablespoon is better than that.
+Pinned at 1.39, measured 1.3885 over ten foods.
+
+`spirits` stays refused, and now for a second reason: no panel rule reaches it
+either, because a spirit's panel is energy with almost no macros — the one shape
+the rule cannot tell from a diet drink.
+
+### §6's question is no longer asked by default
+
+A three-line rule over the panel: `fat >= 80 -> oil`; `kcal >= 250 & fat < 5 &
+carb >= 55 -> syrup`; otherwise `liquid`. **The panel is on every twin**, so
+unlike `categories_tags` this reaches the 24.24% of millilitre products carrying
+no usable tags at no cost — the population the whole density lane kept losing.
+
+**Its gate is load-bearing and is not part of the rule.** Over the whole corpus
+the rule calls dry noodles and freeze-dried chives "syrup" and would be wrong by
+400 kcal. They never reach it, because a panel stated per 100 g is never asked.
+`densityFor` is the one place that gate lives, and a caller reading the rule
+directly is misusing it.
+
+Measured: over the 139 foods the class evidence patterns select, the rule agrees
+on **136**. The ticket claimed 123 of 124, and both numbers were wrong — but
+better than claimed rather than worse, because **all three disagreements are the
+name patterns over-selecting and the rule being right**. Honey-roasted almonds
+and honey-mustard dressing are not syrups, and sugar-free syrup at 51 kcal is a
+liquid however its label spells it.
+
+### Two populations are asked, because no panel can classify them
+
+`PANEL_CANNOT_ANSWER_TAGS`, and this is where the ticket was wrong. It proposed
+retiring `CONTRA_TAGS` because the panel does oils and syrups better. Half of
+that list was indeed redundant; the other half was not:
+
+- **Aerated.** Air has no macros, so an ice cream's panel is a custard's. Even a
+  pinned 0.65 leaves 10-17 kcal, over the cost bar, so there is no figure to
+  apply however obtained.
+- **Concentrates.** A squash's panel _is_ a juice's panel — both are sugar-water
+  — and nothing in it says you will dilute this. A cordial near 1.20 read as a
+  liquid at 1.00 is about **90 kcal** out on a 300 ml pour, nine times the bar.
+  This was found by following the e2e test that already existed for the squash
+  case, which is the test the retired list was written for.
+
+Neither group gets a figure. Both force §4's typed override, because the user is
+the only one who can answer.
+
+### §9's `≈` becomes the correction, and the explainer stops claiming you said so
+
+The explainer's copy was _"You said this is a juice, which the app reads as
+1.04"_. Under this amendment that sentence is usually **false**: nobody said
+anything. `densityNote` now takes whether the density was asserted, and a
+derived class reads _"This app read the nutrition panel and took this for a
+drink… Nobody asked you, because on a drink the difference is worth a few
+kilocalories — but if it is wrong you can say so."_
+
+A screen claiming a user asserted something the app worked out is precisely the
+_"guess wearing the costume of a measurement"_ §2 refused.
+
+### Nothing reaches the ledger when nobody was asked
+
+`food/density` is written **only** on a correction, and this holds by
+construction rather than by a new rule: the derivation lives in `densityFor`,
+which is a read, and the only writers are the picker's confirm and the label
+form's answer. Both are a person.
+
+So the attribute's meaning sharpens. It used to record "what kind of liquid this
+is"; it now records **"a human disagreed with us"**, and an append-only ledger
+holding one is holding a disagreement rather than a classification.
+
+### The four retired ids are gone, not translated
+
+`water-like`, `milk-like`, `juice` and `beer-wine` are not readable, not mapped
+and not deprecated. A pre-release ledger holding one loses that food's density,
+which is `secrets.ts`'s precedent for the retired USDA key — _"no migration —
+pre-release; the old datoms are simply abandoned"_. A translation layer would
+have kept a second meaning of "class" alive to serve rows nobody has.
+
+### What this costs
+
+A glass of milk is weighed 5 kcal light, permanently and uncorrectably at the
+class level, because the distinct figure no longer exists. That was chosen with
+the number in hand rather than discovered afterwards. Against it: **the floor of
+one question per volume food, forever, is gone** — and #499's measurement of
+what that question bought was 0.02 to 5.6 kcal on a realistic serving, which is
+to say nothing anybody can perceive.
