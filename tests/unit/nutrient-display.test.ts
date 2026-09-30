@@ -39,8 +39,9 @@ describe("nutrient catalogue", () => {
     }
     // Calories are always-on (the ring) and never a selectable option.
     expect(keys).not.toContain("calories");
-    // Total sugar is a captured field but withheld from display (ADR-0032): the
-    // only citable cap is the added-sugars DV, a quantity the panel doesn't carry.
+    // Total sugar is a captured field but withheld from display (ADR-0032 and its
+    // Amendment of 2026-09-30): the WHO caps free sugars, and the panel carries
+    // total sugar — a neighbouring quantity the borrow clause refuses.
     expect(keys).not.toContain("sugar_content");
   });
 

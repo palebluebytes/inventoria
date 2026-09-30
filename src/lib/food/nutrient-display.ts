@@ -100,13 +100,22 @@ const EXTRA_NUTRIENT_META: Record<
 
 /**
  * Nutrients kept as captured data but withheld from every display surface.
- * `sugar_content` is schema.org total sugar; the only citable daily cap is the
- * FDA *added*-sugars DV — a different quantity the panel doesn't carry — so total
- * sugar has no honest reach-toward target or stay-under limit (ADR-0032, "Out of
- * scope"). It stays in {@link EXTRA_NUTRIENT_KEYS} / the freeze path and keeps its
- * {@link EXTRA_NUTRIENT_META} entry; this set only removes it from the catalogue
- * the UI renders, so a future `added_sugar_content` key restores sugar display
- * with a one-line change.
+ * `sugar_content` is schema.org total sugar, and no authority caps that quantity.
+ * The WHO's ceiling is for *free* sugars — added sugar plus the sugar in honey,
+ * syrups and fruit juice — and {@link LIMIT_KEYS}' criterion refuses a ceiling
+ * borrowed from a neighbouring quantity, so total sugar has no honest reach-toward
+ * target or stay-under limit (ADR-0032 "Out of scope", and its Amendment of
+ * 2026-09-30). It stays in {@link EXTRA_NUTRIENT_KEYS} / the freeze path and keeps
+ * its {@link EXTRA_NUTRIENT_META} entry; this set only removes it from the
+ * catalogue the UI renders, so showing a sugar figure again is a one-line change
+ * here.
+ *
+ * An `added_sugar_content` key would not be that one line. USDA publishes no
+ * added-sugars number for either ingested archive — 0 of 2,023 corpus rows — so
+ * such a key could only ever be populated from barcode-scanned OFF products, and
+ * it would arrive with no cap for the same borrow clause that silences total
+ * sugar. Measured in
+ * `docs/research/558-an-added-sugar-key-and-what-would-supply-it.md`.
  */
 const HIDDEN_NUTRIENT_KEYS: ReadonlySet<string> = new Set(["sugar_content"]);
 
