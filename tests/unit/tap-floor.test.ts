@@ -1038,7 +1038,8 @@ describe("the floor, swept", () => {
     // where a native `<select>` was one box carrying `ui/Select`'s floor, and
     // two rules declare the five. #428's arc moved it to 133, one box each —
     // `DensityQuestion`'s `input.typed-num`, the measured override the class
-    // picker exits into when none of the five fit (#430), and
+    // picker exits into when none of the classes fit (#430; five of them then,
+    // three since #505), and
     // `IngredientListEditor`'s `input.tin.yield-in.weight-in`, the batch weight
     // standing beside "Makes" (#432). Both sides wrote 131 for reasons that do
     // not overlap, so the text merged clean at a figure neither of them meant;
@@ -1056,7 +1057,16 @@ describe("the floor, swept", () => {
     // shared 133, and 138 is what the sweep answers — which is the check worth
     // having, because two disjoint moves summing is a claim about the keys and
     // not about the total.
-    expect(how).toEqual({ declared: 138, drawn: 25, sanctioned: 6 });
+    //
+    // **138 → 139 at #505**, and the one box is `AmountField`'s `.basis-door`:
+    // the basis caption, which becomes a button on a food whose Density Class
+    // the panel derived, so the app's own reading of the weight can be
+    // overruled. It is `declared` and it is the case this file's docblock argues
+    // for — the head row is already `--tap-min` tall because the sum keys beside
+    // the caption are floored, so the box clears on a sibling's height and
+    // declares the floor anyway. An inherited floor is one this sweep cannot
+    // see, and a padding change to the row would take it away silently.
+    expect(how).toEqual({ declared: 139, drawn: 25, sanctioned: 6 });
     // Every box lands in exactly one column. Without this the two figures above
     // could both be right while a box fell out of the sweep between them.
     expect(how.declared + how.drawn + how.sanctioned).toBe(SWEEP.groups.size);

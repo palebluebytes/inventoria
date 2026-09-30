@@ -8,12 +8,19 @@
   } from "../../food/density";
   import type { DensityClassId } from "../../food/density-class";
 
-  // "What kind of liquid is this?" — the five classes, and the exit for a bottle
-  // they do not cover (ADR-0108 §1/§4). It is the whole of the question and
-  // none of the commit: it reports an answer and never writes one, because the
-  // two screens that ask it commit at different moments. The amount field asks
-  // it mid-entry and confirms with a button of its own; the capture form asks it
-  // as one field among many and confirms when the food is saved.
+  // "What kind of liquid is this?" — the three classes, and the exit for a
+  // bottle they do not cover (ADR-0108 §1/§4, as amended by #505). It is the
+  // whole of the question and none of the commit: it reports an answer and never
+  // writes one, because the screens that ask it commit at different moments. The
+  // amount field asks it mid-entry and confirms with a button of its own; the
+  // capture form asks it as one field among many and confirms when the food is
+  // saved.
+  //
+  // **It is asked far less often than it used to be.** #505 gave the panel a
+  // rule that picks the class, so the two states left that reach these cells are
+  // a food no panel can classify (an aerated dessert, a concentrate) and a food
+  // whose reading the user is overruling from the basis caption. Neither is a
+  // routine volume food any more.
   //
   // Each option names the thing, not the number: you pick by recognising your
   // bottle. Showing `0.92 g/ml` beside it would ask you to validate a figure you
@@ -35,11 +42,11 @@
     onAnswer: (answer: FoodDensity | null) => void;
   } = $props();
 
-  /** The exit from the five classes, as the picker spells it. */
+  /** The exit from the three classes, as the picker spells it. */
   const OTHER = "other";
   /** What a cell may be: a class, or the exit. Spelled out rather than widened
    *  to `string`, so `DENSITY_CLASS_OPTIONS` being keyed by `DensityClassId`
-   *  still costs a sixth class a type error here — which is the whole reason it
+   *  still costs a fourth class a type error here — which is the whole reason it
    *  is a `Record` and not a list. */
   type Choice = DensityClassId | typeof OTHER;
 
@@ -90,7 +97,7 @@
   <Segmented options={OPTIONS} bind:value={chosen} {label} {testid} />
 
   {#if chosen === OTHER}
-    <!-- The exit, so a bottle the five classes do not cover is not a dead end.
+    <!-- The exit, so a bottle the three classes do not cover is not a dead end.
          It is the user's own claim about their own food and never a measurement
          the app could check (ADR-0108 §4, as amended): nobody puts a bottle on a
          scale and divides, and the figure reaching this field is a remembered or

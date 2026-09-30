@@ -9,6 +9,7 @@
  * paint, which is the half a user meets before touching anything.
  */
 import { describe, expect, it } from "vitest";
+import { readFileSync } from "node:fs";
 import { render } from "svelte/server";
 import AmountField from "../../src/lib/views/food/AmountField.svelte";
 
@@ -104,6 +105,93 @@ describe("a food published by volume is offered the question", () => {
       },
     });
     expect(unitCells(classified.body)).toHaveLength(2);
+  });
+});
+
+describe("a reading the app made is one the user can overrule", () => {
+  // #505 item 6. The panel rule classifies most volume foods without asking, so
+  // the `≈` on the basis caption is usually the app's own claim — and the source
+  // explainer's note for exactly that case ends "but if it is wrong you can say
+  // so". These four cases are where that promise is either kept or empty.
+  const volumeCaption = {
+    amount: 250,
+    unit: "ml" as const,
+    panelUnit: "ml" as const,
+    caption: "Per 100 ml (≈100 g)",
+  };
+
+  it("makes the caption the door when the panel classified the food", () => {
+    const { body } = render(AmountField, {
+      props: {
+        ...volumeCaption,
+        density: { class: "liquid" },
+        densityAsserted: false,
+        onAssertDensity: () => {},
+      },
+    });
+    expect(body).toContain('data-testid="density-door"');
+    // The door wears the caption and says the rest to a screen reader, because
+    // the visible text is a caption and a badge beside it is the marker
+    // ADR-0108 §9 declined to add.
+    expect(body).toContain("Per 100 ml (≈100 g)");
+    expect(body).toContain("Change what kind of liquid this is");
+  });
+
+  it("leaves the caption inert once somebody has answered", () => {
+    // A "change it" beside the user's own answer is a prompt that exists to be a
+    // prompt, which is the surface ADR-0108 §1 refuses. `densityAsserted`
+    // defaults to true, so this is also what every pre-#505 caller renders.
+    const { body } = render(AmountField, {
+      props: {
+        ...volumeCaption,
+        density: { class: "liquid" },
+        onAssertDensity: () => {},
+      },
+    });
+    expect(body).not.toContain('data-testid="density-door"');
+    expect(body).toMatch(/<p class="basis[^"]*">Per 100 ml/);
+  });
+
+  it("draws no door on a food with nothing to overrule", () => {
+    // Nothing was read, so there is no reading to disagree with. The unit
+    // toggle is still the door here, and tapping `g` still asks.
+    const { body } = render(AmountField, {
+      props: {
+        ...volumeCaption,
+        densityAsserted: false,
+        onAssertDensity: () => {},
+      },
+    });
+    expect(body).not.toContain('data-testid="density-door"');
+    expect(unitCells(body)).toHaveLength(2);
+  });
+
+  it("draws no door where the host has nowhere to put the answer", () => {
+    // The same rule the unit toggle follows: a control whose answer goes nowhere
+    // is a control that does nothing. A read-only card still shows the `≈`.
+    const { body } = render(AmountField, {
+      props: {
+        ...volumeCaption,
+        density: { class: "liquid" },
+        densityAsserted: false,
+      },
+    });
+    expect(body).not.toContain('data-testid="density-door"');
+    expect(body).toContain("Per 100 ml (≈100 g)");
+  });
+
+  it("declares its own tap floor rather than inheriting the row's", () => {
+    // The head row already draws at `--tap-min` because the sum keys beside the
+    // caption are floored, so this costs no height — but a box whose height
+    // comes from a sibling cannot be measured out of its own declarations, which
+    // is what `tap-floor.test.ts` reads. Asserted here too so the floor cannot
+    // be dropped as cosmetic by somebody reading only this file.
+    const source = readFileSync(
+      new URL("../../src/lib/views/food/AmountField.svelte", import.meta.url),
+      "utf8"
+    );
+    const rule = /\.basis-door \{([^}]*)\}/.exec(source)?.[1] ?? "";
+    expect(rule).toContain("min-height: var(--tap-min)");
   });
 });
 

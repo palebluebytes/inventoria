@@ -179,14 +179,19 @@
   // class derives from the panel, most volume foods are weighable here without
   // anybody having been asked — and `asserted` is the answer that has not
   // round-tripped yet, which still outranks a derivation exactly as a datom does.
-  let density = $derived(
-    asserted ??
-      densityFor(
-        payload.attributes,
-        panel,
-        offCategoryTagsFromTwin(payload.attributes)
-      ).density
+  let reading = $derived(
+    densityFor(
+      payload.attributes,
+      panel,
+      offCategoryTagsFromTwin(payload.attributes)
+    )
   );
+  let density = $derived(asserted ?? reading.density);
+  // Whether whatever is being weighed with was somebody's answer. The local
+  // `asserted` counts — it is an answer this card took a moment ago and is still
+  // waiting on the round trip for — so a user who has just corrected a reading
+  // is not offered the door back to it as though nothing had happened.
+  let densityAsserted = $derived(asserted !== undefined || reading.asserted);
 
   function assertDensity(next: FoodDensity) {
     asserted = next;
@@ -428,6 +433,7 @@
       bind:amount
       bind:unit
       {density}
+      {densityAsserted}
       onAssertDensity={onAssertDensity ? assertDensity : undefined}
     />
   {/key}

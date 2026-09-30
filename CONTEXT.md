@@ -931,16 +931,20 @@ _Avoid_: Progress bar, gauge, ring (as separate components)
 
 **AmountField**:
 The one control an amount of a food is typed into (`views/food/AmountField.svelte`):
-the boxed number, the ×/÷ sum keys, the skim slider and the portion chips. It is a
-food-screen control rather than a `ui/` primitive, but it is the only one of its kind
-— every staging screen and every edit-amount sheet reaches an amount through it. It
-names its **Amount unit** in its label, its suffix and its slider scale, because a
-unit can never be typed into it. On a food published by volume it also carries the
-`g`/`ml` control that chooses that unit, and that control is the only door to the
-Density Class question: on a classified food it switches units, and on an
-unclassified one tapping `g` is what asks. The capability is offered by the same
-control that earns it, so there is deliberately no separate prompt asking whether
-you would like to weigh this instead. See ADR-0023, ADR-0060 and ADR-0108.
+the boxed number, the − + × ÷ sum keys and the portion chips. There was a slider
+skimming the amount and it is gone: it wrote its whole-unit position back, so a typed
+12.34 was re-reported as 12. It is a food-screen control rather than a `ui/`
+primitive, but it is the only one of its kind — every staging screen and every
+edit-amount sheet reaches an amount through it. It names its **Amount unit** in its
+label, its suffix and its aria-label, because a unit can never be typed into it. On a
+food published by volume it also carries the `g`/`ml` control that chooses that unit,
+and that control is one of the two doors to the Density Class question: on a
+classified food it switches units, and on an unclassified one tapping `g` is what
+asks. The second door is the **Basis caption**, and it is a correction rather than a
+question. Both doors are controls that already earn their place, so there is
+deliberately no separate prompt asking whether you would like to weigh this instead,
+and none asking whether the app read the food right. See ADR-0023, ADR-0060 and
+ADR-0108.
 _Avoid_: QuantityGrams, quantity field, gram field, gram picker, unit picker (it is
 the **Amount unit** toggle, and it is part of this control rather than beside it)
 
@@ -953,9 +957,16 @@ carrying a Density Class it also says what that basis weighs — `Per 100 ml
 (≈103 g)` — and the `≈` is the whole of the surface signal: it says estimate
 without reopening an argument already settled, and there is deliberately no badge,
 tag or tint beside it. The Source explainer carries the rest, one tap deeper: which
-class was asserted, what it resolved to, and that the figure is measured over
-reference foods rather than read off this label. See ADR-0060 and ADR-0108.
-_Avoid_: Serving size (as a caption), per-100 label
+class the food is weighed by, what it resolved to, and that the figure is measured
+over reference foods rather than read off this label. Where that class was **derived
+from the panel** rather than answered by anybody, the caption is also the correction:
+tapping it reopens the three cells over the app's own reading, and the number in the
+amount box does not move when the answer changes. It is not a door on a class the
+user asserted, because there the caption is reporting their own answer. See ADR-0060
+and ADR-0108.
+_Avoid_: Serving size (as a caption), per-100 label, calling the caption's door a
+prompt or a confirmation (it is a correction, offered only over a reading the app
+made unasked)
 
 **Chip**:
 Not a thing. There is deliberately no `Chip` primitive; the space it would occupy is

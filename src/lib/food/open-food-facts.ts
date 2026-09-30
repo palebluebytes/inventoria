@@ -323,8 +323,9 @@ export function offPackQuantityFromTwin(
 /**
  * OFF's own category tags for a SAVED twin — `["en:beverages",
  * "en:fruit-juices"]` — the third sibling of {@link offPackUnitFromTwin} and
- * {@link offPackQuantityFromTwin}, and what the Density Class pre-fill is
- * proposed from (ADR-0108's pre-fill amendment).
+ * {@link offPackQuantityFromTwin}, and what `panelCannotAnswer` reads to decide
+ * whether a food's Density Class may be derived from its panel at all (#505,
+ * amending ADR-0108's pre-fill amendment).
  *
  * This works on every `gtin:` twin ever scanned, with no migration and no
  * re-fetch: `lookupBarcode` passes no `fields` parameter and the mapper stores
@@ -333,9 +334,14 @@ export function offPackQuantityFromTwin(
  * it is not — the two readers above are the precedent.
  *
  * Empty for a non-OFF twin and for a product OFF has not categorised, which
- * `densityClassFromCategoryTags` reads as "no pre-fill" either way: 24.24% of
- * millilitre products carry no usable tags, and they are ordinary ones —
- * Orangina, Red Bull, Bière 33cl.
+ * `panelCannotAnswer` reads as "the panel decides" either way — **and that is
+ * the known hole in this route.** 24.24% of millilitre products carry no usable
+ * tags, and they are ordinary ones: Orangina, Red Bull, Biere 33cl. An
+ * untagged cordial in that share is read from its panel, which is a juice's, so
+ * it is weighed at 1.00 rather than nearer 1.20. The tag route used to propose a
+ * class and this gap cost a pre-fill; it now withholds one, and the same gap
+ * costs about 90 kcal on a 300 ml pour. Nothing in `categories_tags` can close
+ * it, because the products in that 24% have no categories at all.
  */
 export function offCategoryTagsFromTwin(
   attributes: Record<string, unknown> | undefined

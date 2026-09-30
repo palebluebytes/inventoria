@@ -716,6 +716,38 @@ kilocalories — but if it is wrong you can say so."_
 A screen claiming a user asserted something the app worked out is precisely the
 _"guess wearing the costume of a measurement"_ §2 refused.
 
+That copy ends _"but if it is wrong you can say so"_, and for a fortnight there
+was no control behind that sentence. The unit toggle was §1's only door to the
+question, and on a food the panel had classified it no longer asked anything —
+it converted. So a reading the app made without being asked was also a reading
+nobody could argue with, which is a worse position than the one §2 refused: not
+a guess dressed as a measurement, but a guess with the standing of one.
+
+**The basis caption is the second door.** On a volume food whose class was
+derived rather than asserted, the caption is a button: tapping _"Per 100 ml
+(≈92 g)"_ reopens the three cells over that reading. Three things about it are
+decisions rather than detail.
+
+It is the caption and nothing beside it. A _"was this right?"_ row under the
+field would be a prompt that exists to be a prompt, which is what §1 refuses and
+what this whole amendment exists to remove. The `≈` is already the app's entire
+surface claim about the weight (§9), so the thing that makes the claim is the
+thing that takes the tap — and the caption keeps its own look, because a control
+announcing itself here would be the provenance badge ADR-0041's 2026-08-06
+amendment removed and §9 declined to re-add.
+
+It is offered only on a derived class. Beside the user's own answer a
+"change it" is that same empty prompt, and on a food with no density at all the
+toggle is still the door — tapping `g` there asks, exactly as §1 says.
+
+**A correction moves no number.** The 230 g on screen came from 250 ml at oil's
+0.92, so re-reading the food as syrup "should" make it 347 g. It does not, and
+the reason is that the control cannot tell that 230 from one the user read off a
+scale and typed. Overwriting a number the user may have entered is what got the
+amount slider deleted from this very row. What a correction moves is what those
+grams are divided by and what the caption weighs, which is the whole of what was
+wrong.
+
 ### Nothing reaches the ledger when nobody was asked
 
 `food/density` is written **only** on a correction, and this holds by

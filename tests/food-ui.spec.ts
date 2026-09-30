@@ -1854,46 +1854,33 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     await expect(page.locator(".staged h3")).toHaveText(name);
   }
 
-  test("tapping `g` on an unclassified bottle is what asks what kind of liquid it is", async ({
+  test("the panel weighs an oil without asking, and the caption is where you disagree", async ({
     page,
   }) => {
+    // This test used to be "tapping `g` is what asks", and #505 took the
+    // question away from this food: 91.6 g of fat per 100 ml is the one panel
+    // shape nothing else has, so the rule reads `oil` and applies 0.92 with
+    // nobody consulted. What is left to prove is the pair of claims that
+    // replaced it — that the conversion happens silently, and that the reading
+    // is not therefore beyond argument (#505 item 6).
     await scanVolumeProduct(page, "0000000000071", "Olive Oil", [
       "en:olive-oils",
     ]);
 
-    // A volume food opens in millilitres and stays fully loggable there (§6).
-    // The toggle is the whole of the surface: there is no separate prompt
-    // asking whether you would like to weigh this instead.
+    // A volume food opens in millilitres and stays fully loggable there (§6),
+    // and the caption already says what its basis weighs — the `≈` is the app's
+    // reading, made before anybody touched anything.
     const units = page.locator('[data-testid="amount-units"]');
     await expect(units.locator('[data-value="ml"]')).toHaveAttribute(
       "data-state",
       "checked"
     );
+    await expect(page.locator(".basis")).toHaveText("Per 100 ml (≈92 g)");
     await expect(page.locator('[data-testid="density-picker"]')).toHaveCount(0);
 
-    // The tap on `g` IS the question.
+    // The tap on `g` is no longer a question. It converts.
     await units.locator('[data-value="g"]').click();
-    const picker = page.locator('[data-testid="density-picker"]');
-    await expect(picker).toBeVisible();
-
-    // Open Food Facts named exactly one class for this product, so the picker
-    // opens on it — a proposal the user confirms, never a class written behind
-    // them. The option names the bottle, not the figure.
-    const oil = picker.locator('[data-value="oil"]');
-    await expect(oil).toHaveAttribute("data-state", "checked");
-    await expect(oil).toContainText("olive", { ignoreCase: true });
-    await expect(picker).not.toContainText("0.92");
-
-    // Confirming it closes the question and switches the field. The confirm is a
-    // button and not the cell: a RadioGroup fires nothing when you tap the cell
-    // already checked, so on exactly the products the pre-fill exists for,
-    // tapping the highlighted option would do nothing at all.
-    await picker.locator('[data-testid="density-confirm"]').click();
-    await expect(picker).toHaveCount(0);
-    await expect(units.locator('[data-value="g"]')).toHaveAttribute(
-      "data-state",
-      "checked"
-    );
+    await expect(page.locator('[data-testid="density-picker"]')).toHaveCount(0);
     await expect(page.getByLabel("Amount in grams")).toHaveValue("230");
 
     // The figures say what will be logged at the weight on screen, so the panel
@@ -1902,13 +1889,57 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     // 230 unconverted would have read 1,895. Read off the breakdown rather than
     // the commit button, which says "Log" and nothing else on every flow in this
     // sheet (ADR-0035 §UI) and never carried a figure to assert.
-    await expect(
-      page.locator(".staged .preview .nutrient-calories strong")
-    ).toContainText("2060");
+    const kcal = page.locator(".staged .preview .nutrient-calories strong");
+    await expect(kcal).toContainText("2060");
 
-    // And it goes back. Both units stay available on a classified food.
-    await units.locator('[data-value="ml"]').click();
-    await expect(page.getByLabel("Amount in millilitres")).toHaveValue("250");
+    // ── and the caption is the door back (#505 item 6) ────────────────────
+    // The source explainer's note for a derived class ends "but if it is wrong
+    // you can say so", and this is the control that makes that true. It is the
+    // caption itself and nothing beside it: no second row asking whether the
+    // app got it right, which is the prompt-for-its-own-sake ADR-0108 §1
+    // refuses.
+    const door = page.locator('[data-testid="density-door"]');
+    await expect(door).toBeVisible();
+    await door.click();
+
+    const picker = page.locator('[data-testid="density-picker"]');
+    await expect(picker).toBeVisible();
+    // Nothing is pre-selected. Seeding the row with the class we derived would
+    // make it read as a confirmation of our own guess, and the guess is the
+    // thing being questioned.
+    await expect(picker.locator('[data-state="checked"]')).toHaveCount(0);
+
+    // The confirm names what confirming does, and from this door that is not a
+    // switch to grams — the field is already in grams and is going to stay put.
+    const confirm = picker.locator('[data-testid="density-confirm"]');
+    await expect(confirm).toBeDisabled();
+    await expect(confirm).toHaveText("Use this instead");
+
+    await picker.locator('[data-value="syrup"]').click();
+    await confirm.click();
+    await expect(picker).toHaveCount(0);
+
+    // **The number does not move.** This control cannot tell the 230 it derived
+    // from one the user read off a scale and typed, and overwriting a number the
+    // user may have entered is what got the amount slider deleted. What the
+    // correction moves is what those grams are worth and what the basis weighs.
+    await expect(page.getByLabel("Amount in grams")).toHaveValue("230");
+    await expect(units.locator('[data-value="g"]')).toHaveAttribute(
+      "data-state",
+      "checked"
+    );
+    await expect(page.locator(".basis")).toHaveText("Per 100 ml (≈139 g)");
+    await expect(kcal).not.toContainText("2060");
+
+    // And the door is gone, because the caption is now reporting the user's own
+    // answer. A "change it" beside your own answer is the prompt §1 refuses.
+    await expect(door).toHaveCount(0);
+
+    // One tap deeper, the explainer stops crediting the app for the reading.
+    await page.locator('[data-testid="source-tag"]').click();
+    const note = page.locator('[data-testid="density-note"]');
+    await expect(note).toContainText("You said");
+    await expect(note).not.toContainText("read the nutrition panel");
   });
 
   test("a classified can keeps its portion chip in grams, and the caption says what it weighs", async ({
@@ -1953,11 +1984,12 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     await page.locator("#barcode-input").press("Enter");
     await expect(page.locator(".staged h3")).toHaveText("Orange Juice");
 
-    // In millilitres the chip reads as the source stated it, and the caption
-    // says only what the figures are per.
+    // In millilitres the chip reads as the source stated it — and the caption
+    // already carries the `≈`, because the class was derived from the panel
+    // before this screen painted rather than at the moment somebody tapped `g`.
     const chips = page.locator('[data-testid="portion-presets"]');
     await expect(chips).toContainText("330 ml");
-    await expect(page.locator(".basis")).toHaveText("Per 100 ml");
+    await expect(page.locator(".basis")).toHaveText("Per 100 ml (≈100 g)");
 
     // **Nobody is asked** (#505). The panel says 45 kcal with almost no fat, so
     // the rule reads it as a drink and applies 1.00 without a picker — which is

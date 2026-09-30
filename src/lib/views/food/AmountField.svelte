@@ -43,12 +43,21 @@
   // string, not for a live input.
   //
   // On a food published by volume the control also carries the `g`/`ml` toggle
-  // that CHOOSES the unit, and that toggle is the only door to the Density Class
-  // question (ADR-0108 §1/§6): on a classified food it switches units, and on an
-  // unclassified one tapping `g` is what asks. The capability is offered by the
-  // same control that earns it, so there is deliberately no separate "weigh this
-  // instead?" prompt — a prompt that exists only to be a prompt is a worse
-  // surface than a control that does something.
+  // that CHOOSES the unit, and that toggle is one of the two doors to the
+  // Density Class question (ADR-0108 §1/§6): on a classified food it switches
+  // units, and on an unclassified one tapping `g` is what asks.
+  //
+  // The second door is the basis caption, and it opened at #505. The panel now
+  // classifies most volume foods without asking anybody, so the caption's `≈`
+  // is usually the app's reading rather than a report of the user's answer —
+  // and a reading nobody can disagree with is an assertion. Tapping the caption
+  // reopens the question over that reading.
+  //
+  // Both doors are controls that already earn their place: the toggle switches
+  // units and the caption states the weight. There is still deliberately no
+  // separate "weigh this instead?" or "was that right?" prompt — a prompt that
+  // exists only to be a prompt is a worse surface than a control that does
+  // something.
   //
   // `amount` and `unit` travel together, and both are bindable: on a food with
   // a density the two can differ from the panel's own basis, so an amount that
@@ -66,6 +75,7 @@
     portions = [],
     caption = null,
     density = undefined,
+    densityAsserted = true,
     onAssertDensity = undefined,
   }: {
     amount: number;
@@ -93,8 +103,18 @@
     /** What this food's twin asserts about its density (ADR-0108 §4). Absent on
      *  every food nobody has classified, which is the standing state. */
     density?: FoodDensity | undefined;
-    /** The class the food's own source names, where it names exactly one — the
-     *  picker opens on it, and it is never written until the user has seen it. */
+    /**
+     * Whether that density is somebody's ANSWER rather than this app's reading
+     * of the panel (#505, amending ADR-0108 §9).
+     *
+     * It changes nothing about the conversion — a derived class weighs exactly
+     * what an asserted one weighs — and everything about who may be overruled.
+     * A reading the app made without asking is one the user must be able to
+     * disagree with, so on `false` the basis caption becomes the door back to
+     * the question. Defaults to true, which is what a caller handing down a
+     * `food/density` datom is always describing.
+     */
+    densityAsserted?: boolean;
     /** The user has said what kind of liquid this is. The host owns where that
      *  lands — a twin already in the ledger takes a datom, a staged one carries
      *  it to its commit — so this control never writes one itself. */
@@ -117,6 +137,24 @@
   // the other way round.
   let offersUnits = $derived(
     offeredIn === "ml" && (weighable || onAssertDensity !== undefined)
+  );
+  // Whether the basis caption is a door back to the question (#505 item 6).
+  //
+  // Exactly the state the copy already promised and the app did not offer: a
+  // volume food the panel classified for you, where the `≈` on the caption is
+  // the app's own reading. `weighable` without `densityAsserted` IS that state,
+  // and the source explainer's note for it ends "but if it is wrong you can say
+  // so" — which was a promise with no control behind it until this existed.
+  //
+  // Not offered on an asserted density, because there the caption is already
+  // reporting the user's own answer and a "change it" beside your own answer is
+  // a prompt that exists to be a prompt (ADR-0108 §1). The unit toggle is still
+  // the only door on a food with no density at all: tapping `g` there asks.
+  let correctable = $derived(
+    offeredIn === "ml" &&
+      weighable &&
+      !densityAsserted &&
+      onAssertDensity !== undefined
   );
 
   // The unit's own spelling, resolved in one place so the label, the aria-label
@@ -190,10 +228,19 @@
     unitCell = unit;
   });
 
-  // Whether the class question is on screen. It opens by tapping `g` on a food
-  // nobody has classified — no separate prompt — and closes the moment the
-  // question is answered or the user goes back to millilitres.
-  let asking = $state(false);
+  /**
+   * Why the class question is open, and `null` while it is not.
+   *
+   * Two doors reach one picker and they want different things of the answer, so
+   * the reason is held rather than a second boolean beside a first: `toWeigh` is
+   * a food with no class at all, where the answer is what licenses the
+   * conversion the user just asked for; `toCorrect` is a food the panel
+   * classified, where the answer replaces a reading and the unit is not part of
+   * the question. A pair of flags could be both at once, which is a state
+   * neither branch below has an answer for.
+   */
+  type AskReason = "toWeigh" | "toCorrect";
+  let asking = $state<AskReason | null>(null);
   // What the question currently amounts to, or null while it amounts to nothing.
   // Seeded from the source's proposal when the question opens, because a
   // pre-filled row IS an answer waiting to be confirmed — and never a written
@@ -213,7 +260,12 @@
 
   function chooseUnit(next: MeasuredUnit) {
     if (next === "ml") {
-      asking = false;
+      // Going back to millilitres answers `toWeigh` — it is the "no thanks" to
+      // the question tapping `g` asked — and says nothing at all about a
+      // correction, which is about what the food IS and not which unit you want
+      // it in. Closing that one here would discard a half-made answer as a side
+      // effect of a tap on an unrelated control.
+      if (asking === "toWeigh") asking = null;
       switchTo("ml");
       return;
     }
@@ -231,12 +283,35 @@
     // panel could not read — an aerated dessert, or a twin with no panel at all.
     // For those there is no proposal to offer, only a question.
     answer = null;
-    asking = true;
+    asking = "toWeigh";
+  }
+
+  /**
+   * The caption's door: the app read the panel, and this is where you disagree.
+   *
+   * It opens the same three cells `toWeigh` opens, with nothing pre-selected —
+   * seeding it with the class we derived would make the row read as a
+   * confirmation of our own guess, and the whole reason this door exists is
+   * that our guess may be the thing that is wrong.
+   */
+  function openCorrection() {
+    answer = null;
+    asking = "toCorrect";
   }
 
   function assert(next: FoodDensity) {
+    const weighing = asking === "toWeigh";
     onAssertDensity?.(next);
-    asking = false;
+    asking = null;
+    // **A correction moves no number.** It is tempting to re-convert — the 230 g
+    // in the box came from 250 ml at oil's 0.92, so re-reading it as syrup
+    // "should" give 347 g — and it is the wrong call, because this control
+    // cannot tell that 230 from one the user read off a scale and typed. The
+    // amount slider that used to sit in the head row was deleted for exactly
+    // that: a number the user entered being overruled by a control they had not
+    // touched. What the correction changes is what the panel is scaled by and
+    // what the caption weighs, which is the whole of what was wrong.
+    if (!weighing) return;
     // The host has the assertion but this control still holds the old prop, so
     // the conversion runs against what was just said rather than against what
     // has come back. Waiting for the round trip would leave the field in grams
@@ -296,7 +371,26 @@
        sum keys on the right, filling a half-row the caption left empty. The row is
        drawn whenever either half has something to say. -->
   <div class="af-head">
-    {#if caption}
+    {#if caption && correctable}
+      <!-- The caption IS the correction door, and deliberately nothing beside
+           it. The `≈` in "Per 100 ml (≈103 g)" is the app's whole surface claim
+           about this food's weight (ADR-0108 §9), so tapping the thing that
+           makes the claim is the door back to it — no second "was this right?"
+           row, which is the prompt-for-its-own-sake §1 refuses. The aria-label
+           is what carries the offer to a screen reader, since the visible text
+           is a caption and reads as one.
+
+           It costs no height: the head row is already `--tap-min` tall because
+           the sum keys beside it are floored, so the floor declared below buys
+           a target inside a row that was that size anyway. -->
+      <button
+        type="button"
+        class="basis basis-door"
+        data-testid="density-door"
+        aria-label="{caption} — this app read that weight off the nutrition panel. Change what kind of liquid this is."
+        onclick={openCorrection}>{caption}</button
+      >
+    {:else if caption}
       <p class="basis">{caption}</p>
     {/if}
 
@@ -384,10 +478,10 @@
     />
   {/if}
 
-  {#if asking}
+  {#if asking !== null}
     <!-- The class question, inline under the field it is about. A BottomSheet
          would put the amount you were typing behind a backdrop to answer a
-         question about that amount, and five short options is a row of cells
+         question about that amount, and three short options is a row of cells
          rather than a screen (ADR-0108 §1).
 
          Segmented again, and here the contract matters more: on a ToggleGroup a
@@ -399,18 +493,24 @@
         testid="density-classes"
         onAnswer={(next) => (answer = next)}
       />
-      <!-- One confirm for every answer, including the one the source proposed.
-           A cell-tap cannot be the confirm: a RadioGroup fires nothing when the
-           cell you tap is the cell already checked, so on the 35.76% of
-           millilitre products whose tags name exactly one class — the very case
-           the pre-fill exists for — tapping the highlighted option would do
-           nothing at all. It is also what "the source pre-fills, and the user
-           confirms" (ADR-0108's pre-fill amendment) literally asks for. -->
+      <!-- One confirm, and it names what confirming does — which is not the
+           same thing at the two doors. From the unit toggle the answer buys the
+           gram field the user just asked for; from the caption it replaces a
+           reading and leaves the field alone, so a button promising grams there
+           would promise a switch that is not going to happen.
+
+           A cell-tap cannot be the confirm either way: a RadioGroup fires
+           nothing when the cell you tap is the cell already checked, and a
+           density is too consequential to be written by a tap that might have
+           been a scroll. -->
       <Button
         variant="primary"
         disabled={answer === null}
         data-testid="density-confirm"
-        onclick={confirm}>Weigh in grams</Button
+        onclick={confirm}
+        >{asking === "toCorrect"
+          ? "Use this instead"
+          : "Weigh in grams"}</Button
       >
     </div>
   {/if}
@@ -526,6 +626,33 @@
     font-size: var(--step-n1);
     font-weight: 700;
     color: var(--text-secondary);
+  }
+  /* The caption in its door form. It keeps the caption's look — a control that
+     announced itself here would be a badge on a reading, which is the marker
+     ADR-0041's 2026-08-06 amendment removed and ADR-0108 §9 declined to
+     re-add — and takes only the dotted underline that says a word is
+     tappable, the same signal the source tag carries.
+
+     Floored on both axes, and it costs nothing: the sum keys share this row and
+     are floored themselves, so the row already draws at `--tap-min`. Declared
+     rather than inherited, because a box whose height comes from a sibling
+     cannot be measured out of its own declarations (`tests/unit/tap-floor`). */
+  .basis-door {
+    min-height: var(--tap-min);
+    display: inline-flex;
+    align-items: center;
+    padding: 0;
+    border: none;
+    background: none;
+    font-family: inherit;
+    text-align: left;
+    text-decoration: underline dotted;
+    text-underline-offset: 3px;
+    cursor: pointer;
+  }
+  .basis-door:focus-visible {
+    outline: var(--edge-thick);
+    outline-offset: 3px;
   }
 
   /* The − + × ÷ keys, which the number pad omits. They sat in two auto columns
