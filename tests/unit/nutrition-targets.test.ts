@@ -244,12 +244,11 @@ describe("PERSONALIZED_TARGET_KEYS (the calculator's five writable keys)", () =>
 });
 
 describe("BAKED_NUTRIENT_LIMITS_G (stay-under set, daily-nutrient-limits.md)", () => {
-  it("transcribes the four limit caps exactly, in grams", () => {
+  it("transcribes the three limit caps exactly, in grams", () => {
     expect(BAKED_NUTRIENT_LIMITS_G).toEqual({
-      sodium_content: 2.3, // 2300 mg
-      saturated_fat_content: 20, // 20 g
-      cholesterol_content: 0.3, // 300 mg
-      trans_fat_content: 2, // WHO <1% energy ≈ 2.2 g, rounded
+      sodium_content: 2, // WHO: less than 2000 mg/day sodium
+      saturated_fat_content: 22, // WHO 10% energy: 22.2 g, rounded down
+      trans_fat_content: 2, // WHO 1% energy: 2.2 g, rounded down
     });
   });
 
@@ -257,8 +256,15 @@ describe("BAKED_NUTRIENT_LIMITS_G (stay-under set, daily-nutrient-limits.md)", (
     expect(BAKED_NUTRIENT_LIMITS_G).not.toHaveProperty("energy");
   });
 
-  it("does not limit total sugar (deferred — no citable total-sugar cap)", () => {
+  it("does not limit total sugar — the WHO caps free sugars, a neighbouring quantity", () => {
     expect(BAKED_NUTRIENT_LIMITS_G).not.toHaveProperty("sugar_content");
+  });
+
+  it("does not limit cholesterol — the WHO publishes no ceiling (#506)", () => {
+    // Not an omission: ADR-0032's Amendment asks the WHO for a numeric daily
+    // ceiling on the quantity the panel carries, and the WHO does not address
+    // dietary cholesterol. The nutrient still shows, uncapped, in Not tracked.
+    expect(BAKED_NUTRIENT_LIMITS_G).not.toHaveProperty("cholesterol_content");
   });
 
   it("is disjoint from the reach-toward set — a key is a target or a limit", () => {
@@ -267,14 +273,20 @@ describe("BAKED_NUTRIENT_LIMITS_G (stay-under set, daily-nutrient-limits.md)", (
     }
     expect(LIMIT_KEYS.has("sodium_content")).toBe(true);
     expect(LIMIT_KEYS.has("protein")).toBe(false);
-    expect(LIMIT_KEYS.size).toBe(4);
+    // Three, and the number is the criterion's rather than a tally: a nutrient
+    // gets a cap when the WHO publishes a numeric daily ceiling for the quantity
+    // the panel actually carries, and nothing the app would have to invent,
+    // soften, or borrow from a neighbouring quantity qualifies (ADR-0032's
+    // Amendment of 2026-09-30). A fourth key means that criterion was met or
+    // changed; it is not machine-checkable, so this assertion is the tripwire.
+    expect(LIMIT_KEYS.size).toBe(3);
   });
 });
 
 describe("resolveNutrientLimits (override ?? baked, no energy clamp)", () => {
   it("resolves an absent key to its baked cap", () => {
     const resolved = resolveNutrientLimits({});
-    expect(resolved.sodium_content).toBe(2.3);
+    expect(resolved.sodium_content).toBe(2);
     expect(resolved.trans_fat_content).toBe(2);
   });
 
@@ -282,7 +294,7 @@ describe("resolveNutrientLimits (override ?? baked, no energy clamp)", () => {
     const resolved = resolveNutrientLimits({ sodium_content: 1.5 });
     expect(resolved.sodium_content).toBe(1.5);
     // Untouched limits stay baked.
-    expect(resolved.saturated_fat_content).toBe(20);
+    expect(resolved.saturated_fat_content).toBe(22);
   });
 
   it("resolves a 0 opt-out to 0 for every key — no mandatory limit, no clamp", () => {
