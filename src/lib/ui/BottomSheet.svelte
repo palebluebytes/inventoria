@@ -22,6 +22,16 @@
     inline = false,
   }: {
     isOpen?: boolean;
+    /**
+     * The surface's own heading, naming a **sub-screen** — never the face it
+     * is mounted in, which the shell's header already names (ADR-0114 §15).
+     *
+     * Omit it and, inline, the header row is not drawn: the row exists to hold
+     * something, and a titleless one is padding plus a rule under a header that
+     * already has one. As a dialog the row always stays, because the close
+     * button lives in it. The same fact as `inline`'s note that there is no ✕,
+     * at the other strength.
+     */
     title?: string;
     children?: Snippet;
     /**
@@ -186,27 +196,36 @@
       </div>
     {/if}
 
-    <div class="bottom-sheet-header" class:acting={onBack && headerActions}>
-      <div class="bottom-sheet-header-start">
-        {#if onBack}
-          <button class="back-btn" onclick={onBack} aria-label={backLabel}
-            ><span class="glyph" aria-hidden="true">‹</span></button
-          >
-        {/if}
-        {@render headerActions?.()}
+    <!-- The row is drawn iff it holds something. `!inline` is what keeps every
+         dialog's: the close button below is unconditional there, so a dialog's
+         header can never be empty and that term short-circuits before the other
+         three are read. Inline there is no ✕, so a surface that passes no
+         title, no back and no actions has an empty row — padding and a
+         `border-bottom` under a shell header that already draws one. A face's
+         screen is exactly that surface (ADR-0114 §15). -->
+    {#if !inline || onBack || headerActions || title}
+      <div class="bottom-sheet-header" class:acting={onBack && headerActions}>
+        <div class="bottom-sheet-header-start">
+          {#if onBack}
+            <button class="back-btn" onclick={onBack} aria-label={backLabel}
+              ><span class="glyph" aria-hidden="true">‹</span></button
+            >
+          {/if}
+          {@render headerActions?.()}
+        </div>
+        <h2>{title}</h2>
+        <div class="bottom-sheet-header-end">
+          <!-- Nothing to close. A page is left by going somewhere else, and an ✕
+               that unmounted the page would leave the screen with no content and
+               no way back to any. -->
+          {#if !inline}
+            <button class="close-btn" onclick={close} aria-label="Close"
+              ><span class="glyph" aria-hidden="true">&times;</span></button
+            >
+          {/if}
+        </div>
       </div>
-      <h2>{title}</h2>
-      <div class="bottom-sheet-header-end">
-        <!-- Nothing to close. A page is left by going somewhere else, and an ✕
-             that unmounted the page would leave the screen with no content and
-             no way back to any. -->
-        {#if !inline}
-          <button class="close-btn" onclick={close} aria-label="Close"
-            ><span class="glyph" aria-hidden="true">&times;</span></button
-          >
-        {/if}
-      </div>
-    </div>
+    {/if}
 
     <div class="bottom-sheet-body" class:flush={flushBody}>
       {@render body?.()}

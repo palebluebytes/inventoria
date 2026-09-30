@@ -109,9 +109,19 @@
       isImpromptuTwin(view.template)
   );
 
+  // **A face's screen never draws the face's name** (ADR-0114 §15). The three
+  // headings below name *sub-screens* — a builder you went into — and the list
+  // state is the face's screen itself, which the shell's header already names
+  // off the roster (§3). So the list passes nothing and `BottomSheet` draws no
+  // header row at all; the word "Recipes" has left this file, and the face is
+  // spelled once, in `src/lib/facets/registry.ts`.
+  //
+  // Nothing is lost by deleting it, because it was the top of three stacked
+  // headings: `RecipeList` says "Your recipes" and `ImpromptuRecipeList` says
+  // its own, so the body labels both lists where they are.
   let heading = $derived(
     view.kind === "list"
-      ? "Recipes"
+      ? undefined
       : view.mode === "create"
         ? "New recipe"
         : impromptu

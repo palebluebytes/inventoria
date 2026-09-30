@@ -431,6 +431,77 @@ that file declines one by name: "that is a router, which this app deliberately d
 have." A hash would also make a face linkable, which is
 [ADR-0078](0078-a-facet-contains-no-way-out.md)'s territory and not this record's.
 
+### 15. A face's screen never draws the face's name
+
+A surface's own heading names a **sub-screen** — somewhere you went, inside the face. The
+face's own name is the shell's, read off the roster by §3's one field, so a screen that draws
+it too spells the face twice: once in the pinned header and again a few pixels below it.
+
+**This is §3 reaching one level down, not a revision of it.** §3 settled how many spellings a
+name has and retired three titles; its census was the `.page-header` rows the shells drew, and
+it could not have asked this question, because until [#536](https://github.com/palebluebytes/inventoria/issues/536)
+no face's screen was a `BottomSheet` with a header row of its own.
+[#538](https://github.com/palebluebytes/inventoria/issues/538) found the rule while deleting
+the food screen's title row and wrote it down nowhere. Here it is stated.
+
+**The worked case is one state of one face.** `RecipeLibrarySheet`'s list state passed
+`title="Recipes"`; it now passes nothing, and the word has left the file. Its three builder
+headings stay — _New recipe_, _Impromptu recipe_, _Edit recipe_ — because each names a
+sub-screen you went into, which is what [ADR-0110](0110-an-impromptu-recipe-is-identified-by-its-ingredients-and-named-only-if-you-keep-it.md)
+§1 and §7 already decided. Nothing is lost by the deletion: it was the top of three stacked
+headings, `RecipeList` saying _Your recipes_ and `ImpromptuRecipeList` its own, so the body
+labels both lists where they are.
+
+**The other two inline surfaces already passed**, which is why the population was one site and
+not three. `ReportsPage` says _Reports_ and `FoodSettingsSheet` says _Rations settings_, and
+both are sub-screens standing on the Rations face rather than the face itself. So this rule
+describes what the app already does everywhere except the one place it did not.
+
+**`BottomSheet` draws its header row only when the row holds something.** One derived
+condition — `!inline || onBack || headerActions || title`. The `!inline` term is what keeps
+every dialog's row: the close button is unconditional there, so a dialog's header can never be
+empty and that term short-circuits before the other three are read. Inline there is no ✕, so a
+surface passing no title, no back and no actions had a row of padding and a `border-bottom`
+under a shell header that already draws one.
+
+**[ADR-0100](0100-what-earns-a-member-of-the-ui-vocabulary.md) is not the gate here.** That
+record is a minting test end to end — §1 "a member is **earned**", §9 "this is a minting test,
+not a tenancy test" — and nothing in it governs editing a member that already exists; §1's
+brake constrains the new member being judged, and `BottomSheet` is not one. What applies is
+§3's branch-counting, read as guidance: a variant is a branch each caller has to decide, and
+this is one derived expression over props the component already takes, with no new prop and no
+call-site decision. It passes.
+
+**No gate is owed for the rule, and the reason is that the obvious gate is vacuous.** A
+source-text census over `title="…"` in `src/` would go green today over the one violation it
+exists to catch: `RecipeLibrarySheet` reached the string through a ternary and never spelled
+it at a `title=`, and the nearest literal neighbours in the whole tree are `"Media settings"`
+and `"Reports"`, neither of which is a face. The census can see only the spelling the
+violation did not use. Written down here rather than built, so the next reader does not ship
+the green gate believing it works.
+
+**What is guarded instead is the mechanism, plus the one file.** `tests/unit/sheet-header.test.ts`
+renders the primitive and asserts the condition's four decisions, because its two failure
+modes are both silent — an inline surface growing back an empty row, or a dialog losing the
+row its ✕ lives in. And it reads `RecipeLibrarySheet` for any name in the roster, which is a
+claim about that file rather than about the class, and is honest as one. The `!inline` term is
+the one thing not asserted: the dialog branch renders through `ui/Modal`, which is bits-ui, and
+bits-ui emits nothing server-side, so an assertion there would pass without reading the
+condition at all. The unit tier has no DOM to fall back on. Nothing in `tests/` asserts the ✕
+at any tier, which predates this section and is not repaired by it.
+
+**What it costs, in the open: the header row arrives and leaves.** Entering the builder draws a
+row under the fixed header, one flush after a tap, and going back takes it away. The
+alternative was keeping a titleless row — padding and a drawn rule under a header that already
+has one — which is a permanent cost paid to avoid a transient one.
+
+**The Recipes face keeps two back idioms, deliberately.** It leaves its builder by
+`BottomSheet`'s own ‹ and publishes no `faceBack` (§5), so there is a second way back a few
+pixels below the shell's. Making the builder publish one would put _"Recipes, back to recipes"_
+in the shell header — a control whose word is the face and whose destination is the same face —
+while the sub-screen's own heading said _New recipe_. The ‹ is right because the sub-screen has
+a header holding its own name, which is this section from the other side.
+
 ## Consequences
 
 **What it costs.** The app's only navigation moves to the top-left corner of the screen, which
