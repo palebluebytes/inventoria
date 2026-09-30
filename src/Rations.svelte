@@ -10,6 +10,8 @@
     type FaceId,
   } from "./lib/facets/registry";
   import { hiddenFaces } from "./lib/stores/device-settings";
+  import { faceBack } from "./lib/layout/face-actions";
+  import { enterBackStop, leaveBackStop } from "./lib/ui/back-stack";
   import {
     takeCodeHandover,
     takeReceiveLink,
@@ -148,6 +150,52 @@
     standing =
       id === "recipes" ? "recipes" : id === "settings" ? "settings" : null;
   }
+
+  // ── Back means the start destination ─────────────────────────────────────
+  //
+  // **One stop, and it walks one rung per press** (ADR-0114 §14). This shell's
+  // start destination is the Rations face on the day — `standing === null` —
+  // which is where `/food/`'s own `start_url` opens, so this is the manifest
+  // member read as a screen rather than a second concept.
+  //
+  // **This is the shell with rungs, and so the only one that reads a way back.**
+  // The root's version of this effect is the same stop with the `faceBack` half
+  // deleted, because a face is the only rung it has: `hasPages` is Rations' alone
+  // (ADR-0091 §5), so the food screen publishes a way back on this shell and
+  // nowhere else. The rule is one sentence in both places; the ladder is one rung
+  // long over there.
+  //
+  // **`home` is a different thing and stays different.** Under Rations *home* is
+  // `/`, outside the Facet, which is why `FaceSwitcher`'s `onHome` is optional
+  // and why this shell draws no such control. That asymmetry is about where `/`
+  // is; it says nothing about whether a face is somewhere you went, so it is not
+  // inherited here.
+  //
+  // **The predicate reads `standing`, never the face.** `face` is derived from
+  // `standing`, so the two states that are a page and a face at once — Settings,
+  // and Reports under the Rations face — are one stop each: Settings publishes
+  // `{ to: "the day" }` because `FoodView` is mounted on it, and Reports likewise.
+  // A stop per page would have pushed two for the first of those. §14 states the
+  // predicate as the face *or* a way back; here `standing` is already both,
+  // because it is the one variable the page and the face are written on
+  // (ADR-0091 §5's "one opening, not two booleans"), so a way back cannot exist
+  // while this says we are at the start destination. Testing for one anyway would
+  // assert that the two can disagree.
+  //
+  // The way back is read **above** the guard so that it stays a dependency of an
+  // effect that returns early: the stop has to be replaced when a page opens, and
+  // a read after the guard would be untracked on the day.
+  //
+  // **A hidden start destination is still the destination.** The Rations face is
+  // hideable and hiding the face you stand on moves you nowhere (§10), so Back
+  // can land on a face that is not in this switcher — which is that rule working,
+  // since hiding takes a face out of the grid and never out of reach.
+  $effect(() => {
+    const up = $faceBack;
+    if (standing === null) return;
+    const id = enterBackStop("place", () => (up ? up.go() : (standing = null)));
+    return () => leaveBackStop(id);
+  });
 
   // ── The one case that never opens the ledger ──────────────────────────────
   //

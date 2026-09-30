@@ -476,8 +476,22 @@ describe("a page is Rations' and the width's, and both are required", () => {
     // `:global(.rations)`. The root renders this whole screen in its Food tab,
     // behind a navigation sidebar and one tab from its own Settings — a page
     // there would be a second door to a surface that already has one.
-    expect(source(RATIONS_SHELL)).toMatch(/<FoodView[\s\S]*?hasPages/);
-    expect(source(ROOT_SHELL)).not.toContain("hasPages");
+    //
+    // **Each shell's own `<FoodView>` tag, not the whole file.** A shell is
+    // allowed to *mention* the prop — `App.svelte` names it beside its Back stop
+    // to say why it has no rung above a face (ADR-0114 §14), and naming it is
+    // what makes that precise. A census over source text convicts prose, which
+    // is the failure the worn-class sweep had at `625665fd`; what this claim is
+    // about is the call site, so it reads the call site. Each tag is asserted
+    // present before anything is asserted absent, because a regex that stopped
+    // matching would otherwise turn both halves green.
+    const tagIn = (file: string) =>
+      source(file).match(/<FoodView[\s\S]*?\/>/)?.[0] ?? "";
+
+    expect(tagIn(RATIONS_SHELL)).toContain("shell=");
+    expect(tagIn(RATIONS_SHELL)).toContain("hasPages");
+    expect(tagIn(ROOT_SHELL)).toContain("shell=");
+    expect(tagIn(ROOT_SHELL)).not.toContain("hasPages");
   });
 
   it("walks a narrowing window back to the day", () => {

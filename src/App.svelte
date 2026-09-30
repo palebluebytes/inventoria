@@ -29,6 +29,7 @@
     type FaceId,
   } from "./lib/facets/registry";
   import { hiddenFaces } from "./lib/stores/device-settings";
+  import { enterBackStop, leaveBackStop } from "./lib/ui/back-stack";
 
   /**
    * Which Facet this is, handed in by the entry point that mounted it
@@ -193,6 +194,39 @@
    * says, because that row is where hiding is undone.
    */
   const faces = $derived(shownFaces(facesOf(facet), $hiddenFaces));
+
+  // ── Back means the start destination ─────────────────────────────────────
+  //
+  // **One stop, and it returns to this shell's start destination** (ADR-0114
+  // §14): §9's landing grid, `face === null`, which is where this Facet's
+  // `start_url` opens. So while the shell is standing on a face, Back goes there
+  // rather than leaving the app.
+  //
+  // **Exactly one stop, never a stack**: crossing six tiles and then pressing
+  // Back six times is the trap #539 refused, and nothing drawn would say how
+  // deep you are.
+  //
+  // **A direct arrival pushes it too.** The share-target read above sets `face`
+  // synchronously at boot with no landing behind it, and Back there shows the
+  // grid — the alternative is a stop that depends on how you got here, which is
+  // unstateable from the screen and gives two people on one screen two answers
+  // from one gesture.
+  //
+  // **This shell has no rung above a face, so there is no way back to read.**
+  // §14's rule is "up one level", walked off the `faceBack` a face publishes,
+  // and Rations' version of this effect does exactly that. Here it would be a
+  // branch that cannot run: `faceBack` has one publisher, the food screen, which
+  // publishes only while a page is open, and a page needs `hasPages` — which
+  // this shell does not pass at any width (`FoodView`'s `page` prop says so, and
+  // ADR-0091 §5 is why). The root reaches its Settings and the recipe library as
+  // faces, not as pages. So the branch is deleted rather than carried: a face is
+  // the only rung this shell has, and if it ever grows one the line to add is
+  // Rations'.
+  $effect(() => {
+    if (face === null) return;
+    const id = enterBackStop("place", () => (face = null));
+    return () => leaveBackStop(id);
+  });
 </script>
 
 <svelte:head>

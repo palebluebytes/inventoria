@@ -600,15 +600,35 @@ See ADR-0027 and ADR-0089 §6.
 _Avoid_: Dialog, popup, overlay, centred card (which is BottomSheet's `centred`)
 
 **Back stop**:
-Something the platform's Back gesture dismisses instead of leaving the app — an open
-sheet, or a mode that has taken the ordinary way off a screen away, which today is a
-live Selection covering the tab bar. They form one stack (`ui/back-stack.ts`), one
-history entry each, dismissed topmost-first, because Back is a single resource and
-two owners of the top entry cannot both be right. A dialog that is not a sheet is
-not one of these yet, and Back still leaves the app with `LabelPhotoReader` open.
-See ADR-0089 §7 and ADR-0088 §3.
+Something the platform's Back gesture dismisses instead of leaving the app. Three kinds:
+a **sheet**, meaning any overlay Back dismisses — the **Switcher** panel is one and is not
+a `BottomSheet`; a **mode**, a state that has taken the ordinary way off a screen away,
+which today is a live Selection covering the foot of the screen and the day's own controls
+(it covered the tab bar until ADR-0114 §5 deleted that box); and a **place**, a shell
+standing away from its **Start destination**, whose dismissal walks up one level rather
+than closing anything. They form one stack (`ui/back-stack.ts`), one history entry each,
+dismissed topmost-first, because Back is a single resource and two owners of the top entry
+cannot both be right. Only a sheet is ever asked _am I the top one_, which is why a place
+is a third kind and not a sheet: a sheet would otherwise compare itself against a face to
+decide whether it had been replaced. A dialog that is not a sheet is still not one of
+these, and Back leaves the app with `LabelPhotoReader` open. Nothing survives a reload —
+the entries do and what pushed them does not — which for a place is every reload, stated
+in ADR-0114 §14 rather than repaired. See ADR-0089 §7, ADR-0088 §3 and ADR-0114 §14.
 _Avoid_: History entry, route, back handler, dismissable, back button (which is the
 sheet header's `onBack`, a different control)
+
+**Start destination**:
+The screen a shell's Back returns to, and the screen its `start_url` opens: the **Face**
+grid at the root, the Rations face on the day under Rations. One stop while a shell stands
+anywhere else, so Back returns there however many tiles were crossed, walking one rung per
+press — a page under a face is a rung, and the way up is the one the face publishes so Back
+and the title cannot disagree. **Not _home_**, which the **Switcher** and **Facet exit**
+entries spend on `/`: under Rations home is outside the Facet and the start destination is
+inside it, so the asymmetry that makes `onHome` optional says nothing about this. A start
+destination stays the destination when its face is hidden, hiding taking a face out of the
+grid and never out of reach. See ADR-0114 §14.
+_Avoid_: Home (that is `/`), landing screen (the root's start destination is one, Rations'
+is not), root, start URL (the manifest member this is read off), default tab
 
 **Visible band**:
 The part of the page a person can actually see right now, published by

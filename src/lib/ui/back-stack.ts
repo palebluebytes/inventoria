@@ -29,6 +29,18 @@
  *   today is a live Selection covering the foot of the screen. It covered the
  *   root's tab bar until ADR-0114 §5 deleted it; what a Selection takes away is
  *   the day's own controls, and that is unchanged by which chrome is where.
+ * - `place` — somewhere you went, that Back returns from: a shell standing away
+ *   from its **start destination** (ADR-0114 §14). Named for a shape rather than
+ *   a component, which is the rule that let `sheet` survive the panel. There is
+ *   only ever one of these, because Back returns to the start destination
+ *   however many tiles were crossed to reach here, and its `dismiss` is "up one
+ *   level" rather than "close" — it walks the way back the face publishes
+ *   (`layout/face-actions.ts`), so Back and the title cannot disagree about
+ *   where a page returns to. It is deliberately neither of the two above: as a
+ *   `sheet` it would be named by `topSheet` and a `BottomSheet` would compare
+ *   itself against a face to decide whether it had been replaced, and as a
+ *   `mode` it would claim to have taken something away when the header and its
+ *   title are both still drawn.
  *
  * ## The bookkeeping
  *
@@ -53,11 +65,18 @@
  * or two after that then land on a same-document entry and do nothing visible
  * before the third leaves the app. Recording sheet state in the URL is what
  * would fix it, and that is a router, which this app deliberately does not have.
+ *
+ * `place` makes that failure **routine rather than rare** (ADR-0114 §14): no
+ * shell persists which face it is standing on, so every reload on a face reboots
+ * onto the start destination with one orphaned entry, and the first Back after it
+ * does nothing visible. A sheet open at reload is unusual; a face open at reload
+ * is every reload. Accepted in the open rather than repaired, because the repair
+ * is the URL state named above.
  */
 import { writable, type Readable } from "svelte/store";
 
-/** Why something is on the stack. See the two bullets above. */
-export type BackStopKind = "sheet" | "mode";
+/** Why something is on the stack. See the three bullets above. */
+export type BackStopKind = "sheet" | "mode" | "place";
 
 interface BackStop {
   id: number;

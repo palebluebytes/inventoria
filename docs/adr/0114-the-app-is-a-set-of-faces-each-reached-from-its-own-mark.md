@@ -355,6 +355,82 @@ re-measured in the commit that moves them, with the account of **why the root's 
 a manifest that got smaller is exactly the shape ADR-0083 §3's floor exists to make somebody
 check, and a reader has to be able to tell a deliberate drop from a collapsed derivation.
 
+### 14. Back means the shell's start destination, one rung at a time
+
+**Back returns to the shell's start destination.** The root's is §9's landing grid; Rations'
+is the Rations face on the day. Both are exactly where that shell's `start_url` opens, so
+this is the manifest member read as a screen rather than a second concept, and neither shell
+states a destination the other has to be told about.
+
+_Home_ is a different thing and stays different. Under Rations _home_ is `/`, outside the
+Facet, which is why `FaceSwitcher`'s `onHome` is optional and why a link there would be the
+crossing [ADR-0078](0078-a-facet-contains-no-way-out.md) §1 makes unexpressible. That
+asymmetry is about where `/` is; it says nothing about whether a face is somewhere you went,
+and it is not inherited here.
+
+Before this record a face was a tab you were born on and there was nothing behind it. §9 put
+a landing grid behind every tile pick, so the gesture has somewhere to go for the first time
+— and [ADR-0089](0089-a-pinned-surface-measures-the-visible-band.md) §7's premise, that Back
+is the gesture people reach for first and the failure is being thrown out of the app, now
+reaches the shell as well as its sheets.
+
+**Exactly one stop, never a stack.** Cross six tiles and a stack would take six presses
+before the app let go, with nothing on screen saying how deep you are. So Back returns to the
+start destination however many tiles were crossed.
+
+**And it walks one rung per press**, because skipping a level is the same failure from the
+other side: from the Reports page, one press landing on the grid crosses two rungs at once.
+The one stop's `dismiss` is therefore "up one level", read off the `faceBack` the face already
+publishes (§5) rather than pushed per page. A stop per page was the obvious spelling and is
+wrong here: under Rations `standing === "settings"` is a page and a face at once, so it would
+push two stops for one state.
+
+**The predicate is "is there anywhere up from here", never "which face".** Face position alone
+gets the Reports page wrong: it is standing _on_ the Rations face, the start destination, while
+being a rung above it, so a rule reading the face would walk two rungs from a screen whose
+title walks one — or none at all.
+
+**Only Rations has a rung above a face**, and that is [ADR-0091](0091-rations-widens-into-two-regions-and-grows-pages.md)
+§5 rather than anything this record decides: pages are the shell's, the root passes no
+`hasPages`, and so the food screen publishes a way back on Rations and nowhere else. The root
+reaches its Settings and the recipe library as faces. So the rule is one sentence in both
+shells and the root's spelling of it carries no way back to read — a branch that cannot run is
+deleted rather than held open for a page the shell does not grow.
+
+**A direct arrival pushes the stop too.** A Web Share Target open sets the Items face
+synchronously at boot with no landing behind it, and Back there shows the grid: a screen that
+person never saw, and the app's real start destination. Pushing only for a face entered in
+this session is truthful to what was done and makes the rule unstateable — two people on one
+screen would get different answers from one gesture, with nothing drawn that tells them
+apart. Synthesising the stack up to the start destination is what the platform prescribes for
+a deep link into a secondary destination.
+
+**A third `BackStopKind`, `place`** — somewhere you went, that Back returns from. Not a
+`sheet`: `topSheet` would name it and a `BottomSheet` would compare itself against a face to
+decide whether it had been replaced. Not a `mode` either: a face has taken nothing away, the
+mark and the title are both still drawn. Named for a shape rather than a component, which is
+the rule that let `sheet` survive the panel being a top-anchored card.
+
+**Two stops coexist and the ordering is right by construction.** Standing on a face with the
+panel open is a `place` under a `sheet`, the face having been entered first, so Back closes
+the panel only and nothing has to arbitrate. Dismissing the panel _and_ the face in one flush
+leaves `reconcile` two entries to unwind, which it does one per pass, deliberately.
+
+**A hidden start destination is still the destination.** Rations' own face is hideable and
+hiding the face you stand on moves you nowhere (§10), so Back can land on a face that is not
+in that switcher. That is §10 working: hiding takes a face out of the grid and never out of
+reach.
+
+**What this costs, in the open: the pushed entry outlives a reload and the face does not.**
+No shell persists which face it is standing on, so reloading on a face reboots onto the start
+destination with one orphaned history entry, and the first Back after that does nothing
+visible before the next leaves the app. `ui/back-stack.ts` already carries that failure for
+sheets; what changes is the frequency — a sheet open at reload is rare and a face open at
+reload is every reload. Accepted rather than repaired, because the repair is URL state and
+that file declines one by name: "that is a router, which this app deliberately does not
+have." A hash would also make a face linkable, which is
+[ADR-0078](0078-a-facet-contains-no-way-out.md)'s territory and not this record's.
+
 ## Consequences
 
 **What it costs.** The app's only navigation moves to the top-left corner of the screen, which

@@ -1,5 +1,8 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
-import { createBackStack } from "../../src/lib/ui/back-stack";
+import {
+  createBackStack,
+  type BackStopKind,
+} from "../../src/lib/ui/back-stack";
 import { get } from "svelte/store";
 
 /**
@@ -84,7 +87,7 @@ function harness() {
   vi.stubGlobal("window", browser.win);
   const stack = createBackStack();
   const dismissed: string[] = [];
-  const enter = (kind: "sheet" | "mode", name: string) =>
+  const enter = (kind: BackStopKind, name: string) =>
     stack.enter(kind, () => dismissed.push(name));
   return { browser, stack, dismissed, enter };
 }
@@ -250,6 +253,116 @@ describe("Back dismisses the top stop, not the app", () => {
     // the app. It is not swallowed and it dismisses nothing twice.
     expect(dismissed).toEqual(["log"]);
     expect(browser.departures()).toBe(1);
+  });
+});
+
+describe("a place stop walks one rung per press", () => {
+  /**
+   * The replacement path, which is what ADR-0114 §14's one-stop rule is made of.
+   *
+   * A shell holds **one** `place` stop whose `dismiss` is "up one level", so the
+   * stop that answers a press is replaced by the next one down in the same Svelte
+   * flush: `dismiss` walks the way back, the face republishes `faceBack`, and the
+   * effect's teardown and re-run are the leave and the enter. This path has
+   * existed since ADR-0089 §7 and has only ever been exercised by a sheet
+   * unmounting as another mounts, so it is proved here rather than assumed.
+   *
+   * **The two rungs are walked by two controls and the bookkeeping differs**, and
+   * #539's trace ran them together. A Back press spends the entry itself, so the
+   * replacement has nothing to net and `reconcile` finds one entry to **push
+   * back** — the property that matters being that the next press is answered by
+   * the stack rather than leaving the app. The title walks the same rung having
+   * spent nothing, and there the deferral is load-bearing: the leave and the enter
+   * must cancel, or walking up a level costs a history entry the person never
+   * pressed for. So "one owned entry throughout" holds for the title and not for
+   * Back, where it goes 1 → 0 → 1 within the press.
+   */
+  it("replaces its stop in the flush the Back dismissed it in", async () => {
+    const { browser, stack, dismissed, enter } = harness();
+    // Standing on the Reports page: one stop, whose way up is the day.
+    const page = enter("place", "reports");
+    await settled();
+    expect(browser.depth()).toBe(1);
+
+    browser.pressBack();
+    browser.deliver();
+    expect(dismissed).toEqual(["reports"]);
+
+    // What `dismiss` did: `page = null`, which republishes `faceBack` as `null`
+    // and re-runs the effect. Both halves land before anything reconciles.
+    stack.leave(page);
+    const day = enter("place", "rations");
+    await settled();
+
+    // One rung spent, one entry still owned, and no navigation of our own — a
+    // `back()` here would have been the stack spending a second entry for a
+    // press the person made once.
+    expect(browser.depth()).toBe(1);
+    expect(browser.navigations()).toBe(0);
+    expect(browser.departures()).toBe(0);
+
+    // And the next press walks the last rung, to the start destination.
+    browser.pressBack();
+    browser.deliver();
+    expect(dismissed).toEqual(["reports", "rations"]);
+    stack.leave(day);
+    await settled();
+    expect(browser.depth()).toBe(0);
+  });
+
+  it("spends no entry when the title walks the rung instead", async () => {
+    // The other control on the same rung (ADR-0091 §5): the face's own title,
+    // which calls the identical `go()` with no press behind it. Nothing was
+    // spent, so the leave and the enter must cancel — a `back()` here would
+    // charge the person a history entry for a tap that was not Back, which is
+    // also what a stop-per-page design would have done on every crossing.
+    const { browser, stack, enter } = harness();
+    const page = enter("place", "reports");
+    await settled();
+    expect(browser.depth()).toBe(1);
+
+    stack.leave(page);
+    enter("place", "rations");
+    await settled();
+
+    expect(browser.depth()).toBe(1);
+    expect(browser.navigations()).toBe(0);
+  });
+
+  it("is under the panel it was standing behind, so Back closes the panel only", async () => {
+    // Standing on a face with the switcher open: the face was entered first, so
+    // the ordering is right by construction rather than by a rule (ADR-0114 §14).
+    const { browser, stack, dismissed, enter } = harness();
+    const place = enter("place", "media");
+    const panel = enter("sheet", "switcher");
+    await settled();
+    expect(browser.depth()).toBe(2);
+
+    browser.pressBack();
+    browser.deliver();
+    expect(dismissed).toEqual(["switcher"]);
+    stack.leave(panel);
+    await settled();
+    expect(browser.depth()).toBe(1);
+
+    // The face is still where it was, and its stop is the one left to answer.
+    browser.pressBack();
+    browser.deliver();
+    expect(dismissed).toEqual(["switcher", "media"]);
+    stack.leave(place);
+    await settled();
+    expect(browser.depth()).toBe(0);
+  });
+
+  it("is not the top sheet, so a BottomSheet never compares itself to a face", async () => {
+    // §14's reason for a third kind rather than reusing `sheet`: `topSheet` names
+    // the surface a sheet asks whether it has been replaced by, and a face is not
+    // one. A place stop above an open sheet must leave that answer alone.
+    const { stack, enter } = harness();
+    const sheet = enter("sheet", "log");
+    enter("place", "media");
+    expect(get(stack.topSheet)).toBe(sheet);
+    await settled();
   });
 });
 
