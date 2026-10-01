@@ -69,9 +69,15 @@
     portionRowIsBlank,
     portionRowIsEditable,
     portionRows,
-    toDisplay,
+    blankNutrientRows,
+    faceDisplay,
+    faceEntry,
+    fieldLabel,
+    nutrientRows,
+    type Face,
     type FieldDef,
     type Basis,
+    type NutrientRow,
     type PortionRow,
   } from "../../food/label-form";
   import {
@@ -587,23 +593,39 @@
   // to OFF as a bare `ingredients_text` (REPLACE). NB this is OFF's canonical
   // ingredients text, NOT `food/ingredients` (the ADR-0035 menu-descriptor).
   let customIngredients = $state("");
-  let customBasis = $state<Basis>("per_100g");
-  // The two bases a label is read against, offered unconditionally (ADR-0060 §7,
-  // as amended). Both are MEASURED, which is what keeps the captured food
-  // editable by amount afterwards: a per-100 panel names its own divisor, where
-  // a bare "1 serving" names none — and a receipt naming none re-opened this
-  // whole form when the user only wanted to say how much they ate.
-  //
-  // Nothing a scan reaches needs a third. Open Food Facts publishes a per-100
-  // figure for every product — it computes `*_100g` even where
-  // `nutrition_data_per` says `serving` — and the serving it does publish
-  // arrives as a `food/portions` chip rather than as a basis (ADR-0060 §6). The
-  // g-versus-ml question is answered by `product_quantity_unit`, not by
-  // `nutrition_data_per`, whose enum holds no `100ml` at all (ADR-0052 §1).
-  const basisOptions: { value: Basis; label: string }[] = [
-    { value: "per_100g", label: "g" },
-    { value: "per_100ml", label: "ml" },
-  ];
+  // The unit everything about this pack is measured in — the pack's size, the
+  // panel's basis, and the `quantity` a contribution is spelled in. ONE control
+  // asks it, beside the pack's magnitude (ADR-0060's 2026-08-31 Amendment), and
+  // this is its value.
+  let customBasisUnit = $state<MeasuredUnit>("g");
+  // The magnitude the panel's figures are measured per, as typed. 100 for the
+  // overwhelming majority of packs — which is why the box is pre-filled with it
+  // rather than asked — and 36 for a US Nutrition Facts panel declaring 36 g
+  // (#562). A string because it is a text box; "" ⇒ no basis, and the save gate
+  // holds rather than guessing one.
+  let customBasisAmount = $state("100");
+  // The unit cells, keyed so that a third measured unit FAILS the typecheck
+  // rather than compiling clean with no cell rendered — `DENSITY_CLASS_OPTIONS`'
+  // precedent, and the hole it closes is a real one: while the basis was a
+  // two-member union this list was a plain array, so a third member would have
+  // been a basis the type permitted and the UI could not reach.
+  const BASIS_UNIT_LABELS: Record<MeasuredUnit, string> = { g: "g", ml: "ml" };
+  const basisOptions: { value: MeasuredUnit; label: string }[] = (
+    Object.keys(BASIS_UNIT_LABELS) as MeasuredUnit[]
+  ).map((value) => ({ value, label: BASIS_UNIT_LABELS[value] }));
+  // The basis the two controls above name, or `null` when the magnitude box
+  // holds nothing usable. Null is a real state, not a defensive fallback: a
+  // panel whose divisor nobody stated is the one ADR-0060 §7 was right to refuse
+  // — nothing could scale it — so the form withholds the save instead of
+  // stamping a 100 the user never typed.
+  let customBasis = $derived<Basis | null>(
+    (() => {
+      const amount = Number(customBasisAmount.trim());
+      if (!customBasisAmount.trim() || !Number.isFinite(amount) || amount <= 0)
+        return null;
+      return { amount, unit: customBasisUnit };
+    })()
+  );
   // How much is in the pack — 50, 330, 500 — as a bare magnitude. Its UNIT is
   // never typed beside it: OFF publishes the pair already split
   // (`product_quantity` / `product_quantity_unit`), so the number is the only
@@ -615,21 +637,18 @@
   // contribution silently losing its numbers, since OFF has no `100ml` basis
   // value and resolves its own `100` against the pack (ADR-0060 §8).
   let customPackQuantity = $state("");
-  // Per-field typed strings keyed by NutritionInfo field; "" ⇒ absent (not 0).
-  let customValues = $state<Record<string, string>>({});
+  // One row per nutrient field, each holding what it SHOWS and what it was
+  // SEEDED from. The three parallel string-keyed collections this replaced — the
+  // typed values, the skipped keys and the unreviewed keys — could disagree with
+  // each other and with the catalogue, and holding no source meant a save
+  // rebuilt every figure from a two-decimal string (#561).
+  let customRows = $state<NutrientRow[]>(blankNutrientRows());
   // Every one of the twin's portions, each carrying the unit of its own
   // magnitude. There is no second list held aside any more: a portion the form
   // cannot TYPE is still a portion it shows (#460), read-only, rather than data
   // the app holds and renders nowhere. `portionRows`/`buildPortions` carry the
   // argument and the byte-exact round trip.
   let customPortions = $state<PortionRow[]>([]);
-  // Rows ticked "∅ not on label" — read-along ergonomics; the built panel omits
-  // empty rows regardless, this only dims + locks them and drives bulk-skip.
-  let skipped = $state<Set<string>>(new Set());
-  // Keys the AI-confirm path prefilled and the user has not yet reviewed (§4).
-  // v1 guided-manual starts empty (nothing to review); the amber accent + chip
-  // are built now so the deferred model swap needs no form change.
-  let prefilled = $state<Set<string>>(new Set());
   // The ordered label photos (base64), first = display (ADR-0034 §5, #58). One
   // food accepts N photos — a panel on one face, a barcode on another — appended
   // via "+ Add photo" and read across in the swipeable reader; the singular
@@ -697,9 +716,7 @@
   // The one unit in play, read three ways so they cannot disagree: it sits
   // beside the pack's magnitude, it is the panel's basis, and it is the unit the
   // contributed `quantity` is spelled in.
-  let effectiveUnit = $derived<"g" | "ml">(
-    customBasis === "per_100ml" ? "ml" : "g"
-  );
+  let effectiveUnit = $derived<MeasuredUnit>(customBasisUnit);
   // What kind of liquid a hand-captured food is (ADR-0108 §1). This form is the
   // SECOND door to a millilitre basis — the user ticks `ml` themselves rather
   // than a source declaring it — so no Open Food Facts tags exist to pre-fill
@@ -722,11 +739,12 @@
   // reader that decides it (ADR-0060 §8). Unreachable while a pack size names a
   // unit — the basis is that unit — so it speaks only for an unsized pack.
   let contributionLosesNumbers = $derived(
-    contributionWithholdsNutriments(
-      resolveServingSize(customBasis),
-      packSizeForOff,
-      offPackUnit
-    )
+    !!customBasis &&
+      contributionWithholdsNutriments(
+        resolveServingSize(customBasis),
+        packSizeForOff,
+        offPackUnit
+      )
   );
   // Open the read-only OFF reference reader on this index; null = closed.
   let refReaderIndex = $state<number | null>(null);
@@ -885,7 +903,6 @@
     customIngredients = "";
     customPackQuantity = "";
     customPortions = [];
-    skipped = new Set();
     labelPhotos = [];
     offRefPhotos = [];
     offPackUnit = undefined;
@@ -913,15 +930,8 @@
     const info = attrs[NUTRITION_INFO_ATTR] as NutritionInfo | undefined;
     // An OFF panel is per 100 of the pack's own base unit — grams, or millilitres
     // for a drink (#148). The form matches whichever the mapper stamped.
-    customBasis = invertServingSize(info?.serving_size);
-    const values: Record<string, string> = {};
-    for (const f of ALL_FIELDS) {
-      const grams = info?.[f.key];
-      values[f.key] = typeof grams === "number" ? toDisplay(grams, f.unit) : "";
-    }
-    customValues = values;
-    prefilled = new Set();
-    skipped = new Set();
+    seedBasis(info?.serving_size);
+    customRows = nutrientRows(info);
     seedPortionRows(attrs[FOOD_PORTIONS_ATTR] as Portion[] | undefined);
     // The user starts with no captured photos of their own here.
     labelPhotos = [];
@@ -975,16 +985,9 @@
     const info = attrs[NUTRITION_INFO_ATTR] as NutritionInfo | undefined;
     // Invert the stored `serving_size` back onto the #52 basis toggle, through the
     // same mapping that resolved it on save.
-    customBasis = invertServingSize(info?.serving_size);
-    const values: Record<string, string> = {};
-    for (const f of ALL_FIELDS) {
-      const grams = info?.[f.key];
-      values[f.key] = typeof grams === "number" ? toDisplay(grams, f.unit) : "";
-    }
-    customValues = values;
+    seedBasis(info?.serving_size);
     // Editing your own saved values — nothing is "unverified" (no amber accent).
-    prefilled = new Set();
-    skipped = new Set();
+    customRows = nutrientRows(info);
     seedPortionRows(attrs[FOOD_PORTIONS_ATTR] as Portion[] | undefined);
     // The twin's own captured photos re-open in the user's capture set (editable),
     // not as OFF reference shots — this is the user editing their own capture.
@@ -1014,20 +1017,26 @@
   function applyAutofill(result: AIAutofillResult) {
     customName = result.name ?? "";
     customBrand = result.brand ?? "";
-    customBasis = result.basis;
-    const values: Record<string, string> = {};
-    const pre = new Set<string>();
-    for (const f of ALL_FIELDS) {
-      const grams = result.nutrition[f.key];
-      if (typeof grams === "number") {
-        values[f.key] = toDisplay(grams, f.unit);
-        pre.add(f.key);
-      } else {
-        values[f.key] = "";
-      }
-    }
-    customValues = values;
-    prefilled = pre;
+    customBasisAmount = String(result.basis.amount);
+    customBasisUnit = result.basis.unit;
+    // Every row a reading proposed is amber until it has been read against the
+    // pack; a guided-manual start proposes none, so nothing is.
+    customRows = nutrientRows(result.nutrition as NutritionInfo, true);
+  }
+
+  /**
+   * A saved panel's basis onto the two controls that name it.
+   *
+   * A panel stating no magnitude leaves the box EMPTY rather than reading as 100
+   * (#562): `invertServingSize` used to answer `per_100g` for such a panel, so
+   * re-saving a `"1 serving"` twin here relabelled its whole-serving figures as
+   * per-100 ones. Twelve such panels sit in the real ledger; an empty box with
+   * the save gate holding makes them repairable instead.
+   */
+  function seedBasis(serving_size: string | undefined) {
+    const basis = invertServingSize(serving_size);
+    customBasisAmount = basis ? String(basis.amount) : "";
+    customBasisUnit = basis?.unit ?? "g";
   }
   applyAutofill(emptyAutofillResult());
 
@@ -1052,45 +1061,51 @@
       fields: MICROS,
     },
   ];
-  const customFilled = (key: string) => (customValues[key] ?? "").trim() !== "";
   // AI-confirm: how many prefilled rows are still unverified (0 in guided-manual).
-  let toReview = $derived(prefilled.size);
-  let runningKcal = $derived((customValues["calories"] ?? "").trim());
+  let toReview = $derived(customRows.filter((r) => r.unverified).length);
+  let runningKcal = $derived(
+    (customRows.find((r) => r.key === "calories")?.text ?? "").trim()
+  );
   // The panel the form would save/contribute right now (grams, absent ≠ 0). One
   // pure derivation shared by the Save path and the OFF-contribution path, so the
   // two never assemble it from the same four fields independently.
+  // The panel the form would save/contribute right now, or `null` while the
+  // basis names no magnitude — there is no panel to build without a divisor.
   let builtPanel = $derived(
-    buildLabelPanel({
-      values: customValues,
-      basis: customBasis,
-      skipped,
-    })
+    customBasis ? buildLabelPanel(customRows, customBasis) : null
   );
 
-  // Editing a prefilled row IS verifying it — clear the amber "unverified" accent.
-  function markReviewed(key: string) {
-    if (prefilled.has(key)) {
-      prefilled.delete(key);
-      prefilled = new Set(prefilled);
-    }
+  /** The row a field's boxes read and write. One lookup, so the template never
+   *  indexes state by a key the catalogue might not hold. */
+  function rowFor(key: string): NutrientRow | undefined {
+    return customRows.find((r) => r.key === key);
+  }
+
+  // Typing in ANY of a row's boxes is reviewing it — clear the amber accent.
+  // One row means one accent, however many faces it shows.
+  function writeRow(key: string, text: string) {
+    const row = rowFor(key);
+    if (!row) return;
+    row.text = text;
+    row.unverified = false;
   }
   function toggleSkip(key: string) {
-    if (skipped.has(key)) skipped.delete(key);
-    else {
-      skipped.add(key);
-      customValues[key] = "";
-      markReviewed(key);
+    const row = rowFor(key);
+    if (!row) return;
+    row.skipped = !row.skipped;
+    if (row.skipped) {
+      row.text = "";
+      row.unverified = false;
     }
-    skipped = new Set(skipped);
   }
   // One tap clears a whole section: mark every still-empty row "not on label".
   function skipSection(fields: FieldDef[]) {
-    for (const f of fields)
-      if (!customFilled(f.key)) {
-        skipped.add(f.key);
-        markReviewed(f.key);
-      }
-    skipped = new Set(skipped);
+    for (const f of fields) {
+      const row = rowFor(f.key);
+      if (!row || row.text.trim() !== "") continue;
+      row.skipped = true;
+      row.unverified = false;
+    }
   }
 
   // ── OFF contribution (ADR-0034 §8) ─────────────────────────────────────────
@@ -1126,7 +1141,12 @@
   let contributeResult = $state<OffSubmitResult | null>(null);
 
   async function contributeToOff() {
-    if (!contributeChecked || !barcode.trim() || contributeStatus === "sending")
+    if (
+      !contributeChecked ||
+      !barcode.trim() ||
+      contributeStatus === "sending" ||
+      !builtPanel
+    )
       return;
     contributeStatus = "sending";
     contributeResult = null;
@@ -1182,13 +1202,13 @@
       // already in kcal/g — the CORE units — so they seed straight in). The
       // full-panel doors (#59) prefill the rest of the panel; edit mode carries
       // only the four macros a logged custom entry froze.
-      customValues = {
-        ...customValues,
-        calories: seed.calories,
-        protein_content: seed.protein,
-        fat_content: seed.fat,
-        carbohydrate_content: seed.carbs,
-      };
+      for (const [key, text] of [
+        ["calories", seed.calories],
+        ["protein_content", seed.protein],
+        ["fat_content", seed.fat],
+        ["carbohydrate_content", seed.carbs],
+      ] as const)
+        writeRow(key, text);
     }
   });
 
@@ -1995,7 +2015,12 @@
 
   let canPrimary = $derived(
     (!!staged && amount > 0 && !completingPanel && !stagedNoEnergy) ||
-      (method === "custom" && !!customName.trim() && runningKcal !== "") ||
+      (method === "custom" &&
+        !!customName.trim() &&
+        runningKcal !== "" &&
+        // No divisor, no save: a panel nothing can scale is what ADR-0060 §7 was
+        // right to refuse, and the magnitude box is empty exactly there (#562).
+        !!customBasis) ||
       (method === "scan" && !staged && !!barcode.trim())
   );
 
@@ -2029,7 +2054,7 @@
       return commit({ kind: "food", food: staged, amount, unit: amountUnit });
     }
     if (method === "custom") {
-      if (!customName.trim() || runningKcal === "") return;
+      if (!customName.trim() || runningKcal === "" || !builtPanel) return;
       // The full panel (grams stored, absent ≠ 0) plus the user-origin provenance
       // envelope; the host commits it through saveLabelFood (#56). Reuses the
       // shared `builtPanel` derivation the contribution path also reads.
@@ -2730,16 +2755,46 @@
                         <Segmented
                           label="Pack size unit"
                           options={basisOptions}
-                          bind:value={customBasis}
+                          bind:value={customBasisUnit}
                           testid="cf-basis"
                         />
                       </span>
                     </div>
-                    <!-- What the figures below therefore mean. Stated rather
-                    than asked a second time. -->
+                    <!-- What the figures below mean. The UNIT is not asked
+                    again — it is the one control above, beside the pack
+                    (ADR-0060's 2026-08-31 Amendment) — but the MAGNITUDE is
+                    typeable, which is the whole of #562: a US Nutrition Facts
+                    panel declares 36 g and had nothing to say while 100 was
+                    baked into the type. Pre-filled with 100, so the 76-of-88
+                    case is a default rather than a question. -->
                     <p class="cf-basis-derived" data-testid="cf-basis-derived">
-                      Values per {resolveServingSize(customBasis)}.
+                      <FieldCaption for="cf-basis-amount">
+                        Values per
+                      </FieldCaption>
+                      <input
+                        id="cf-basis-amount"
+                        class="cf-basis-amount"
+                        type="text"
+                        inputmode="decimal"
+                        placeholder="100"
+                        aria-label="Values per how many {effectiveUnit}"
+                        data-testid="cf-basis-amount"
+                        bind:value={customBasisAmount}
+                      />
+                      {effectiveUnit}.
                     </p>
+                    {#if !customBasis}
+                      <!-- A panel naming no divisor is the one ADR-0060 §7 was
+                      right to refuse: nothing could scale it, and the "1
+                      serving" receipt that followed re-opened this whole form
+                      when the user only wanted to say how much they ate. Said
+                      rather than silently stamped as 100. -->
+                      <p class="cf-basis-hint" data-testid="cf-basis-hint">
+                        Say what the figures are measured per — the panel's own
+                        “per 100 {effectiveUnit}”, or the serving weight it
+                        prints.
+                      </p>
+                    {/if}
                     {#if effectiveUnit === "ml"}
                       <!-- The class question's second door (ADR-0108 §1). It is
                       asked here and not deferred to the amount screen because
@@ -2785,39 +2840,78 @@
                         >
                       </div>
                       {#each sec.fields as f (f.key)}
-                        <div
-                          class="cf-row"
-                          class:skip={skipped.has(f.key)}
-                          class:unverified={prefilled.has(f.key)}
-                        >
-                          <FieldCaption
-                            class="cf-lbl"
-                            for={idFor[f.key] ?? `cf-${f.key}`}
+                        {@const row = rowFor(f.key)}
+                        {#if row}
+                          <div
+                            class="cf-row"
+                            class:skip={row.skipped}
+                            class:unverified={row.unverified}
                           >
-                            {f.label}
-                          </FieldCaption>
-                          <div class="cf-ctl">
-                            <input
-                              id={idFor[f.key] ?? `cf-${f.key}`}
-                              type="text"
-                              inputmode="decimal"
-                              placeholder={skipped.has(f.key)
-                                ? "not on label"
-                                : "0"}
-                              disabled={skipped.has(f.key)}
-                              bind:value={customValues[f.key]}
-                              oninput={() => markReviewed(f.key)}
-                            />
-                            <span class="cf-unit">{f.unit}</span>
+                            <FieldCaption
+                              class="cf-lbl"
+                              for={idFor[f.key] ?? `cf-${f.key}`}
+                            >
+                              {fieldLabel(f)}
+                            </FieldCaption>
+                            <div class="cf-ctl">
+                              <!-- The canonical box binds the row's own text.
+                              Every further box is a lens over that one value
+                              (salt and sodium), which is why the two can never
+                              disagree — there is one figure, shown twice. -->
+                              <input
+                                id={idFor[f.key] ?? `cf-${f.key}`}
+                                type="text"
+                                inputmode="decimal"
+                                placeholder={row.skipped ? "not on label" : "0"}
+                                disabled={row.skipped}
+                                aria-label={`${f.faces[0].label} in ${f.faces[0].unit}`}
+                                value={row.text}
+                                oninput={(e) =>
+                                  writeRow(f.key, e.currentTarget.value)}
+                              />
+                              <span class="cf-unit">{f.faces[0].unit}</span>
+                              {#each f.faces.slice(1) as face (face.label)}
+                                <!-- "=" rather than a second caption: it is the
+                                one character that says the two boxes are one
+                                fact. The caption to the left names the row; this
+                                box carries its own accessible name, since
+                                FieldCaption's `for` can only point at one. -->
+                                <span class="cf-face-eq" aria-hidden="true"
+                                  >=</span
+                                >
+                                <span class="cf-face-lbl">{face.label}</span>
+                                <input
+                                  type="text"
+                                  inputmode="decimal"
+                                  placeholder={row.skipped
+                                    ? "not on label"
+                                    : "0"}
+                                  disabled={row.skipped}
+                                  aria-label={`${face.label} in ${face.unit}`}
+                                  value={faceDisplay(f, face, row.text)}
+                                  oninput={(e) => {
+                                    const next = faceEntry(
+                                      f,
+                                      face,
+                                      e.currentTarget.value
+                                    );
+                                    if (next !== undefined)
+                                      writeRow(f.key, next);
+                                  }}
+                                />
+                                <span class="cf-unit">{face.unit}</span>
+                              {/each}
+                            </div>
+                            <button
+                              type="button"
+                              class="cf-skip"
+                              aria-pressed={row.skipped}
+                              onclick={() => toggleSkip(f.key)}
+                              aria-label={`${fieldLabel(f)} — not on label`}
+                              >∅</button
+                            >
                           </div>
-                          <button
-                            type="button"
-                            class="cf-skip"
-                            aria-pressed={skipped.has(f.key)}
-                            onclick={() => toggleSkip(f.key)}
-                            aria-label={`${f.label} — not on label`}>∅</button
-                          >
-                        </div>
+                        {/if}
                       {/each}
                     </section>
                   {/each}
@@ -3621,10 +3715,25 @@
     white-space: nowrap;
   }
   .cf-basis-derived,
+  .cf-basis-hint,
   .cf-pack-hint {
     margin: 0;
     font-size: 0.78rem;
     color: var(--text-muted);
+  }
+  /* The basis line is a sentence with a box in it, so it lays out inline and the
+     caption does not take the row-label column the nutrient rows use. */
+  .cf-basis-derived {
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+  }
+  .cf-basis-amount {
+    width: 4rem;
+    text-align: right;
+    /* It is a typed box in a line of prose, so nothing above sizes it: the floor
+       is declared here rather than inherited (ADR-0093). */
+    min-height: var(--tap-min);
   }
   .cf-group {
     margin-bottom: var(--space-m);
@@ -3696,6 +3805,18 @@
   .cf-ctl input {
     width: 5rem;
     text-align: right;
+  }
+  /* The "=" between a row's two boxes, and the second box's own name. The "="
+     is the one mark saying the pair is one fact rather than two questions, so it
+     reads as punctuation (muted, not bold) and the name beside it reads as the
+     `.cf-unit` suffixes do. */
+  .cf-face-eq,
+  .cf-face-lbl {
+    font-size: 0.78rem;
+    color: var(--text-muted);
+  }
+  .cf-face-eq {
+    padding-inline: 0.1rem;
   }
   .cf-unit {
     width: 2.4rem;

@@ -3,6 +3,7 @@ import {
   autofillFromPackageImage,
   type AIAutofillResult,
 } from "../../src/lib/food/ai-autofill";
+import { BASIS_PRESETS } from "../../src/lib/food/label-form";
 
 describe("autofillFromPackageImage (deferred seam)", () => {
   it("returns a full-panel proposal of the real shape from a label photo", async () => {
@@ -16,7 +17,7 @@ describe("autofillFromPackageImage (deferred seam)", () => {
     const expected: AIAutofillResult = {
       name: "AI Guessed Product (Stub)",
       brand: null,
-      basis: "per_100g",
+      basis: BASIS_PRESETS.per_100g,
       nutrition: {
         calories: 250,
         protein_content: 15,

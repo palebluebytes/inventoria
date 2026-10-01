@@ -1056,7 +1056,15 @@ describe("the floor, swept", () => {
     // shared 133, and 138 is what the sweep answers — which is the check worth
     // having, because two disjoint moves summing is a claim about the keys and
     // not about the total.
-    expect(how).toEqual({ declared: 138, drawn: 25, sanctioned: 6 });
+    //
+    // **138 → 139 for #562**, one box: `FoodStager`'s `.cf-basis-amount`, the
+    // magnitude in the capture form's basis line ("Values per [100] g"). It
+    // declares its own floor because nothing above sizes it — it is a typed box
+    // sitting in a line of prose rather than in the `.cf-ctl` column every
+    // nutrient row inherits from, which is also why the second box the salt row
+    // gained in the same change adds nothing here: that one IS in `.cf-ctl`, so
+    // its floor is inherited and this sweep cannot see it.
+    expect(how).toEqual({ declared: 139, drawn: 25, sanctioned: 6 });
     // Every box lands in exactly one column. Without this the two figures above
     // could both be right while a box fell out of the sweep between them.
     expect(how.declared + how.drawn + how.sanctioned).toBe(SWEEP.groups.size);

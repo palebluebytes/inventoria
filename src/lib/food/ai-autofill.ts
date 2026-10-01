@@ -1,4 +1,4 @@
-import type { Basis } from "./label-form";
+import { BASIS_PRESETS, type Basis } from "./label-form";
 import type { NutritionInfo } from "./nutrition";
 
 // ---------------------------------------------------------------------------
@@ -67,7 +67,12 @@ export interface AIAutofillResult {
  * v1 uses THIS — it never calls {@link autofillFromPackageImage} (the stub).
  */
 export function emptyAutofillResult(): AIAutofillResult {
-  return { name: null, brand: null, basis: "per_100g", nutrition: {} };
+  return {
+    name: null,
+    brand: null,
+    basis: BASIS_PRESETS.per_100g,
+    nutrition: {},
+  };
 }
 
 /**
@@ -95,7 +100,7 @@ export async function autofillFromPackageImage(
   return {
     name: "AI Guessed Product (Stub)",
     brand: null,
-    basis: "per_100g",
+    basis: BASIS_PRESETS.per_100g,
     nutrition: {
       calories: 250,
       protein_content: 15,

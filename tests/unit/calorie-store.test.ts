@@ -40,7 +40,11 @@ import {
   roundFood,
   scaleNutrition,
 } from "../../src/lib/food/nutrition";
-import { buildLabelPanel } from "../../src/lib/food/label-form";
+import {
+  BASIS_PRESETS,
+  blankNutrientRows,
+  buildLabelPanel,
+} from "../../src/lib/food/label-form";
 import { parseLoggedQuantity } from "../../src/lib/food/recipe-ingredient";
 import { asStored } from "./support/stored";
 import type { Datom } from "../../src/lib/db/db.core";
@@ -2319,6 +2323,12 @@ describe("label-food edit is lossless (basis + panel survive on the twin)", () =
       value: JSON.stringify(d.value),
     }));
 
+  /** The capture form's rows with these keys typed — what the user left in it. */
+  const labelRows = (values: Record<string, string>) =>
+    blankNutrientRows().map((row) =>
+      values[row.key] === undefined ? row : { ...row, text: values[row.key] }
+    );
+
   it("recovers the corrected name, the millilitre basis and the full panel", async () => {
     const appended: any[] = [];
     vi.spyOn(dbClient, "append").mockImplementation(async (d: any) => {
@@ -2326,16 +2336,15 @@ describe("label-food edit is lossless (basis + panel survive on the twin)", () =
     });
 
     // The user set name "Peanut Butter" and read the label per 100 ml.
-    const panel = buildLabelPanel({
-      values: {
+    const panel = buildLabelPanel(
+      labelRows({
         calories: "190",
         protein_content: "7",
         fat_content: "16",
         carbohydrate_content: "6",
-      },
-      basis: "per_100ml",
-      skipped: new Set(),
-    }).nutrition;
+      }),
+      BASIS_PRESETS.per_100ml
+    ).nutrition;
 
     // A poor OFF twin already on the ledger; the correction enriches it in place.
     const gtin = "gtin:8410010812345";

@@ -12,93 +12,250 @@
 // The catalogue and the builder live here — outside the Svelte component — so the
 // mg/µg-to-grams assembly is a pure function the unit suite exercises directly
 // (labels omitted, round-trips, basis→serving_size), and the form is a thin shell
-// over it. The labels/units mirror `nutrient-display.ts` EXTRA_NUTRIENT_META, with
-// `sugar` included: the display catalogue hides it, but a label-entry form must
-// let you type it.
+// over it.
+//
+// A row is one panel key plus one or more Faces — a box, its unit, and the
+// conversion to what the panel stores. Twenty-two rows have one face and read as
+// a label and a unit. Salt has two, because an EU pack prints salt in grams and
+// an Australian or US one prints sodium in milligrams, the panel stores sodium
+// either way, and the row used to ask for "Salt / sodium" in milligrams and store
+// whatever was typed — 2.5x the truth for anybody who read the first word (#508).
+// The two boxes cannot disagree: the row holds one value, shown twice.
+//
+// Each row holds what it was SEEDED from as well as what it shows, so an
+// untouched row re-emits its source rather than being rebuilt from a string
+// rounded to two decimals — 41 of 88 real panels carried at least one row that
+// could not survive that trip (#561). It is `PortionRow`'s rule, applied to the
+// other half of the same form.
+//
+// Every row's faces mirror `nutrient-display.ts` EXTRA_NUTRIENT_META — with
+// `sugar` included, which the display catalogue hides and a label-entry form must
+// let you type. Salt is not an exception to that mirror: its second face IS the
+// catalogue's "Sodium" in "mg".
 import {
   parseNutrientEntry,
   nutrientDisplayValue,
   type NutrientUnit,
 } from "./nutrient-display";
 import {
+  basisIsStated,
+  basisUnit,
+  parseBasisQuantity,
   portionMagnitude,
   portionMeasure,
-  PER_100G,
-  PER_100ML,
+  roundFoodDisplay,
+  SALT_TO_SODIUM,
   type MeasuredUnit,
   type NutritionInfo,
   type Portion,
 } from "./nutrition";
 
 /**
- * The basis a label printed its values against — the #52 form's toggle, which
- * offers both (ADR-0060 §7, as amended 2026-08-30).
+ * The basis a label printed its values against — **a magnitude and the unit it
+ * is measured in**, which is all a basis ever was.
  *
- * `per_100ml` was for a while inverted-only, reachable solely by re-opening a
- * twin OFF had already published per 100 ml (ADR-0052 §5, #148). That left a UK
- * bottle printing "per 100 ml" with no way to say so, so the toggle now offers
- * it outright.
+ * It was a two-member union of `per_100g | per_100ml` until #562. That shape
+ * made `per_100g` a *kind* of basis rather than one *value* of one, and the
+ * consequence was a label printing only "Amount per serving" — the US Nutrition
+ * Facts panel — having nothing to say (ADR-0060's 2026-08-30 Amendment, which
+ * named that cost and accepted it). Typed this way the two per-100 bases are
+ * {@link BASIS_PRESETS}, and a stated serving weight is the general case rather
+ * than a third literal. ADR-0052's Consequences asked for exactly this: "a
+ * fourth basis would want the field typed rather than a third literal added."
  *
- * There is deliberately no per-serving member. Both of these name a divisor, so
- * a food captured against either is entered, logged and re-edited by amount; a
- * serving of unstated weight names none, and the `"1 serving"` receipt that
- * followed was a quantity nothing could scale — which is what left a captured
- * food re-opening the whole form when the user only wanted to change how much
- * they ate. Open Food Facts never needs the third: it publishes a per-100 figure
- * for every product, computing `*_100g` even where `nutrition_data_per` says
- * `serving`, and the serving it DOES publish arrives as a `food/portions` chip
- * (ADR-0060 §6) rather than as a basis.
+ * What is **not** restored is a basis naming no magnitude. ADR-0060 SS7 was right
+ * about the case it argued: a serving of unstated weight names no divisor, the
+ * `"1 serving"` receipt that followed was a quantity nothing could scale, and
+ * that panel is still refused — {@link invertServingSize} answers `null` for it
+ * and the form holds rather than guessing.
  *
  * It is also the app's ONE basis type: `ai-autofill.ts` reads it from here
  * rather than keeping a narrower copy of its own, which the next basis value
  * would leave wrong exactly as `per_100ml` already had.
  */
-export type Basis = "per_100g" | "per_100ml";
-/** A row is typed in kcal (energy) or a nutrient mass unit; grams are stored. */
+export interface Basis {
+  /** The magnitude the panel's figures are measured per — 100, or 36. */
+  amount: number;
+  /** The unit that magnitude is in. Nothing converts between the two (SS2). */
+  unit: MeasuredUnit;
+}
+
+/** The two bases a reputable source reports against, which the toggle offers as
+ *  positions rather than as a number to type. */
+export type BasisPresetId = "per_100g" | "per_100ml";
+
+/**
+ * The preset positions, keyed so that adding one **fails the typecheck**.
+ *
+ * A `Record` rather than an array, on `DENSITY_CLASS_OPTIONS`' precedent and for
+ * its reason: while the basis was a union, `basisOptions` was a plain array, so
+ * a third member compiled clean with no cell rendered and no error — a basis the
+ * type permitted and the UI could not reach.
+ */
+export const BASIS_PRESETS: Record<BasisPresetId, Basis> = {
+  per_100g: { amount: 100, unit: "g" },
+  per_100ml: { amount: 100, unit: "ml" },
+};
+
+/** A box is typed in kcal (energy) or a nutrient mass unit; grams are stored. */
 export type FieldUnit = "kcal" | NutrientUnit;
+
+/**
+ * One input box on a nutrient row: the quantity it asks for, the unit it is
+ * typed in, and the two conversions between that and what the panel stores.
+ *
+ * A row has one face in the ordinary case and the face's label is the row's
+ * caption. Salt has two ({@link SALT_FACES}), which is the whole reason this
+ * type exists: an EU pack prints `Salt 0,6 g` and a US or Australian one prints
+ * `Sodium 240mg`, the panel stores sodium either way (ADR-0021's 2026-08-14
+ * Amendment), and before #508 the row asked for "Salt / sodium" in milligrams
+ * and stored whatever was typed as sodium — 2.5x the truth for anybody reading
+ * the word the row offered them.
+ *
+ * The conversions live on the face rather than in the template because the
+ * factor between the boxes is the one thing that must not live in markup
+ * (`CODING_STANDARDS.md` SS2.2) — it is how the `/ 2.5` went missing from the
+ * hand-typed path for as long as it did.
+ */
+export interface Face {
+  /** The quantity this box asks for, e.g. "Salt", "Sodium", "Fibre". */
+  label: string;
+  /** The unit this box is typed in, and prints beside itself. */
+  unit: FieldUnit;
+  /** This box's number -> stored grams of the row's key. */
+  toStored: (typed: number) => number;
+  /**
+   * Stored grams of the row's key -> the number this box shows, **rounded here
+   * and nowhere else**.
+   *
+   * One rounding per face, inside the face, because composing two roundings is
+   * what broke the salt box first: routing grams through
+   * {@link nutrientDisplayValue}'s fixed two decimals before multiplying by 2.5
+   * turned Nutella's 0.0428 g of sodium into 0.04, and so into 0.1 g of salt
+   * where the jar prints 0.107 — and a cucumber's 0.0015 g into a flat 0.
+   *
+   * Rounding is cosmetic either way: an untouched row re-emits what it was
+   * seeded from ({@link buildLabelPanel}), so this decides what the box reads
+   * and never what the panel stores.
+   */
+  fromStored: (grams: number) => number;
+}
 
 export interface FieldDef {
   /** The `NutritionInfo` key this row fills. */
   key: keyof NutritionInfo;
-  /** Row label, e.g. "Saturated fat". */
-  label: string;
-  /** The unit the row is *typed* in (grams are stored; micros type in mg/µg). */
-  unit: FieldUnit;
+  /**
+   * The row's boxes, left to right. `faces[0]` is **canonical**: the row's text
+   * is held in its unit, every other face is a lens over that text, and its
+   * label is the row's caption.
+   */
+  faces: [Face, ...Face[]];
 }
+
+/** The caption a row shows — its canonical face's label, never a second copy of
+ *  it that could drift. */
+export function fieldLabel(field: FieldDef): string {
+  return field.faces[0].label;
+}
+
+/**
+ * The ordinary box: typed in its own unit, storing grams, converting by nothing
+ * but the mass scale (kcal passes through).
+ *
+ * Twenty-two of the twenty-three rows are one of these, so the catalogues below
+ * read as a label and a unit exactly as they did before faces existed.
+ */
+function plainFace(label: string, unit: FieldUnit): Face {
+  return {
+    label,
+    unit,
+    toStored: (typed) =>
+      unit === "kcal" ? typed : parseNutrientEntry(typed, unit),
+    fromStored: (grams) =>
+      unit === "kcal"
+        ? roundFoodDisplay(grams)
+        : nutrientDisplayValue(grams, unit),
+  };
+}
+
+/**
+ * The salt row's two boxes, and the only arithmetic in this file that is not a
+ * unit scale.
+ *
+ * **Salt first**, because that is the pack in evidence: all four committed label
+ * samples print salt in grams (#476), and so does every pack in the real
+ * ledger. **Sodium second**, so an Australian or US panel printing `Sodium 240mg`
+ * is transcribed as printed rather than converted by hand — the FSANZ panel
+ * prints sodium in milligrams per 100 g, which this form takes as it stands.
+ *
+ * The two can never disagree: the row holds one text, in salt grams, and the
+ * sodium box is a lens over it. There is deliberately no third state recording
+ * which box was typed, because there is nothing for it to decide — both boxes
+ * describe one stored figure.
+ *
+ * No composite factor is written here. Salt grams reach sodium milligrams by
+ * composing the two faces through stored grams, so the 400 that relates them
+ * exists nowhere and cannot fall out of step with {@link SALT_TO_SODIUM} or the
+ * milligram scale.
+ */
+const SALT_FACES: [Face, Face] = [
+  {
+    label: "Salt",
+    unit: "g",
+    toStored: (typed) => parseNutrientEntry(typed, "g") / SALT_TO_SODIUM,
+    // Grams to grams, so the mass scale is 1 and the only arithmetic is the
+    // ratio.
+    //
+    // FOUR decimals, not the display layer's two, for two reasons that both
+    // bite. At two, the smallest sodium figure in the real ledger (0.001 g,
+    // white rice) reads as "0" — a zero a save would then have written over a
+    // real measurement. And because salt is the CANONICAL face, the sodium box
+    // beside it is quantised by this precision: at four, sodium typed as a whole
+    // number of milligrams round-trips exactly (m mg is m x 0.0025 g of salt,
+    // which never has a fifth decimal), so an Australian panel's "59" comes back
+    // as 59 rather than 59.2. EU packs print salt to two or three decimals
+    // anyway ("0.6 g", "0.107 g"), so a typed figure is untouched by this.
+    fromStored: (grams) => roundFoodDisplay(grams * SALT_TO_SODIUM, 4),
+  },
+  plainFace("Sodium", "mg"),
+];
 
 /** The common case — the four rows today's Custom tab already captures. */
 export const CORE: FieldDef[] = [
-  { key: "calories", label: "Calories", unit: "kcal" },
-  { key: "protein_content", label: "Protein", unit: "g" },
-  { key: "fat_content", label: "Fat", unit: "g" },
-  { key: "carbohydrate_content", label: "Carbs", unit: "g" },
+  { key: "calories", faces: [plainFace("Calories", "kcal")] },
+  { key: "protein_content", faces: [plainFace("Protein", "g")] },
+  { key: "fat_content", faces: [plainFace("Fat", "g")] },
+  { key: "carbohydrate_content", faces: [plainFace("Carbs", "g")] },
 ];
 
 /** The rest of the "big four corners" of a label — fats, fibre, sugar, salt. */
 export const DETAIL: FieldDef[] = [
-  { key: "saturated_fat_content", label: "Saturated fat", unit: "g" },
-  { key: "trans_fat_content", label: "Trans fat", unit: "g" },
-  { key: "unsaturated_fat_content", label: "Unsaturated fat", unit: "g" },
-  { key: "fiber_content", label: "Fibre", unit: "g" },
-  { key: "sugar_content", label: "Sugar", unit: "g" },
-  { key: "sodium_content", label: "Salt / sodium", unit: "mg" },
-  { key: "cholesterol_content", label: "Cholesterol", unit: "mg" },
+  { key: "saturated_fat_content", faces: [plainFace("Saturated fat", "g")] },
+  { key: "trans_fat_content", faces: [plainFace("Trans fat", "g")] },
+  {
+    key: "unsaturated_fat_content",
+    faces: [plainFace("Unsaturated fat", "g")],
+  },
+  { key: "fiber_content", faces: [plainFace("Fibre", "g")] },
+  { key: "sugar_content", faces: [plainFace("Sugar", "g")] },
+  { key: "sodium_content", faces: SALT_FACES },
+  { key: "cholesterol_content", faces: [plainFace("Cholesterol", "mg")] },
 ];
 
 /** The twelve US Nutrition-Facts micronutrients (ADR-0030), in panel order. */
 export const MICROS: FieldDef[] = [
-  { key: "vitamin_d", label: "Vitamin D", unit: "µg" },
-  { key: "calcium", label: "Calcium", unit: "mg" },
-  { key: "iron", label: "Iron", unit: "mg" },
-  { key: "potassium", label: "Potassium", unit: "mg" },
-  { key: "vitamin_a", label: "Vitamin A", unit: "µg" },
-  { key: "vitamin_c", label: "Vitamin C", unit: "mg" },
-  { key: "vitamin_e", label: "Vitamin E", unit: "mg" },
-  { key: "vitamin_b6", label: "Vitamin B6", unit: "mg" },
-  { key: "vitamin_b12", label: "Vitamin B12", unit: "µg" },
-  { key: "folate", label: "Folate", unit: "µg" },
-  { key: "magnesium", label: "Magnesium", unit: "mg" },
-  { key: "zinc", label: "Zinc", unit: "mg" },
+  { key: "vitamin_d", faces: [plainFace("Vitamin D", "µg")] },
+  { key: "calcium", faces: [plainFace("Calcium", "mg")] },
+  { key: "iron", faces: [plainFace("Iron", "mg")] },
+  { key: "potassium", faces: [plainFace("Potassium", "mg")] },
+  { key: "vitamin_a", faces: [plainFace("Vitamin A", "µg")] },
+  { key: "vitamin_c", faces: [plainFace("Vitamin C", "mg")] },
+  { key: "vitamin_e", faces: [plainFace("Vitamin E", "mg")] },
+  { key: "vitamin_b6", faces: [plainFace("Vitamin B6", "mg")] },
+  { key: "vitamin_b12", faces: [plainFace("Vitamin B12", "µg")] },
+  { key: "folate", faces: [plainFace("Folate", "µg")] },
+  { key: "magnesium", faces: [plainFace("Magnesium", "mg")] },
+  { key: "zinc", faces: [plainFace("Zinc", "mg")] },
 ];
 
 /** Every nutrient row the form renders, in read-along order. */
@@ -270,68 +427,202 @@ function rowsMatch(a: PortionRow, b: PortionRow): boolean {
 }
 
 /**
- * Grams → the string a field shows in its typed unit (kcal passes through). The
- * inverse of {@link toGrams}; used to seed the form from a prefilled panel
- * (AI-confirm / OFF), so a stored 0.0026 g of iron reads back as "2.6" in "mg".
+ * A typed box's string as a finite number, or `undefined` for a blank or
+ * non-numeric one — the absent-not-zero guard every converter below shares, so
+ * an empty row is omitted rather than assembled as 0 (#28, ADR-0030).
  */
-export function toDisplay(grams: number, unit: FieldUnit): string {
-  return unit === "kcal"
-    ? String(grams)
-    : String(nutrientDisplayValue(grams, unit));
+function typedNumber(typed: string): number | undefined {
+  const trimmed = typed.trim();
+  if (trimmed === "") return undefined;
+  const n = Number(trimmed);
+  return Number.isFinite(n) ? n : undefined;
 }
 
 /**
- * A typed display-unit string → stored grams, or `undefined` when the field is
- * blank/absent or non-numeric — the absent-not-zero guard, so an empty row is
- * omitted rather than assembled as 0. `parseNutrientEntry` reattaches the mass
- * scale (500 "mg" → 0.5 g); kcal passes straight through.
+ * A row's text → the grams the panel stores, through its canonical face.
+ *
+ * `undefined` when the row is blank or will not parse, which is what keeps an
+ * untouched row out of the panel entirely.
  */
-export function toGrams(display: string, unit: FieldUnit): number | undefined {
-  const trimmed = display.trim();
-  if (trimmed === "") return undefined;
-  const n = Number(trimmed);
-  if (!Number.isFinite(n)) return undefined;
-  return unit === "kcal" ? n : parseNutrientEntry(n, unit);
+export function storedFromText(
+  field: FieldDef,
+  text: string
+): number | undefined {
+  const n = typedNumber(text);
+  return n === undefined ? undefined : field.faces[0].toStored(n);
+}
+
+/**
+ * Stored grams → the text the canonical box is seeded with (so a stored 0.0026 g
+ * of iron reads back as "2.6" in "mg", and a stored 0.24 g of sodium as "0.6" in
+ * grams of salt).
+ */
+export function textFromStored(field: FieldDef, grams: number): string {
+  return String(field.faces[0].fromStored(grams));
+}
+
+/**
+ * One face's box, read off the row's canonical text.
+ *
+ * The canonical box binds to the text itself; every other face is this lens over
+ * it, which is what makes two boxes describing one figure unable to disagree —
+ * there is one value, shown twice.
+ */
+export function faceDisplay(field: FieldDef, face: Face, text: string): string {
+  const grams = storedFromText(field, text);
+  if (grams === undefined) return "";
+  return String(face.fromStored(grams));
+}
+
+/**
+ * The row's canonical text after one of its other faces was typed into — or
+ * `undefined` for "no change to apply".
+ *
+ * The `undefined` is what lets somebody type into the second box at all: a
+ * half-finished "0." is not a number, and rewriting the canonical text from it
+ * would blank the box being typed in. An EMPTY box is a real change (the row is
+ * being cleared) and answers `""`.
+ */
+const COMPLETE_NUMBER = /^-?(?:\d+(?:\.\d+)?|\.\d+)$/;
+
+export function faceEntry(
+  field: FieldDef,
+  face: Face,
+  typed: string
+): string | undefined {
+  const trimmed = typed.trim();
+  if (trimmed === "") return "";
+  // A COMPLETE number, which is stricter than `Number()` on purpose: it reads
+  // "0." as 0, so a half-typed decimal would rewrite the other box as "0" and
+  // take the separator away from under the cursor.
+  if (!COMPLETE_NUMBER.test(trimmed)) return undefined;
+  const n = typedNumber(trimmed);
+  if (n === undefined) return undefined;
+  return textFromStored(field, face.toStored(n));
+}
+
+/** Every row the form renders, by the key it fills — so {@link buildLabelPanel}
+ *  can read a row's faces without being handed the catalogue again. */
+const FIELD_BY_KEY: Map<keyof NutritionInfo, FieldDef> = new Map(
+  ALL_FIELDS.map((field) => [field.key, field])
+);
+
+/**
+ * One nutrient row of the form (the sibling of {@link PortionRow}, and
+ * deliberately the same design).
+ *
+ * This replaced three parallel string-keyed collections — the typed values, the
+ * skipped keys and the unreviewed keys — which could disagree with each other
+ * and with the catalogue, and which made `toggleSkip` a function that had to
+ * write all three to keep them consistent.
+ *
+ * {@link source} is the half that fixes #561. The form held display strings and
+ * nothing else, so a save rebuilt every figure from a string rounded to two
+ * decimals: 41 of 88 real panels carried at least one row that did not survive
+ * the trip, 137 rows across 16 keys, up to 100% out. Holding what the row was
+ * seeded from means only a row somebody actually retyped is ever rebuilt — the
+ * rule `buildPortions` has enforced for portions all along, for the reason it
+ * states there: correcting the form must never be how a twin quietly loses data.
+ */
+export interface NutrientRow {
+  /** The `NutritionInfo` key this row fills. */
+  key: keyof NutritionInfo;
+  /** The canonical face's text as typed. A string because it is a text box;
+   *  "" ⇒ absent. */
+  text: string;
+  /**
+   * The stored grams this row was seeded from, held so an untouched row is
+   * re-emitted **exactly** as it was read rather than rebuilt from a rounded
+   * display string. Absent on a row of a fresh capture, which has no source to
+   * preserve — that absence is the row's provenance, not a missing value.
+   */
+  source?: number;
+  /** "∅ not on label" — force-omitted even if a value was typed. */
+  skipped: boolean;
+  /** Prefilled by a source or a reading and not yet reviewed (the amber accent);
+   *  typing in any of the row's boxes clears it. */
+  unverified: boolean;
+}
+
+/** A blank row for every field — a fresh read-along form. */
+export function blankNutrientRows(): NutrientRow[] {
+  return ALL_FIELDS.map((field) => ({
+    key: field.key,
+    text: "",
+    skipped: false,
+    unverified: false,
+  }));
+}
+
+/**
+ * A panel as the form's rows — the inverse of {@link buildLabelPanel}, and here
+ * beside it so the two cannot drift. The mirror of {@link portionRows} for the
+ * other half of the form.
+ *
+ * A key the panel does not carry becomes a blank row with no `source`: absent is
+ * not zero, so a row the panel never had must not come back as one. `unverified`
+ * is the caller's to set — a twin re-opened for correction is the user's own
+ * work and nothing is amber, where a reading proposed by a model is all of it.
+ */
+export function nutrientRows(
+  info: NutritionInfo | undefined,
+  unverified = false
+): NutrientRow[] {
+  return ALL_FIELDS.map((field) => {
+    const stored = info?.[field.key];
+    const seeded = typeof stored === "number" ? stored : undefined;
+    return {
+      key: field.key,
+      text: seeded === undefined ? "" : textFromStored(field, seeded),
+      source: seeded,
+      skipped: false,
+      unverified: unverified && seeded !== undefined,
+    };
+  });
 }
 
 /**
  * The #52 basis toggle resolved to the panel's `serving_size` string (ADR-0034
- * §3): `100 g` when the label prints per 100 g, `100 ml` when it prints per 100
- * ml — whether the user said so, or a drink arrived carrying the basis OFF
- * published it against.
+ * SS3): `100 g` when the label prints per 100 g, `100 ml` when it prints per 100
+ * ml, `36 g` when it prints per a serving it weighs.
  *
- * Total over {@link Basis}, and it emits nothing else: a panel this form writes
- * always names a divisor, which is what keeps the food it captures editable by
- * amount afterwards.
+ * Total over {@link Basis} by construction now that a basis is a magnitude and a
+ * unit — there is no member left to forget. A panel this form writes always
+ * names a divisor, which is what keeps the food it captures editable by amount
+ * afterwards; what changed in #562 is that the divisor no longer has to be 100.
  */
 export function resolveServingSize(basis: Basis): string {
-  return basis === "per_100ml" ? PER_100ML : PER_100G;
+  return `${basis.amount} ${basis.unit}`;
 }
 
 /**
  * The inverse of {@link resolveServingSize}: a saved panel's basis read back onto
- * the form's toggle, so re-opening a twin for correction shows the basis it was
- * stored with rather than a guess. Lives beside the forward mapping so the two
- * cannot drift, and round-trips every basis that mapping can emit.
+ * the form's control, so re-opening a twin shows the basis it was stored with
+ * rather than a guess. Lives beside the forward mapping so the two cannot drift,
+ * and round-trips every basis that mapping can emit.
  *
- * A panel this form cannot express — a `N g` or `1 serving` basis, which only
- * the manual-entry writers (`saveCustomFood`, `saveManualFood`) still produce,
- * and which their own twins re-open away from this form — reads back as per
- * 100 g. Those twins' figures are per serving, so re-saving one HERE would
- * relabel them; that is accepted rather than hidden, and it is why nothing
- * routes a per-serving panel to this form.
+ * **`null` for a panel naming no magnitude**, which is the repair #562 makes. It
+ * used to answer `per_100g` for such a panel, and ADR-0060's 2026-08-30
+ * Amendment accepted what that cost: a `"1 serving"` twin re-opened here was
+ * silently **relabelled** per 100 g on save, restating a whole-serving figure as
+ * a per-100 one. Twelve such panels sit in the real ledger. Answering `null`
+ * leaves the magnitude box empty and the save gate holding, which turns those
+ * twelve from relabelled into repairable — the rule
+ * {@link portionRowIsEditable} already states for a portion that names a
+ * household measure and no amount: that is precisely what a correction form
+ * exists to correct.
+ *
+ * It reads the three siblings in `nutrition.ts` rather than a regex of its own,
+ * so this and every scaler agree about what a basis string says.
  */
-export function invertServingSize(serving_size: string | undefined): Basis {
-  return serving_size === PER_100ML ? "per_100ml" : "per_100g";
-}
-
-export interface LabelPanelInput {
-  /** Display-unit strings keyed by {@link NutritionInfo} field. */
-  values: Record<string, string>;
-  /** The label's basis, resolved onto `serving_size`. */
-  basis: Basis;
-  /** Keys the user marked "∅ not on label" — force-omitted even if typed. */
-  skipped: Set<string>;
+export function invertServingSize(
+  serving_size: string | undefined
+): Basis | null {
+  if (!basisIsStated(serving_size)) return null;
+  return {
+    amount: parseBasisQuantity(serving_size),
+    unit: basisUnit(serving_size),
+  };
 }
 
 export interface BuiltLabelPanel {
@@ -342,24 +633,49 @@ export interface BuiltLabelPanel {
 }
 
 /**
- * Assembles the typed rows into a stored {@link NutritionInfo} (ADR-0034 §3) —
- * the pure heart of the Read-along form. Every filled, non-skipped row converts
- * to grams via {@link toGrams}; an untouched or skipped row is **omitted, never
- * 0** (absent ≠ 0). The basis resolves onto `serving_size`. Returns the panel
- * plus the keys that were filled, so the caller records what the user supplied
- * without re-deriving it.
+ * Assembles the typed rows into a stored {@link NutritionInfo} (ADR-0034 SS3) —
+ * the pure heart of the Read-along form. The basis resolves onto `serving_size`;
+ * a blank or skipped row is **omitted, never 0** (absent ≠ 0).
+ *
+ * **A row still equal to what it was seeded from re-emits its source**, byte for
+ * byte, rather than being rebuilt from the string the box shows. That is the
+ * whole of #561: the box shows two decimals, and a USDA panel's `0.000005` g of
+ * B6 or `0.005` g of trans fat does not survive two decimals. Only a row
+ * somebody actually retyped goes through a conversion, so correcting one figure
+ * on a twin can no longer quietly rescale fifteen others.
  */
-export function buildLabelPanel(input: LabelPanelInput): BuiltLabelPanel {
-  const nutrition: NutritionInfo = {
-    serving_size: resolveServingSize(input.basis),
-  };
+export function buildLabelPanel(
+  rows: NutrientRow[],
+  basis: Basis
+): BuiltLabelPanel {
+  const nutrition: NutritionInfo = { serving_size: resolveServingSize(basis) };
   const filledKeys: string[] = [];
-  for (const f of ALL_FIELDS) {
-    if (input.skipped.has(f.key)) continue;
-    const grams = toGrams(input.values[f.key] ?? "", f.unit);
+  for (const row of rows) {
+    if (row.skipped) continue;
+    const field = FIELD_BY_KEY.get(row.key);
+    if (!field) continue;
+    const grams = nutrientRowIsUntouched(row, field)
+      ? row.source
+      : storedFromText(field, row.text);
     if (grams === undefined) continue;
-    (nutrition as unknown as Record<string, unknown>)[f.key] = grams;
-    filledKeys.push(f.key);
+    (nutrition as unknown as Record<string, unknown>)[row.key] = grams;
+    filledKeys.push(row.key);
   }
   return { nutrition, filledKeys };
+}
+
+/** Whether a row still shows exactly what it was seeded with — the "untouched"
+ *  test, and the sibling of `rowsMatch` on the portion half. */
+export function nutrientRowIsUntouched(
+  row: NutrientRow,
+  field: FieldDef
+): boolean {
+  return (
+    row.source !== undefined && row.text === textFromStored(field, row.source)
+  );
+}
+
+/** True when nothing has been typed into a nutrient row. */
+export function nutrientRowIsBlank(row: NutrientRow): boolean {
+  return row.text.trim() === "";
 }
