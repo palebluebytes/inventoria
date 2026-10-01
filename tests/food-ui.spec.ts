@@ -879,10 +879,11 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
       'button[data-reset-limit="saturated_fat_content"]'
     );
 
-    // At the baked cap the field is blank (placeholder = the FDA 20 g DRV) and
-    // ↺ is off — a limit has no dashboard meter, only this stay-under cap.
+    // At the baked cap the field is blank (placeholder = the WHO-derived 22 g
+    // cap) and ↺ is off — a limit has no dashboard meter, only this stay-under
+    // cap.
     await expect(satFat).toHaveValue("");
-    await expect(satFat).toHaveAttribute("placeholder", "20");
+    await expect(satFat).toHaveAttribute("placeholder", "22");
     await expect(satFatReset).toBeDisabled();
 
     // A tighter override fills the value and enables ↺.
@@ -894,7 +895,7 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     // ↺ clears it back to the baked cap placeholder and disables itself again.
     await satFatReset.click();
     await expect(satFat).toHaveValue("");
-    await expect(satFat).toHaveAttribute("placeholder", "20");
+    await expect(satFat).toHaveAttribute("placeholder", "22");
     await expect(satFatReset).toBeDisabled();
   });
 

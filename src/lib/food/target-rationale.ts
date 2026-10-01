@@ -141,38 +141,58 @@ export const TARGET_RATIONALES: Record<RationaleId, TargetRationale> = {
   limits: {
     title: "Why these Limits?",
     referenceDoc: "docs/reference/daily-nutrient-limits.md",
-    lead: "The Limits are stay-under caps — the day tints amber once a total goes over. Three are FDA Daily Reference Values; trans fat has no FDA value, so its cap comes from the WHO instead.",
+    lead: "The Limits are stay-under caps \u2014 the day tints amber once a total goes over, and says how far over. All three come from the World Health Organization, which is the authority this app uses for a cap; the FDA Daily Values behind the targets above are not used here.",
     blocks: [
       { kind: "heading", text: "The caps" },
       {
         kind: "list",
         items: [
-          "Sodium — 2,300 mg (FDA DRV). This is the element sodium, not salt (2,300 mg sodium ≈ 5.75 g salt).",
-          "Saturated fat — 20 g (FDA DRV). Distinct from total fat (78 g), which is a reach-toward reference, not a limit.",
-          "Cholesterol — 300 mg (FDA DRV).",
-          "Trans fat — 2 g (WHO-derived, not an FDA value).",
+          "Sodium \u2014 2,000 mg. This is the element sodium, not salt (2,000 mg sodium \u2248 5 g salt, which is the same recommendation stated the other way).",
+          "Saturated fat \u2014 22 g, derived from 10% of energy. Distinct from total fat (67 g), which is a target to aim at rather than a cap.",
+          "Trans fat \u2014 2 g, derived from 1% of energy.",
         ],
       },
-      { kind: "heading", text: "Where trans fat's 2 g comes from" },
+      { kind: "heading", text: "Where the two fat caps come from" },
       {
         kind: "para",
-        text: "The FDA publishes no Daily Value for trans fat — the label only says “as low as possible.” A stay-under bar needs a number to fill against, so the cap comes from the WHO guideline of less than 1% of energy: 1% of 2,000 kcal = 20 kcal ÷ 9 kcal/g ≈ 2.2 g, rounded to 2 g. It is the ceiling WHO names, not a target to reach.",
+        text: "The WHO states both fat ceilings as a share of what you eat rather than a weight, and states each one twice: a firm recommendation at the figure, and a further suggestion below it. A bar needs a weight to fill against, so each is converted at a 2,000 kcal day and 9 kcal per gram of fat, then rounded down \u2014 which puts the cap under both. Saturated fat: 10% of 2,000 kcal = 200 kcal \u00f7 9 = 22.2 g, so 22 g. Trans fat: 1% of 2,000 kcal = 20 kcal \u00f7 9 = 2.2 g, so 2 g.",
+      },
+      {
+        kind: "heading",
+        text: "The trans fat cap covers butter and cheese too",
       },
       {
         kind: "para",
-        text: "Added sugar is deliberately not a limit here. The panel carries total sugar (fruit and milk sugars included), and capping that against the 50 g added-sugar DV would wrongly flag a bowl of fruit as over limit. There is no authoritative daily cap for total sugar.",
+        text: "Worth knowing if an amber trans fat row surprises you. Trans fat occurs naturally in meat and dairy from cows, sheep and goats, as well as being produced industrially in some processed foods. The WHO guideline covers both: its wording is that trans fat means every fatty acid in the trans configuration, whichever of the two it came from. It could not separate them \u2014 the evidence did not support a distinction \u2014 and no authority publishes a separate figure for the naturally occurring kind. So a cap spent by butter is being spent as the source intends.",
+      },
+      { kind: "heading", text: "What has no cap, and why" },
+      {
+        kind: "para",
+        text: "A nutrient gets a cap here when the WHO publishes a daily ceiling for the same quantity the panel measures. Cholesterol has none: the WHO does not give a dietary cholesterol figure, so the app shows your cholesterol in full under \u201cNot tracked\u201d rather than inventing a line to cross.",
+      },
+      {
+        kind: "para",
+        text: "Sugar has none either, for a different reason. The WHO caps free sugars \u2014 added sugar plus the sugar in honey, syrups and fruit juice \u2014 at less than 10% of energy. The panel carries total sugar, which also counts the sugar already in whole fruit and in milk. Those are not the same quantity, so capping one with the other would flag a bowl of fruit as over limit.",
       },
     ],
     sources: [
-      FDA_CFR,
-      FDA_DV_PAGE,
       {
-        label: "WHO — “Healthy diet” fact sheet (trans fat < 1% of energy)",
-        url: "https://www.who.int/news-room/fact-sheets/detail/healthy-diet",
+        label:
+          "WHO \u2014 Saturated fatty acid and trans-fatty acid intake for adults and children: WHO guideline (2023)",
+        url: "https://www.who.int/publications/i/item/9789240073630",
       },
       {
-        label: "WHO REPLACE action package (eliminating industrial trans fat)",
-        url: "https://www.who.int/teams/nutrition-and-food-safety/replace-trans-fat",
+        label:
+          "WHO \u2014 Guideline: Sodium intake for adults and children (2012)",
+        url: "https://www.who.int/publications/i/item/9789241504836",
+      },
+      {
+        label: "WHO \u2014 \u201cSodium reduction\u201d fact sheet",
+        url: "https://www.who.int/news-room/fact-sheets/detail/sodium-reduction",
+      },
+      {
+        label: "WHO \u2014 \u201cHealthy diet\u201d fact sheet",
+        url: "https://www.who.int/news-room/fact-sheets/detail/healthy-diet",
       },
     ],
   },
