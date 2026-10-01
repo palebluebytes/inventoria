@@ -155,3 +155,50 @@ roughly the 2.5x sodium-to-salt conversion, so taking the wrong one overstates
 sodium by that factor. The example's number is wrong; the code is right. This rule
 was previously stated only as an inline comment in the archived
 `docs/history/V1_REQUIREMENTS.md`, which is why it is recorded here.
+
+## Amendment (2026-10-01): the panel stores sodium, and one surface may ask for salt
+
+The 2026-08-14 Amendment above fixes the rule as **read `sodium_100g`, never
+`salt_100g`**, and reads as a blanket prohibition on the word "salt". Ingestion
+obeys it and should keep obeying it. One surface is now licensed to invert it on
+the way **in**, and that licence is recorded here because this is where the ratio
+and the direction live.
+
+`src/lib/food/label-form.ts`'s salt row asks for **salt as the pack prints it**,
+in grams, and divides by 2.5 before storing. The stored figure is sodium exactly
+as this ADR requires; what changed is the question the row asks a person holding
+a jar.
+
+**Why the input side is a different case from ingestion.** Ingestion reads a
+record that carries both figures, so reading the wrong field is a straight defect
+with a correct alternative sitting beside it. A person reads a pack, and every EU
+pack prints salt in grams and no sodium figure at all — all four committed label
+samples do (#476), and so does every hand capture in the real ledger. There the
+wrong field is not an alternative, it is the only thing printed. Asking for
+sodium there is asking for a number that is not on the label.
+
+**What the defect was.** The row was captioned `Salt / sodium` and typed in
+milligrams, and no `÷ 2.5` existed on the hand-typed path at all. Somebody read
+`Salt 0,6 g`, typed `600`, and stored 0.6 g of sodium where the truth was 0.24 —
+2.5x over, against a 2,300 mg DRV, in an append-only ledger (#508). It was also
+publishable: `open-food-facts.ts` maps `sodium_content` to OFF's `sodium`, so the
+contribution path would have pushed that figure into a public database.
+
+**The ratio and its direction are now one constant.** `SALT_TO_SODIUM` lives in
+`nutrition.ts`, in the panel's own vocabulary rather than on either surface that
+needs it — the label form, and `ai-autofill.ts`, whose wire carries `salt_g` as
+printed because asking a model to divide would be a computed number reaching a
+panel (ADR-0115 §6.2). Before this, the two paths disagreed about the same row in
+the same form: the model path divided and the hand path did not.
+
+Open Food Facts corroborates both the ratio and that its salt figure is
+arithmetic rather than a reading. For GTIN `9300658411892` it publishes
+`sodium_100g: 0.059` and `salt_100g: 0.1475` — exactly 2.5x — and marks the
+latter `salt_modifier: "~"`, estimated.
+
+**What is NOT licensed.** Nothing may read a published `salt` figure as sodium,
+and nothing may store salt. The row holds one value, in salt grams, and the
+sodium box beside it is a lens over that value rather than a second figure: there
+is one stored number, shown twice, so the two cannot disagree. A panel field named
+for a quantity means that quantity, which is all the 2026-08-14 Amendment ever
+said.
