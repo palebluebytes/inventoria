@@ -12,6 +12,13 @@
   // filling toward a DAILY figure would read as a meal falling short of a day,
   // which is not a shortfall — so that panel shows what the meal contains and
   // nothing else.
+  //
+  // `row.overPct` rides the muted target span when the row carries it, which is
+  // only ever a breached cap (#506). The bar clamps at 100, so the percentage is
+  // the only thing distinguishing a day just over from one four times over. It
+  // stays muted deliberately: the amber on the value has already done the
+  // attention-getting, and a second amber element would double the alarm without
+  // adding information (the ADR-0041 Amendment's trade, in this same meter).
   let { row, showTarget = true }: { row: DayRdaRow; showTarget?: boolean } =
     $props();
 </script>
@@ -20,12 +27,19 @@
   {#snippet children()}
     {#if showTarget}
       <span class="rda-cell-vt" class:over={row.over} class:absent={row.absent}
-        >{row.value} <span class="rda-cell-target">/ {row.target}</span></span
+        >{row.value}
+        <span class="rda-cell-target"
+          >/ {row.target}{row.overPct === undefined
+            ? ""
+            : ` · ${row.overPct}%`}</span
+        ></span
       >
       <Meter
         fill={row.fill}
         over={row.over}
-        valueText={`${row.value} of ${row.target}`}
+        valueText={row.overPct === undefined
+          ? `${row.value} of ${row.target}`
+          : `${row.value} of ${row.target}, ${row.overPct}% of the limit`}
       />
     {:else}
       <span class="rda-cell-vt" class:absent={row.absent}>{row.value}</span>

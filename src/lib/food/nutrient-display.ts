@@ -100,13 +100,22 @@ const EXTRA_NUTRIENT_META: Record<
 
 /**
  * Nutrients kept as captured data but withheld from every display surface.
- * `sugar_content` is schema.org total sugar; the only citable daily cap is the
- * FDA *added*-sugars DV — a different quantity the panel doesn't carry — so total
- * sugar has no honest reach-toward target or stay-under limit (ADR-0032, "Out of
- * scope"). It stays in {@link EXTRA_NUTRIENT_KEYS} / the freeze path and keeps its
- * {@link EXTRA_NUTRIENT_META} entry; this set only removes it from the catalogue
- * the UI renders, so a future `added_sugar_content` key restores sugar display
- * with a one-line change.
+ * `sugar_content` is schema.org total sugar, and no authority caps that quantity.
+ * The WHO's ceiling is for *free* sugars — added sugar plus the sugar in honey,
+ * syrups and fruit juice — and {@link LIMIT_KEYS}' criterion refuses a ceiling
+ * borrowed from a neighbouring quantity, so total sugar has no honest reach-toward
+ * target or stay-under limit (ADR-0032 "Out of scope", and its Amendment of
+ * 2026-09-30). It stays in {@link EXTRA_NUTRIENT_KEYS} / the freeze path and keeps
+ * its {@link EXTRA_NUTRIENT_META} entry; this set only removes it from the
+ * catalogue the UI renders, so showing a sugar figure again is a one-line change
+ * here.
+ *
+ * An `added_sugar_content` key would not be that one line. USDA publishes no
+ * added-sugars number for either ingested archive — 0 of 2,023 corpus rows — so
+ * such a key could only ever be populated from barcode-scanned OFF products, and
+ * it would arrive with no cap for the same borrow clause that silences total
+ * sugar. Measured in
+ * `docs/research/558-an-added-sugar-key-and-what-would-supply-it.md`.
  */
 const HIDDEN_NUTRIENT_KEYS: ReadonlySet<string> = new Set(["sugar_content"]);
 
@@ -368,8 +377,13 @@ export function buildNutrientMeters(
  * value for a single nutrient the food actually carries. Same shape as a pill,
  * named for its own surface — a read-only "show everything" detail list rather
  * than the always-on selected-pill summary.
+ *
+ * The surface is in the name because `label-form.ts` owns a `NutrientRow` too:
+ * one row of the capture form, holding what a person typed. Two exported
+ * `NutrientRow`s in one domain is the vocabulary drift CODING_STANDARDS §2.3
+ * warns about, and this is the one whose surface the bare name did not say.
  */
-export interface NutrientRow {
+export interface NutrientBreakdownRow {
   key: string;
   label: string;
   value: string;
@@ -387,8 +401,8 @@ function nutrientRow(
   breakdown: NutritionBreakdown,
   d: NutrientDescriptor,
   estimated: ReadonlySet<string>
-): NutrientRow {
-  const row: NutrientRow = {
+): NutrientBreakdownRow {
+  const row: NutrientBreakdownRow = {
     key: d.key,
     label: d.label,
     value: formatNutrientValue(totalFor(breakdown, d.key), d.unit),
@@ -441,7 +455,7 @@ export interface NutrientListOptions {
   exclude?: ReadonlySet<string>;
   /**
    * The keys a **Pack pairing**'s reference food supplied, each of which carries
-   * {@link NutrientRow.est} (ADR-0113 §5). It changes neither the order nor the
+   * {@link NutrientBreakdownRow.est} (ADR-0113 §5). It changes neither the order nor the
    * membership of a list — every nutrient sits in one list in normal panel order,
    * and a borrowed figure differs from a printed one by the mark alone.
    *
@@ -485,7 +499,7 @@ export interface NutrientListOptions {
  * so callers that want the complete list are unaffected.
  *
  * `estimated` names the keys a **Pack pairing**'s reference food supplied, and
- * each of those rows carries {@link NutrientRow.est} (ADR-0113 §5). It changes
+ * each of those rows carries {@link NutrientBreakdownRow.est} (ADR-0113 §5). It changes
  * neither the order nor the membership of the list — every nutrient sits in one
  * list in normal panel order, and a borrowed figure differs from a printed one by
  * the mark alone.
@@ -498,8 +512,8 @@ export function buildNutrientBreakdown(
     exclude = EMPTY_KEY_SET,
     estimated = EMPTY_KEY_SET,
   }: NutrientListOptions = {}
-): NutrientRow[] {
-  const rows: NutrientRow[] = [];
+): NutrientBreakdownRow[] {
+  const rows: NutrientBreakdownRow[] = [];
   if (!exclude.has("calories")) {
     rows.push({
       key: "calories",
@@ -618,6 +632,22 @@ export interface DayRdaRow {
   over: boolean;
   /** The day carried none of this nutrient (`value` reads as `—`). */
   absent: boolean;
+  /**
+   * How far past the cap, as a whole-number percent of it — `114` for 25 g against
+   * a 22 g cap. Present **only** on an over-cap row in the Limits section, and
+   * absent everywhere else (ADR-0032's Amendment of 2026-09-30, #506).
+   *
+   * The bar clamps at 100, so without this a day at 101 % of a cap and a day at
+   * 400 % render identically: full amber bar, two gram figures, the reader left to
+   * divide them. The amber says "you crossed a line" and this says how far, which
+   * is what separates one egg from a problem.
+   *
+   * Not on a reach-toward row even when that row is over, and that asymmetry is
+   * ADR-0032 §4's: the same amber means "reached a goal" there and "breached a cap"
+   * here, so the magnitude is diagnostic in one case and trivia in the other.
+   * Absent when the row is at the cap exactly, since `over` is strictly greater.
+   */
+  overPct?: number;
 }
 
 /**
@@ -650,9 +680,10 @@ export interface DayRdaView {
   macros: DayRdaRow[];
   micros: DayRdaRow[];
   /** Stay-under limit rows (ADR-0032): a bar filling toward the cap, amber once
-   *  over. Only limits the day *carried* appear — an absent limit is omitted. */
+   *  over, and past that point carrying `overPct` — how far over. Only limits the
+   *  day *carried* appear — an absent limit is omitted. */
   limits: DayRdaRow[];
-  untracked: NutrientRow[];
+  untracked: NutrientBreakdownRow[];
 }
 
 /**
@@ -726,7 +757,8 @@ export function buildDayRdaView(
     targetKey: string,
     label: string,
     unit: NutrientUnit | "kcal",
-    valueMap: Partial<Record<string, number>> = targets
+    valueMap: Partial<Record<string, number>> = targets,
+    statesOvershoot = false
   ): DayRdaRow => {
     const target = valueMap[targetKey] ?? 0;
     const present = breakdownKey in breakdown;
@@ -736,14 +768,19 @@ export function buildDayRdaView(
         ? formatCalories(v, calorieDecimals)
         : formatNutrientValue(v, unit);
     const bar = present && target > 0;
+    const over = bar && total > target;
     return {
       key: breakdownKey,
       label,
       value: present ? fmt(total) : ABSENT_NUTRIENT,
       target: fmt(target),
       fill: bar ? Math.min((total / target) * 100, 100) : 0,
-      over: bar && total > target,
+      over,
       absent: !present,
+      // Only a breached cap states its magnitude; see DayRdaRow.overPct.
+      ...(over && statesOvershoot
+        ? { overPct: Math.round((total / target) * 100) }
+        : {}),
     };
   };
 
@@ -772,15 +809,17 @@ export function buildDayRdaView(
   // limit (0) has no positive cap, so it falls through to Not tracked below.
   const limitRows: DayRdaRow[] = [];
   for (const d of LIMIT_DESCRIPTORS) {
+    // The trailing `true` is the only caller that asks for an overshoot figure:
+    // a breached cap is the one over-state whose magnitude a person can act on.
     if (hasLimit(d.key) && d.key in breakdown)
-      limitRows.push(targetedRow(d.key, d.key, d.label, d.unit, limits));
+      limitRows.push(targetedRow(d.key, d.key, d.label, d.unit, limits, true));
   }
 
   // Not tracked: every catalogued nutrient the day carried that has no positive
   // target *and* no positive limit — unsaturated fat, plus any reach-toward or
   // limit key opted out to 0 — as a plain value, no bar. Absent nutrients are
   // omitted (nothing to show).
-  const untracked: NutrientRow[] = [];
+  const untracked: NutrientBreakdownRow[] = [];
   for (const d of NUTRIENT_CATALOGUE) {
     if (!(d.key in breakdown) || hasTarget(d.key) || hasLimit(d.key)) continue;
     // No `est` mark here, and that is ADR-0113 §5 rather than an omission: this

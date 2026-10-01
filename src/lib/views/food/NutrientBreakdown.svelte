@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { NutrientRow } from "../../food/nutrient-display";
+  import type { NutrientBreakdownRow } from "../../food/nutrient-display";
   import EstMark from "./EstMark.svelte";
 
   // A read-only, collapsed-by-default disclosure of a food's *full* nutrition
@@ -15,7 +15,11 @@
     rows,
     label = "Full nutrition",
     testid = "nutrient-breakdown",
-  }: { rows: NutrientRow[]; label?: string; testid?: string } = $props();
+  }: {
+    rows: NutrientBreakdownRow[];
+    label?: string;
+    testid?: string;
+  } = $props();
 </script>
 
 {#if rows.length > 0}

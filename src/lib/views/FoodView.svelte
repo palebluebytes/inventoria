@@ -66,7 +66,7 @@
     isPer100Basis,
     parseBasisQuantity,
     portionMeasure,
-    servingSizeGrams,
+    servingSizeMeasure,
     servingSizePortion,
     roundFood,
     type AmountUnit,
@@ -574,16 +574,23 @@
       ...servingSizePortion(panel),
       ...twinPortions,
     ]);
-    // A gram basis to open at and scale against: the panel's weighed serving if
-    // it has one, else the food's first real portion weight (the OFF serving). A
-    // food with neither has no gram basis and can't be amount-edited. A volume
-    // portion is not one of those weights (ADR-0060 §6) — it carries no `grams`
-    // to find, which is the safe direction this pair degrades in.
-    const servingGrams =
-      (panel ? servingSizeGrams(panel.serving_size) : null) ??
-      portions.map(portionMeasure).find((m) => m?.unit === "g" && m.amount > 0)
-        ?.amount ??
+    // A basis to open at and scale against: the panel's own serving if it names
+    // one, else the food's first real portion weight (the OFF serving). A food
+    // with neither has no basis and can't be amount-edited.
+    //
+    // The panel's serving is read with its unit now (#562), so a serving stated
+    // in millilitres opens the amount picker instead of returning null and
+    // sending the user back through the whole capture form — the defect
+    // ADR-0060's 2026-08-31 Amendment named and left standing. The portion
+    // fallback stays gram-only: a volume portion carries no `grams` to find
+    // (ADR-0060 §6), which is the safe direction that pair degrades in.
+    const servingMeasure =
+      (panel ? servingSizeMeasure(panel.serving_size) : null) ??
+      portions
+        .map(portionMeasure)
+        .find((m) => m?.unit === "g" && m.amount > 0) ??
       null;
+    const servingAmount = servingMeasure?.amount ?? null;
 
     // Open at the logged amount (foods measured against a panel basis), or the
     // serving's gram weight × how many servings were logged (per-serving foods
@@ -592,16 +599,16 @@
     let openAmount: number | null = null;
     if (isMeasuredUnit(unit)) openAmount = amount;
     // A per-100 panel names its own divisor, so a "1 serving" entry against one
-    // stands at one basis unit — 100 g, or 100 ml for a drink. `servingGrams`
-    // can never find it: `servingSizeGrams` returns null for "100 g" by
-    // construction and for every volume, which is what left a label capture
-    // re-opening the whole form instead of its amount. Read ahead of the
+    // stands at one basis unit — 100 g, or 100 ml for a drink. `servingMeasure`
+    // can never find it: `servingSizeMeasure` returns null for a per-100 basis
+    // by construction, which is what left a label capture re-opening the whole
+    // form instead of its amount. Read ahead of the
     // serving-weight branch: this is what the entry's frozen macros were scaled
     // by, where a household portion is only a guess at what was eaten.
     else if (panel != null && isPer100Basis(panel.serving_size))
       openAmount = parseBasisQuantity(panel.serving_size) * amount;
-    else if (panel != null && servingGrams != null)
-      openAmount = servingGrams * amount;
+    else if (panel != null && servingAmount != null)
+      openAmount = servingAmount * amount;
 
     if (openAmount == null) return null;
     return {

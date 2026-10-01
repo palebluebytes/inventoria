@@ -1,4 +1,4 @@
-import type { Basis } from "./label-form";
+import { BASIS_PRESETS, type Basis } from "./label-form";
 import type { NutritionInfo } from "./nutrition";
 import type { ModelOutcome } from "../logs/model-log";
 import {
@@ -80,7 +80,12 @@ export interface AIAutofillResult {
  * model read feeds the same form a populated one.
  */
 export function emptyAutofillResult(): AIAutofillResult {
-  return { name: null, brand: null, basis: "per_100g", nutrition: {} };
+  return {
+    name: null,
+    brand: null,
+    basis: BASIS_PRESETS.per_100g,
+    nutrition: {},
+  };
 }
 
 /**
@@ -146,14 +151,15 @@ const SALT_TO_SODIUM = 2.5;
 /**
  * Which wire bases the app has a type for.
  *
- * `Basis` is `per_100g | per_100ml` and `label-form.ts` records that the
- * absence of a per-serving member is deliberate. A reading that answers
- * `per_serving`, `null`, or anything else **refuses the whole result** — see
- * {@link normaliseLabelReading}.
+ * A {@link Basis} is a magnitude and a unit since #562, so the wire's two
+ * spellings name {@link BASIS_PRESETS} positions rather than being bases
+ * themselves. Deliberately not the general case: the wire cannot state a
+ * magnitude, so a reading that answers `per_serving`, `null`, or anything else
+ * **refuses the whole result** — see {@link normaliseLabelReading}.
  */
 const BASES: Record<string, Basis> = {
-  per_100g: "per_100g",
-  per_100ml: "per_100ml",
+  per_100g: BASIS_PRESETS.per_100g,
+  per_100ml: BASIS_PRESETS.per_100ml,
 };
 
 /**

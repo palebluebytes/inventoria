@@ -13,6 +13,7 @@ import {
   ModelUnusableError,
   type LabelReading,
 } from "../../src/lib/food/model-route";
+import { BASIS_PRESETS } from "../../src/lib/food/label-form";
 import { stubLocalStorage } from "./support/local-storage";
 
 /**
@@ -72,7 +73,7 @@ describe("the four sample labels, as the model read them", () => {
       })
     );
 
-    expect(result.basis).toBe("per_100ml");
+    expect(result.basis).toEqual(BASIS_PRESETS.per_100ml);
     expect(result.name).toBe("ACEITE DE OLIVA VIRGEN EXTRA");
     expect(result.brand).toBe("La Chinata");
     expect(result.nutrition.saturated_fat_content).toBe(13.808);
@@ -105,7 +106,7 @@ describe("the four sample labels, as the model read them", () => {
   it("takes a frame with no panel on it as an empty proposal, not a failure", () => {
     const result = normaliseLabelReading(reading({ nutrition: {} }));
     expect(result.nutrition).toEqual({});
-    expect(result.basis).toBe("per_100g");
+    expect(result.basis).toEqual(BASIS_PRESETS.per_100g);
   });
 
   // 8 of 21 rows is the correct answer for a label that prints eight, and
@@ -217,12 +218,12 @@ describe("a basis the panel cannot hold refuses the whole result", () => {
     });
 
   it("takes the two it can hold", () => {
-    expect(normaliseLabelReading(reading({ basis: "per_100g" })).basis).toBe(
-      "per_100g"
+    expect(normaliseLabelReading(reading({ basis: "per_100g" })).basis).toEqual(
+      BASIS_PRESETS.per_100g
     );
-    expect(normaliseLabelReading(reading({ basis: "per_100ml" })).basis).toBe(
-      "per_100ml"
-    );
+    expect(
+      normaliseLabelReading(reading({ basis: "per_100ml" })).basis
+    ).toEqual(BASIS_PRESETS.per_100ml);
   });
 });
 
@@ -231,7 +232,7 @@ describe("the guided-manual starting point is unchanged", () => {
     const empty: AIAutofillResult = {
       name: null,
       brand: null,
-      basis: "per_100g",
+      basis: BASIS_PRESETS.per_100g,
       nutrition: {},
     };
     expect(emptyAutofillResult()).toEqual(empty);

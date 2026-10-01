@@ -1044,24 +1044,30 @@ describe("the floor, swept", () => {
     // not overlap, so the text merged clean at a figure neither of them meant;
     // the two added boxes were read off the sweep rather than arithmetic.
     //
-    // **135 → 139 across three disjoint moves.** #519's Pack pairing line is
+    // **135 → 140 across four disjoint moves.** #519's Pack pairing line is
     // three boxes (ADR-0113 §1) — `.pair`, the offer; `.paired`, the reference
     // food it is paired with, which re-opens the search; and `.pairing-clear`,
     // the ✕ beside it, which declares the width too because it holds a single
     // mark. #547's is one: `FoodStager`'s `.cf-model-mark`, the ⓘ that re-opens
     // the egress explanation beside the read control — a mark rather than a
     // second button, which is exactly the shape that arrives without a floor
-    // unless one is declared for it. `drawn` stays where the Occasion fold left
-    // it: neither the pairing line nor the egress control draws a box on
+    // unless one is declared for it. #562's is one more: `.cf-basis-amount`, the
+    // magnitude in the same form's basis line ("Values per [100] g"), which
+    // declares its own floor because nothing above sizes it — it is a typed box
+    // sitting in a line of prose rather than in the `.cf-ctl` column every
+    // nutrient row inherits from, which is also why the second box the salt row
+    // gained in the same change adds nothing here: that one IS in `.cf-ctl`, so
+    // its floor is inherited and this sweep cannot see it. `drawn` stays where
+    // the Occasion fold left it: none of the three moves draws a box on
     // arithmetic.
     //
-    // **Re-measured rather than added, twice over.** Main reached 138 from a
-    // shared 133 by two branches carrying 136 and 135; this merge brought a
-    // third carrying 136 over that same 135. Three numbers that each look
-    // authored cannot be reconciled by arithmetic, and 139 is what the sweep
-    // answers — which is the check worth having, because disjoint moves summing
-    // is a claim about the keys and not about the total.
-    expect(how).toEqual({ declared: 139, drawn: 25, sanctioned: 6 });
+    // **Re-measured rather than added, twice over.** Main reached 139 from a
+    // shared 133 by three branches carrying 136, 135 and one box of its own;
+    // this merge brought a fourth carrying 136 over that same 135. Numbers that
+    // each look authored cannot be reconciled by arithmetic, and 140 is what the
+    // sweep answers — which is the check worth having, because disjoint moves
+    // summing is a claim about the keys and not about the total.
+    expect(how).toEqual({ declared: 140, drawn: 25, sanctioned: 6 });
     // Every box lands in exactly one column. Without this the two figures above
     // could both be right while a box fell out of the sweep between them.
     expect(how.declared + how.drawn + how.sanctioned).toBe(SWEEP.groups.size);

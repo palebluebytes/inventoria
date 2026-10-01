@@ -879,10 +879,11 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
       'button[data-reset-limit="saturated_fat_content"]'
     );
 
-    // At the baked cap the field is blank (placeholder = the FDA 20 g DRV) and
-    // ↺ is off — a limit has no dashboard meter, only this stay-under cap.
+    // At the baked cap the field is blank (placeholder = the WHO-derived 22 g
+    // cap) and ↺ is off — a limit has no dashboard meter, only this stay-under
+    // cap.
     await expect(satFat).toHaveValue("");
-    await expect(satFat).toHaveAttribute("placeholder", "20");
+    await expect(satFat).toHaveAttribute("placeholder", "22");
     await expect(satFatReset).toBeDisabled();
 
     // A tighter override fills the value and enables ↺.
@@ -894,7 +895,7 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     // ↺ clears it back to the baked cap placeholder and disables itself again.
     await satFatReset.click();
     await expect(satFat).toHaveValue("");
-    await expect(satFat).toHaveAttribute("placeholder", "20");
+    await expect(satFat).toHaveAttribute("placeholder", "22");
     await expect(satFatReset).toBeDisabled();
   });
 
@@ -1230,21 +1231,42 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
       page.locator(".cf-group", { hasText: "Vitamins" })
     ).toBeVisible();
 
-    // A capture is read against one of TWO bases, both of them measured: 100 g,
-    // or the 100 ml a bottle prints (ADR-0060 §7, as amended). The 100 ml cell
-    // used to appear only on a form seeded from a drink OFF already published by
-    // volume, which left a bottle printing "per 100 ml" no way to say so — and
-    // this door, having no OFF record at all, never seeded one.
-    //
-    // `serving` is not among them and no longer exists: a capture saved against
-    // it named no unit, so the food could not afterwards be edited by amount.
-    // Nothing OFF publishes needs it — it computes a per-100 figure for every
-    // product, and the serving it does publish arrives as a portion chip.
+    // A basis is a magnitude and a UNIT (ADR-0060 §7, as amended 2026-10-01).
+    // The unit is asked once, beside the pack's size, and has exactly two cells:
+    // grams, or the millilitres a bottle prints. The 100 ml cell used to appear
+    // only on a form seeded from a drink OFF already published by volume, which
+    // left a bottle printing "per 100 ml" no way to say so — and this door,
+    // having no OFF record at all, never seeded one.
     const basis = page.locator('[data-testid="cf-basis"]');
     await expect(basis.locator("[data-value]")).toHaveCount(2);
-    await expect(basis.locator('[data-value="per_100ml"]')).toBeVisible();
-    await expect(basis.locator('[data-value="per_serving"]')).toHaveCount(0);
-    await expect(page.locator("#cf-serving-grams")).toHaveCount(0);
+    await expect(basis.locator('[data-value="ml"]')).toBeVisible();
+
+    // The MAGNITUDE is its own box, pre-filled with 100 — which is what a
+    // per-serving basis costs now that it is a value rather than a third cell
+    // (#562). A US Nutrition Facts panel declaring 36 g types 36 here; the
+    // overwhelming majority of packs leave the default alone.
+    const basisAmount = page.locator('[data-testid="cf-basis-amount"]');
+    await expect(basisAmount).toHaveValue("100");
+    await expect(
+      page.locator('[data-testid="cf-basis-derived"]')
+    ).toContainText("Values per");
+    // Emptying it is a panel naming no divisor — the one §7 still refuses — so
+    // the form says so rather than stamping a 100 nobody typed.
+    await basisAmount.fill("");
+    await expect(page.locator('[data-testid="cf-basis-hint"]')).toBeVisible();
+    await basisAmount.fill("100");
+    await expect(page.locator('[data-testid="cf-basis-hint"]')).toHaveCount(0);
+
+    // The salt row asks for salt as the pack prints it and shows the sodium it
+    // stores beside it — one figure, two boxes (#508). Before this it asked for
+    // "Salt / sodium" in milligrams and stored whatever was typed as sodium.
+    const saltRow = page.locator(".cf-row", {
+      has: page.locator("#cf-sodium_content"),
+    });
+    await expect(saltRow.locator(".cf-lbl")).toContainText("Salt");
+    await expect(saltRow.locator(".cf-face-lbl")).toContainText("Sodium");
+    await saltRow.locator("#cf-sodium_content").fill("0.6");
+    await expect(saltRow.locator("input").nth(1)).toHaveValue("240");
 
     // Fast path plus one micro: name + calories, then Iron typed in mg (grams are
     // stored via the parseNutrientEntry round-trip, §3). Protein/fat/carbs and
@@ -1599,9 +1621,7 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     // Nothing converts on the way (§2) and nothing is cleared either: OFF's
     // prefilled per-100-g figures are typed over with the ml ones the label
     // prints, which is what this form is for.
-    await page
-      .locator('[data-testid="cf-basis"] [data-value="per_100ml"]')
-      .click();
+    await page.locator('[data-testid="cf-basis"] [data-value="ml"]').click();
     await page.locator("#custom-cal").fill("810");
     await page.locator("#custom-fat").fill("91.6");
     await page.locator("#custom-name").fill("Olive Oil");
@@ -1678,22 +1698,32 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     // against `product_quantity_unit`.
     const basis = page.locator('[data-testid="cf-basis"]');
     await expect(page.locator("#cf-pack-size")).toHaveValue("330");
-    await expect(basis.locator('[data-value="per_100ml"]')).toHaveAttribute(
+    await expect(basis.locator('[data-value="ml"]')).toHaveAttribute(
       "data-state",
       "checked"
     );
+    // The magnitude is its own box now, so the line reads "Values per [100] ml"
+    // and the 100 is a value rather than text (#562).
+    await expect(page.locator('[data-testid="cf-basis-amount"]')).toHaveValue(
+      "100"
+    );
     await expect(
       page.locator('[data-testid="cf-basis-derived"]')
-    ).toContainText("Values per 100 ml");
+    ).toContainText("ml");
     await expect(page.locator('[data-testid="cf-pack-hint"]')).toHaveCount(0);
 
     // OFF only SEEDS it. The person holding the packet can always overrule —
     // hiding the control whenever OFF had an opinion left a wrong record with
     // no way to be corrected by the one reader who could see it was wrong.
-    await basis.locator('[data-value="per_100g"]').click();
+    await basis.locator('[data-value="g"]').click();
     await expect(
       page.locator('[data-testid="cf-basis-derived"]')
-    ).toContainText("Values per 100 g");
+    ).toContainText("g");
+    // Flipping the unit converts nothing and clears nothing, the magnitude
+    // included (ADR-0060's 2026-08-31 Amendment).
+    await expect(page.locator('[data-testid="cf-basis-amount"]')).toHaveValue(
+      "100"
+    );
   });
 
   test("takes the unit from the user when nothing has sized the pack", async ({
@@ -1728,7 +1758,7 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     // resolves to in the absence of a pack unit.
     const basis = page.locator('[data-testid="cf-basis"]');
     await expect(page.locator("#cf-pack-size")).toHaveValue("");
-    await expect(basis.locator('[data-value="per_100g"]')).toHaveAttribute(
+    await expect(basis.locator('[data-value="g"]')).toHaveAttribute(
       "data-state",
       "checked"
     );
@@ -1736,10 +1766,10 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
 
     // Declaring ml over a pack nothing has sized is precisely the case whose
     // numbers used to be dropped in silence. Now it says what would fix it.
-    await basis.locator('[data-value="per_100ml"]').click();
+    await basis.locator('[data-value="ml"]').click();
     await expect(
       page.locator('[data-testid="cf-basis-derived"]')
-    ).toContainText("Values per 100 ml");
+    ).toContainText("ml");
     await expect(page.locator('[data-testid="cf-pack-hint"]')).toContainText(
       "pack size in ml"
     );
