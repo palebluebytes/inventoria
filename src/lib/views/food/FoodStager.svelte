@@ -388,7 +388,11 @@
     );
     return {
       amount:
-        lastAmountFor(payload.entity, unit) ?? amountDefaults(unit).amount,
+        lastAmountFor(payload.entity, unit) ??
+        // The panel goes in too: a pack that names its own serving opens at that
+        // serving rather than at the unit's generic 100, which on a 36 g pack
+        // meant 2.8 of itself (#562).
+        amountDefaults(unit, info?.serving_size).amount,
       unit,
     };
   }

@@ -1621,9 +1621,7 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     // Nothing converts on the way (§2) and nothing is cleared either: OFF's
     // prefilled per-100-g figures are typed over with the ml ones the label
     // prints, which is what this form is for.
-    await page
-      .locator('[data-testid="cf-basis"] [data-value="per_100ml"]')
-      .click();
+    await page.locator('[data-testid="cf-basis"] [data-value="ml"]').click();
     await page.locator("#custom-cal").fill("810");
     await page.locator("#custom-fat").fill("91.6");
     await page.locator("#custom-name").fill("Olive Oil");
@@ -1700,22 +1698,32 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     // against `product_quantity_unit`.
     const basis = page.locator('[data-testid="cf-basis"]');
     await expect(page.locator("#cf-pack-size")).toHaveValue("330");
-    await expect(basis.locator('[data-value="per_100ml"]')).toHaveAttribute(
+    await expect(basis.locator('[data-value="ml"]')).toHaveAttribute(
       "data-state",
       "checked"
     );
+    // The magnitude is its own box now, so the line reads "Values per [100] ml"
+    // and the 100 is a value rather than text (#562).
+    await expect(page.locator('[data-testid="cf-basis-amount"]')).toHaveValue(
+      "100"
+    );
     await expect(
       page.locator('[data-testid="cf-basis-derived"]')
-    ).toContainText("Values per 100 ml");
+    ).toContainText("ml");
     await expect(page.locator('[data-testid="cf-pack-hint"]')).toHaveCount(0);
 
     // OFF only SEEDS it. The person holding the packet can always overrule —
     // hiding the control whenever OFF had an opinion left a wrong record with
     // no way to be corrected by the one reader who could see it was wrong.
-    await basis.locator('[data-value="per_100g"]').click();
+    await basis.locator('[data-value="g"]').click();
     await expect(
       page.locator('[data-testid="cf-basis-derived"]')
-    ).toContainText("Values per 100 g");
+    ).toContainText("g");
+    // Flipping the unit converts nothing and clears nothing, the magnitude
+    // included (ADR-0060's 2026-08-31 Amendment).
+    await expect(page.locator('[data-testid="cf-basis-amount"]')).toHaveValue(
+      "100"
+    );
   });
 
   test("takes the unit from the user when nothing has sized the pack", async ({
@@ -1750,7 +1758,7 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     // resolves to in the absence of a pack unit.
     const basis = page.locator('[data-testid="cf-basis"]');
     await expect(page.locator("#cf-pack-size")).toHaveValue("");
-    await expect(basis.locator('[data-value="per_100g"]')).toHaveAttribute(
+    await expect(basis.locator('[data-value="g"]')).toHaveAttribute(
       "data-state",
       "checked"
     );
@@ -1758,10 +1766,10 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
 
     // Declaring ml over a pack nothing has sized is precisely the case whose
     // numbers used to be dropped in silence. Now it says what would fix it.
-    await basis.locator('[data-value="per_100ml"]').click();
+    await basis.locator('[data-value="ml"]').click();
     await expect(
       page.locator('[data-testid="cf-basis-derived"]')
-    ).toContainText("Values per 100 ml");
+    ).toContainText("ml");
     await expect(page.locator('[data-testid="cf-pack-hint"]')).toContainText(
       "pack size in ml"
     );

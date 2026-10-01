@@ -41,7 +41,7 @@
     enteredUnit,
     isMeasuredUnit,
     NUTRITION_INFO_ATTR,
-    isPer100Basis,
+    basisIsStated,
     parseBasisQuantity,
     scaleNutrition,
     roundFoodDisplay,
@@ -568,7 +568,14 @@
         const captureBasis = choice.manualEntry
           ? undefined
           : choice.nutrition?.serving_size;
-        const capturedQuantity = isPer100Basis(captureBasis)
+        // Any basis that NAMES a magnitude gets a receipt in that magnitude —
+        // "100g", "100ml", or the "36g" a US Nutrition Facts panel declares
+        // (#562). It asked `isPer100Basis` before, so a weighed serving fell to
+        // the unitless "1 serving" arm below: a quantity nothing could scale,
+        // and one `isCatalogueFood` drops out of Recent for want of a
+        // `food/manual_entry` a label capture has no reason to carry. The arm
+        // survives for the basis that genuinely names nothing.
+        const capturedQuantity = basisIsStated(captureBasis)
           ? quantityLabel(
               parseBasisQuantity(captureBasis),
               basisUnit(captureBasis)

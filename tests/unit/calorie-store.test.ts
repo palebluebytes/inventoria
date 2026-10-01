@@ -35,7 +35,9 @@ import {
 import type { ReferenceIngredient } from "../../src/lib/food/recipe-nutrition";
 import type { Instantiation } from "../../src/lib/food/recipe-instantiation";
 import {
+  basisIsStated,
   basisUnit,
+  isPer100Basis,
   parseBasisQuantity,
   roundFood,
   scaleNutrition,
@@ -2408,6 +2410,35 @@ describe("label-food edit is lossless (basis + panel survive on the twin)", () =
     expect(twinPanel.calories).toBe(190);
     expect(twinPanel.protein_content).toBe(7);
     expect(twinPanel.fat_content).toBe(16);
+  });
+
+  it("recovers a basis stated as a weighed serving, which has a divisor of its own", () => {
+    // The per-serving half of the test above, which this file's own header
+    // records as having existed and been deleted when ADR-0060's 2026-08-30
+    // Amendment narrowed the form's toggle to the two per-100 bases. #562 gives
+    // the form a magnitude again, so the half comes back — and it is the half
+    // that matters, because a per-100 basis divides by the same 100 whichever
+    // unit it is in, where a 36 g serving is the only case where the divisor is
+    // a fact about the pack.
+    const panel = buildLabelPanel(
+      labelRows({ calories: "140", protein_content: "3" }),
+      { amount: 36, unit: "g" }
+    );
+
+    expect(panel.nutrition.serving_size).toBe("36 g");
+    // The two readers the amount screen routes on, against a basis neither of
+    // them could have been handed before.
+    expect(basisUnit(panel.nutrition.serving_size)).toBe("g");
+    expect(parseBasisQuantity(panel.nutrition.serving_size)).toBe(36);
+    // And the one that decides whether the receipt names a unit at all — the
+    // arm `capturedQuantity` now takes, where `isPer100Basis` sent a weighed
+    // serving to the unitless "1 serving" it could not scale.
+    expect(basisIsStated(panel.nutrition.serving_size)).toBe(true);
+    expect(isPer100Basis(panel.nutrition.serving_size)).toBe(false);
+    // The figures are the label's own, undivided: nothing rescales a panel to
+    // per-100 on the way in (ADR-0048 §3).
+    expect(panel.nutrition.calories).toBe(140);
+    expect(panel.nutrition.protein_content).toBe(3);
   });
 });
 
