@@ -74,6 +74,25 @@ export interface NutritionInfo {
 /** The EAVT attribute that holds a twin's nutrition panel. */
 export const NUTRITION_INFO_ATTR = "nutrition/info";
 
+/**
+ * Grams of salt per gram of sodium: salt is sodium chloride and sodium is about
+ * 39.3% of it by mass, so `salt = sodium x 2.5`.
+ *
+ * It lives here, in the panel's own vocabulary, because it is a fact about
+ * `sodium_content` rather than about any one surface — and because both surfaces
+ * that need it would otherwise keep a copy: the label form, whose row is typed
+ * in the salt a European pack prints (#508), and `ai-autofill.ts`, whose wire
+ * carries `salt_g` as printed because asking a model to divide would be a
+ * computed number reaching a panel (ADR-0115 SS6.2).
+ *
+ * The direction is the one ADR-0021's 2026-08-14 Amendment fixes: **the panel
+ * stores sodium, never salt.** Open Food Facts confirms both the ratio and that
+ * the salt figure is arithmetic rather than a reading — it publishes
+ * `salt_100g: 0.1475` against `sodium_100g: 0.059` for GTIN 9300658411892, and
+ * marks it `salt_modifier: "~"`, estimated.
+ */
+export const SALT_TO_SODIUM = 2.5;
+
 /** The serving basis reputable sources (USDA, OFF) report macros against. */
 export const PER_100G: string = "100 g";
 
@@ -219,8 +238,15 @@ export interface Portion {
   millilitres?: number;
 }
 
-/** The amount a {@link Portion} resolves to, in the unit that amount is in. */
-export interface PortionMeasure {
+/**
+ * A magnitude in the unit it is measured in — what a {@link Portion} resolves to,
+ * and equally what a panel's basis names ({@link servingSizeMeasure}).
+ *
+ * One interface for both because they are one concept read off two strings, and
+ * because the pair is what keeps a volume from being read as a weight: every
+ * caller takes the unit from the same place it takes the number.
+ */
+export interface Measure {
   /** The magnitude, as the source stated it (unrounded). */
   amount: number;
   /** The unit that magnitude is in — which of the two sibling fields held it. */
@@ -242,9 +268,7 @@ export interface PortionMeasure {
  * `grams` is asked first, so a malformed row that broke the invariant by
  * carrying both reads exactly as it did before the sibling existed.
  */
-export function portionMeasure(
-  portion: Portion | undefined
-): PortionMeasure | null {
+export function portionMeasure(portion: Portion | undefined): Measure | null {
   const grams = portion?.grams;
   if (typeof grams === "number" && Number.isFinite(grams)) {
     return { amount: grams, unit: "g" };
@@ -409,10 +433,7 @@ export function portionLabelIsBareAmount(label: string): boolean {
  * portion from the picker, so this is the defensive branch rather than a chip
  * anyone sees.
  */
-export function formatPortionPreset(
-  portion: Portion,
-  shown?: PortionMeasure
-): string {
+export function formatPortionPreset(portion: Portion, shown?: Measure): string {
   const measure = shown ?? portionMeasure(portion);
   if (!measure) return portion.label.trim();
   const source = portionMeasure(portion);
@@ -475,25 +496,35 @@ export function portionPresets(
 }
 
 /**
- * The gram weight a panel's `serving_size` names, or `null` when it names no
- * concrete weight. Unlike {@link parseBasisQuantity} (which falls back to 100 so a
- * scaler always has a divisor), this returns `null` for every basis sentinel
- * that carries no household serving: the two per-100 reference bases
- * ({@link PER_100G}, {@link PER_100ML}) and a bare "1 serving" of unknown weight
- * ({@link PER_SERVING}, which parses to `NaN`). So it answers a different question
- * — "does this food weigh a known amount per serving?" — used to decide whether a
- * serving is surfaceable at all.
+ * The household serving a panel's `serving_size` names — its magnitude **and the
+ * unit that magnitude is in** — or `null` when the basis names no serving.
+ *
+ * A different question from {@link parseBasisQuantity}, which falls back to 100 so
+ * a scaler always has a divisor: this one answers "is one serving of this food a
+ * known amount?", and says `null` rather than guessing. Three strings get that
+ * `null`: the two per-100 reference bases, which are what a source reports
+ * against rather than a serving anybody eats, and a bare `"1 serving"` whose
+ * weight nobody stated ({@link PER_SERVING}).
+ *
+ * It returns a {@link Measure} rather than grams because **a serving may be
+ * stated in millilitres**, and the gram-only predicate this replaced is the
+ * defect ADR-0060's 2026-08-31 Amendment named and left standing: a serving in
+ * millilitres failed the regex, so `resolveAmountEdit` found no weight and the
+ * whole capture form re-opened where the amount picker should have (#562).
+ * Nothing here converts — the unit is carried, exactly as {@link basisUnit} does
+ * for the divisor's sibling.
  */
-export function servingSizeGrams(serving_size: string): number | null {
-  const t = serving_size.trim();
-  // The per-100 g reference basis names no household serving.
-  if (t === PER_100G) return null;
-  // Require an explicit gram weight ("30 g", "30g") — never a bare "1 serving"
-  // (unknown weight, which parseFloat would misread as 1 g), nor a non-gram unit
-  // ("240 ml"). resolveServingSize only ever emits "100 g" / "N g" / "1 serving".
-  if (!/^\d+(?:\.\d+)?\s*g(?:rams?)?$/i.test(t)) return null;
-  const grams = parseFloat(t);
-  return Number.isFinite(grams) && grams > 0 ? roundFood(grams) : null;
+export function servingSizeMeasure(serving_size: string): Measure | null {
+  const match = BASIS_QUANTITY.exec(serving_size.trim());
+  if (!match) return null;
+  const amount = Number(match[1]);
+  if (!Number.isFinite(amount) || amount <= 0) return null;
+  // 100 of the food's own unit is the basis a source reports against, whichever
+  // unit that is — so this one test covers both reference bases, where naming
+  // them as two sentinels is how a drink used to reach the per-serving branch
+  // (ADR-0052 SS3).
+  if (amount === 100) return null;
+  return { amount: roundFood(amount), unit: measuredUnitFrom(match[2]) };
 }
 
 /**
@@ -504,14 +535,23 @@ export function servingSizeGrams(serving_size: string): number | null {
  * zero-gram portion) for a per-100 food or a weightless "1 serving" panel, so
  * the caller can concatenate it unconditionally.
  *
- * The label form no longer writes such a panel — its toggle offers only the two
- * per-100 bases (ADR-0060's 2026-08-30 Amendment) — so what this reads today is
- * a twin already in the ledger, and any future source that publishes one.
+ * The label form writes such a panel again (#562, reversing ADR-0060's
+ * 2026-08-30 Amendment), so this reads a capture as well as a twin already in
+ * the ledger. The magnitude goes into the sibling its unit names
+ * ({@link portionMagnitude}), so a serving stated in millilitres surfaces as a
+ * volume rather than as a weight nobody measured.
  */
 export function servingSizePortion(info: NutritionInfo | undefined): Portion[] {
-  const grams = info ? servingSizeGrams(info.serving_size) : null;
-  if (grams == null) return [];
-  return [{ label: "1 serving", amount: 1, unit: "serving", grams }];
+  const measure = info ? servingSizeMeasure(info.serving_size) : null;
+  if (!measure) return [];
+  return [
+    {
+      label: "1 serving",
+      amount: 1,
+      unit: "serving",
+      ...portionMagnitude(measure.amount, measure.unit),
+    },
+  ];
 }
 
 /**
@@ -570,12 +610,25 @@ const BASIS_QUANTITY = /^(\d+(?:\.\d+)?)\s*(g(?:rams?)?|ml)$/i;
  */
 /**
  * True for a basis measured against 100 of the food's own unit, whichever unit
- * that is. The one place the two per-100 sentinels are named together, so a
- * caller asking "is this a per-100 panel?" cannot answer it for only one of them
- * — which is how a drink would slip into the per-serving branch (ADR-0052 §3).
+ * that is — so a caller asking "is this a per-100 panel?" cannot answer it for
+ * only one of them, which is how a drink would slip into the per-serving branch
+ * (ADR-0052 SS3).
+ *
+ * It reads the quantity rather than comparing the two sentinels, because the
+ * presets stopped being the whole of the type: a basis is a magnitude and a unit
+ * now, and `"100 g"` is one value of it rather than a member of a closed set
+ * (#562). ADR-0052's own Consequences asked for exactly this — "a fourth basis
+ * would want the field typed rather than a third literal added".
+ *
+ * **{@link basisIsStated} first, and it is load-bearing.**
+ * {@link parseBasisQuantity} falls back to 100 for a string naming no quantity,
+ * so without the guard a weightless `"1 serving"` would answer `true` and be
+ * read as a per-100 panel — the one reading that fallback must never license.
  */
 export function isPer100Basis(serving_size: string | undefined): boolean {
-  return serving_size === PER_100G || serving_size === PER_100ML;
+  return (
+    basisIsStated(serving_size) && parseBasisQuantity(serving_size) === 100
+  );
 }
 
 export function parseBasisQuantity(serving_size: string | undefined): number {
@@ -705,8 +758,25 @@ export interface AmountDefaults {
  * slider was removed: the slider's whole-unit step wrote its own position back
  * over a typed value, so 12.34 became 12. Nothing bounds the range now — the
  * field's own `HARD_MAX` is the only ceiling — so the two numbers are one.
+ *
+ * **A panel that names its own serving opens at that serving**, which is the
+ * better silent default than a generic 100: a 36 g pack opened at 100 g means
+ * 2.8 of itself, a number nobody typed and nothing on screen questioned (#562).
+ * The {@link servingSizePortion} chip then confirms the default rather than
+ * repairing it.
+ *
+ * The serving is taken only when it is stated in the unit being entered. On a
+ * food carrying a Density Class those two can differ — the unit is the user's
+ * choice, not the panel's implication (ADR-0108 SS7) — and converting here would
+ * be this function deciding a density question (SS2 refuses it), so it falls back
+ * to the generic opening instead.
  */
-export function amountDefaults(unit: MeasuredUnit): AmountDefaults {
+export function amountDefaults(
+  unit: MeasuredUnit,
+  serving_size?: string
+): AmountDefaults {
+  const serving = serving_size ? servingSizeMeasure(serving_size) : null;
+  if (serving && serving.unit === unit) return { amount: serving.amount };
   return { amount: unit === "ml" ? 250 : 100 };
 }
 

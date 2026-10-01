@@ -377,8 +377,13 @@ export function buildNutrientMeters(
  * value for a single nutrient the food actually carries. Same shape as a pill,
  * named for its own surface — a read-only "show everything" detail list rather
  * than the always-on selected-pill summary.
+ *
+ * The surface is in the name because `label-form.ts` owns a `NutrientRow` too:
+ * one row of the capture form, holding what a person typed. Two exported
+ * `NutrientRow`s in one domain is the vocabulary drift CODING_STANDARDS §2.3
+ * warns about, and this is the one whose surface the bare name did not say.
  */
-export interface NutrientRow {
+export interface NutrientBreakdownRow {
   key: string;
   label: string;
   value: string;
@@ -396,8 +401,8 @@ function nutrientRow(
   breakdown: NutritionBreakdown,
   d: NutrientDescriptor,
   estimated: ReadonlySet<string>
-): NutrientRow {
-  const row: NutrientRow = {
+): NutrientBreakdownRow {
+  const row: NutrientBreakdownRow = {
     key: d.key,
     label: d.label,
     value: formatNutrientValue(totalFor(breakdown, d.key), d.unit),
@@ -450,7 +455,7 @@ export interface NutrientListOptions {
   exclude?: ReadonlySet<string>;
   /**
    * The keys a **Pack pairing**'s reference food supplied, each of which carries
-   * {@link NutrientRow.est} (ADR-0113 §5). It changes neither the order nor the
+   * {@link NutrientBreakdownRow.est} (ADR-0113 §5). It changes neither the order nor the
    * membership of a list — every nutrient sits in one list in normal panel order,
    * and a borrowed figure differs from a printed one by the mark alone.
    *
@@ -494,7 +499,7 @@ export interface NutrientListOptions {
  * so callers that want the complete list are unaffected.
  *
  * `estimated` names the keys a **Pack pairing**'s reference food supplied, and
- * each of those rows carries {@link NutrientRow.est} (ADR-0113 §5). It changes
+ * each of those rows carries {@link NutrientBreakdownRow.est} (ADR-0113 §5). It changes
  * neither the order nor the membership of the list — every nutrient sits in one
  * list in normal panel order, and a borrowed figure differs from a printed one by
  * the mark alone.
@@ -507,8 +512,8 @@ export function buildNutrientBreakdown(
     exclude = EMPTY_KEY_SET,
     estimated = EMPTY_KEY_SET,
   }: NutrientListOptions = {}
-): NutrientRow[] {
-  const rows: NutrientRow[] = [];
+): NutrientBreakdownRow[] {
+  const rows: NutrientBreakdownRow[] = [];
   if (!exclude.has("calories")) {
     rows.push({
       key: "calories",
@@ -678,7 +683,7 @@ export interface DayRdaView {
    *  over, and past that point carrying `overPct` — how far over. Only limits the
    *  day *carried* appear — an absent limit is omitted. */
   limits: DayRdaRow[];
-  untracked: NutrientRow[];
+  untracked: NutrientBreakdownRow[];
 }
 
 /**
@@ -814,7 +819,7 @@ export function buildDayRdaView(
   // target *and* no positive limit — unsaturated fat, plus any reach-toward or
   // limit key opted out to 0 — as a plain value, no bar. Absent nutrients are
   // omitted (nothing to show).
-  const untracked: NutrientRow[] = [];
+  const untracked: NutrientBreakdownRow[] = [];
   for (const d of NUTRIENT_CATALOGUE) {
     if (!(d.key in breakdown) || hasTarget(d.key) || hasLimit(d.key)) continue;
     // No `est` mark here, and that is ADR-0113 §5 rather than an omission: this

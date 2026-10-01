@@ -703,3 +703,110 @@ itself which of the two field names a millilitre goes in.
 Nothing about Open Food Facts contributions changes: `buildOffWriteBody` posts no
 portions, and the `serving_size` it does post is skipped for every per-100 panel
 this form writes.
+
+## Amendment (2026-10-01): a basis is a magnitude and a unit, and §7's third cell comes back weighed
+
+§7's toggle offers the two per-100 bases **and a serving the label weighs**. The
+2026-08-30 Amendment above deleted that third cell and stated the cost outright,
+so this is a reversal of a considered decision rather than a gap being closed. It
+is owed an argument, and the argument is not that the population turned out to be
+large.
+
+**`Basis` is typed rather than enumerated.** It was `per_100g | per_100ml`, which
+made `per_100g` a _kind_ of basis instead of one _value_ of one. It is now
+`{ amount, unit }`, the two per-100 bases are `BASIS_PRESETS`, and a weighed
+serving is the general case. ADR-0052's Consequences asked for exactly this
+shape: _"a fourth basis would want the field typed rather than a third literal
+added."_ `invertServingSize` returns a `Basis | null` — the basis-plus-weight
+pair the 2026-08-30 Amendment deleted, in the shape that record asked for.
+
+### Why the 2026-08-30 refusal no longer holds
+
+That amendment traded the US Nutrition Facts panel away to buy one guarantee:
+every panel this form writes can be scaled. The trade was correct then. The
+guarantee no longer needs it, because the machinery under the decision changed
+afterwards and none of this was true in August:
+
+- **The arithmetic is basis-agnostic.** All four scaling sites read the divisor
+  off the panel — `amountAgainstBasis(...) / parseBasisQuantity(serving_size)` —
+  and no hardcoded `/ 100` survives anywhere in `src/lib/food`, `src/lib/stores`
+  or `src/lib/views`. Two comments record that one used to be there and was
+  removed.
+- **`parseBasisQuantity("36 g")` already answered 36**, and `basisCaption("36 g")`
+  already rendered `Per serving (36 g)`. Both were tested. The readers were
+  waiting for a writer.
+- **The per-serving contribution arm already shipped, with tests.**
+  `buildOffWriteBody` posts `nutrition_data_per: "serving"` plus the literal
+  `serving_size`, asserted twice in `tests/unit/open-food-facts.test.ts`.
+- **`servingSizePortion` was a dormant reader.** Its own doc said what it was
+  waiting for: _"The label form no longer writes such a panel … so what this
+  reads today is a twin already in the ledger."_
+
+What the census adds is scale, not licence: one OFF delta dump holds 1,175 rows
+tagged `en:united-states` against 127 for Australia and New Zealand, and of the
+467 US rows carrying a packaging-declared sodium and a panel photo, 161 declare
+only a per-serving set — no per-100 figure read off the pack at all.
+
+### Why the 2026-08-31 refusal no longer holds either
+
+The "one unit control" Amendment rejected this a second time, and for a concrete
+reason rather than a general one: _"a serving stated in millilitres … reaches
+`servingSizeGrams`, whose regex requires grams, so it returns null and the food
+is not amount-editable: the original defect, restored."_ That was true, and it is
+fixed rather than accepted. `servingSizeGrams` is now `servingSizeMeasure` and
+returns a magnitude **and its unit**, so a `"330 ml"` serving opens the amount
+picker like any other panel. The hazard that record carried as a reason not to
+act is closed by the change it was arguing against.
+
+**The one unit control is untouched.** The unit is still asked once, beside the
+pack's magnitude. What the basis line gained is its own **magnitude** box —
+`Values per [100] g` — pre-filled with 100, so the overwhelming majority of packs
+answer it by default rather than by typing. Nothing converts on a flip, exactly
+as before.
+
+### What §7 keeps
+
+**A serving whose weight nobody states is still refused**, and §7 was right about
+it: it names no divisor, nothing can scale it, and the `"1 serving"` receipt that
+followed was a quantity `resolveAmountEdit` had nothing to work with.
+`invertServingSize` answers `null` for such a panel and the save gate holds.
+
+That `null` is also a repair. It used to answer `per_100g`, so re-opening a
+`"1 serving"` twin on this form and saving it **relabelled** its whole-serving
+figures as per-100 ones — the 2026-08-30 Amendment accepted that on the grounds
+that _"nothing routes a per-serving panel to this form"_. Twelve such panels sit
+in the real ledger. Measured, that claim holds today: all twelve carry
+`food/manual_entry` and re-open on their own mini-form, so the relabelling path
+has zero instances. It is latent rather than live — `saveCustomFood` writes a
+`"1 serving"` panel and no `food/manual_entry`, and nothing but that attribute
+keeps such a twin off this form. An empty magnitude box and a held save turn the
+case from relabelled into repairable either way.
+
+A weightless **household measure** — "Serving size 2 tbsp" — stays refused, and
+not merely unimplemented. `tablespoon` is not in `serving-size.ts`'s unit
+vocabulary; `readMagnitudes` computes a converted magnitude and exports no way to
+read it; `MeasuredUnit` is `g | ml`, so a tablespoon cannot enter
+`convertMeasured`'s one door; and ADR-0108's five Density Classes cannot express
+a cereal measured in cups. The chain would end at a question the user could not
+answer truthfully. A USDA pairing cannot supply the weight either: `basisFactor`
+**refuses** when the label's basis is unstated, a pairing borrows nutrient keys
+only (ADR-0113 §4) and never converts (§10), and `withPairing` throws on any
+non-`gtin:` entity — so the mechanism is gated behind the very thing it would be
+asked to provide.
+
+### Consequences
+
+- A capture's receipt now reads `36 g` rather than the unitless `1 serving`,
+  because `capturedQuantity` asks `basisIsStated` rather than `isPer100Basis`.
+  That also keeps such a food in the Recent catalogue, which `isCatalogueFood`
+  would otherwise drop for want of a `food/manual_entry` a label capture has no
+  reason to carry.
+- `isPer100Basis` reads the quantity rather than comparing two sentinels, guarded
+  by `basisIsStated` — without that guard `parseBasisQuantity`'s 100 fallback
+  would make a weightless `"1 serving"` read as a per-100 panel.
+- `amountDefaults` opens a pack at its own serving where it names one. A 36 g
+  pack opened at 100 g meant 2.8 of itself, silently.
+- The basis unit cells are keyed `Record<MeasuredUnit, string>`, so a third
+  measured unit fails the typecheck. While the basis was a two-member union the
+  options were a plain array: a third member compiled clean, rendered no cell,
+  and raised no error — a basis the type permitted and the UI could not reach.

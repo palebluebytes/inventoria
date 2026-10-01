@@ -1231,21 +1231,42 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
       page.locator(".cf-group", { hasText: "Vitamins" })
     ).toBeVisible();
 
-    // A capture is read against one of TWO bases, both of them measured: 100 g,
-    // or the 100 ml a bottle prints (ADR-0060 §7, as amended). The 100 ml cell
-    // used to appear only on a form seeded from a drink OFF already published by
-    // volume, which left a bottle printing "per 100 ml" no way to say so — and
-    // this door, having no OFF record at all, never seeded one.
-    //
-    // `serving` is not among them and no longer exists: a capture saved against
-    // it named no unit, so the food could not afterwards be edited by amount.
-    // Nothing OFF publishes needs it — it computes a per-100 figure for every
-    // product, and the serving it does publish arrives as a portion chip.
+    // A basis is a magnitude and a UNIT (ADR-0060 §7, as amended 2026-10-01).
+    // The unit is asked once, beside the pack's size, and has exactly two cells:
+    // grams, or the millilitres a bottle prints. The 100 ml cell used to appear
+    // only on a form seeded from a drink OFF already published by volume, which
+    // left a bottle printing "per 100 ml" no way to say so — and this door,
+    // having no OFF record at all, never seeded one.
     const basis = page.locator('[data-testid="cf-basis"]');
     await expect(basis.locator("[data-value]")).toHaveCount(2);
-    await expect(basis.locator('[data-value="per_100ml"]')).toBeVisible();
-    await expect(basis.locator('[data-value="per_serving"]')).toHaveCount(0);
-    await expect(page.locator("#cf-serving-grams")).toHaveCount(0);
+    await expect(basis.locator('[data-value="ml"]')).toBeVisible();
+
+    // The MAGNITUDE is its own box, pre-filled with 100 — which is what a
+    // per-serving basis costs now that it is a value rather than a third cell
+    // (#562). A US Nutrition Facts panel declaring 36 g types 36 here; the
+    // overwhelming majority of packs leave the default alone.
+    const basisAmount = page.locator('[data-testid="cf-basis-amount"]');
+    await expect(basisAmount).toHaveValue("100");
+    await expect(
+      page.locator('[data-testid="cf-basis-derived"]')
+    ).toContainText("Values per");
+    // Emptying it is a panel naming no divisor — the one §7 still refuses — so
+    // the form says so rather than stamping a 100 nobody typed.
+    await basisAmount.fill("");
+    await expect(page.locator('[data-testid="cf-basis-hint"]')).toBeVisible();
+    await basisAmount.fill("100");
+    await expect(page.locator('[data-testid="cf-basis-hint"]')).toHaveCount(0);
+
+    // The salt row asks for salt as the pack prints it and shows the sodium it
+    // stores beside it — one figure, two boxes (#508). Before this it asked for
+    // "Salt / sodium" in milligrams and stored whatever was typed as sodium.
+    const saltRow = page.locator(".cf-row", {
+      has: page.locator("#cf-sodium_content"),
+    });
+    await expect(saltRow.locator(".cf-lbl")).toContainText("Salt");
+    await expect(saltRow.locator(".cf-face-lbl")).toContainText("Sodium");
+    await saltRow.locator("#cf-sodium_content").fill("0.6");
+    await expect(saltRow.locator("input").nth(1)).toHaveValue("240");
 
     // Fast path plus one micro: name + calories, then Iron typed in mg (grams are
     // stored via the parseNutrientEntry round-trip, §3). Protein/fat/carbs and

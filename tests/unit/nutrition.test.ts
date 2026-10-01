@@ -21,7 +21,7 @@ import {
   measuredUnitName,
   isPer100Basis,
   parseBasisQuantity,
-  servingSizeGrams,
+  servingSizeMeasure,
   servingSizePortion,
   type NutritionBreakdown,
   type NutritionInfo,
@@ -610,32 +610,35 @@ describe("resolvePortionAmount", () => {
   });
 });
 
-describe("servingSizeGrams", () => {
-  it("reads the gram weight from a weighed serving size", () => {
-    expect(servingSizeGrams("30 g")).toBe(30);
-    expect(servingSizeGrams("30g")).toBe(30);
-    expect(servingSizeGrams("62.5 g")).toBe(62.5);
+describe("servingSizeMeasure", () => {
+  it("reads the magnitude and unit from a weighed serving size", () => {
+    expect(servingSizeMeasure("30 g")).toEqual({ amount: 30, unit: "g" });
+    expect(servingSizeMeasure("30g")).toEqual({ amount: 30, unit: "g" });
+    expect(servingSizeMeasure("62.5 g")).toEqual({ amount: 62.5, unit: "g" });
   });
 
-  it("is null for the per-100 g reference basis", () => {
-    // "100 g" is the reference basis, not a household serving to surface.
-    expect(servingSizeGrams("100 g")).toBeNull();
+  it("reads a serving stated in millilitres, which the gram-only reader refused", () => {
+    // The defect ADR-0060's 2026-08-31 Amendment named and left standing: a
+    // millilitre serving failed the gram regex, so `resolveAmountEdit` found no
+    // basis and re-opened the whole capture form instead of the amount picker
+    // (#562). Nothing converts — the unit is carried.
+    expect(servingSizeMeasure("240 ml")).toEqual({ amount: 240, unit: "ml" });
+    expect(servingSizeMeasure("62.5ml")).toEqual({ amount: 62.5, unit: "ml" });
+  });
+
+  it("is null for either per-100 reference basis", () => {
+    // 100 of the food's own unit is what a source reports against, not a
+    // household serving to surface — and naming the two as separate sentinels is
+    // how a drink used to reach the per-serving branch (ADR-0052 §1/§3).
+    expect(servingSizeMeasure("100 g")).toBeNull();
+    expect(servingSizeMeasure(PER_100ML)).toBeNull();
   });
 
   it("is null for a weightless serving (never misreads '1 serving' as 1 g)", () => {
     // parseFloat("1 serving") === 1; the helper must NOT treat that as 1 gram.
-    expect(servingSizeGrams("1 serving")).toBeNull();
-  });
-
-  it("is null for a non-gram unit", () => {
-    expect(servingSizeGrams("240 ml")).toBeNull();
-    expect(servingSizeGrams("")).toBeNull();
-  });
-
-  it("is null for the per-100 ml drink basis (never a 100 g serving chip)", () => {
-    // A drink's panel basis is a volume; surfacing it as a weighed serving would
-    // put "1 serving = 100 g" on a can of cola (ADR-0052 §1).
-    expect(servingSizeGrams(PER_100ML)).toBeNull();
+    expect(servingSizeMeasure("1 serving")).toBeNull();
+    expect(servingSizeMeasure("")).toBeNull();
+    expect(servingSizeMeasure("1 portion (330 ml)")).toBeNull();
   });
 });
 
@@ -648,6 +651,17 @@ describe("isPer100Basis", () => {
   it("is false for a serving basis and for no basis at all", () => {
     expect(isPer100Basis("30 g")).toBe(false);
     expect(isPer100Basis("1 serving")).toBe(false);
+    expect(isPer100Basis(undefined)).toBe(false);
+  });
+
+  it("does not read parseBasisQuantity's 100 fallback as a per-100 panel", () => {
+    // It reads the quantity now rather than comparing two sentinels (#562), and
+    // `parseBasisQuantity` answers 100 for a string naming nothing. Without the
+    // `basisIsStated` guard a weightless "1 serving" would come back true — the
+    // one reading that fallback must never license.
+    expect(parseBasisQuantity("1 serving")).toBe(100);
+    expect(isPer100Basis("1 serving")).toBe(false);
+    expect(parseBasisQuantity(undefined)).toBe(100);
     expect(isPer100Basis(undefined)).toBe(false);
   });
 });
@@ -702,6 +716,27 @@ describe("amountDefaults", () => {
     // 100 ml is half a glass and 500 ml stops short of a carton, so the same
     // two numbers read wrong on a volume basis (ADR-0060 §3).
     expect(amountDefaults("ml")).toEqual({ amount: 250 });
+  });
+
+  it("opens a pack that names its own serving AT that serving (#562)", () => {
+    // A 36 g pack opened at 100 g means 2.8 of itself — a number nobody typed
+    // and nothing on screen questioned.
+    expect(amountDefaults("g", "36 g")).toEqual({ amount: 36 });
+    expect(amountDefaults("ml", "330 ml")).toEqual({ amount: 330 });
+  });
+
+  it("keeps the generic opening for a per-100 panel", () => {
+    expect(amountDefaults("g", "100 g")).toEqual({ amount: 100 });
+    expect(amountDefaults("ml", "100 ml")).toEqual({ amount: 250 });
+    expect(amountDefaults("g", "1 serving")).toEqual({ amount: 100 });
+  });
+
+  it("keeps the generic opening when the serving is in the OTHER unit", () => {
+    // On a food carrying a Density Class the unit is the user's choice, not the
+    // panel's implication (ADR-0108 §7), and converting here would make this
+    // function answer a density question §2 refuses.
+    expect(amountDefaults("g", "330 ml")).toEqual({ amount: 100 });
+    expect(amountDefaults("ml", "36 g")).toEqual({ amount: 250 });
   });
 });
 
@@ -784,6 +819,15 @@ describe("servingSizePortion", () => {
     const info: NutritionInfo = { serving_size: "30 g", calories: 190 };
     expect(servingSizePortion(info)).toEqual([
       { label: "1 serving", amount: 1, unit: "serving", grams: 30 },
+    ]);
+  });
+
+  it("writes a millilitre serving into the sibling its unit names", () => {
+    // A volume serving must not come back as a weight nobody measured
+    // (ADR-0060 §6): the magnitude goes to `millilitres`, and `grams` is absent.
+    const info: NutritionInfo = { serving_size: "330 ml", calories: 139 };
+    expect(servingSizePortion(info)).toEqual([
+      { label: "1 serving", amount: 1, unit: "serving", millilitres: 330 },
     ]);
   });
 
