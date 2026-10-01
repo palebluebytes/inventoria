@@ -45,10 +45,15 @@ test.describe("Rations, the food Facet's own entry point", () => {
     // tiles — Rations, Recipes and Settings — and no fourth: a Media tile here
     // would mean a screen from another Facet had been pulled into this build,
     // which is the regression ADR-0077's 4.23 MB saving rests on.
+    //
+    // Read off `.face-name` rather than off the tile, because a tile holds more
+    // than its name: #534 put the BETA band inside the button, so Recipes' tile
+    // reads `BETARecipes` and the two that ship do not. Membership is a question
+    // about the roster's spelling, and maturity is `face-maturity.test.ts`'s.
     await page.locator('button[aria-controls="face-switcher-panel"]').click();
     const panel = page.locator("#face-switcher-panel");
     await expect(panel).toBeVisible();
-    await expect(panel.locator(".face-tile")).toHaveText([
+    await expect(panel.locator(".face-tile .face-name")).toHaveText([
       "Rations",
       "Recipes",
       "Settings",

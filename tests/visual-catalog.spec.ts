@@ -582,7 +582,10 @@ test.describe("Visual Catalog Generator", () => {
     // §9 stops the root landing on food and opens it on this grid, so there is no
     // trigger here to press and the switcher is simply the screen. The tiles are
     // the same component the panel holds, and the test below photographs them.
-    await expect(page.locator(".main .face-tile")).toHaveText([
+    // `.face-name` and not the tile: since #534 five of the seven carry the BETA
+    // band inside the button, so the tile's text is the band plus the name and
+    // this list is about the names.
+    await expect(page.locator(".main .face-tile .face-name")).toHaveText([
       "Rations",
       "Recipes",
       "Media",

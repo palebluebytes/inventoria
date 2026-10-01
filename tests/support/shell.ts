@@ -1,4 +1,4 @@
-import { expect, type Page } from "@playwright/test";
+import { expect, type Locator, type Page } from "@playwright/test";
 
 /**
  * The questions every root-Facet spec asks before it can do anything: **has the
@@ -48,6 +48,33 @@ export async function waitForDbReady(page: Page): Promise<void> {
 const LANDING = ".main .face-grid";
 
 /**
+ * The tile for one face, inside whichever grid is up.
+ *
+ * **Matched on the tile's name, not on its label.** `FaceGrid` draws the BETA
+ * band inside the tile's `<button>` and says why: ADR-0114 §11 wants a beta face
+ * to announce itself where somebody chooses a destination, so the band joins the
+ * accessible name on purpose. A beta tile is therefore labelled `BETA Media`,
+ * five of the seven faces are beta, and a `getByRole("button", { name, exact:
+ * true })` here is the claim that a tile is labelled only by its face — true
+ * until #534 and false since, which is what #560 found after four runs had hit
+ * the job's 30-minute ceiling and reported it as a cancellation.
+ *
+ * `.face-name` is the span holding the roster's one spelling, and the hook
+ * `tests/unit/support/faces.ts` already reads a face's name through. So this is
+ * the two tiers asking the same question rather than a second idiom, and it is
+ * the reason the fix is here rather than in the component.
+ *
+ * `:text-is` keeps the match **exact**, which relaxing the role query to a
+ * substring would have given up. The seven names fail to collide today by luck,
+ * and vetting the next one is not this file's job.
+ */
+function tileIn(host: Locator, name: string): Locator {
+  return host.locator(".face-tile").filter({
+    has: host.page().locator(`.face-name:text-is(${JSON.stringify(name)})`),
+  });
+}
+
+/**
  * Lands on a face by its canonical name, from wherever the spec is standing.
  *
  * The name is the roster's one spelling (ADR-0114 §3) — the same string the
@@ -67,6 +94,7 @@ const LANDING = ".main .face-grid";
  * header — since #538 the title is a button on a page, though it is named for
  * where it goes rather than for the face — so a bare
  * `getByRole("button", { name })` would be ambiguous the first time one was.
+ * Which tile that is, within the grid, is {@link tileIn}.
  */
 export async function goToFace(page: Page, name: string): Promise<void> {
   const trigger = page.locator('button[aria-controls="face-switcher-panel"]');
@@ -77,7 +105,7 @@ export async function goToFace(page: Page, name: string): Promise<void> {
   await expect(landing.or(trigger)).toBeVisible();
 
   if ((await landing.count()) > 0) {
-    await landing.getByRole("button", { name, exact: true }).click();
+    await tileIn(landing, name).click();
     // The grid leaving is what says the tap landed, and it is the same reading
     // as the panel closing below.
     await expect(landing).toHaveCount(0);
@@ -87,7 +115,7 @@ export async function goToFace(page: Page, name: string): Promise<void> {
   await trigger.click();
   const panel = page.locator("#face-switcher-panel");
   await expect(panel).toBeVisible();
-  await panel.getByRole("button", { name, exact: true }).click();
+  await tileIn(panel, name).click();
   // The panel is modal and closing it is what says the tap landed. Waiting here
   // rather than in each caller is what keeps a spec from racing the dim: bits-ui
   // puts `inert` on everything behind an open dialog, so a click issued at the
