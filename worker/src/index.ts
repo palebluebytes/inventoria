@@ -60,7 +60,7 @@ const STORE_PATH = "/api/store";
  * closed list — and a task is not an **address** the way a room id or a deposit
  * key is (ADR-0115 §5.1).
  */
-const MODEL_PATH = "/api/model";
+export const MODEL_PATH = "/api/model";
 
 /** The bindings this script is deployed with; see `wrangler.toml`. */
 export interface WorkerEnv {

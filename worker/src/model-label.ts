@@ -131,6 +131,23 @@ export interface LabelReading {
  * The statuses this task can produce, which are **ours** and never the
  * vendor's (ADR-0115 §5.4).
  */
+/**
+ * The statuses a **request** is refused with, before any model is asked.
+ *
+ * Separate from {@link MODEL_FAULT}, which is what a thrown *answer* becomes:
+ * nothing here has spent a neuron. Named rather than written inline so the
+ * client's restatement has something to be held equal to — the same trade
+ * `MODEL_TASKS` and the two ceilings already take (ADR-0115 SS5.2).
+ */
+export const MODEL_REQUEST_FAULT = {
+  /** Ours to fix, never the user's to read: the client built a bad question. */
+  malformed: 400,
+  /** This device's key is wrong or unset. `401`, because the caller may fix it. */
+  badKey: 401,
+  /** A ceiling the client restates and should have caught first. */
+  overCeiling: 413,
+} as const;
+
 export const MODEL_FAULT = {
   /** Couldn't reach it: transport, a 5xx, a timeout, and any 429 we could not classify. */
   unreachable: 503,
@@ -260,12 +277,21 @@ function jsonIn(text: string): unknown {
  * `response` as a string yields `null` and a `422` on **every** read, and
  * taking `choices` alone throws away a parse the platform already did.
  *
- * So the order is **object, then string, then the raw choice**, and every arm
- * is a shape that has been seen rather than a defensive guess.
+ * So the order is **the object, then the raw choice** — two arms, because the
+ * measurement found **both in the same envelope** and each is the only shape one
+ * of the two paths offers.
+ *
+ * **Two further arms were deleted, which is #541's own instruction**: *"delete
+ * the branch that does not happen."* A `response` holding a *string* is the
+ * shape the binding page implies and the measurement contradicts outright, and
+ * an envelope that is itself a string was never seen on either path. Both were
+ * written before anything was measured, and keeping them would have left this
+ * paragraph's closing claim false. If the binding ever does start answering a
+ * string, every read becomes a `422` — loudly, on the first one, rather than
+ * silently through a fallback nobody knew was carrying the route.
  */
 export function answerBodyOf(raw: unknown): unknown {
-  if (typeof raw !== "object" || raw === null)
-    return typeof raw === "string" ? jsonIn(raw) : null;
+  if (typeof raw !== "object" || raw === null) return null;
 
   const envelope = raw as {
     response?: unknown;
@@ -274,8 +300,7 @@ export function answerBodyOf(raw: unknown): unknown {
   // The path that ships: the binding parsed it for us.
   if (typeof envelope.response === "object" && envelope.response !== null)
     return envelope.response;
-  // A model that answered prose, or a future envelope that stops parsing.
-  if (typeof envelope.response === "string") return jsonIn(envelope.response);
+  // The same answer as a string, which is all the REST endpoint ever offers.
   const content = envelope.choices?.[0]?.message?.content;
   return typeof content === "string" ? jsonIn(content) : null;
 }

@@ -30,6 +30,11 @@
  * dumps, and `4006` carries the exact message published under `3036`.
  */
 import { getSecret } from "../stores/secrets";
+import {
+  browserPhotoSurface,
+  reencodeForEgress,
+  type PhotoSurface,
+} from "./image-file";
 
 /** Where the model route listens, on the app's own origin (ADR-0115 §2). */
 export const MODEL_PATH = "/api/model";
@@ -58,6 +63,30 @@ export const MAX_IMAGES = 4;
  * above, restated and held equal.
  */
 export const MAX_REQUEST_BYTES = 6 * 1024 * 1024;
+
+/**
+ * The statuses the route answers with, restated from `worker/src/model-label.ts`
+ * (`MODEL_FAULT` and `MODEL_REQUEST_FAULT`) and held equal by a test.
+ *
+ * Named rather than written as literals in the ladder below for the reason
+ * every other restatement here is named: the ladder is the one place a drift
+ * between the two sides becomes a wrong line on screen, and a bare `422` in it
+ * is a number no gate can compare to anything. `400` is deliberately absent —
+ * it is unreachable from our own client by construction, so it falls through to
+ * the same ending as a route that did not answer.
+ */
+export const MODEL_STATUS = {
+  /** This device's key is wrong or unset. */
+  badKey: 401,
+  /** The operator's to fix: the account stopped answering for us. */
+  refused: 403,
+  /** A ceiling arriving from the far side, which means the restatements drifted. */
+  overCeiling: 413,
+  /** Our own schema validation failed on the answer. */
+  unusable: 422,
+  /** The daily allocation, when the Worker could determine it. */
+  exhausted: 429,
+} as const;
 
 // Which model was asked is **not** this module's to say, and it is deliberately
 // not re-exported through here. The Worker owns the model id, so the wire never
@@ -174,6 +203,49 @@ export function modelRequestRefusal(
 }
 
 /**
+ * One reading off the wire, or `null` when the body is not one.
+ *
+ * **The boundary is guarded here and trusted everywhere after** (`CODING_STANDARDS.md`
+ * SS3.2). It replaces a `as LabelReading` cast over an untrusted body, which
+ * asserted the shape in this module and left `ai-autofill.ts` re-guarding every
+ * field against a type that already claimed to be certain — the "lone guards
+ * that contradict the declared type elsewhere" the rule names. One of the two
+ * had to go, and a cast is the half with no run-time effect.
+ *
+ * It validates **the shape, not the content**: a basis string the app cannot
+ * express and a sparse panel are both well-formed answers the normaliser and
+ * the form deal with. What it refuses is a body that is not a reading at all,
+ * which is the one thing no later code is written for.
+ *
+ * `nutrition` is required and its values must be numbers or `null`. A key whose
+ * value is neither — a string, an object, a nested panel — fails the **whole**
+ * reading rather than being dropped, because a response shaped unlike the
+ * contract is not a response with one bad row in it.
+ */
+function labelReadingOf(body: unknown): LabelReading | null {
+  if (typeof body !== "object" || body === null || Array.isArray(body))
+    return null;
+  const { name, brand, basis, nutrition } = body as Record<string, unknown>;
+  const nullableString = (v: unknown) => v === null || typeof v === "string";
+  if (!nullableString(name) || !nullableString(brand) || !nullableString(basis))
+    return null;
+  if (
+    typeof nutrition !== "object" ||
+    nutrition === null ||
+    Array.isArray(nutrition)
+  )
+    return null;
+  const rows = Object.entries(nutrition as Record<string, unknown>);
+  if (!rows.every(([, v]) => v === null || typeof v === "number")) return null;
+  return {
+    name: name as string | null,
+    brand: brand as string | null,
+    basis: basis as string | null,
+    nutrition: Object.fromEntries(rows) as Record<string, number | null>,
+  };
+}
+
+/**
  * Ask the model one question.
  *
  * **One ask and one reading of the answer**, so a status is classified in
@@ -183,12 +255,43 @@ export function modelRequestRefusal(
  * The key is read at call time rather than captured, because it may be pasted
  * into Settings between one tap and the next, and an unset one is a `401` the
  * route answers without spending anything.
+ *
+ * **Every photograph is re-encoded here, on its way out** (SS3.1). This is the
+ * only place that happens, so no caller and no future task can skip it: the
+ * capture array holds what `FileReader` read, EXIF and GPS tag included for
+ * anything already inside `MAX_PHOTO_EDGE`, and a canvas round-trip is what
+ * drops it. The seal is also what turns a stored data URL into the bare base64
+ * SS5.1's wire carries.
+ *
+ * **The ceiling is measured over the sealed images, not the stored ones**, since
+ * those are the bytes that would travel. `modelRequestRefusal` runs twice for
+ * that reason and only this second one is load-bearing: the first, before the
+ * tap, is an estimate over photographs that have not been re-encoded yet, and
+ * re-encoding only ever makes them smaller.
+ *
+ * `surface` is defaulted rather than asked for, and is the seam the unit suite
+ * comes in through — `reduceCapturedPhoto`'s arrangement exactly, for its
+ * reason: the runner is Node, with no `Image` and no canvas, so a test supplies
+ * one that records what it was asked to draw. No caller in the app passes it.
  */
 export async function askModel(
   task: ModelTask,
-  images: string[]
+  images: string[],
+  surface: PhotoSurface | null = browserPhotoSurface()
 ): Promise<LabelReading> {
-  const refusal = modelRequestRefusal(task, images);
+  const early = modelRequestRefusal(task, images);
+  if (early !== null) throw new ModelUnusableError(early);
+
+  // A device with no canvas cannot strip EXIF, and SS3.1's re-encode is
+  // unconditional — so the honest ending is to send nothing. Unreachable from
+  // our own UI, where the form is not interactive without a DOM.
+  if (surface === null)
+    throw new ModelUnusableError("This device cannot prepare a photo to send");
+  const sealed = await Promise.all(
+    images.map((image) => reencodeForEgress(image, surface))
+  );
+
+  const refusal = modelRequestRefusal(task, sealed);
   if (refusal !== null) throw new ModelUnusableError(refusal);
 
   let response: Response;
@@ -199,7 +302,7 @@ export async function askModel(
         "Content-Type": "application/json",
         Authorization: `Bearer ${getSecret("model_route_key")}`,
       },
-      body: JSON.stringify(modelRequestBody(task, images)),
+      body: JSON.stringify(modelRequestBody(task, sealed)),
     });
   } catch {
     // A transport-level rejection: offline, DNS, a connection reset. Nothing
@@ -208,25 +311,33 @@ export async function askModel(
   }
 
   if (response.ok) {
+    let body: unknown;
     try {
-      return (await response.json()) as LabelReading;
+      body = await response.json();
     } catch {
       // A `200` whose body is not JSON is the route answering something this
       // client cannot read, which is the same ending as a schema failure.
       throw new ModelUnusableError("The answer could not be read");
     }
+    const reading = labelReadingOf(body);
+    if (reading === null)
+      throw new ModelUnusableError("The answer was not a reading");
+    return reading;
   }
 
-  // `413` is the client's own ceiling arriving from the far side, which means
-  // the two restatements have drifted. It reads as unusable rather than as a
-  // network fault, because nothing about waiting will help.
-  if (response.status === 413)
+  // The ceiling arriving from the far side means the two restatements have
+  // drifted. It reads as unusable rather than as a network fault, because
+  // nothing about waiting will help.
+  if (response.status === MODEL_STATUS.overCeiling)
     throw new ModelUnusableError("The request was over a ceiling");
-  if (response.status === 422)
+  if (response.status === MODEL_STATUS.unusable)
     throw new ModelUnusableError("The answer was not a panel");
-  if (response.status === 429)
+  if (response.status === MODEL_STATUS.exhausted)
     throw new ModelExhaustedError("Today's allowance is used up");
-  if (response.status === 401 || response.status === 403)
+  if (
+    response.status === MODEL_STATUS.badKey ||
+    response.status === MODEL_STATUS.refused
+  )
     throw new ModelRefusedError("The model route refused this device");
   throw new ModelUnreachableError("The model route did not answer");
 }

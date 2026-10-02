@@ -41,6 +41,7 @@ import {
 import {
   faultStatusOf,
   MODEL_FAULT,
+  MODEL_REQUEST_FAULT,
   readLabel,
   readLabelAnswer,
 } from "./model-label";
@@ -64,9 +65,17 @@ export interface ModelBinding {
   ): Promise<unknown>;
 }
 
-/** The per-call options object, which is the only place the gateway is named. */
+/**
+ * The per-call options object, which is the only place the gateway is named.
+ *
+ * **`collectLog` is deliberately not declared**, so naming it is a typecheck
+ * failure rather than a judgement call at each call site. See
+ * {@link MODEL_CALL_OPTIONS}: the per-call key is camelCase and singular, the
+ * resource's field is `collect_logs`, and the binding ignores the wrong one in
+ * silence. A key this type does not have cannot be spelled either way.
+ */
 export interface ModelCallOptions {
-  gateway: { id: string; collectLog?: boolean };
+  gateway: { id: string };
 }
 
 /**
@@ -95,12 +104,13 @@ export const MODEL_GATEWAY_ID = "inventoria-model-route";
  * the `[ai]` binding accepts no `gateway` field and `worker-config-check.mjs`
  * has nothing to read.
  *
- * **`collectLog` is deliberately absent rather than `false`.** The gateway's
- * own `collect_logs: false` carries it, and the per-call key is camelCase and
- * singular — `collect_logs` here is the *resource's* field name, is silently
- * ignored on the binding, and would have pinned a no-op whose test passed
- * green. Spelling it correctly would be redundant; spelling it wrongly is the
- * trap #490 caught. Naming only the id makes both impossible.
+ * **`collectLog` is deliberately absent rather than `false`**, and
+ * {@link ModelCallOptions} does not declare it, so it cannot come back. The
+ * gateway's own `collect_logs: false` carries it, and the per-call key is
+ * camelCase and singular — `collect_logs` here is the *resource's* field name,
+ * is silently ignored on the binding, and would have pinned a no-op whose test
+ * passed green. Spelling it correctly would be redundant; spelling it wrongly is
+ * the trap #490 caught. Naming only the id makes both impossible.
  */
 export const MODEL_CALL_OPTIONS: ModelCallOptions = {
   gateway: { id: MODEL_GATEWAY_ID },
@@ -197,7 +207,11 @@ const isTask = (value: unknown): value is ModelTask =>
  */
 export function parseModelRequest(body: unknown): ModelRequestParse {
   if (typeof body !== "object" || body === null || Array.isArray(body)) {
-    return { ok: false, status: 400, message: "Malformed request" };
+    return {
+      ok: false,
+      status: MODEL_REQUEST_FAULT.malformed,
+      message: "Malformed request",
+    };
   }
 
   const keys = Object.keys(body);
@@ -207,7 +221,7 @@ export function parseModelRequest(body: unknown): ModelRequestParse {
   if (!exact) {
     return {
       ok: false,
-      status: 400,
+      status: MODEL_REQUEST_FAULT.malformed,
       message: `A question carries ${expected.join(" and ")}, and nothing else`,
     };
   }
@@ -215,22 +229,44 @@ export function parseModelRequest(body: unknown): ModelRequestParse {
   const { task, images } = body as { task: unknown; images: unknown };
 
   if (!isTask(task)) {
-    return { ok: false, status: 400, message: "Unknown task" };
+    return {
+      ok: false,
+      status: MODEL_REQUEST_FAULT.malformed,
+      message: "Unknown task",
+    };
   }
   if (!Array.isArray(images) || !images.every((i) => typeof i === "string")) {
-    return { ok: false, status: 400, message: "Images must be base64 strings" };
+    return {
+      ok: false,
+      status: MODEL_REQUEST_FAULT.malformed,
+      message: "Images must be base64 strings",
+    };
+  }
+  // **A data URL is not base64, and the difference was invisible for a release.**
+  // The capture array holds `data:image/png;base64,...` because that is what
+  // `FileReader` answers and what an `<img src>` needs, and the far side
+  // re-attaches a preamble of its own — so an unprepared image arrived as
+  // `data:image/jpeg;base64,data:image/png;base64,...` and every read failed.
+  // Nothing caught it: every fixture on both sides was bare base64. The client
+  // strips the prefix in `reencodeForEgress`; this is the gate that says so.
+  if (images.some((i) => i.startsWith("data:"))) {
+    return {
+      ok: false,
+      status: MODEL_REQUEST_FAULT.malformed,
+      message: "Images carry base64, not a data URL",
+    };
   }
   if (images.length === 0) {
     return {
       ok: false,
-      status: 400,
+      status: MODEL_REQUEST_FAULT.malformed,
       message: "A question carries a photograph",
     };
   }
   if (images.length > MAX_IMAGES) {
     return {
       ok: false,
-      status: 413,
+      status: MODEL_REQUEST_FAULT.overCeiling,
       message: `At most ${MAX_IMAGES} photographs`,
     };
   }
@@ -406,14 +442,14 @@ export async function modelRequest(
     offered === null ||
     !(await isOperatorKey(offered, configuredKey))
   ) {
-    return respond("Not this key", 401);
+    return respond("Not this key", MODEL_REQUEST_FAULT.badKey);
   }
 
   const body = await readQuestion(request);
   if (body === null) {
     return respond(
       `A question is at most ${MAX_REQUEST_BYTES / 1024 / 1024} MiB`,
-      413
+      MODEL_REQUEST_FAULT.overCeiling
     );
   }
 
