@@ -183,8 +183,9 @@ describe("ratchetLabelMethod", () => {
   // A read applied and then abandoned by switching door must not colour the
   // save that follows — which is why the flag resets wherever the form does.
   it("writes manual for a save with no read and no prior capture", () => {
+    // One spelling of absence, which is the signature's: every door reads the
+    // attribute through `?? null` so there is no `undefined` case to cover.
     expect(ratchetLabelMethod(false, null)).toBe("manual");
-    expect(ratchetLabelMethod(false, undefined)).toBe("manual");
   });
 
   /**

@@ -181,10 +181,10 @@ export interface LabelCapture {
  */
 export function ratchetLabelMethod(
   readApplied: boolean,
-  prior: LabelCapture | null | undefined
+  prior: LabelCapture | null
 ): LabelCaptureMethod {
   if (readApplied) return "ai-confirmed";
-  return prior?.method ?? "manual";
+  return prior === null ? "manual" : prior.method;
 }
 
 /**

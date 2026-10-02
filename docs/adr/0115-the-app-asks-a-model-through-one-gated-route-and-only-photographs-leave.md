@@ -914,9 +914,12 @@ debugging session._ Four things carry teeth:
    body has **exactly** §5.1's two keys, so a later field cannot be added without
    a red test.
 2. **`scripts/worker-closure-check.mjs` gains an arm** proving the model route
-   **calls no `console.*` and writes to no binding**, copying the relay's shape.
-   The second half is load-bearing: a route that carries readable data must be
-   provably amnesiac.
+   **calls no `console.*`, writes to no binding, and fetches nothing**, copying
+   the relay's shape. The second clause is load-bearing: a route that carries
+   readable data must be provably amnesiac. The third is this record's, added
+   2026-10-02 to match what the script already checks — a module that may not
+   write a photograph down may not post one somewhere either, and the gate had
+   grown the claim while this list named two.
 3. **The call options are an exported constant** carrying the gateway id, with a
    unit test pinning it. This is the only place in this repo the gateway can be
    pinned at all, and §3.4 measured why it matters: dropping the gateway escapes
@@ -1104,3 +1107,82 @@ under **Proposal** names the other sense; neither meaning moves.
 table stands with no cap touched and `LOG_BUDGET_BYTES` unchanged; none of the
 four records §1-§10 revise were edited; and neither enforcement script §13 names
 was touched.
+
+## Amendment (2026-10-02): a code review moved four of this record's own sentences
+
+A two-axis review of the arc's branch read the code against this record and
+found four places they disagreed. In three of them the code was right and these
+sentences were written ahead of it; in one the code was wrong and is fixed. The
+record is corrected in both directions rather than only the flattering one.
+
+### §9's table is five lines, not four
+
+The table under §9 reads _"Nine wire states collapse to four the user is told
+apart"_ and folds `401` into **Couldn't reach it**, on the ground that `401` and
+`5016` _"are the operator's to fix and the user cannot act on them"_.
+
+**That premise is wrong for this app**, and `MODEL_FAILURE_COPY` already has the
+fifth line. Inventoria has one user who is also its operator: the key the `401`
+is about was pasted into Settings on the device in their hand, by them. "The
+user cannot act on it" was reasoned as though the two were different people, as
+they are for the OFF credentials and the relay. So the shipped line names the
+cause and hands over the recovery like every other — _"its key is missing or no
+longer works. Check it under the gear"_ — and collapsing it would have been the
+one line in the table that told somebody to wait for a thing that will never
+clear on its own.
+
+What does not change: `401` and `403` stay **one class** (`ModelRefusedError`),
+and they stay **distinct in the log**, which is what §11's channel is for and
+what the original sentence was really protecting.
+
+### §9.1's "any edit" is three actions, named
+
+§9.1 says the failure message is _"transient, cleared by the next press or by
+any edit"_. The press cleared it and no edit did, so the sentence described
+nothing. "Any edit" is now **any nutrient-row edit and any change to the capture
+set**, alongside the press — the three actions the failure's own copy invites
+(_try again_, _fill the panel in below_, _try another shot_). The brand, the
+categories and the portions deliberately do not clear it: a failed read left no
+trace in any of them, so clearing there would be clearing a line nobody is
+looking at.
+
+### §5.1's refusal has to hold the press, not only say so
+
+§5.1 says _"above the cap the client refuses and says so."_ It said so in the
+hint under the control and left the press live, so a fifth photograph reached
+the transport's own refusal and came back as **Couldn't read the label** — a
+sentence about an answer, for a request that never left the device — and opened
+a session the Log recorded with `images: 5` behind it. The control is now
+disabled while a refusal stands. A refusal that is only a sentence is a refusal
+the user can walk straight through.
+
+### §11's `saved` was constant, and is now the field §11 describes
+
+§11 says `saved` is _"true after a **failed** read too, which is what tells gave
+up from typed the pack in anyway."_ Both halves need a `false` to exist and
+nothing wrote one: the only call that recorded a session was the save path, and
+it sets `saved: true` by construction, so an answered read the user then walked
+away from recorded **nothing at all**. Closing the session where the form resets
+is what supplies the other half. A session still in flight still records
+nothing, which was never the gap — that rule is `closeModelSession`'s and is
+unchanged.
+
+### §3.1's re-encode was never built
+
+The only outright defect, and the reason this amendment is not just bookkeeping.
+§3.1 says _"**Every outbound image is re-encoded unconditionally**"_, and argues
+it at length: a photo under 1,600 px keeps the bytes `FileReader` read, _"so its
+EXIF survives — GPS tag included"_, and the canvas round-trip the capture path
+skips is what drops it. **Nothing in the branch did this.** The capture array
+went to the transport exactly as stored, so a kitchen photograph of a jar sent
+its coordinates to Cloudflare, which is the one thing the disclosure copy
+promises does not happen.
+
+`reencodeForEgress` is that pass, in `image-file.ts` beside the reduction it
+deliberately differs from, and `askModel` is the only caller — so no future task
+on this route can skip it. It also answers the **bare base64** §5.1's wire
+specifies, which closed a second defect found in the same review: the capture
+array holds data URLs, the Worker re-attaches a preamble of its own, and every
+read had been sending `data:image/jpeg;base64,data:image/png;base64,…`. Both
+sides' fixtures were bare base64, so the whole suite was green over a feature
+that could not work. `parseModelRequest` now refuses a data URL by name.

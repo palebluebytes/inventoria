@@ -96,7 +96,7 @@ export function offersRetry(outcome: ModelOutcome): boolean {
 /**
  * The first-use sheet, once per device, before the first send.
  *
- * **The fourth paragraph is the one to defend in review.** It is duller and
+ * **The last of the three paragraphs is the one to defend in review.** It is duller and
  * longer than a reassurance would be, and it is the only version the evidence
  * permits: Cloudflare document no training, and say **nothing quotable about
  * retention** — no duration anywhere — so the app can say *it isn't trained on*
