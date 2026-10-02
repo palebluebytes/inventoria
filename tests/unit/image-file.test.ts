@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   planPhotoReduction,
   reduceCapturedPhoto,
+  reencodeForEgress,
   MAX_PHOTO_EDGE,
   PHOTO_QUALITY,
   type PixelSize,
@@ -90,5 +91,72 @@ describe("reducing a captured photo before it is stored", () => {
 
   it("stores the bytes it read where there is no canvas to redraw on", async () => {
     expect(await reduceCapturedPhoto(ORIGINAL, null)).toBe(ORIGINAL);
+  });
+});
+
+/**
+ * The outbound seal (ADR-0115 §3.1, §5.1).
+ *
+ * It is the reduction's opposite number and deliberately differs from it in the
+ * one place that matters: there is no `keep` branch, because the canvas
+ * round-trip the reduction skips is the thing that drops EXIF. The test that
+ * earns its place is the small-photo one — the reduction's own suite above
+ * proves a small photo is NOT redrawn, so a shared implementation would make
+ * one of the two wrong.
+ */
+describe("sealing a photo for egress", () => {
+  /** A canvas whose redraw answers a real JPEG data URL, as the browser's does. */
+  function egressSurface(source: PixelSize) {
+    const drawn: { target: PixelSize; quality: number }[] = [];
+    const surface: PhotoSurface = {
+      decode: async () => ({
+        ...source,
+        redraw: async (target: PixelSize, quality: number) => {
+          drawn.push({ target, quality });
+          return "data:image/jpeg;base64,UkVEUkFXTg==";
+        },
+      }),
+    };
+    return { surface, drawn };
+  }
+
+  it("re-encodes a photo already inside the bound, at its own size", async () => {
+    // The reduction leaves this one exactly as it was read, EXIF and all. The
+    // outbound path must not: a kitchen photo under 1600 px carries a GPS tag.
+    const { surface, drawn } = egressSurface({ width: 1200, height: 900 });
+    const sealed = await reencodeForEgress(ORIGINAL, surface);
+
+    expect(drawn).toEqual([
+      { target: { width: 1200, height: 900 }, quality: PHOTO_QUALITY },
+    ]);
+    expect(sealed).toBe("UkVEUkFXTg==");
+  });
+
+  it("still scales a photo above the bound, on the same plan", async () => {
+    const { surface, drawn } = egressSurface({ width: 4032, height: 3024 });
+    await reencodeForEgress(ORIGINAL, surface);
+    expect(drawn[0].target).toEqual({ width: 1600, height: 1200 });
+  });
+
+  it("answers bare base64, never a data URL", async () => {
+    // §5.1's wire is `images: ["<base64>"]`, and the far side re-attaches a
+    // preamble of its own. A data URL here arrives there double-prefixed.
+    const { surface } = egressSurface({ width: 800, height: 600 });
+    const sealed = await reencodeForEgress(ORIGINAL, surface);
+    expect(sealed.startsWith("data:")).toBe(false);
+    expect(sealed).not.toContain(",");
+  });
+
+  it("refuses a canvas result that is not a base64 data URL", async () => {
+    const surface: PhotoSurface = {
+      decode: async () => ({
+        width: 800,
+        height: 600,
+        redraw: async () => "blob:https://example.test/abcd",
+      }),
+    };
+    await expect(reencodeForEgress(ORIGINAL, surface)).rejects.toThrow(
+      "not a data URL"
+    );
   });
 });
