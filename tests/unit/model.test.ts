@@ -404,8 +404,21 @@ describe("the prompt is the safety mechanism, so it is pinned", () => {
 });
 
 describe("reading the answer: schema-invalid, never sparse", () => {
+  /**
+   * The envelope #541 measured, which carries the answer **twice**: `response`
+   * holding it parsed, and `choices[0].message.content` holding the same thing
+   * as a string. The fixture was `{ response: JSON.stringify(object) }` — a
+   * `response` holding a *string*, which is the one shape the measurement ruled
+   * out and whose arm is now deleted. Every assertion below was riding it.
+   */
   const answered = (object: unknown) => ({
-    response: JSON.stringify(object),
+    response: object,
+    choices: [{ message: { content: JSON.stringify(object) } }],
+  });
+
+  /** Only what REST answers: the string, with no parsed `response` beside it. */
+  const answeredByRest = (text: string) => ({
+    choices: [{ message: { content: text } }],
   });
 
   /**
@@ -421,12 +434,7 @@ describe("reading the answer: schema-invalid, never sparse", () => {
 
   it("reads it out of `choices` too, which is what REST answers", () => {
     const body = { name: null, brand: null, basis: "per_100g", nutrition: {} };
-    expect(readLabelAnswer(answered(body))).toEqual(body);
-    expect(
-      readLabelAnswer({
-        choices: [{ message: { content: JSON.stringify(body) } }],
-      })
-    ).toEqual(body);
+    expect(readLabelAnswer(answeredByRest(JSON.stringify(body)))).toEqual(body);
   });
 
   // Taking `response` as a string, which is what the binding page implies,
@@ -437,11 +445,12 @@ describe("reading the answer: schema-invalid, never sparse", () => {
     });
   });
 
+  // A fence can only arrive on the string arm: `response` is parsed by the
+  // platform, and a fenced string does not parse into an object at all.
   it("reads through a code fence, which is what a prompt regression looks like", () => {
-    const fenced = {
-      response:
-        '```json\n{"name":null,"brand":null,"basis":"per_100g","nutrition":{"fat_g":8}}\n```',
-    };
+    const fenced = answeredByRest(
+      '```json\n{"name":null,"brand":null,"basis":"per_100g","nutrition":{"fat_g":8}}\n```'
+    );
     expect(readLabelAnswer(fenced)?.nutrition).toEqual({ fat_g: 8 });
   });
 
@@ -510,14 +519,31 @@ describe("reading the answer: schema-invalid, never sparse", () => {
     expect(readLabelAnswer(answered(serving))?.basis).toBe("per_serving");
   });
 
+  /**
+   * Asserted on the **string** arm, which is the one where these are not
+   * vacuous. A `response` holding a string is no longer read at all, so
+   * `{ response: "prose" }` would answer `null` for the wrong reason and prove
+   * nothing about the schema.
+   */
   it("refuses an answer it cannot read as a panel", () => {
-    expect(
-      readLabelAnswer({ response: "I could not read that label." })
-    ).toBeNull();
-    expect(readLabelAnswer({ response: "[1,2,3]" })).toBeNull();
-    expect(readLabelAnswer({ response: '{"name":"x"}' })).toBeNull();
+    expect(readLabelAnswer(answeredByRest("I could not read that"))).toBeNull();
+    expect(readLabelAnswer(answeredByRest("[1,2,3]"))).toBeNull();
+    expect(readLabelAnswer(answeredByRest('{"name":"x"}'))).toBeNull();
     expect(readLabelAnswer({})).toBeNull();
     expect(readLabelAnswer(null)).toBeNull();
+  });
+
+  /**
+   * The two arms #541 told us to delete, held deleted.
+   *
+   * Without this the next reader restores one as an obvious kindness and
+   * nothing fails. The claim is narrow: these shapes are **not read**, which is
+   * different from saying the binding will never send them.
+   */
+  it("does not read a `response` holding a string, nor a bare string", () => {
+    const body = { name: null, brand: null, basis: "per_100g", nutrition: {} };
+    expect(answerBodyOf({ response: JSON.stringify(body) })).toBeNull();
+    expect(answerBodyOf(JSON.stringify(body))).toBeNull();
   });
 });
 
@@ -538,8 +564,11 @@ describe("the route answers the task end to end", () => {
     });
 
   it("hands every photograph to the model and returns the reading", async () => {
+    // The envelope the binding really returns: the answer parsed, with the
+    // string beside it.
     const { binding, calls } = recordingModel({
-      response: JSON.stringify(body),
+      response: body,
+      choices: [{ message: { content: JSON.stringify(body) } }],
     });
     const answer = await modelRequest(post(["AAAA", "BBBB"]), binding, KEY2);
 
@@ -549,13 +578,27 @@ describe("the route answers the task end to end", () => {
     expect(calls[0].model).toBe(LABEL_MODEL);
     // Both photographs, as image parts beside one text part.
     const content = (
-      calls[0].inputs as { messages: { content: { type: string }[] }[] }
+      calls[0].inputs as {
+        messages: {
+          content: { type: string; image_url?: { url: string } }[];
+        }[];
+      }
     ).messages[0].content;
-    expect(content.filter((part) => part.type === "image_url")).toHaveLength(2);
+    const images = content.filter((part) => part.type === "image_url");
+    expect(images).toHaveLength(2);
+    // **And the URL itself**, which this test counted and never read. The one
+    // preamble is this side's, over the bare base64 the client sends: a second
+    // one rode in front of it for a release and nothing here could see it.
+    expect(images.map((part) => part.image_url?.url)).toEqual([
+      "data:image/jpeg;base64,AAAA",
+      "data:image/jpeg;base64,BBBB",
+    ]);
   });
 
   it("answers 422 when the model did not answer with a panel", async () => {
-    const { binding } = recordingModel({ response: "sorry, no" });
+    const { binding } = recordingModel({
+      choices: [{ message: { content: "sorry, no" } }],
+    });
     const answer = await modelRequest(post(), binding, KEY2);
     expect(answer.status).toBe(422);
   });
