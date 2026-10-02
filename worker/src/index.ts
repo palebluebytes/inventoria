@@ -60,7 +60,14 @@ const STORE_PATH = "/api/store";
  * closed list — and a task is not an **address** the way a room id or a deposit
  * key is (ADR-0115 §5.1).
  */
-export const MODEL_PATH = "/api/model";
+//
+// **Not exported, and none of the other three are either.** An entry module's
+// exports are the Worker's interface, so workerd type-checks every one of them
+// against "function or ExportedHandler" and refuses to boot otherwise:
+// exporting this for a test to import answered `Incorrect type for map entry
+// 'MODEL_PATH'` and took the whole dev server down with it. The client's
+// restatement is held equal by reading this file instead.
+const MODEL_PATH = "/api/model";
 
 /** The bindings this script is deployed with; see `wrangler.toml`. */
 export interface WorkerEnv {

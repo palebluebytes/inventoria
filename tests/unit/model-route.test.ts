@@ -16,11 +16,11 @@ import {
 } from "../../src/lib/food/model-route";
 import * as worker from "../../worker/src/model";
 import { MODEL_FAULT, MODEL_REQUEST_FAULT } from "../../worker/src/model-label";
-import { MODEL_PATH as WORKER_MODEL_PATH } from "../../worker/src/index";
 import { WIRE_KEYS } from "../../src/lib/food/ai-autofill";
 import { LABEL_KEYS } from "../../worker/src/model-label";
 import { setSecret } from "../../src/lib/stores/secrets";
 import { stubLocalStorage } from "./support/local-storage";
+import { readSource } from "./support/source";
 import { sealedAs, stubPhotoSurface } from "./support/photo-surface";
 
 /**
@@ -77,11 +77,21 @@ describe("one shape, declared twice", () => {
     );
   });
 
+  /**
+   * Against the router's own declaration rather than a literal of its own. Both
+   * sides said `/api/model` and neither could see the other, so this test
+   * pinned a string and a rename on one side would have left it passing while
+   * the route 404'd.
+   *
+   * **Read out of the source, not imported**, and that is not a shortcut. The
+   * four route paths are module-private consts in the router because an entry
+   * module's exports are the Worker's interface: workerd checks each against
+   * "function or ExportedHandler" and refuses to boot on anything else, so
+   * exporting this one for a test took the dev server down with
+   * `Incorrect type for map entry 'MODEL_PATH'`.
+   */
   it("posts to the path the Worker routes", () => {
-    // Against the Worker's own constant, not a literal. Both sides said
-    // "/api/model" and neither could see the other, so a rename on one would
-    // have left the test passing and the route 404ing.
-    expect(MODEL_PATH).toBe(WORKER_MODEL_PATH);
+    expect(readSource("worker/src/index.ts")).toContain(`= "${MODEL_PATH}"`);
   });
 
   it("asks for exactly the keys the prompt asks the model for", () => {
