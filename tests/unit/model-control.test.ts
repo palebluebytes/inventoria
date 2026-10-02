@@ -206,36 +206,76 @@ describe("the offer belongs to the photographs, not to a door", () => {
     expect(predicting).toEqual([]);
   });
 
-  // The failure is atomic and invisible (§9.1), so the line that describes it
-  // must not outlive the next action.
-  it("clears the failure line wherever the form resets", () => {
+  /**
+   * **One seed, three doors**, which is what this block used to assert three
+   * times over. Each door spelled the same three assignments out for itself,
+   * twice with an identical read of the capture attribute, so the census had to
+   * look for each statement in each body and a fourth door could arrive with
+   * none of them. The rule now lives in `seedModelState` and the doors route
+   * through it, so there is one body to read and one call to find.
+   */
+  it("routes every door through the one model-state seed", () => {
     for (const fn of ["resetCustomForm", "openEditForm", "prefillFromPayload"])
-      expect(bodyOf(STAGER, fn), fn).toContain("modelFailure = null");
+      expect(bodyOf(STAGER, fn), fn).toMatch(/seedModelState\(/);
   });
 
   /**
    * ADR-0115 §10's test, and the one an implementer gets wrong: a read applied
    * and then abandoned by switching door must not colour the save that follows.
+   * §9.1's line must not outlive that switch either.
    */
-  it("resets the applied flag wherever the form resets", () => {
-    for (const fn of ["resetCustomForm", "openEditForm", "prefillFromPayload"])
-      expect(bodyOf(STAGER, fn), fn).toContain("modelReadApplied = false");
+  it("drops the applied flag, the failure line and the prior capture", () => {
+    const seed = bodyOf(STAGER, "seedModelState");
+    expect(seed).toContain("modelReadApplied = false");
+    expect(seed).toContain("modelFailure = null");
+    expect(seed).toContain("priorLabelCapture =");
   });
 
   /**
-   * The ratchet needs the envelope the twin already carries, and `edit` is the
-   * door that arrives with one. It was wired on the found-but-poor door first
-   * and **not** on this one, which is the door #511 identified as the whole
-   * case — so the read is asserted per door rather than once.
+   * §11's `saved: false`, which is the half of that field with a reason to
+   * exist: it tells *gave up* from *typed the pack in anyway*.
+   *
+   * It was unreachable. `recordModelSave` was the only writer and
+   * `modelSaved` hardcodes `true`, so every entry the channel ever held said
+   * `saved: true` and an answered-then-abandoned read recorded nothing at all.
+   * A session still in flight is still recorded as nothing —
+   * `closeModelSession` answers `null` for it, which is where that rule lives.
    */
+  it("records an abandoned session where the form walks away from one", () => {
+    const seed = bodyOf(STAGER, "seedModelState");
+    expect(seed).toContain("recordModelSession(modelSession)");
+    expect(seed).toContain("modelSession = null");
+  });
+
   it("reads the prior capture on every door that is handed a twin", () => {
     for (const fn of ["openEditForm", "prefillFromPayload"])
-      expect(bodyOf(STAGER, fn), fn).toContain("priorLabelCapture =");
-    // And drops it where there is no twin at all, so a fresh form cannot
+      expect(bodyOf(STAGER, fn), fn).toMatch(/seedModelState\(attrs\)/);
+    // And passes none where there is no twin at all, so a fresh form cannot
     // inherit the last one's claim.
-    expect(bodyOf(STAGER, "resetCustomForm")).toContain(
-      "priorLabelCapture = null"
-    );
+    expect(bodyOf(STAGER, "resetCustomForm")).toMatch(/seedModelState\(\)/);
+  });
+
+  /**
+   * §9.1's *"cleared by the next press or by any edit"*, which was a claim the
+   * code did not keep: the three resets and the press cleared it and no edit
+   * path did. The three named here are the actions the failure's own copy
+   * invites — *try again*, *fill the panel in below*, *try another shot*.
+   */
+  it("clears the failure line on an edit, which is what §9.1 asks", () => {
+    for (const fn of ["writeRow", "toggleSkip", "skipSection"])
+      expect(bodyOf(STAGER, fn), fn).toContain("modelFailure = null");
+    expect(bodyOf(STAGER, "removePhoto")).toContain("modelFailure = null");
+  });
+
+  /**
+   * §5.1's *"above the cap the client refuses and says so"*. It said so in the
+   * hint and left the press live, so a fifth photograph got the generic
+   * "the model answered, but not with a panel" — a sentence about an answer,
+   * for a request that never left the device — and logged a session with no
+   * egress behind it.
+   */
+  it("does not offer a press it would refuse", () => {
+    expect(STAGER).toMatch(/disabled=\{modelBusy \|\| modelRefusal !== null\}/);
   });
 
   // The rule itself is `provenance.ts`'s and is tested there, one case at a

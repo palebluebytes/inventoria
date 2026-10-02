@@ -127,7 +127,7 @@ export interface ModelLogEntry {
    * How many proposed rows the user **touched** before saving, absent unless the
    * read succeeded.
    *
-   * Touched, not changed: `markVerified` drops a key from `prefilled` on the
+   * Touched, not changed: `writeRow` clears a row's `unverified` flag on the
    * input event, so a row opened and left identical counts. That is the
    * instrument this repo already has, and naming it honestly here is what stops
    * a later reader treating it as an error rate.

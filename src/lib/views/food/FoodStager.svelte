@@ -710,10 +710,17 @@
   /**
    * How the last read failed, or `null`.
    *
-   * Transient by design: cleared by the next press and by any edit, because
-   * ADR-0115 §9.1 makes a failure **atomic and invisible** — the form is
-   * identical to the instant before the press, so a line that outlived the next
-   * action would be the only trace left of something that changed nothing.
+   * Transient by design, because ADR-0115 §9.1 makes a failure **atomic and
+   * invisible** — the form is identical to the instant before the press, so a
+   * line that outlived the next action would be the only trace left of
+   * something that changed nothing.
+   *
+   * Cleared by **the next press, any nutrient-row edit, and any change to the
+   * capture set** — §9.1's "any edit", named rather than implied (as amended
+   * 2026-10-02). Those three are the actions a failure's own copy invites:
+   * *try again*, *fill the panel in below*, *try another shot*. The rest of the
+   * form — the brand, the categories, the portions — is not where a failed read
+   * left a trace, and hooking it would be clearing a line nobody is looking at.
    */
   let modelFailure = $state<ModelOutcome | null>(null);
 
@@ -999,14 +1006,45 @@
     panelDoor = true;
   }
 
+  /**
+   * The model state every door starts from, and the one place it resets.
+   *
+   * Three doors opened this form and each spelled the same three assignments out
+   * for itself, twice with an identical read of the capture attribute. The rule
+   * they were spelling is ADR-0115 §10's — **a read applied and then abandoned
+   * by switching door must not colour the save that follows** — and a rule
+   * restated at three call sites is a rule two of them can drift from.
+   *
+   * `attrs` absent means a door that arrives with no twin (the blank form), so
+   * there is no prior capture to inherit. Where it is present the envelope is
+   * read **on every door**, including the found-but-poor one where it is almost
+   * always `null`: the ratchet keys on the twin's current winner rather than on
+   * which door was used, and a door that quietly skipped it would be the
+   * exception nobody wrote down.
+   *
+   * **It also closes an abandoned session** (§11). A read that answered and was
+   * then walked away from is the `saved: false` half of the field that tells
+   * *gave up* from *typed the pack in anyway*; without this the flag was
+   * constant-true and carried nothing, because `recordModelSave` was the only
+   * writer. A session still in flight records nothing — `closeModelSession`
+   * answers `null` for it, which is where that rule already lives.
+   */
+  function seedModelState(attrs?: Record<string, unknown>) {
+    if (modelSession !== null) {
+      recordModelSession(modelSession);
+      modelSession = null;
+    }
+    modelReadApplied = false;
+    modelFailure = null;
+    priorLabelCapture =
+      (attrs?.[LABEL_CAPTURE_ATTR] as LabelCapture | undefined) ?? null;
+  }
+
   // Blank every custom-form field back to a fresh empty read-along form.
   function resetCustomForm() {
     applyAutofill(emptyAutofillResult());
-    // ADR-0115 §10: a read applied and then abandoned by switching door must not
-    // colour the save that follows, so the flag dies with the form it described.
-    modelReadApplied = false;
-    modelFailure = null;
-    priorLabelCapture = null;
+    // No twin behind this door, so nothing to inherit.
+    seedModelState();
     customCategories = [];
     customIngredients = "";
     customPackQuantity = "";
@@ -1041,16 +1079,9 @@
     seedBasis(info?.serving_size);
     customRows = nutrientRows(info);
     seedPortionRows(attrs[FOOD_PORTIONS_ATTR] as Portion[] | undefined);
-    modelReadApplied = false;
-    modelFailure = null;
-    // The same read as the edit door's, and it is almost always `null` here: a
-    // found-but-poor twin came from Open Food Facts, so it carries no capture of
-    // this device's own. It is taken anyway because the ratchet keys on the
-    // twin's current winner rather than on which door was used (ADR-0115 §10),
-    // and a door that quietly skipped it would be the exception nobody wrote
-    // down.
-    priorLabelCapture =
-      (attrs[LABEL_CAPTURE_ATTR] as LabelCapture | undefined) ?? null;
+    // Almost always `null` here: a found-but-poor twin came from Open Food
+    // Facts, so it carries no capture of this device's own.
+    seedModelState(attrs);
     // The user starts with no captured photos of their own here.
     labelPhotos = [];
     // OFF's own photos ride alongside as a read-only reference to read the label
@@ -1110,16 +1141,11 @@
     // values being the one door that draws no amber (ADR-0115 §8).
     customRows = nutrientRows(info);
     seedPortionRows(attrs[FOOD_PORTIONS_ATTR] as Portion[] | undefined);
-    modelReadApplied = false;
-    modelFailure = null;
     // **The door the ratchet exists for** (ADR-0115 §10). A twin saved
     // `"ai-confirmed"` and re-opened here to fix the brand, with no read, must
     // inherit that claim rather than write `"manual"` over it — `"manual"` is
-    // the stronger of the two, so a later hand-edit would be laundering. The
-    // envelope is already in hand: this call site receives the whole attributes
-    // map and reads six others off it, and this is the one it walked past.
-    priorLabelCapture =
-      (attrs[LABEL_CAPTURE_ATTR] as LabelCapture | undefined) ?? null;
+    // the stronger of the two, so a later hand-edit would be laundering.
+    seedModelState(attrs);
     // The twin's own captured photos re-open in the user's capture set (editable),
     // not as OFF reference shots — this is the user editing their own capture.
     const photos = attrs["food/label_photos"] as string[] | undefined;
@@ -1336,6 +1362,7 @@
     if (!row) return;
     row.text = text;
     row.unverified = false;
+    modelFailure = null;
   }
   function toggleSkip(key: string) {
     const row = rowFor(key);
@@ -1345,6 +1372,7 @@
       row.text = "";
       row.unverified = false;
     }
+    modelFailure = null;
   }
   // One tap clears a whole section: mark every still-empty row "not on label".
   function skipSection(fields: FieldDef[]) {
@@ -1354,6 +1382,7 @@
       row.skipped = true;
       row.unverified = false;
     }
+    modelFailure = null;
   }
 
   // ── OFF contribution (ADR-0034 §8) ─────────────────────────────────────────
@@ -2207,7 +2236,10 @@
       const read = outcomes
         .filter((o) => o.status === "fulfilled")
         .map((o) => (o as PromiseFulfilledResult<string>).value);
-      if (read.length) labelPhotos = [...labelPhotos, ...read];
+      if (read.length) {
+        labelPhotos = [...labelPhotos, ...read];
+        modelFailure = null;
+      }
       if (read.length < files.length) {
         status = "error";
         error =
@@ -2222,6 +2254,7 @@
   function removePhoto(i: number) {
     labelPhotos = labelPhotos.filter((_, idx) => idx !== i);
     if (labelPhotos.length === 0) readerIndex = null;
+    modelFailure = null;
   }
 
   function switchMethod(m: string) {
@@ -3011,13 +3044,22 @@
                          It is never hidden and never disabled on connectivity:
                          `navigator.onLine` appears nowhere in this app, neither
                          network feature predicts the radio, and a feature that
-                         vanishes on a train is unfindable forever afterwards. -->
+                         vanishes on a train is unfindable forever afterwards.
+
+                         It IS disabled on a refusal, which is a different thing
+                         (§5.1: "above the cap the client refuses and says so").
+                         The refusal line below says which ceiling; leaving the
+                         press live meant the user got the generic "the model
+                         answered, but not with a panel" instead — a sentence
+                         about an answer, for a request that never left the
+                         device, and a logged session with no egress behind
+                         it. -->
                     <div class="cf-model" data-testid="model-control">
                       <Button
                         variant="secondary"
                         size="sm"
                         data-testid="model-read-btn"
-                        disabled={modelBusy}
+                        disabled={modelBusy || modelRefusal !== null}
                         onclick={pressModelControl}
                       >
                         {modelBusy
