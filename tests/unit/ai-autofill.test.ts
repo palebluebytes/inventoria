@@ -15,6 +15,11 @@ import {
 } from "../../src/lib/food/model-route";
 import { BASIS_PRESETS } from "../../src/lib/food/label-form";
 import { stubLocalStorage } from "./support/local-storage";
+import { sealedAs, stubPhotoSurface } from "./support/photo-surface";
+
+/** A photograph as the capture array holds it — a data URL, not bare base64. */
+const PHOTO = "data:image/png;base64,QUFBQQ==";
+const PHOTO_2 = "data:image/png;base64,QkJCQg==";
 
 /**
  * The normaliser, over the readings the prototype actually measured
@@ -281,13 +286,18 @@ describe("the seam takes N photographs and throws its classes", () => {
     );
     vi.stubGlobal("fetch", fetchMock);
 
-    const result = await autofillFromPackageImage(["AAAA", "BBBB"]);
+    const result = await autofillFromPackageImage(
+      [PHOTO, PHOTO_2],
+      stubPhotoSurface()
+    );
 
     const body = JSON.parse(
       (fetchMock.mock.calls[0] as unknown as [string, RequestInit])[1]
         .body as string
     );
-    expect(body.images).toEqual(["AAAA", "BBBB"]);
+    // Both photographs went, in order, and each as the bare base64 §5.1's wire
+    // carries — re-encoded on the way out, so no EXIF rides along (§3.1).
+    expect(body.images).toEqual([sealedAs(0), sealedAs(1)]);
     expect(result.nutrition.calories).toBe(899);
     expect(result.nutrition).not.toHaveProperty("fiber_content");
   });
@@ -298,8 +308,8 @@ describe("the seam takes N photographs and throws its classes", () => {
       "fetch",
       vi.fn(async () => new Response("", { status: 503 }))
     );
-    await expect(autofillFromPackageImage(["AAAA"])).rejects.toBeInstanceOf(
-      ModelUnreachableError
-    );
+    await expect(
+      autofillFromPackageImage([PHOTO], stubPhotoSurface())
+    ).rejects.toBeInstanceOf(ModelUnreachableError);
   });
 });

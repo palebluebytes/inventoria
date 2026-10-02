@@ -1,5 +1,6 @@
 import { BASIS_PRESETS, type Basis } from "./label-form";
-import type { NutritionInfo } from "./nutrition";
+import { SALT_TO_SODIUM, type NutritionInfo } from "./nutrition";
+import type { PhotoSurface } from "./image-file";
 import type { ModelOutcome } from "../logs/model-log";
 import {
   askModel,
@@ -104,11 +105,35 @@ export function emptyAutofillResult(): AIAutofillResult {
  *
  * Every `*_content` field and every micro is stored in **grams**, which is why
  * the micros divide and the macros do not.
+ *
+ * **The keys are a named list, restated from `worker/src/model-label.ts`'s
+ * `LABEL_KEYS` and held equal by a test.** They were a bare `Record<string, …>`
+ * read through `?.()`, which is the one restatement on this seam that nothing
+ * held: renaming `fiber_g` on the far side compiled, passed every test, and
+ * silently stopped writing the fibre row — the failure mode `MODEL_TASKS` and
+ * both ceilings already pay a test to prevent. `satisfies` carries the other
+ * half: a key here with no writer, or a writer for a key the request never
+ * asks for, now fails the typecheck.
  */
-const WIRE_TO_PANEL: Record<
-  string,
-  (panel: Partial<NutritionInfo>, value: number) => void
-> = {
+export const WIRE_KEYS = [
+  "energy_kcal",
+  "fat_g",
+  "saturated_fat_g",
+  "carbohydrate_g",
+  "sugar_g",
+  "fiber_g",
+  "protein_g",
+  "salt_g",
+  "vitamin_d_ug",
+  "calcium_mg",
+  "iron_mg",
+  "potassium_mg",
+] as const;
+
+/** One of the twelve. A thirteenth needs a writer below or it will not compile. */
+export type WireKey = (typeof WIRE_KEYS)[number];
+
+const WIRE_TO_PANEL = {
   energy_kcal: (p, v) => void (p.calories = v),
   fat_g: (p, v) => void (p.fat_content = v),
   saturated_fat_g: (p, v) => void (p.saturated_fat_content = v),
@@ -122,31 +147,22 @@ const WIRE_TO_PANEL: Record<
   calcium_mg: (p, v) => void (p.calcium = v * 1e-3),
   iron_mg: (p, v) => void (p.iron = v * 1e-3),
   potassium_mg: (p, v) => void (p.potassium = v * 1e-3),
-};
+} satisfies Record<
+  WireKey,
+  (panel: Partial<NutritionInfo>, value: number) => void
+>;
 
-/**
- * Salt as printed becomes sodium as stored, and this division is **ours**.
- *
- * ADR-0115 §6.2: asking the model to divide would be a computed number reaching
- * a panel, which rule 3 refuses — so the wire carries `salt_g` exactly as the
- * label prints it and the only arithmetic happens here. ADR-0021's 2026-08-14
- * Amendment fixes the ratio and the direction: *read sodium, never salt; the
- * two differ by roughly the 2.5x conversion.*
- *
- * **It is also the one row the user cannot check.** Every other proposed figure
- * is the printed figure and the review is a comparison; this one is a jar
- * printing `Salt 0,6 g` proposing 0.24 g of sodium, and no amount of looking at
- * the pack confirms that. The confirm step is the whole safety mechanism
- * everywhere else and is not one here, which is why it is worth its own
- * constant and its own paragraph.
- *
- * Related and deliberately not fixed here: `label-form.ts` labels this row
- * `"Salt / sodium"` in mg where every EU label prints salt in grams, and no
- * `÷ 2.5` exists on the hand-typed path at all
- * ([#508](https://github.com/palebluebytes/inventoria/issues/508)). That defect
- * predates this path and is filed against it.
- */
-const SALT_TO_SODIUM = 2.5;
+// Salt as printed becomes sodium as stored, and the ratio is `nutrition.ts`'s
+// {@link SALT_TO_SODIUM} — one constant, now that #508 gave the hand-typed path
+// the same conversion. ADR-0115 §6.2 is why the division happens on this side at
+// all: asking the model to divide would be a computed number reaching a panel,
+// which rule 3 refuses, so the wire carries `salt_g` exactly as printed.
+//
+// **It is the one row the user cannot check**, and that is worth its own
+// paragraph. Every other proposed figure is the printed figure and the review is
+// a comparison; this one is a jar printing `Salt 0,6 g` proposing 0.24 g of
+// sodium, and no amount of looking at the pack confirms it. The confirm step is
+// the whole safety mechanism everywhere else and is not one here.
 
 /**
  * Which wire bases the app has a type for.
@@ -197,10 +213,22 @@ export function normaliseLabelReading(reading: LabelReading): AIAutofillResult {
   }
 
   const nutrition: Partial<NutritionInfo> = {};
-  for (const [wireKey, value] of Object.entries(reading.nutrition ?? {})) {
-    if (value === null || typeof value !== "number" || !Number.isFinite(value))
+  // **Driven by the contract's keys, not the response's**, which is what makes
+  // "a key the contract did not ask for is ignored" structural rather than a
+  // lookup that happened to miss. It also retires the `?.`: every key here has
+  // a writer by construction.
+  //
+  // The shape is `model-route.ts:labelReadingOf`'s to guarantee, so nothing
+  // re-checks that a value is a number. `Number.isFinite` is not that re-check:
+  // `JSON.parse` answers `Infinity` and `NaN` for no input — neither is JSON —
+  // but a boundary validating `typeof v === "number"` admits both if a body
+  // ever reaches here another way, and either writes a panel row no arithmetic
+  // recovers from.
+  for (const key of WIRE_KEYS) {
+    const value = reading.nutrition[key];
+    if (value === null || value === undefined || !Number.isFinite(value))
       continue;
-    WIRE_TO_PANEL[wireKey]?.(nutrition, value);
+    WIRE_TO_PANEL[key](nutrition, value);
   }
 
   return {
@@ -225,11 +253,16 @@ export function normaliseLabelReading(reading: LabelReading): AIAutofillResult {
  * {@link modelOutcomeOf} is what a caller turns those into. Nothing partial is
  * ever returned: ADR-0115 §9.1 makes a failure atomic, so the form is identical
  * to the instant before the press.
+ *
+ * `surface` is `askModel`'s test seam, passed straight through and never by the
+ * app: the photographs are re-encoded on their way out (§3.1) and the runner
+ * has no canvas to do it with.
  */
 export async function autofillFromPackageImage(
-  images: string[]
+  images: string[],
+  surface?: PhotoSurface | null
 ): Promise<AIAutofillResult> {
-  return normaliseLabelReading(await askModel("label", images));
+  return normaliseLabelReading(await askModel("label", images, surface));
 }
 
 /**
