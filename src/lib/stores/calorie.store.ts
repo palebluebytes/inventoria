@@ -29,6 +29,7 @@ import {
   type NutritionExtras,
   type Portion,
 } from "../food/nutrition";
+import { LABEL_CAPTURE_ATTR } from "../food/provenance";
 import type {
   FrozenPairing,
   LabelCapture,
@@ -622,7 +623,7 @@ export async function saveLabelFood(input: LabelFoodInput): Promise<string> {
     // The panel is stored verbatim — the form already omitted untouched rows, so
     // this writer must not fabricate a 0 for a nutrient the label didn't carry.
     "nutrition/info": input.nutrition,
-    "food/label_capture": input.labelCapture,
+    [LABEL_CAPTURE_ATTR]: input.labelCapture,
   };
   if (input.brand) attributes["food/brand"] = input.brand;
   if (input.category) attributes["food/category"] = input.category;

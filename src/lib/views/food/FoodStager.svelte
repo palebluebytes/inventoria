@@ -34,7 +34,6 @@
   import { frecencyOf } from "../../food/frecency";
   import { ledgerFoodsFromEvents } from "../../food/ledger-foods";
   import { offContributeDefault } from "../../stores/device-settings";
-  import { secretsStore } from "../../stores/secrets";
   import {
     amountAgainstBasis,
     openingUnit,
@@ -82,6 +81,9 @@
   } from "../../food/label-form";
   import {
     buildLabelCapture,
+    ratchetLabelMethod,
+    LABEL_CAPTURE_ATTR,
+    type LabelCapture,
     type ManualEntryKind,
   } from "../../food/provenance";
   import {
@@ -130,6 +132,36 @@
   import { onDestroy } from "svelte";
   import { Tabs, Combobox } from "bits-ui";
   import Alert from "../../ui/Alert.svelte";
+  import {
+    autofillFromPackageImage,
+    modelOutcomeOf,
+  } from "../../food/ai-autofill";
+  import {
+    modelRequestRefusal,
+    ModelUnusableError,
+  } from "../../food/model-route";
+  import {
+    MODEL_FAILURE_COPY,
+    offersRetry,
+    READ_LABEL_LABEL,
+    sendDisclosure,
+    TAKE_PHOTO_HINT,
+    TAKE_PHOTO_LABEL,
+  } from "../../food/model-copy";
+  import {
+    beginModelSession,
+    modelAnswered,
+    modelSaved,
+    recordModelSession,
+    MODEL_IDS,
+    type ModelOutcome,
+    type ModelSession,
+  } from "../../logs/model-log";
+  import {
+    modelEgressExplained,
+    setModelEgressExplained,
+  } from "../../stores/device-settings";
+  import { secretsStore } from "../../stores/secrets";
   import Button from "../../ui/Button.svelte";
   import Checkbox from "../../ui/Checkbox.svelte";
   import FieldCaption from "../../ui/FieldCaption.svelte";
@@ -143,6 +175,7 @@
   import PackPairingSheet from "./PackPairingSheet.svelte";
   import ManualEntryFlow from "./ManualEntryFlow.svelte";
   import CommitButton from "./CommitButton.svelte";
+  import ModelEgressSheet from "./ModelEgressSheet.svelte";
   import NovaExplainerSheet from "./NovaExplainerSheet.svelte";
   import SourceExplainerSheet from "./SourceExplainerSheet.svelte";
   import { curatedStandInFor } from "../../food/curated-foods";
@@ -660,6 +693,79 @@
   // save time (in saveLabelFood, #56), so the array is purely additive.
   let labelPhotos = $state<string[]>([]);
   let fileInput = $state<HTMLInputElement | null>(null);
+
+  // ---------------------------------------------------------------------------
+  // The one readable egress (ADR-0115 §8)
+  // ---------------------------------------------------------------------------
+  //
+  // The offer belongs to the **photographs**, not to a door. Every door reaches
+  // this same inline markup, and they differ only in whether `labelPhotos` is
+  // empty on arrival — so there is one control in one place, with two states
+  // keyed on `labelPhotos.length`, rather than four copies of a disclosure and
+  // four places for the first-use sheet to fire.
+
+  /** A read is in flight. The control is a spinner and cannot be pressed twice. */
+  let modelBusy = $state(false);
+
+  /**
+   * How the last read failed, or `null`.
+   *
+   * Transient by design, because ADR-0115 §9.1 makes a failure **atomic and
+   * invisible** — the form is identical to the instant before the press, so a
+   * line that outlived the next action would be the only trace left of
+   * something that changed nothing.
+   *
+   * Cleared by **the next press, any nutrient-row edit, and any change to the
+   * capture set** — §9.1's "any edit", named rather than implied (as amended
+   * 2026-10-02). Those three are the actions a failure's own copy invites:
+   * *try again*, *fill the panel in below*, *try another shot*. The rest of the
+   * form — the brand, the categories, the portions — is not where a failed read
+   * left a trace, and hooking it would be clearing a line nobody is looking at.
+   */
+  let modelFailure = $state<ModelOutcome | null>(null);
+
+  /** The egress sheet, and whether this opening is the one that gates a send. */
+  let modelSheet = $state<"none" | "gating" | "reading">("none");
+
+  /**
+   * The session this read will record, held across the await.
+   *
+   * It is **not** reset by `resetCustomForm`: a session is closed when the read
+   * settles or the form is saved, and clearing it on a door switch would lose
+   * the record of an ask that genuinely happened.
+   */
+  let modelSession = $state<ModelSession | null>(null);
+
+  /**
+   * Whether a read was applied to the form as it now stands.
+   *
+   * ADR-0115 §10's test, and the one thing an implementer gets wrong: it must
+   * reset **wherever the form resets**, so a read applied and then abandoned by
+   * switching door cannot colour the save that follows.
+   */
+  let modelReadApplied = $state(false);
+
+  /**
+   * How many rows the last applied read proposed.
+   *
+   * Held because the count the Log wants is *how many of them the user
+   * touched*, and the unverified rows shrink as they do — so the difference
+   * between this and {@link toReview} **is** that count, read off what the form
+   * already keeps rather than tracked a second time.
+   */
+  let modelProposedCount = $state(0);
+
+  /**
+   * The `food/label_capture` this twin already carried, on the one door that
+   * arrives with one.
+   *
+   * It is what makes ADR-0115 §10's ratchet possible: a twin saved
+   * `"ai-confirmed"` and re-opened later to fix the brand, with **no read**,
+   * must not write `"manual"` over it. `"manual"` is the stronger claim of the
+   * two, so an inherit-or-upgrade rule is what stops a later hand-edit
+   * laundering model output into it.
+   */
+  let priorLabelCapture = $state<LabelCapture | null>(null);
   // Open the full-screen reader on this index; null = closed.
   let readerIndex = $state<number | null>(null);
 
@@ -900,9 +1006,45 @@
     panelDoor = true;
   }
 
+  /**
+   * The model state every door starts from, and the one place it resets.
+   *
+   * Three doors opened this form and each spelled the same three assignments out
+   * for itself, twice with an identical read of the capture attribute. The rule
+   * they were spelling is ADR-0115 §10's — **a read applied and then abandoned
+   * by switching door must not colour the save that follows** — and a rule
+   * restated at three call sites is a rule two of them can drift from.
+   *
+   * `attrs` absent means a door that arrives with no twin (the blank form), so
+   * there is no prior capture to inherit. Where it is present the envelope is
+   * read **on every door**, including the found-but-poor one where it is almost
+   * always `null`: the ratchet keys on the twin's current winner rather than on
+   * which door was used, and a door that quietly skipped it would be the
+   * exception nobody wrote down.
+   *
+   * **It also closes an abandoned session** (§11). A read that answered and was
+   * then walked away from is the `saved: false` half of the field that tells
+   * *gave up* from *typed the pack in anyway*; without this the flag was
+   * constant-true and carried nothing, because `recordModelSave` was the only
+   * writer. A session still in flight records nothing — `closeModelSession`
+   * answers `null` for it, which is where that rule already lives.
+   */
+  function seedModelState(attrs?: Record<string, unknown>) {
+    if (modelSession !== null) {
+      recordModelSession(modelSession);
+      modelSession = null;
+    }
+    modelReadApplied = false;
+    modelFailure = null;
+    priorLabelCapture =
+      (attrs?.[LABEL_CAPTURE_ATTR] as LabelCapture | undefined) ?? null;
+  }
+
   // Blank every custom-form field back to a fresh empty read-along form.
   function resetCustomForm() {
     applyAutofill(emptyAutofillResult());
+    // No twin behind this door, so nothing to inherit.
+    seedModelState();
     customCategories = [];
     customIngredients = "";
     customPackQuantity = "";
@@ -937,6 +1079,9 @@
     seedBasis(info?.serving_size);
     customRows = nutrientRows(info);
     seedPortionRows(attrs[FOOD_PORTIONS_ATTR] as Portion[] | undefined);
+    // Almost always `null` here: a found-but-poor twin came from Open Food
+    // Facts, so it carries no capture of this device's own.
+    seedModelState(attrs);
     // The user starts with no captured photos of their own here.
     labelPhotos = [];
     // OFF's own photos ride alongside as a read-only reference to read the label
@@ -991,8 +1136,16 @@
     // same mapping that resolved it on save.
     seedBasis(info?.serving_size);
     // Editing your own saved values — nothing is "unverified" (no amber accent).
+    // A read on THIS door therefore has to repopulate it: `applyAutofill` does,
+    // which is what stops the one door where a proposal overwrites confirmed
+    // values being the one door that draws no amber (ADR-0115 §8).
     customRows = nutrientRows(info);
     seedPortionRows(attrs[FOOD_PORTIONS_ATTR] as Portion[] | undefined);
+    // **The door the ratchet exists for** (ADR-0115 §10). A twin saved
+    // `"ai-confirmed"` and re-opened here to fix the brand, with no read, must
+    // inherit that claim rather than write `"manual"` over it — `"manual"` is
+    // the stronger of the two, so a later hand-edit would be laundering.
+    seedModelState(attrs);
     // The twin's own captured photos re-open in the user's capture set (editable),
     // not as OFF reference shots — this is the user editing their own capture.
     const photos = attrs["food/label_photos"] as string[] | undefined;
@@ -1079,6 +1232,123 @@
     customBasis ? buildLabelPanel(customRows, customBasis) : null
   );
 
+  // ---------------------------------------------------------------------------
+  // Asking the model (ADR-0115 §8, §9)
+  // ---------------------------------------------------------------------------
+
+  /** Whether this device holds an operator key at all. */
+  let hasModelKey = $derived($secretsStore.model_route_key.trim() !== "");
+
+  /**
+   * What the control is right now, which is the whole of the door question.
+   *
+   * Empty capture array means it is the **camera** and says so; a loaded one
+   * means it is the **send**, carrying the disclosure with the count
+   * interpolated. Nothing else varies per door: a banner and a key are what a
+   * door is, and neither is an affordance.
+   */
+  let modelControl = $derived(labelPhotos.length === 0 ? "camera" : "send");
+
+  /**
+   * Why a send would be refused before it is offered, or `null`.
+   *
+   * Asked **before** the tap rather than after it, because the disclosure names
+   * a count and a request the route would refuse must never be offered with
+   * that count on the button.
+   */
+  let modelRefusal = $derived(
+    labelPhotos.length === 0 ? null : modelRequestRefusal("label", labelPhotos)
+  );
+
+  /**
+   * The control's press.
+   *
+   * With no photographs it is the picker. With no key it opens the first-use
+   * sheet rather than meeting a disabled button — TMDB's standing Alert is
+   * refused on a difference in kind (ADR-0115 §9.2). On the first send of this
+   * device's life the sheet **gates**; afterwards the tap is the agreement,
+   * because the button's own copy carries the disclosure.
+   */
+  function pressModelControl() {
+    if (modelControl === "camera") {
+      fileInput?.click();
+      return;
+    }
+    if (!hasModelKey || !$modelEgressExplained) {
+      modelSheet = "gating";
+      return;
+    }
+    void readLabelWithModel();
+  }
+
+  /** The affirmative button on the gating sheet: agreed once, then sent. */
+  function acceptModelEgress() {
+    setModelEgressExplained(true);
+    modelSheet = "none";
+    void readLabelWithModel();
+  }
+
+  /**
+   * Send the photographs, and apply what comes back — or nothing at all.
+   *
+   * **A failure is atomic and invisible** (§9.1): nothing is applied, ever
+   * partially, so on any throw the form is identical to the instant before the
+   * press. That is why `applyAutofill` is reached only on the success path, and
+   * why there is no partial-merge branch to get wrong.
+   *
+   * **A read on the `edit` door replaces the whole panel and repopulates the
+   * amber**, which falls out of `applyAutofill` doing both: `openEditForm`
+   * re-seeds its rows with nothing amber, so without a re-fill the one door
+   * where a proposal overwrites confirmed values would be the one door drawing
+   * no "to review" chip at all.
+   *
+   * **No automatic retry**, and the one Try again is the user's press.
+   */
+  async function readLabelWithModel() {
+    if (modelBusy) return;
+    modelFailure = null;
+    modelBusy = true;
+    const session = beginModelSession(MODEL_IDS[0], labelPhotos.length);
+    modelSession = session;
+    try {
+      const result = await autofillFromPackageImage(labelPhotos);
+      applyAutofill(result);
+      modelProposedCount = toReview;
+      modelReadApplied = true;
+      modelSession = modelAnswered(session, "ok");
+    } catch (failure) {
+      // The screen branches on the outcome, never on a status, so the log and
+      // the line the user reads cannot come to disagree about what happened.
+      const outcome = modelOutcomeOf(failure);
+      modelFailure = outcome;
+      modelSession = modelAnswered(session, outcome);
+      // The session is closed here rather than at save: a failed read leaves the
+      // form untouched, so there is nothing further this ask will learn unless
+      // the user saves anyway — which `recordModelSave` covers.
+    } finally {
+      modelBusy = false;
+    }
+  }
+
+  /**
+   * Close the session when the form reaches the Ledger.
+   *
+   * `saved` is true after a **failed** read too, which is the whole reason it
+   * is carried: it tells *gave up* from *typed the pack in anyway*. `corrected`
+   * counts rows **touched**, not rows changed — `writeRow` clears a row's
+   * accent on the input event — and is recorded only where the read succeeded.
+   */
+  function recordModelSave() {
+    const session = modelSession;
+    if (session === null) return;
+    recordModelSession(modelSaved(session, modelCorrectedCount()));
+    modelSession = null;
+  }
+
+  function modelCorrectedCount(): number {
+    return Math.max(0, modelProposedCount - toReview);
+  }
+
   /** The row a field's boxes read and write. One lookup, so the template never
    *  indexes state by a key the catalogue might not hold. */
   function rowFor(key: string): NutrientRow | undefined {
@@ -1092,6 +1362,7 @@
     if (!row) return;
     row.text = text;
     row.unverified = false;
+    modelFailure = null;
   }
   function toggleSkip(key: string) {
     const row = rowFor(key);
@@ -1101,6 +1372,7 @@
       row.text = "";
       row.unverified = false;
     }
+    modelFailure = null;
   }
   // One tap clears a whole section: mark every still-empty row "not on label".
   function skipSection(fields: FieldDef[]) {
@@ -1110,6 +1382,7 @@
       row.skipped = true;
       row.unverified = false;
     }
+    modelFailure = null;
   }
 
   // ── OFF contribution (ADR-0034 §8) ─────────────────────────────────────────
@@ -1938,7 +2211,13 @@
     if (!outcome.ok) {
       status = "error";
       error = outcome.message ?? "Could not use this food.";
+      return;
     }
+    // The one place a choice reaches the host, so the one place that can say a
+    // form reached the Ledger. It no-ops unless a read was asked for on this
+    // form, and it is true after a **failed** read too — which is what tells
+    // "gave up" from "typed the pack in anyway" (ADR-0115 §11).
+    recordModelSave();
   }
 
   // Each pick APPENDS to the ordered array (a label can span several photos, §5)
@@ -1957,7 +2236,10 @@
       const read = outcomes
         .filter((o) => o.status === "fulfilled")
         .map((o) => (o as PromiseFulfilledResult<string>).value);
-      if (read.length) labelPhotos = [...labelPhotos, ...read];
+      if (read.length) {
+        labelPhotos = [...labelPhotos, ...read];
+        modelFailure = null;
+      }
       if (read.length < files.length) {
         status = "error";
         error =
@@ -1972,6 +2254,7 @@
   function removePhoto(i: number) {
     labelPhotos = labelPhotos.filter((_, idx) => idx !== i);
     if (labelPhotos.length === 0) readerIndex = null;
+    modelFailure = null;
   }
 
   function switchMethod(m: string) {
@@ -2065,7 +2348,12 @@
       const { nutrition, filledKeys } = builtPanel;
       const portions = buildPortions(customPortions);
       const photos = allowPhoto ? labelPhotos : [];
-      // Audit hint (§7): the coarse categories the user actually supplied.
+      // Audit hint (§7): what this capture **covered**, never who authored it.
+      // The record's own inline comment said "what the user supplied/edited" and
+      // the code has never computed that — this list is built from what the form
+      // ended up holding, with no edit tracking anywhere, so on the edit door it
+      // has always listed rows seeded from the twin that nobody touched.
+      // ADR-0115 §10 corrects the sentence and keeps the behaviour.
       const fields = [
         ...(customName.trim() ? ["name"] : []),
         ...(customBrand.trim() ? ["brand"] : []),
@@ -2074,7 +2362,10 @@
         ...(portions.length ? ["portions"] : []),
       ];
       const labelCapture = buildLabelCapture({
-        method: "manual",
+        // ADR-0115 §10's one-way ratchet, which is a rule about what the ledger
+        // may claim and therefore lives where it can be tested one case at a
+        // time rather than as an expression here.
+        method: ratchetLabelMethod(modelReadApplied, priorLabelCapture),
         basis: nutrition.serving_size,
         fields,
       });
@@ -2738,6 +3029,94 @@
                     </div>
                   </div>
 
+                  {#if allowPhoto}
+                    <!-- The app's one readable egress, offered on the photo row
+                         beside the thumbnail it acts on (ADR-0115 §8). One
+                         control, never per door: the doors differ only in
+                         whether the capture array is empty on arrival, and that
+                         difference is exactly the two states below.
+
+                         Empty is the CAMERA and says so, which is the common
+                         case rather than an edge — on a phone every scan door
+                         arrives photo-less. Loaded is the SEND, carrying the
+                         disclosure with the count interpolated.
+
+                         It is never hidden and never disabled on connectivity:
+                         `navigator.onLine` appears nowhere in this app, neither
+                         network feature predicts the radio, and a feature that
+                         vanishes on a train is unfindable forever afterwards.
+
+                         It IS disabled on a refusal, which is a different thing
+                         (§5.1: "above the cap the client refuses and says so").
+                         The refusal line below says which ceiling; leaving the
+                         press live meant the user got the generic "the model
+                         answered, but not with a panel" instead — a sentence
+                         about an answer, for a request that never left the
+                         device, and a logged session with no egress behind
+                         it. -->
+                    <div class="cf-model" data-testid="model-control">
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        data-testid="model-read-btn"
+                        disabled={modelBusy || modelRefusal !== null}
+                        onclick={pressModelControl}
+                      >
+                        {modelBusy
+                          ? "Reading…"
+                          : modelControl === "camera"
+                            ? TAKE_PHOTO_LABEL
+                            : READ_LABEL_LABEL}
+                      </Button>
+                      <!-- The helper line is always shown and never inside a
+                           Disclosure that can be collapsed: it is what makes the
+                           tap informed rather than merely deliberate, which is
+                           the whole of why there is no checkbox. -->
+                      <p class="cf-model-hint" data-testid="model-hint">
+                        {#if modelControl === "camera"}
+                          {TAKE_PHOTO_HINT}
+                        {:else if modelRefusal !== null}
+                          {modelRefusal}
+                        {:else}
+                          {sendDisclosure(labelPhotos.length)}
+                        {/if}
+                      </p>
+                      <!-- Reachable afterwards, because the sheet's retention
+                           paragraph is the only place the app ever states what
+                           it does not know about what Cloudflare keeps. -->
+                      <button
+                        type="button"
+                        class="cf-model-mark"
+                        data-testid="model-explain"
+                        aria-label="What gets sent, and to whom"
+                        onclick={() => (modelSheet = "reading")}>ⓘ</button
+                      >
+                    </div>
+
+                    {#if modelFailure !== null}
+                      <!-- Name the cause, deny the wrong inference, hand over the
+                           recovery — the house voice both existing network lines
+                           already use. The repeated last clause IS the stance
+                           said on screen: this is a bonus that is allowed to be
+                           absent, never a dependency. -->
+                      <div class="mt" data-testid="model-failure">
+                        <Alert variant="warning">
+                          <p>{MODEL_FAILURE_COPY[modelFailure]}</p>
+                          {#if offersRetry(modelFailure)}
+                            <Button
+                              variant="secondary"
+                              size="sm"
+                              class="off-retry"
+                              data-testid="model-retry"
+                              onclick={() => void readLabelWithModel()}
+                              >Try again</Button
+                            >
+                          {/if}
+                        </Alert>
+                      </div>
+                    {/if}
+                  {/if}
+
                   <div class="cf-basis">
                     <div class="cf-pack">
                       <FieldCaption for="cf-pack-size">Pack size</FieldCaption>
@@ -3269,6 +3648,15 @@
   <!-- NOVA explainer (#92, ADR-0041 §6): the tapped verdict's tap-through sheet,
        mounted off `novaExplain` and closed back to null. #91 owns the tappable
        badge; this owns the sheet body. -->
+  {#if modelSheet !== "none"}
+    <ModelEgressSheet
+      gating={modelSheet === "gating"}
+      hasKey={hasModelKey}
+      onAccept={acceptModelEgress}
+      onClose={() => (modelSheet = "none")}
+    />
+  {/if}
+
   <NovaExplainerSheet
     verdict={novaExplain}
     onClose={() => (novaExplain = null)}
@@ -3354,6 +3742,33 @@
   /* The retry beside the unreachable message (#204). Only its spacing under the
      sentence lives here; the frame is the shared Button's. `:global` for the
      same reason `.escape` needs it — the class rides a child component. */
+  /* The egress control sits on the photo row, under the identity card, as one
+     line: the act, what it discloses, and the way back to the long version. */
+  .cf-model {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2xs);
+    flex-wrap: wrap;
+    margin-top: var(--space-xs);
+  }
+  .cf-model-hint {
+    flex: 1 1 12rem;
+    margin: 0;
+    font-size: var(--step-n2);
+    color: var(--text-secondary);
+    line-height: 1.35;
+  }
+  /* A mark rather than a second button: the explanation is always reachable and
+     never the act, so it must not read as an alternative to pressing. */
+  .cf-model-mark {
+    min-width: var(--tap-min);
+    min-height: var(--tap-min);
+    border: 0;
+    background: none;
+    color: var(--text-secondary);
+    font-size: var(--step-0);
+    cursor: pointer;
+  }
   .mt :global(.off-retry) {
     margin-top: var(--space-xs);
   }
@@ -3849,7 +4264,7 @@
     opacity: 0.5;
   }
   /* Restrained AI-confirm "unverified" accent — a left rule + faint wash, not a
-     loud fill; clears the instant the row is edited (markReviewed), §4. */
+     loud fill; clears the instant the row is edited (writeRow), §4. */
   .cf-row.unverified {
     box-shadow: inset 3px 0 0 var(--amber-bg);
     background: rgba(255, 204, 0, 0.09);

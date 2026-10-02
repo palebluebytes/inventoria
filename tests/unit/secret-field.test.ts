@@ -118,6 +118,9 @@ describe("the secret-field census", () => {
     expect(wearing).toEqual([
       "src/lib/views/food/FoodSettingsSheet.svelte",
       "src/lib/views/media/MediaSettingsSheet.svelte",
+      // The third, and the first that is not a sheet: the model route key is
+      // one module drawn on two settings surfaces (ADR-0115 §4.3).
+      "src/lib/views/model/ModelKeySection.svelte",
     ]);
   });
 });

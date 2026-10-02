@@ -24,6 +24,7 @@
   import { curatedPairingApplied } from "../../food/curated-pairing-offer";
   import { pairingRefusalOf, readFoodPairing } from "../../food/pairing";
   import { markPanel } from "../../food/marked-panel";
+  import { LABEL_CAPTURE_ATTR } from "../../food/provenance";
   import { loadReferenceFoods } from "../../food/frozen-pairing";
   import FoodAmountPanel from "./FoodAmountPanel.svelte";
   import AllergenSafetyBlock from "./AllergenSafetyBlock.svelte";
@@ -123,7 +124,7 @@
   // `food:custom_` mint). Advisory only — it never changes logging.
   let origin = $derived.by<null | "edited" | "your">(() => {
     const attrs = payload.attributes;
-    if (!attrs?.["food/label_capture"]) return null;
+    if (!attrs?.[LABEL_CAPTURE_ATTR]) return null;
     return attrs["provenance/raw"] ? "edited" : "your";
   });
 

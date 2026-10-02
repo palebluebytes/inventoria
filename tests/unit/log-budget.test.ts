@@ -10,6 +10,7 @@ import {
   type SearchLogEntry,
 } from "../../src/lib/logs/search-log";
 import type { ScanLogEntry } from "../../src/lib/logs/scan-log";
+import { MODEL_IDS, type ModelLogEntry } from "../../src/lib/logs/model-log";
 import { appLogEntry, type AppLogEntry } from "../../src/lib/logs/app-log";
 // A channel registers by import side effect (#221), so `registeredChannels`
 // sees only what has been imported. Every module that declares one belongs in
@@ -17,6 +18,7 @@ import { appLogEntry, type AppLogEntry } from "../../src/lib/logs/app-log";
 // missing.
 import "../../src/lib/logs/search-log";
 import "../../src/lib/logs/scan-log";
+import "../../src/lib/logs/model-log";
 import "../../src/lib/logs/app-log";
 
 /**
@@ -166,6 +168,33 @@ function worstScanRecord(): ScanLogEntry {
   };
 }
 
+// ── `model` (ADR-0115 §11) ──────────────────────────────────────────────────
+
+/**
+ * The dearest `model` record its own entry type admits: the longest outcome, the
+ * model id at its full vendor length, four photographs, a save, every proposed
+ * row touched, and a thirteen-digit clock.
+ *
+ * **The model id is what makes this channel dearer than `scan`**, at 38
+ * characters against `scan`'s longest enum member of eleven, and it is the field
+ * ADR-0115 §11's inherited "~130 B" did not price. Like `scan` this figure is a
+ * bound rather than a model: every field is a closed vocabulary, a bounded count
+ * or a clock, with no string a user can lengthen and no array anybody can grow.
+ *
+ * `corrected` at 21 is the whole panel: `label-form.ts` draws 21 rows, and a
+ * user who touched every one of them is the widest this can be.
+ */
+function worstModelRecord(): ModelLogEntry {
+  return {
+    outcome: "unreachable",
+    model: MODEL_IDS[0],
+    images: 4,
+    saved: true,
+    corrected: 21,
+    at: 1_757_000_000_000,
+  };
+}
+
 /**
  * The dearest record `AppLogEntry` admits: all three fields present, each at its
  * bound.
@@ -200,6 +229,12 @@ const BUDGETS: Record<string, ChannelBudget> = {
   // the Amendment of 2026-09-05 at the foot of ADR-0092 carries the correction
   // and the headroom it costs.
   app: { worstCase: worstAppRecord, tabulated: 634 },
+  // Measured here first rather than projected: ADR-0092 §8 refuses a declared
+  // `maxRecordBytes` precisely because three figures in that record were
+  // projections and two were wrong by factors of two. ADR-0115 §11's inherited
+  // "~130 B at cap 100" is the third instance of that pattern, and its
+  // Amendment carries the correction.
+  model: { worstCase: worstModelRecord, tabulated: 158 },
 };
 
 /**

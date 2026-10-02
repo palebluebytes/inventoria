@@ -15,8 +15,19 @@ import { writable } from "svelte/store";
  * The USDA key was a fourth secret until ADR-0047 §1 retired the FoodData
  * Central API behind it; {@link clearRetiredSecrets} is what takes an already
  * stored one off the device.
+ *
+ * **`model_route_key` is not like the other three.** They are third-party
+ * credentials the user owns — their Open Food Facts login, their TMDB key. This
+ * one is **ours**, held by the user only because they are the operator of the
+ * deployment, which is why it is named for the route rather than for the model
+ * or the vendor: it gates `/api/model`, not Workers AI, and that distinction
+ * survives a provider pivot (ADR-0115 §4.3).
  */
-export type SecretKey = "off_user_id" | "off_password" | "tmdb_api_key";
+export type SecretKey =
+  | "off_user_id"
+  | "off_password"
+  | "tmdb_api_key"
+  | "model_route_key";
 
 // Namespaced `localStorage` keys, so a secret never collides with other app
 // state (e.g. `inventoria_test_state`).
@@ -24,12 +35,26 @@ const LS_KEYS: Record<SecretKey, string> = {
   off_user_id: "inventoria_secret_off_user_id",
   off_password: "inventoria_secret_off_password",
   tmdb_api_key: "inventoria_secret_tmdb_api_key",
+  model_route_key: "inventoria_secret_model_route_key",
 };
 
 // Dev-seeding fallback: an env var supplies the value when `localStorage` has
 // no entry for that key, so a dev with a `.env` still gets a working key without
 // re-typing it. Only the moved key has one; the OFF creds are user-only and
 // never shipped in an env var.
+//
+// **`model_route_key` has no fallback, and never gets one** (ADR-0115 §4.3).
+// "Be consistent with `tmdb_api_key`" is the obvious wrong move here and
+// somebody will make it, so the reason is written where they will be standing:
+// `import.meta.env.VITE_*` is **inlined into the bundle at build time**. A dev's
+// own TMDB key in their own local build is harmless, because it is theirs. This
+// one is a **shared operator secret**, and inlining it ships it to every visitor
+// of the deployed site the first time that variable is set in any build
+// environment — silently, totally, and with the Free plan's $0 ceiling no longer
+// protecting anything, since a publicly readable key invites exactly the
+// daily-request denial the gate exists to stop. This is the one secret where the
+// fallback *is* the leak. Dev convenience costs one paste into Settings, which
+// is the cost the OFF credentials already impose.
 const ENV_FALLBACKS: Partial<Record<SecretKey, string>> = {
   tmdb_api_key: (import.meta.env?.VITE_TMDB_API_KEY as string) ?? "",
 };
@@ -80,6 +105,7 @@ export interface SecretsState {
   off_user_id: string;
   off_password: string;
   tmdb_api_key: string;
+  model_route_key: string;
 }
 
 function snapshot(): SecretsState {
@@ -87,6 +113,7 @@ function snapshot(): SecretsState {
     off_user_id: readSecret("off_user_id"),
     off_password: readSecret("off_password"),
     tmdb_api_key: readSecret("tmdb_api_key"),
+    model_route_key: readSecret("model_route_key"),
   };
 }
 

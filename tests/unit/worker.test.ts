@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
 import worker, { type WorkerEnv } from "../../worker/src/index";
+import { refusingModel } from "./support/model-binding";
 
 const MB = 1024 * 1024;
 
@@ -34,6 +35,9 @@ function fakeEnv() {
   const addresses: string[] = [];
   const socket = new Response("upgraded");
   const env: WorkerEnv = {
+    // The model route never reaches a binding on any path this file exercises,
+    // and saying so with one that throws is how that stays true.
+    AI: refusingModel(),
     RELAY: {
       idFromName: (name) => {
         rooms.push(name);

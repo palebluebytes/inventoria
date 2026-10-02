@@ -237,12 +237,25 @@ aubergine`, because several independent readers show a food's name and only one 
   from its label (`{ adapter: "label", adapter_version, method: "manual" | "ai-confirmed",
 basis, fields }`). It is a sibling of `provenance/raw`, never a second one, so a
   found-but-poor `gtin:` twin enriched in place keeps both origins auditable
-  (ADR-0034 §7).
+  (ADR-0034 §7). `method` reads `"ai-confirmed"` when a model read was **applied** to the
+  form that produced the save, whatever the user then corrected, and it is a one-way
+  ratchet: a later save with no read **inherits** the value it finds rather than writing
+  `"manual"` over it, so model output can never be laundered into the stronger claim
+  ([ADR-0115](adr/0115-the-app-asks-a-model-through-one-gated-route-and-only-photographs-leave.md) §10).
+  The envelope carries no model name, deliberately: it crosses to a recipient verbatim,
+  and a read is impossible without photographs, which are permanent, so a re-audit reads
+  the photo. `fields` lists what the capture **covered**, never who authored it: it is
+  built from what the form ended up holding, and no edit tracking exists anywhere in the
+  component.
 - `manual_entry`: the user-origin provenance envelope for the Custom chooser's three
   intents (`{ adapter: "manual", adapter_version, kind: "quick_estimate" | "menu" |
 "plate_estimate", fields }`), a sibling of `label_capture`. Its `kind` is the single
   source of truth for Recent/Search reusability: only `menu` is reusable
-  ([ADR-0035](adr/0035-custom-food-intent-chooser.md) §6).
+  ([ADR-0035](adr/0035-custom-food-intent-chooser.md) §6). Its `fields` is
+  `label_capture`'s sibling in this too, and carries the same meaning: coverage, never
+  authorship. It has no `method` field and needs none, because the plate estimator was
+  measured and refused, so no model ever originates a figure that lands here
+  ([ADR-0115](adr/0115-the-app-asks-a-model-through-one-gated-route-and-only-photographs-leave.md) §12).
 - `ingredients`: a single descriptive free-text string on a manual `food:custom_` menu
   dish (allergens, memory). Distinct from Open Food Facts' `ingredients_text` and from a
   recipe's structured `recipe/ingredients`, and it never computes calories (ADR-0035 §4).

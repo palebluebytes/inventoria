@@ -25,12 +25,19 @@
  * The closure comes from `tsc --listFiles`, which reports what the compiler
  * genuinely resolved rather than what a regex over import statements guesses.
  *
- * It carries a second pin for the relay (ADR-0072 §9). The relay is a route on
+ * It carries a second pin for the relay (ADR-0072 §9), and a third for the
+ * model route (ADR-0115 §13). The relay is a route on
  * this same script, and the script runs with `invocation_logs = false` so that
  * no automatic per-request record is kept of two people meeting. `console.log`
  * still works, which is exactly the problem: a posture enforced only by review
  * is a posture that lasts until the first debugging session. So the relay's own
  * modules are read here and a call to the console is the error.
+ *
+ * The model route's pin is the same idea against a sharper fact: it is the one
+ * route on this script whose body the Worker can read, so it must be provably
+ * **amnesiac** — nothing written down, nothing kept, nothing fetched. It calls
+ * no console, and it reaches for none of the verbs that would persist or
+ * forward what it just read.
  */
 import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
@@ -58,6 +65,50 @@ const ALLOWED_PREFIXES = ["worker/src/", "src/lib/ingestion/"];
  * message, and ADR-0072 §9 scopes the no-record posture to the relay.
  */
 const RELAY_PREFIX = "worker/src/relay";
+
+/**
+ * Which of those modules are the model route's, and so must keep nothing.
+ *
+ * A prefix rather than the one file, for `RELAY_PREFIX`'s reason: #542 adds the
+ * task's prompt and schema beside `model.ts`, and a pin naming one file would
+ * silently stop covering half of it.
+ */
+const MODEL_PREFIX = "worker/src/model";
+
+/**
+ * Call shapes the model route may not reach for, each with what it would mean.
+ *
+ * **Why this is not a check with nothing to catch.** `modelRequest` is handed
+ * `env.AI` and a secret, and nothing else, so it cannot reach a bucket today
+ * without someone widening its signature first — and widening that signature is
+ * exactly the act this arm exists to make visible. The route carries a
+ * photograph of somebody's kitchen and a reading of it; the day one of these
+ * appears beside that is the day it stops being amnesiac, and it will appear in
+ * a commit that looks like a small convenience.
+ *
+ * Source text rather than syntax, `findConsoleCalls`'s trade: a comment writing
+ * one out in full fails the build too, and rewording a comment costs nothing.
+ */
+const FORBIDDEN_CALLS = [
+  { pattern: /\.put\s*\(/g, name: ".put(", why: "a binding write" },
+  { pattern: /\.delete\s*\(/g, name: ".delete(", why: "a binding write" },
+  {
+    pattern: /(?<![.\w])fetch\s*\(/g,
+    name: "fetch(",
+    why: "a second egress",
+  },
+];
+
+/**
+ * Every forbidden call in a module's source. Exported for the same reason
+ * `findConsoleCalls` is: a matcher that never matches passes every build
+ * silently, which is the failure this file exists to prevent one layer down.
+ */
+export function findForbiddenCalls(source) {
+  return FORBIDDEN_CALLS.flatMap(({ pattern, name, why }) =>
+    [...source.matchAll(pattern)].map(() => `${name} (${why})`)
+  );
+}
 
 /**
  * Every `console.<member>` call in a module's source, in the order they appear.
@@ -148,6 +199,7 @@ function main() {
   for (const f of ownFiles.sort()) console.log(`      ${f}`);
 
   checkRelayIsSilent(ownFiles);
+  checkModelRouteIsAmnesiac(ownFiles);
 }
 
 /**
@@ -199,6 +251,62 @@ function checkRelayIsSilent(ownFiles) {
 
   console.log(
     `  ok  the relay is silent: ${relayFiles.length} module(s) under ${RELAY_PREFIX} call no console`
+  );
+}
+
+/**
+ * ADR-0115 §13: the model route carries readable data, so it must be provably
+ * amnesiac — no console, and none of the verbs that would keep or forward what
+ * it read.
+ *
+ * An absent model route is a failure rather than a pass, for the reason the
+ * relay's arm gives: a gate that quietly matches nothing reads from the outside
+ * exactly like a gate that found nothing wrong.
+ */
+function checkModelRouteIsAmnesiac(ownFiles) {
+  const modelFiles = ownFiles.filter((f) => f.startsWith(MODEL_PREFIX));
+
+  if (modelFiles.length === 0) {
+    console.error(
+      `\n  ERR no model route in the worker's closure: nothing starts with ${MODEL_PREFIX}\n`
+    );
+    console.error(
+      `      Either the route moved, in which case move this pin with it, or it`
+    );
+    console.error(
+      `      left the closure, in which case ADR-0115 §13 needs revisiting.\n`
+    );
+    process.exit(1);
+  }
+
+  const offenders = modelFiles
+    .map((f) => {
+      const source = readFileSync(resolve(repoRoot, f), "utf8");
+      return {
+        file: f,
+        calls: [...findConsoleCalls(source), ...findForbiddenCalls(source)],
+      };
+    })
+    .filter(({ calls }) => calls.length > 0);
+
+  if (offenders.length > 0) {
+    console.error(`\n  ERR the model route is not amnesiac:\n`);
+    for (const { file, calls } of offenders)
+      console.error(`      ${file}: ${calls.join(", ")}`);
+    console.error(
+      `\n      This is the one route whose body the Worker can read: a kitchen`
+    );
+    console.error(
+      `      photograph in, a reading of it out (ADR-0115 §1). It may keep none`
+    );
+    console.error(
+      `      of that, log none of it and forward none of it. Take it out.\n`
+    );
+    process.exit(1);
+  }
+
+  console.log(
+    `  ok  the model route is amnesiac: ${modelFiles.length} module(s) under ${MODEL_PREFIX} call no console, write to no binding and fetch nothing`
   );
 }
 

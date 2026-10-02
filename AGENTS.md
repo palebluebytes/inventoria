@@ -87,6 +87,7 @@ touch what you are about to change; do not read all of them by default.
 | Touch food search: the corpus, its filters, or the ranking     | `docs/food-search.html` — generated; what ships, what was discarded and why, with a live search over the corpus |
 | Ship, replace, or re-derive an app icon                        | `docs/icon-provenance.md` — who made each one, under what licence, and how it was cut                           |
 | Touch the store's bucket, or wonder what it costs              | `docs/how-to-operate-the-store.md` — the account-side settings, the threshold, the withdrawal                   |
+| Touch the model route, its key, or its gateway                 | `docs/how-to-operate-the-model-route.md` — the gateway, the terms gate, the secret and its rotation             |
 | Argue about the storage model                                  | `docs/append-only-ledger.md`                                                                                    |
 | Work an issue                                                  | `docs/agents/issue-tracker.md` — this repo's `gh` conventions                                                   |
 

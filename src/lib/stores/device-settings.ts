@@ -74,6 +74,7 @@ const LS_KEYS = {
   // the `food_` segment ADR-0079 §2's scoped wipe matches on. The log-export
   // doors are one per Facet and keep their own table below.
   food_off_contribute: "inventoria_pref_food_off_contribute",
+  food_model_egress_seen: "inventoria_pref_food_model_egress_seen",
 } as const;
 
 // `localStorage` is absent under the Node unit runner (and can throw in a
@@ -305,6 +306,41 @@ export const offContributeDefault: Readable<boolean> = {
 export function setOffContributeDefault(enabled: boolean): void {
   safeSet(LS_KEYS.food_off_contribute, String(enabled));
   offContribute.set(enabled);
+}
+
+const modelEgressSeen = writable<boolean>(
+  readOptIn(LS_KEYS.food_model_egress_seen)
+);
+
+/**
+ * Whether this device has been shown the sheet that explains the app's one
+ * readable egress (ADR-0115 §3.2).
+ *
+ * **It decides whether the sheet _blocks_, never whether it exists.** The sheet
+ * stays reachable from a mark beside the control afterwards, because its
+ * retention paragraph is the only place in the app where that disclosure is
+ * ever stated — a strictly one-time sheet would make the app's single honest
+ * sentence about its single egress unreachable by design for anyone who tapped
+ * through it once.
+ *
+ * **It is not a consent**, and the distinction is `CONTEXT.md`'s: the agreement
+ * is the tap on a button whose own copy names the egress, every time. This
+ * records that the longer explanation has been read once, which is how the app
+ * is configured on this device rather than a fact about the world — ADR-0085
+ * §1's own test. It is also not what ADR-0086 §2 deleted: those two were
+ * defaults seeding a checkbox shown and ticked again every time.
+ *
+ * Under the `inventoria_pref_food_` namespace, so a Facet-scoped wipe takes it:
+ * a device whose food data is gone should meet the explanation again.
+ */
+export const modelEgressExplained: Readable<boolean> = {
+  subscribe: modelEgressSeen.subscribe,
+};
+
+/** Records that the explanation has been shown once on this device. */
+export function setModelEgressExplained(seen: boolean): void {
+  safeSet(LS_KEYS.food_model_egress_seen, String(seen));
+  modelEgressSeen.set(seen);
 }
 
 // ---------------------------------------------------------------------------

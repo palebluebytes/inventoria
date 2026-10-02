@@ -233,6 +233,55 @@ describe("the persistence badge goes and the usage figure does not (ADR-0080 §2
   });
 });
 
+/**
+ * The operator's key for the model route (ADR-0115 §4.3), which is the pairing
+ * card's shape a second time: **one module drawn twice**, because every runtime
+ * consumer of the key is Rations' and ADR-0078 §7 means a standalone Rations
+ * user can never reach the root's copy.
+ */
+describe("the model route key is one module on both settings surfaces", () => {
+  const SETTINGS = readSource("src/lib/views/SettingsView.svelte");
+
+  it("is drawn on the root's Settings and on Rations settings, from one file", () => {
+    expect(SETTINGS).toMatch(/<ModelKeySection[^>]*facetId="root"/);
+    expect(SHEET).toMatch(/<ModelKeySection[^>]*facetId="food"/);
+    expect(SETTINGS).toContain(
+      'import ModelKeySection from "./model/ModelKeySection.svelte"'
+    );
+    expect(SHEET).toContain(
+      'import ModelKeySection from "../model/ModelKeySection.svelte"'
+    );
+  });
+
+  it("is guarded by Rations' shell, so one document never holds two", () => {
+    // The root draws the whole of this sheet in its Food tab, so an unguarded
+    // copy would put two fields over one secret in one document — the same
+    // duplication the pairing card is guarded against above.
+    const rationsOnly = SHEET.match(
+      /\{#if shell === "food"\}([\s\S]*?)\{\/if\}/
+    );
+    expect(rationsOnly?.[1]).toMatch(/<ModelKeySection[^>]*\/>/);
+  });
+
+  it("has no env fallback anywhere near it", () => {
+    // ADR-0115 §4.3: `import.meta.env.VITE_*` is inlined at build time, and
+    // this is a shared operator secret. `tests/unit/secrets.test.ts` holds the
+    // accessor; this holds the surface, because a field that seeded itself
+    // from an env var would be the same leak arriving from the other side.
+    const FIELD = readSource("src/lib/views/model/ModelKeySection.svelte");
+    expect(FIELD).not.toContain("import.meta.env");
+    expect(FIELD).toContain('setSecret("model_route_key"');
+  });
+
+  it("says what happens without a key, not only what it unlocks", () => {
+    // ADR-0115 §9.3's stance, on the surface where somebody decides whether to
+    // bother: AI autofill is a bonus that is allowed to be absent. A field that
+    // only described what it enables would read as a requirement.
+    const FIELD = readSource("src/lib/views/model/ModelKeySection.svelte");
+    expect(FIELD).toMatch(/Without it[\s\S]*still works/);
+  });
+});
+
 describe("Rations carries the whole pairing surface (ADR-0105 §10)", () => {
   it("mounts it as the Facet its acts run in", () => {
     // §1: a pairing carries the domains of the Facet the pairing act ran in,
@@ -249,9 +298,14 @@ describe("Rations carries the whole pairing surface (ADR-0105 §10)", () => {
     // not a tab. Two cards in one root document would disagree about what a
     // pairing means, and §4 would have the food one silently re-scope a
     // jar-wide lane the other made.
-    expect(SHEET).toMatch(
-      /\{#if shell === "food"\}\s*<PairedDevicesSection[^>]*\/>\s*\{\/if\}/
+    // The claim is that the card is **inside** the guard, not that the guard
+    // holds nothing else: ADR-0115 §4.3 put the model route key in beside it,
+    // for the same reason and under the same condition.
+    const rationsOnly = SHEET.match(
+      /\{#if shell === "food"\}([\s\S]*?)\{\/if\}/
     );
+    expect(rationsOnly?.[1]).toMatch(/<PairedDevicesSection[^>]*\/>/);
+    expect(SHEET).not.toMatch(/\{:else\}[\s\S]*?<PairedDevicesSection/);
     // The shell is threaded rather than sniffed, and both entry points say
     // which they are: a screen cannot ask what mounted it.
     expect(readSource("src/App.svelte")).toMatch(/<FoodView[^>]*shell="root"/s);

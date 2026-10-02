@@ -12,6 +12,7 @@
   import NutritionTargetEditor from "./NutritionTargetEditor.svelte";
   import FoodDataSection from "./FoodDataSection.svelte";
   import PairedDevicesSection from "../pairing/PairedDevicesSection.svelte";
+  import ModelKeySection from "../model/ModelKeySection.svelte";
   import LogSettingsSection from "../logs/LogSettingsSection.svelte";
   import ScanSessionsCard from "../logs/ScanSessionsCard.svelte";
   import { facetOf, type FacetId } from "../../facets/registry";
@@ -230,6 +231,10 @@
        screen apart is what makes that legible rather than merely true. -->
   {#if shell === "food"}
     <PairedDevicesSection facetId="food" />
+
+    <!-- The same module the root draws, for the same reason it draws Paired
+         devices twice (ADR-0115 §4.3). -->
+    <ModelKeySection facetId="food" />
   {/if}
 
   <!-- What the barcode scan has been doing (ADR-0071 §6). Rations' surface and

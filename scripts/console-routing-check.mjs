@@ -73,11 +73,6 @@ const ALLOWED = [
     calls: 1,
     why: "a [DEFERRED STUB] marker for an unbuilt feature, not an event: recording it would write a record every time somebody opens the camera",
   },
-  {
-    file: "src/lib/food/ai-autofill.ts",
-    calls: 1,
-    why: "a [DEFERRED STUB] marker for an unbuilt feature, not an event",
-  },
 ];
 
 const CONSOLE_SCAN = /\bconsole\s*\.\s*[A-Za-z]/g;

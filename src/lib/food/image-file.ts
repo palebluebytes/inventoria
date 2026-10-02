@@ -126,8 +126,56 @@ function readFileAsDataUrl(file: File): Promise<string> {
   });
 }
 
+/**
+ * The base64 payload of a data URL, without the preamble.
+ *
+ * Narrow on purpose: it matches a base64 data URL and nothing else, so a caller
+ * that hands it a plain URL or a percent-encoded one gets a throw rather than a
+ * silently truncated image.
+ */
+function base64Of(dataUrl: string): string {
+  const comma = dataUrl.indexOf(",");
+  if (!dataUrl.startsWith("data:") || comma === -1)
+    throw new Error("not a data URL");
+  if (!dataUrl.slice(0, comma).endsWith(";base64"))
+    throw new Error("data URL is not base64");
+  return dataUrl.slice(comma + 1);
+}
+
+/**
+ * One photograph as it goes on the wire: **re-encoded unconditionally**, and as
+ * the bare base64 the request carries.
+ *
+ * The deliberate difference from {@link reduceCapturedPhoto} is that there is
+ * **no `keep` branch** (ADR-0115 SS3.1). A photo already inside
+ * {@link MAX_PHOTO_EDGE} is still redrawn, at its own size, because the canvas
+ * round-trip is the thing that drops EXIF — GPS tag included — and the reduction
+ * skips it precisely to avoid a needless lossy pass *into storage*. An outbound
+ * frame is a different reader with a different threat, so it pays that pass
+ * every time. ADR-0066 SS3's reasoning is untouched; this is not that path.
+ *
+ * It answers **base64 rather than a data URL** because SS5.1's wire is
+ * `{ task, images: ["<base64>"] }`, and the prefix is dropped here rather than
+ * at the transport so that exactly one function knows both halves of what a
+ * photograph becomes on its way out. The far side re-attaches a preamble of its
+ * own; it says `image/jpeg`, which is true of everything this returns and was
+ * not true of what the capture array holds.
+ */
+export async function reencodeForEgress(
+  dataUrl: string,
+  surface: PhotoSurface
+): Promise<string> {
+  const photo = await surface.decode(dataUrl);
+  const plan = planPhotoReduction(photo);
+  const target =
+    plan.kind === "scale"
+      ? plan.target
+      : { width: photo.width, height: photo.height };
+  return base64Of(await photo.redraw(target, PHOTO_QUALITY));
+}
+
 /** The real surface: an `Image` to decode with and a canvas to redraw on. */
-function browserPhotoSurface(): PhotoSurface | null {
+export function browserPhotoSurface(): PhotoSurface | null {
   if (typeof Image === "undefined" || typeof document === "undefined")
     return null;
   return {

@@ -15,6 +15,7 @@
   import StorageStatus from "./storage/StorageStatus.svelte";
   import LogSettingsSection from "./logs/LogSettingsSection.svelte";
   import PairedDevicesSection from "./pairing/PairedDevicesSection.svelte";
+  import ModelKeySection from "./model/ModelKeySection.svelte";
   import Button from "../ui/Button.svelte";
   import Alert from "../ui/Alert.svelte";
   import Badge from "../ui/Badge.svelte";
@@ -218,6 +219,12 @@
      `facetId="food"` (#423), which is a shared component rather than a
      crossing — ADR-0078 §1 binds screens. -->
 <PairedDevicesSection facetId="root" />
+
+<!-- The operator's key for the app's one readable egress (ADR-0115 §4.3). One
+     module drawn twice, on Paired devices' precedent above: a standalone
+     Rations user can never reach this copy, and every runtime consumer of the
+     key is Rations'. -->
+<ModelKeySection facetId="root" />
 
 <!-- The jar-wide card: the root holds all six content domains, so it lists every
      channel and its Review and Export is jar-wide (ADR-0080 §2). Its switch is
