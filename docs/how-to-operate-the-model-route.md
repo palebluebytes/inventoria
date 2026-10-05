@@ -196,6 +196,42 @@ wrangler secret put MODEL_ROUTE_KEY
 wrangler secret list        # verification: the name appears; the value never does
 ```
 
+**Set it with `wrangler`, not in the dashboard, and read why before deciding
+otherwise.** A version is immutable, so adding a binding in the dashboard builds a
+_new_ version to carry it — and it bases that version on the newest **uploaded**
+version rather than on the one serving traffic. Any branch push builds a preview
+version and leaves it uploaded and undeployed, sitting at the top of that list. So
+a dashboard secret-add made while a branch preview is on top **deploys the branch**,
+and the only trace is an annotation reading `Add secret: MODEL_ROUTE_KEY`.
+
+This happened on 2026-10-05. The save promoted a preview built from
+`research/479-workers-ai-spend-backstop`, whose tree predated this whole record:
+production lost the `[ai]` binding and `/api/model` answered **404** while
+`/api/relay` and `/api/store` still answered 400. A route-shaped absence rather
+than the gate refusing is how to tell that case from a bad key. The repair is to
+re-trigger a build of `main`, which inherits the secret and restores the code in
+one act; rolling back to the last good version is wrong, because it predates the
+secret and would refuse every call with 401.
+
+If the dashboard is the only route available — `wrangler secret put` refuses while
+the deployed version differs from local — check first that
+`GET /accounts/<id>/workers/scripts/inventoria/versions` has nothing above the top
+row of `.../deployments`, and re-read both afterwards.
+
+**Verifying the key costs nothing.** The gate runs before the body is read, so a
+correct key with a deliberately malformed body answers `400 Malformed request`
+while a wrong one answers `401 Not this key`, and `env.AI` is never touched:
+
+```sh
+curl -X POST https://inventoria.palebluebytes.space/api/model \
+  -H "Authorization: Bearer $(tr -d '\n' < ~/.config/inventoria/model-route-key)" \
+  -d 'not-json'
+```
+
+Strip the newline. Both sides are compared as SHA-256 digests of the raw string
+with no trimming, so a stray `\n` on the Worker's copy is a permanent silent 401
+against a key that looks right everywhere you can inspect it.
+
 The device half is entered by hand into Settings and stored as `model_route_key`. It has
 **no `VITE_` fallback on purpose**: `import.meta.env` inlines at build time, so a
 build-time fallback for this particular secret _is_ the leak.
