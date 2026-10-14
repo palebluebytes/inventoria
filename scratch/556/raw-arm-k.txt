@@ -1,0 +1,64 @@
+
+# Arm K — the model searches the corpus and picks a row it was shown
+
+  picked a row it had seen   18/22
+  ... and it was right       10/22   (clause 1 bar: 15)
+  ... and it was wrong       8
+  INVENTED an id             0
+  gave up / malformed / ran out  4
+  the right row was shown to it  19/22   (clause 2 bar: 20)
+
+  ✓ Yogur natural con leche de v  SEARCH: cow milk yogurt plain  |  SEARCH: plain yogurt  |  PICK: 2259793
+  ✓ Bebida de almendra ecologica  SEARCH: almond milk  |  PICK: 1999631
+  ✓ Jarabe de arce                SEARCH: maple syrup  |  PICK: 169661
+  ✗ Oli de Gira-Sol               SEARCH: sunflower oil  |  PICK: 171017
+     wanted 171025 Oil, sunflower, linoleic, (approx. 65%)
+     took   171017 Oil, sunflower, linoleic (less than 60%)
+     was the right row ever shown? yes
+  ✗ Unknown                       SEARCH: peanut butter  |  PICK: 174294
+     wanted 172470 Peanut butter, smooth style, without salt
+     took   174294 Peanut Butter, smooth
+     was the right row ever shown? yes
+  ✗ LKK's PREMIUM DARK SOY SAUCE  SEARCH: dark soy sauce  |  SEARCH: soy sauce  |  PICK: 174278
+     wanted 174277 Soy sauce made from soy and wheat (shoyu)
+     took   174278 Soy sauce made from soy (tamari)
+     was the right row ever shown? yes
+  · Vinaigre De Riz 600 G         SEARCH: rice vinegar  |  SEARCH: vinegar  |  SEARCH: rice vinegar again to see if a different term is use  |  GIVE UP
+     wanted 172237 Vinegar, distilled
+     was the right row ever shown? yes
+  ✓ Aceite de oliva virgen extra  SEARCH: olive oil  |  PICK: 171413
+  ✓ Espinaca picada               SEARCH: chopped spinach  |  SEARCH: spinach  |  PICK: 1999633
+  · Kéfir                         SEARCH: kefir  |  SEARCH: fermented milk  |  SEARCH: yogurt drink  |  SEARCH: milk drink
+     wanted 2259793 Yogurt, plain, whole milk
+     was the right row ever shown? no
+  ✓ Premium Soy Sauce             SEARCH: soy sauce  |  PICK: 174277
+  ✓ Pure sesame oil               SEARCH: sesame oil  |  PICK: 171016
+  · Pepinillo Laminado            SEARCH: pickles  |  SEARCH: thinly sliced pickles  |  SEARCH: sliced pickles  |  SEARCH: pickle
+     wanted 169378 Pickles, cucumber, sweet (includes bread and butter pickles)
+     was the right row ever shown? yes
+  · Emmental Cœur de Meule        SEARCH: emmentaler cheese  |  SEARCH: cheese emmental  |  SEARCH: emmental  |  SEARCH: Swiss cheese
+     wanted 746767 Cheese, swiss
+     was the right row ever shown? yes
+  ✗ Tagliata al huevo             SEARCH: egg tagliata  |  SEARCH: egg pasta  |  SEARCH: pasta  |  PICK: 169727
+     wanted 169731 Noodles, egg, dry
+     took   169727 Pasta, fresh-refrigerated, plain, as purchased
+     was the right row ever shown? no
+  ✗ Riccotta                      SEARCH: ricotta cheese  |  PICK: 171248
+     wanted 746766 Cheese, ricotta, whole milk
+     took   171248 Cheese, ricotta, part skim milk
+     was the right row ever shown? yes
+  ✗ Peanut butter powder          SEARCH: peanut butter powder  |  SEARCH: peanut powder  |  SEARCH: peanuts  |  PICK: 2515376
+     wanted 174267 Peanut flour, defatted
+     took   2515376 Peanuts
+     was the right row ever shown? no
+  ✗ Shanxi sliced noodles         SEARCH: noodles  |  PICK: 168905
+     wanted 168908 Noodles, japanese, somen, dry
+     took   168905 Noodles, chinese, chow mein
+     was the right row ever shown? yes
+  ✓ Tofu Blando                   SEARCH: tofu  |  SEARCH: silken tofu  |  SEARCH: soft tofu  |  PICK: 172449
+  ✓ Liguine-Tallarines            SEARCH: noodles  |  SEARCH: pasta  |  PICK: 169736
+  ✗ Harina Gallo                  SEARCH: wheat flour  |  PICK: 169754
+     wanted 789951 Flour, wheat, all-purpose, unbleached
+     took   169754 Wheat flour, white, all-purpose, calcium-fortified
+     was the right row ever shown? yes
+  ✓ Panko breadcrumbs             SEARCH: breadcrumbs  |  SEARCH: no results, try "bread crumbs"   |  SEARCH: bread crumbs plain  |  PICK: 174928

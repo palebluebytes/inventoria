@@ -1,0 +1,46 @@
+
+# Arm L — Clef chooses  [ideal query candidates]
+  right row was among the options  22/22
+  Clef chose it                    19/22
+  ... of which the search alone decided  7/7 (single-row results, no model call)
+  call failed after retries        0
+  no candidates at all             0
+
+  ✓ Yogur natural con leche de  conf 0.60  yes 0.78  
+  ✓ Oli de Gira-Sol             conf 0.27  yes 0.88  
+  ✓ Unknown                     conf 0.31  yes 0.57  
+  ✓ LKK's PREMIUM DARK SOY SAU  conf 0.12  yes 0.79  
+  ✓ Aceite de oliva virgen ext  conf 0.55  yes 0.88  
+  ✗ Kéfir                       conf 0.20  yes 0.24  took Yogurt, plain, low fat
+  ✓ Premium Soy Sauce           conf 0.33  yes 0.82  
+  ✓ Pepinillo Laminado          conf 0.12  yes 0.74  
+  ✓ Emmental Cœur de Meule      conf 0.35  yes 0.68  
+  ✓ Tagliata al huevo           conf 0.05  yes 0.55  
+  ✗ Riccotta                    conf 0.12  yes 0.92  took Cheese, ricotta, part skim milk
+  ✓ Shanxi sliced noodles       conf 0.13  yes 0.68  
+  ✓ Liguine-Tallarines          conf 0.32  yes 0.80  
+  ✗ Harina Gallo                conf 0.07  yes 0.75  took Wheat flour, white, all-purpose, self-ri
+  ✓ Panko breadcrumbs           conf 0.52  yes 0.74  
+
+# Arm L — Clef chooses  [the pack's own words]
+  right row was among the options  13/22
+  Clef chose it                    11/22
+  ... of which the search alone decided  0/0 (single-row results, no model call)
+  call failed after retries        0
+  no candidates at all             7
+
+  ✓ Yogur natural con leche de  conf 0.65  yes 0.80  
+  ✓ Bebida de almendra ecologi  conf 0.71  yes 0.88  
+  ✓ Jarabe de arce              conf 0.78  yes 0.89  
+  ✓ Oli de Gira-Sol             conf 0.32  yes 0.83  
+  ✗ Unknown                     conf 0.03  yes 0.63  took Peanut butter, reduced sodium
+  ✓ LKK's PREMIUM DARK SOY SAU  conf 0.09  yes 0.72  
+  ✓ Vinaigre De Riz 600 G       conf 0.20  yes 0.78  
+  ✓ Espinaca picada             conf 0.23  yes 0.66  
+  · Kéfir                       conf 0.22  yes 0.20  took Almond milk, unsweetened, plain
+  ✓ Premium Soy Sauce           conf 0.23  yes 0.77  
+  ✓ Pepinillo Laminado          conf 0.34  yes 0.64  
+  · Emmental Cœur de Meule      conf 0.06  yes 0.49  took Cheese, gruyere
+  ✓ Riccotta                    conf 0.58  yes 0.91  
+  ✓ Liguine-Tallarines          conf 0.37  yes 0.79  
+  ✗ Harina Gallo                conf 0.09  yes 0.73  took Wheat flour, white, all-purpose, self-ri
