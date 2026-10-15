@@ -115,3 +115,32 @@ That leaves a real question for [#247](https://github.com/palebluebytes/inventor
 Nothing else in this document moves. The three proposer scores are unchanged — the matcher is silent on this barcode, so a verdict it never reached cannot change what it scored — and §9's bar for [#247](https://github.com/palebluebytes/inventoria/issues/247) is still 7 right and 5 plausibly wrong out of 16 offers, over the same 19 twins.
 
 Two pointers in this document were already stale and are corrected here rather than in place, because the header above is what was true on the day: the adjudication moved out of `scripts/pairing-census.mjs` into `scripts/pairing-adjudication.mjs` when [#495](https://github.com/palebluebytes/inventoria/issues/495) needed the same population, and #516 folded #497's cooked-set acceptances back beside it — from `pairing-target-census.mjs`, and from the copy of their three `fdcId`s that `veto-census.mjs` had taken out of that — so the whole hand judgement is one file again.
+
+## Correction (2026-10-15, from #556): §4's `Pure sesame oil` is right about the count and wrong about the mechanism
+
+**The three hit counts in §4's table re-measure exactly as published**, and §4's conclusion — a name proposer is a non-proposer — survives and is now bounded far harder than it was. What is wrong is the one worked example everyone reads the section through.
+
+**`pure` is not a word this corpus lacks.** Measured through the shipped `searchIndexRows` over the committed `public/usda/search-index.json`:
+
+```
+pure               167780 Prune puree
+                   167808 Raspberries, puree, seedless
+                   167809 Raspberries, puree, with seeds
+pure sesame oil    nothing
+sesame oil         171016 Oil, sesame, salad or cooking
+```
+
+`pure` reaches three rows corpus-wide, as a prefix of `puree`. So the sentence _"the shipped search drops a row the moment one typed word fails to land"_ is true, but **the token has to fail to land _on the row you want_, not anywhere in the corpus** — and that distinction is the whole difference between a repairable defect and an unrepairable one.
+
+**Why it matters rather than being a quibble.** Read the published way, the fix is obvious and cheap: strip the tokens the corpus cannot reach and search what is left. [#556](https://github.com/palebluebytes/inventoria/issues/556) built exactly that arm and it is **right 0 times in 12 offers**, because the filter keeps whatever any row anywhere carries — so Spanish function words survive and Spanish content words die:
+
+```
+Bebida de almendra ecologica  →  "de"      →  Dulce de Leche
+Vinaigre De Riz 600 G         →  "de g"    →  Game meat, deer
+```
+
+No whole-corpus strip can repair `Pure sesame oil`, because `pure` is reachable and the target row is what it misses.
+
+**What replaces the example.** #556 measured the ceiling directly: over _every subset of every pack's name_, scored with the adjudication already in hand, the best possible query reaches top-1 for **4 of 22** and the list for **8 of 22**. That bounds every query builder, carrier-word list and query-emitting model at once, which is the claim §4 was reaching for and could not make from one example.
+
+**Nothing else in this document moves.** `product_name` at 0 of 35 stands, the matcher's 7 right and 5 plausibly wrong out of 16 offers stands, and [ADR-0113](../adr/0113-a-pairing-annotates-a-packaged-food-from-a-reference-food-you-name.md) §9 rests on the conclusion rather than on the example.

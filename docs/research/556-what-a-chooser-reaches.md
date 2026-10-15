@@ -204,3 +204,37 @@ Stated because the numbers above would be wrong without the corrections, and a r
 - **Whether `clef-flash`'s terms are gated** in the way `llama-3.2-11b-vision-instruct` was; the calls here succeeded, which answers it for this account only.
 - **Neuron cost per arm.** Pricing is in the API note; nothing here metered a run.
 - **Two or three of scout's eight wrong picks may be adjudication granularity** — `Peanut Butter, smooth` against `Peanut butter, smooth style, without salt`, on a jar printing 0.6 g salt; tamari against shoyu. Flagged and deliberately not acted on: #188's premise is that whoever writes the rule does not also get to say whether it worked, and re-adjudicating to flatter an arm is exactly that.
+
+---
+
+## Correction (2026-10-15, from #556's close): §5's `breadcrumbs` example is a misread transcript, and §2's Panko row with it
+
+**The error is in this note's instrument, not in the arm.** `trail.push(line.slice(0, 60))` in `scratch/556/arm-k-search-tool-loop.mjs` records **the model's own reply lines** and nothing else — the harness's answers are never written to it. So the `SEARCH: no results, try "bread crumbs"` sitting in Panko's trail is the model narrating, and reading it as the harness reporting an empty result is what produced §5's `breadcrumbs` → ∅ → `bread crumbs plain`.
+
+**`breadcrumbs` retrieves.** Measured through the shipped `searchIndexRows` over the committed `public/usda/search-index.json` — the same function and the same artifact arm-k calls, unchanged since 2026-09-18:
+
+```
+breadcrumbs      172806 Bread, crumbs, dry, grated, seasoned
+                 174928 Bread, crumbs, dry, grated, plain      ← Panko's adjudicated row, rank 2
+pickled gherkin  169378 Pickles, cucumber, sweet               ← Pepinillo's adjudicated row, rank 1
+```
+
+Both are live keys in `vocabulary_off.expansions`, expanding to `bread crumbs` and `pickle`. `searchIndexRows` applies the vocabulary itself — the literal pass runs first and `expandThroughVocabulary` runs only when it comes back empty (`usda-corpus.ts:760`) — so **every arm in this note already had the shipped map**, and the hop §5 credits the model with was one the vocabulary had already made.
+
+**What this falsifies, exactly:**
+
+1. **§5's claim that the model performed the vocabulary hop at runtime** is down to one example of three. `chopped spinach` → ∅ → `spinach` holds — `chopped spinach` retrieves nothing, re-measured. `tofu` → `silken tofu` → `soft tofu` was never a ∅ case, it is a refinement. The `breadcrumbs` example is withdrawn.
+2. **§2's table row for `Panko breadcrumbs`** — filed under _why no literal retriever gets there_, with the reason _"no OFF record at all — hand-typed"_. The pack has no categories, but it has a name, and `breadcrumbs` is a content word of that name reaching the adjudicated row **174928 at rank 2**. A union retriever over the pack's own words therefore does reach it.
+
+**What is carried over rather than restated.** §2's union retriever is reported at 17 of 22 with five packs unreachable; on the above it is at most four unreachable, but the arm has not been re-run, so the figure stands as measured with this caveat attached rather than being adjusted by hand.
+
+**What does not move.**
+
+- **Neither of #247's clauses changes hands.** Clause 2 asks for 20 of 22 inside a 120-row list; 18 is still not 20, and §2's argument that two of the remainder need a synonym leap no literal retriever makes is untouched.
+- **§1's ceiling is unaffected.** That arm enumerates _every subset of every name_, so `breadcrumbs` was already among the queries it scored; the 4 of 22 top-1 and 8 of 22 in-list stand.
+- **No arm's score changes.** Scout picked 174928 and was marked correct either way; the correction is to why it got there.
+- **§3's five zero-hit phrases are all re-measured and all still zero**: `rice vinegar`, `pickled cucumber`, `emmental cheese`, `fermented milk`, `chopped spinach`.
+
+**And §10 gains a fourth defect in this note's instruments**: a transcript field that records one side of a conversation was read as if it recorded both. The three in §10 were caught by a crash or a bad denominator; this one was invisible because the misreading produced a plausible sentence.
+
+The surviving vocabulary entries this leaves are filed as [#566](https://github.com/palebluebytes/inventoria/issues/566); the build is [#565](https://github.com/palebluebytes/inventoria/issues/565).
