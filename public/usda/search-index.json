@@ -441,7 +441,7 @@
 "gammon": ["pork cured ham whole"],
 "mange tout": ["peas edible podded"],
 "natural yoghurt": ["yogurt plain whole milk"],
-"plain flour": ["all purpose flour"],
+"plain flour": ["all purpose flour unbleached","all purpose flour"],
 "porridge oats": ["oats rolled"],
 "soymilk": ["soy milk"]
 }

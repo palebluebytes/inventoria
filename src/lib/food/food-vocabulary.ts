@@ -352,9 +352,9 @@ export const LOCAL_VOCABULARY: readonly LocalVocabularyEntry[] = [
   },
   {
     key: "plain flour",
-    targets: ["all purpose flour"],
-    landsOn: "Flour, wheat, all-purpose, bleached",
-    why: "The British name for wheat flour with no raising agent, which is what all-purpose flour is. The target is deliberately not `wheat flour white all purpose`, which leads with the SELF-RISING row — #130 §6's case, still open.",
+    targets: ["all purpose flour unbleached", "all purpose flour"],
+    landsOn: "Flour, wheat, all-purpose, unbleached",
+    why: "The British name for wheat flour with no raising agent, which is what all-purpose flour is. UNBLEACHED is the British food and not a preference between two siblings: bleaching agents are not permitted in UK flour, so a key named for the British shelf must not lead with the bleached row. `all purpose flour` alone did exactly that, and disagreed with the Curated pairing for `Harina Gallo` (`789951`), which names the unbleached row for the same substance. Both phrases are kept, and the ORDER is what decides: the narrow one first leads with unbleached while the loose one behind it keeps the bleached, self-rising and calcium-fortified siblings reachable. Narrowing to the one phrase would lead correctly and return a single row. The target is deliberately not `wheat flour white all purpose`, which leads with the SELF-RISING row — #130 §6\'s case, still open.",
   },
   {
     key: "porridge oats",

@@ -990,3 +990,25 @@ So the measurement's yield is not the number it was asked for. It is that the on
 instrument pointed at this question found, in its whole recorded history, a single
 actionable failure — and that failure is §4's hand-written half being one entry
 short, not a carrier word.
+
+## Amendment (2026-10-15, #566): `plain flour` leads with the unbleached row, and target order is what decides
+
+The #141 Amendment's table gives `plain flour` the target `all purpose flour`, and its closing paragraph calls that entry _"a workaround rather than a choice"_ — the workaround being to avoid `wheat flour white all purpose`, which leads with the self-rising row. Both halves stand. What was never examined is which of the four rows `all purpose flour` itself leads with, and it is the **bleached** one.
+
+**That is wrong for a key named after the British shelf.** Bleaching agents are not permitted in UK flour, so the food a person means by `plain flour` is the unbleached row. The error also put two hand-written tables in disagreement about one substance: the Curated pairing for `Harina Gallo` names `789951`, _"Flour, wheat, all-purpose, unbleached — the same substance in the same state"_ ([ADR-0113](0113-a-pairing-annotates-a-packaged-food-from-a-reference-food-you-name.md) §14's table), while this map sent the same words to `789890`.
+
+**The entry now carries two targets, and the order is the mechanism.** Measured over the committed corpus:
+
+```
+["all purpose flour unbleached"]                       → 789951 only
+["all purpose flour unbleached", "all purpose flour"]  → 789951, 789890, 168895, 169754
+["all purpose flour", "all purpose flour unbleached"]  → 789890, 789951, 168895, 169754
+```
+
+The narrow phrase first leads with unbleached; the loose phrase behind it keeps the bleached, self-rising and calcium-fortified siblings reachable. Narrowing to the one phrase would also lead correctly and would return a single row, which is reach this key should not spend.
+
+**The general point, which the #141 Amendment's own rule half-states.** It says the second admission _"pins whatever row the entry chooses, so the choosing is the work and the check only holds it still."_ True — and `landsOn` therefore records a choice that was never made here, because nobody looked past the first row the loose phrase produced. **A multi-target entry's order is part of the choice**, and admission 2 only ever checks the head of it.
+
+**The table above is stale in a second way**, noted rather than rewritten: it gives `plain flour`'s landing as `Flour, wheat, all-purpose, enriched, bleached`, a name the corpus stopped carrying when ADR-0103's strip took the collapsing segments. The row is `789890` throughout.
+
+Nothing else moves. The ceiling is still 20, the section still holds seven entries, and the three generation-time admissions are unchanged — `assertLocalVocabularyHolds` passes on the new target, which is what re-measured the figures above.

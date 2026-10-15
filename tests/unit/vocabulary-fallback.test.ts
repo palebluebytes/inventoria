@@ -444,7 +444,7 @@ describe("what the fallback buys, against the bars set before it was built", () 
       ["gammon", "Pork, cured, ham, whole"],
       ["mange tout", "Peas, edible-podded"],
       ["natural yoghurt", "Yogurt, plain, whole milk"],
-      ["plain flour", "Flour, wheat, all-purpose, bleached"],
+      ["plain flour", "Flour, wheat, all-purpose, unbleached"],
       ["porridge oats", "Oats, whole grain, rolled, old fashioned"],
     ] as const) {
       expect([query, retrieves(literalOnly, query)]).toEqual([query, false]);
